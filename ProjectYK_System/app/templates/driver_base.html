@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>{% block title %}YK Driver{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, "Segoe UI Emoji", "Segoe UI", Tahoma, sans-serif; }
+    .btn-lg { @apply w-full py-4 rounded-2xl text-lg font-semibold shadow active:scale-[0.98] transition; }
+    .tile { @apply block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm active:scale-[0.98] transition; }
+    input, select, textarea { font-size: 16px; } /* iOS zoom prevention */
+    .noselect { -webkit-tap-highlight-color: transparent; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-900 pb-24 noselect">
+  {% block header %}
+  {% if emp %}
+  <header class="bg-slate-900 text-white px-4 py-3 flex items-center justify-between sticky top-0 z-10 shadow">
+    <div>
+      <div class="text-xs text-slate-400">คนขับ</div>
+      <div class="font-semibold">{{ emp.full_name }}</div>
+    </div>
+    <form action="/driver/logout" method="post">
+      <button class="text-xs bg-slate-700 px-3 py-1.5 rounded-lg">ออก</button>
+    </form>
+  </header>
+  {% endif %}
+  {% endblock %}
+
+  <main class="max-w-md mx-auto p-4">
+    {% block content %}{% endblock %}
+  </main>
+
+  {% if emp %}
+  <nav class="fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 shadow-lg">
+    <div class="max-w-md mx-auto grid grid-cols-4 text-center text-xs">
+      <a href="/driver" class="py-3 {% if active=='home' %}text-blue-600 font-semibold{% else %}text-slate-500{% endif %}">
+        <div class="text-xl">🏠</div>หน้าหลัก
+      </a>
+      <a href="/driver/today" class="py-3 {% if active=='today' %}text-blue-600 font-semibold{% else %}text-slate-500{% endif %}">
+        <div class="text-xl">📋</div>งานวันนี้
+      </a>
+      <a href="/driver/check" class="py-3 {% if active=='check' %}text-blue-600 font-semibold{% else %}text-slate-500{% endif %}">
+        <div class="text-xl">🔧</div>ตรวจรถ
+      </a>
+      <a href="/driver/history" class="py-3 {% if active=='history' %}text-blue-600 font-semibold{% else %}text-slate-500{% endif %}">
+        <div class="text-xl">📜</div>ประวัติ
+      </a>
+    </div>
+  </nav>
+  {% endif %}
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

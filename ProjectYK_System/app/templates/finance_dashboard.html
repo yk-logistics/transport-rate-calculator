@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% block title %}CFO Dashboard · {{ month }}{% endblock %}
+{% block content %}
+<div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+  <h1 class="text-2xl font-bold">💰 CFO Dashboard</h1>
+  <form method="get" class="flex gap-2 items-center text-sm">
+    <label class="text-slate-500">เดือน</label>
+    <input type="month" name="month" value="{{ month }}" class="border rounded px-2 py-1" />
+    <label class="text-slate-500">ไซท์</label>
+    <select name="site" class="border rounded px-2 py-1">
+      <option value="">ทั้งหมด</option>
+      {% for s in ['AYU','BIGC','LCB'] %}
+        <option value="{{ s }}" {% if site==s %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+    <label class="text-slate-500 ml-2">
+      <input type="checkbox" name="include_other" value="1" {% if include_other %}checked{% endif %} />
+      รวม petty "อื่น ๆ"
+    </label>
+    <button class="bg-slate-900 text-white px-3 py-1 rounded">ดู</button>
+  </form>
+</div>
+
+<div class="flex gap-2 mb-4 text-sm flex-wrap">
+  <a href="/finance/loans" class="bg-rose-600 text-white px-3 py-1 rounded">จัดการหนี้ ({{ loans_info.count }})</a>
+  <a href="/finance/pnl?year={{ month[:4] }}&site={{ site }}" class="bg-emerald-600 text-white px-3 py-1 rounded">กำไรขาดทุนรายเดือน</a>
+  <a href="/finance/vehicles?month={{ month }}&site={{ site }}" class="bg-blue-600 text-white px-3 py-1 rounded">ต้นทุนต่อคัน</a>
+  <a href="/finance/cashflow" class="bg-amber-600 text-white px-3 py-1 rounded">Cash Flow ล่วงหน้า</a>
+</div>
+
+<!-- TOP KPI -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+  <div class="bg-white border rounded-lg p-3">
+    <div class="text-xs text-slate-500">รายรับเดือนนี้</div>
+    <div class="text-xl font-bold font-mono text-emerald-700">{{ "{:,.0f}".format(pnl.revenue_total) }}</div>
+    {% if prev_pnl.revenue_total %}
+      {% set diff = pnl.revenue_total - prev_pnl.revenue_total %}
+      {% set pct = diff / prev_pnl.revenue_total * 100 %}
+      <div class="text-xs {% if diff>=0 %}text-emerald-600{% else %}text-rose-600{% endif %}">
+        {{ "{:+,.0f}".format(diff) }} ({{ "{:+.1f}".format(pct) }}%) vs {{ prev_pnl.period }}
+      </div>
+    {% endif %}
+  </div>
+  <div class="bg-white border rounded-lg p-3">
+    <div class="text-xs text-slate-500">กำไรสุทธิเดือนนี้</div>
+    <div class="text-xl font-bold font-mono {% if pnl.net_profit>=0 %}text-emerald-700{% else %}text-rose-700{% endif %}">
+      {{ "{:,.0f}".format(pnl.net_profit) }}
+    </div>
+    <div class="text-xs text-slate-500">margin {{ "{:.1f}".format(pnl.net_margin_pct) }}%</div>
+  </div>
+  <div class="bg-white border rounded-lg p-3">
+    <div class="text-xs text-slate-500">ภาระหนี้/เดือน</div>
+    <div class="text-xl font-bold font-mono text-rose-700">{{ "{:,.0f}".format(loans_info.monthly_burden) }}</div>
+    <div class="text-xs text-slate-500">คงเหลือ {{ "{:,.0f}".format(loans_info.total_balance) }}</div>
+  </div>
+  <div class="bg-white border rounded-lg p-3">
+    <div class="text-xs text-slate-500">Break-even/เดือน</div>
+    <div class="text-xl font-bold font-mono">{{ "{:.0f}".format(health.break_even_trips_per_month) }} <span class="text-xs">เที่ยว</span></div>
+    <div class="text-xs {% if health.headroom_trips>=0 %}text-emerald-600{% else %}text-rose-600{% endif %}">
+      {{ "{:+.0f}".format(health.headroom_trips) }} เที่ยว (ทำจริง {{ "{:.0f}".format(health.current_monthly_trips) }})
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+  <!-- P&L Breakdown -->
+  <div class="md:col-span-2 bg-white border rounded-lg p-4">
+    <h3 class="font-semibold mb-3">📊 กำไรขาดทุนเดือน {{ pnl.period }} ({{ pnl.site }})</h3>
+    <table class="w-full text-sm">
+      <tbody class="divide-y">
+        <tr><td>ค่าขนส่ง ({{ "{:,}".format(pnl.trip_count) }} เที่ยว)</td><td class="text-right font-mono">{{ "{:,.2f}".format(pnl.revenue_transport) }}</td></tr>
+        <tr><td>ค่าใช้จ่ายอื่น (lift/yard/…)</td><td class="text-right font-mono">{{ "{:,.2f}".format(pnl.revenue_fees) }}</td></tr>
+        <tr class="bg-emerald-50 font-semibold"><td>= รวมรายรับ</td><td class="text-right font-mono text-emerald-700">{{ "{:,.2f}".format(pnl.revenue_total) }}</td></tr>
+        <tr><td class="pl-4 text-slate-600">− ค่าน้ำมัน ({{ "{:,.0f}".format(pnl.cost_fuel_liters) }} L)</td><td class="text-right font-mono">{{ "{:,.2f}".format(pnl.cost_fuel) }}</td></tr>
+        <tr><td class="pl-4 text-slate-600">− เงินเดือน/ค่าเที่ยว</td><td class="text-right font-mono">{{ "{:,.2f}".format(pnl.cost_payroll) }}</td></tr>
+        <tr><td class="pl-4 text-slate-600">− สดย่อย (สุทธิหลังหักคนขับ)</td><td class="text-right font-mono">{{ "{:,.2f}".format(pnl.cost_petty_net) }}</td>
+        </tr>
+        <tr><td class="pl-4 text-slate-600">− ซ่อมบำรุง</td><td class="text-right font-mono">{{ "{:,.2f}".format(pnl.cost_maint) }}</td></tr>
+        <tr><td class="pl-4 text-slate-600">− ดอกเบี้ยหนี้</td><td class="text-right font-mono">{{ "{:,.2f}".format(pnl.cost_interest) }}</td></tr>
+        <tr class="bg-rose-50"><td>= รวมต้นทุน</td><td class="text-right font-mono text-rose-700">{{ "{:,.2f}".format(pnl.cost_total) }}</td></tr>
+        <tr class="{% if pnl.net_profit>=0 %}bg-emerald-100{% else %}bg-rose-100{% endif %} font-bold text-base">
+          <td>💵 กำไรสุทธิ</td>
+          <td class="text-right font-mono">{{ "{:,.2f}".format(pnl.net_profit) }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="text-xs text-slate-400 mt-2">
+      * ภงด.53 ลูกค้าหัก {{ "{:,.2f}".format(pnl.wht) }} ฿ (เป็น AR รอคืน ไม่ใช่ค่าใช้จ่าย)
+    </p>
+
+    {% if pnl.petty_by_cat %}
+    <details class="mt-3 text-xs">
+      <summary class="cursor-pointer text-slate-600 hover:text-slate-900">
+        📋 แยก petty cash ตามหมวด (ดู/ตรวจ)
+      </summary>
+      <table class="w-full mt-2 text-xs">
+        <thead class="bg-slate-50 text-slate-500">
+          <tr><th class="px-2 py-1 text-left">หมวด</th><th class="px-2 py-1 text-right">จำนวน</th><th class="px-2 py-1 text-right">ยอด</th><th class="px-2 py-1 text-right">หักคนขับ</th><th class="px-2 py-1 text-center">รวมใน P&L?</th></tr>
+        </thead>
+        <tbody>
+          {% for cat, g in pnl.petty_by_cat.items() %}
+          <tr class="border-t">
+            <td class="px-2 py-1">{{ cat }}</td>
+            <td class="px-2 py-1 text-right">{{ g.count }}</td>
+            <td class="px-2 py-1 text-right font-mono">{{ "{:,.0f}".format(g.amount) }}</td>
+            <td class="px-2 py-1 text-right font-mono text-slate-500">{{ "{:,.0f}".format(g.deduct) }}</td>
+            <td class="px-2 py-1 text-center">{% if g.included %}<span class="text-emerald-700">✓</span>{% else %}<span class="text-slate-400">—</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="text-xs text-slate-400 mt-1">
+        💡 P&L รวมเฉพาะ toll/parking/loading/fine/accident เพราะ fuel/repair/tire ซ้อนกับตาราง Fuel/Maintenance อยู่แล้ว และ advance/salary จะหักจาก payroll เอง
+      </p>
+    </details>
+    {% endif %}
+  </div>
+
+  <!-- Health -->
+  <div class="bg-white border rounded-lg p-4">
+    <h3 class="font-semibold mb-3">🩺 สุขภาพธุรกิจ</h3>
+    <dl class="space-y-2 text-sm">
+      <div>
+        <dt class="text-xs text-slate-500">รายรับเฉลี่ย/เที่ยว (90 วัน)</dt>
+        <dd class="font-mono font-semibold">{{ "{:,.0f}".format(health.avg_rev_per_trip) }} ฿</dd>
+      </div>
+      <div>
+        <dt class="text-xs text-slate-500">ค่าน้ำมันเฉลี่ย/เที่ยว</dt>
+        <dd class="font-mono">{{ "{:,.0f}".format(health.avg_fuel_per_trip) }} ฿</dd>
+      </div>
+      <div class="border-t pt-2">
+        <dt class="text-xs text-slate-500">Contribution Margin</dt>
+        <dd class="font-mono font-semibold text-emerald-700">
+          {{ "{:,.0f}".format(health.contribution_per_trip) }} ฿/เที่ยว
+          ({{ "{:.1f}".format(health.contribution_margin_pct) }}%)
+        </dd>
+        <p class="text-xs text-slate-500">กำไรก่อนหักค่าใช้จ่ายคงที่ ต่อเที่ยว</p>
+      </div>
+      <div class="border-t pt-2">
+        <dt class="text-xs text-slate-500">ค่าใช้จ่ายคงที่/เดือน</dt>
+        <dd class="font-mono">{{ "{:,.0f}".format(health.fixed_monthly) }} ฿</dd>
+        <div class="text-xs text-slate-500 space-y-0.5 mt-1">
+          <div>• เงินเดือน: {{ "{:,.0f}".format(health.payroll_monthly) }}</div>
+          <div>• หนี้: {{ "{:,.0f}".format(health.loan_monthly) }}</div>
+          <div>• ซ่อม: {{ "{:,.0f}".format(health.maint_monthly) }}</div>
+        </div>
+      </div>
+      <div class="border-t pt-2">
+        <dt class="text-xs text-slate-500">สถานะ</dt>
+        <dd class="font-semibold {% if health.status=='healthy' %}text-emerald-700{% else %}text-rose-700{% endif %}">
+          {% if health.status=='healthy' %}✅ มีกำไร +{{ "{:,.0f}".format(health.net_monthly) }}฿/เดือน
+          {% else %}⚠️ ขาดทุน {{ "{:,.0f}".format(health.net_monthly) }}฿/เดือน{% endif %}
+        </dd>
+      </div>
+    </dl>
+  </div>
+</div>
+
+<!-- 6-month trend -->
+<div class="bg-white border rounded-lg p-4 mb-4">
+  <h3 class="font-semibold mb-3">📈 Trend 6 เดือน</h3>
+  <table class="w-full text-xs">
+    <thead class="bg-slate-50 text-slate-600">
+      <tr>
+        <th class="px-2 py-1 text-left">เดือน</th>
+        <th class="px-2 py-1 text-right">เที่ยว</th>
+        <th class="px-2 py-1 text-right">รายรับ</th>
+        <th class="px-2 py-1 text-right">น้ำมัน</th>
+        <th class="px-2 py-1 text-right">เงินเดือน</th>
+        <th class="px-2 py-1 text-right">ซ่อม</th>
+        <th class="px-2 py-1 text-right">ดอก</th>
+        <th class="px-2 py-1 text-right font-semibold">กำไรสุทธิ</th>
+        <th class="px-2 py-1 text-right">%</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in trend %}
+      <tr class="border-t {% if m.period==pnl.period %}bg-sky-50 font-semibold{% endif %}">
+        <td class="px-2 py-1">{{ m.period }}</td>
+        <td class="px-2 py-1 text-right">{{ "{:,}".format(m.trip_count) }}</td>
+        <td class="px-2 py-1 text-right font-mono">{{ "{:,.0f}".format(m.revenue_total) }}</td>
+        <td class="px-2 py-1 text-right font-mono text-slate-500">{{ "{:,.0f}".format(m.cost_fuel) }}</td>
+        <td class="px-2 py-1 text-right font-mono text-slate-500">{{ "{:,.0f}".format(m.cost_payroll) }}</td>
+        <td class="px-2 py-1 text-right font-mono text-slate-500">{{ "{:,.0f}".format(m.cost_maint) }}</td>
+        <td class="px-2 py-1 text-right font-mono text-slate-500">{{ "{:,.0f}".format(m.cost_interest) }}</td>
+        <td class="px-2 py-1 text-right font-mono font-semibold {% if m.net_profit>=0 %}text-emerald-700{% else %}text-rose-700{% endif %}">{{ "{:,.0f}".format(m.net_profit) }}</td>
+        <td class="px-2 py-1 text-right font-mono text-xs">{{ "{:.1f}".format(m.net_margin_pct) }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Top vehicles -->
+<div class="bg-white border rounded-lg p-4 mb-4">
+  <div class="flex justify-between items-center mb-3">
+    <h3 class="font-semibold">🚛 Top 15 รถ (เดือน {{ month }})</h3>
+    <a href="/finance/vehicles?month={{ month }}&site={{ site }}" class="text-xs text-blue-600 hover:underline">ดูทั้งหมด →</a>
+  </div>
+  <table class="w-full text-xs">
+    <thead class="bg-slate-50 text-slate-600">
+      <tr>
+        <th class="px-2 py-1 text-left">ทะเบียน</th>
+        <th class="px-2 py-1 text-left">ประเภท</th>
+        <th class="px-2 py-1 text-right">เที่ยว</th>
+        <th class="px-2 py-1 text-right">รายรับ</th>
+        <th class="px-2 py-1 text-right">น้ำมัน</th>
+        <th class="px-2 py-1 text-right">ซ่อม</th>
+        <th class="px-2 py-1 text-right">Gross Margin</th>
+        <th class="px-2 py-1 text-right">%</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for v in vehicle_costs %}
+      <tr class="border-t">
+        <td class="px-2 py-1 font-mono">{{ v.plate }}</td>
+        <td class="px-2 py-1">{{ v.truck_type }}</td>
+        <td class="px-2 py-1 text-right">{{ v.trips }}</td>
+        <td class="px-2 py-1 text-right font-mono">{{ "{:,.0f}".format(v.revenue) }}</td>
+        <td class="px-2 py-1 text-right font-mono text-slate-500">{{ "{:,.0f}".format(v.cost_fuel) }}</td>
+        <td class="px-2 py-1 text-right font-mono text-slate-500">{{ "{:,.0f}".format(v.cost_maint) }}</td>
+        <td class="px-2 py-1 text-right font-mono font-semibold {% if v.gross_margin>=0 %}text-emerald-700{% else %}text-rose-700{% endif %}">{{ "{:,.0f}".format(v.gross_margin) }}</td>
+        <td class="px-2 py-1 text-right text-xs">{{ "{:.1f}".format(v.margin_pct) }}%</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="px-2 py-4 text-center text-slate-500">ไม่มีข้อมูลในเดือนนี้</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="text-xs text-slate-400">
+  💡 <b>หมายเหตุ</b>: "กำไรสุทธิ" ใช้ cash basis (ยังไม่รวม depreciation รถ) · Fixed costs ใช้ค่าเฉลี่ย 90 วันล่าสุด · หนี้ต้องกรอกที่ <a href="/finance/loans" class="text-blue-600 underline">/finance/loans</a>
+</p>
+{% endblock %}

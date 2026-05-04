@@ -1,0 +1,30 @@
+trips_html_content = (
+        f"""<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
+<title>Trips</title><style>{css}</style></head><body>
+<div class='h1'>เที่ยวทั้งหมด</div>
+<div class='nav'><a href='index.html'>&larr; กลับสรุป</a></div>
+<div class='panel'><h3>เที่ยวทั้งหมด (matched + unmatched)</h3>
+<p class='sub'>เรียงตามเวลา (matched ใช้ Origin In · unmatched ใช้เวลาขา Origin/Destination) — UM-O/UM-D เว้นฝั่งที่ยังไม่มีคู่เป็น —<br>
+<b>ค่าเงิน:</b> ค่าขนส่ง = เรทวัน Dest_In ของเที่ยวนั้น · <b>เสียเวลา+50%/+100%</b> = ยอดรวมส่วนเพิ่ม fifty ของ (ทะเบียน×วัน Dest_In) แสดงที่แถวแรกของวันนั้น — <b>ไม่ได้คิดจากชั่วโมงในช่อง Dest Wait โดยตรง</b> (สีส้ม = แค่เตือนว่ารอปลายทางเกินเกณฑ์) · <b>ขากลับ(฿)</b> = ยอดจาก <code>manual_return_trips</code> แสดงที่แถวแรกของวันนั้น (ไม่เพิ่มจำนวนเที่ยว matched)</p>
+<div class='filter-bar'><label for='tripsPlateFilter'>กรองทะเบียน</label><select id='tripsPlateFilter'><option value=''>ทุกคัน</option>{_trips_plate_opts}</select><label for='tripsPlateQuery' style='margin-left:6px'>ค้นหา</label><input id='tripsPlateQuery' type='search' placeholder='พิมพ์ค้นหา...' autocomplete='off'></div>
+<div class='table-scroll'><table id='tripsAllTable'><thead><tr><th>Origin Date</th><th>Dest Date</th><th>Site</th><th>ทะเบียน</th><th>Origin In</th><th>Origin Out</th><th>Dest In</th><th>Dest Out</th><th>Orig Wait</th><th>Travel</th><th>Dest Wait</th><th>ค่าขนส่ง(฿)</th><th>เสียเวลา+50%(฿)</th><th>เสียเวลา+100%(฿)</th><th>ตีเปล่า+50%(฿)</th><th>ขากลับ(฿)</th></tr></thead><tbody>
+{merged_all_rows}
+</tbody></table></div></div>
+"""
+        + _TRIPS_FILTER_JS
+        + "\n</body></html>"
+    )
+
+    (report_dir / "trips.html").write_text(trips_html_content, encoding="utf-8")
+
+    plates_dir = report_dir / "plates"
+    plates_dir.mkdir(exist_ok=True)
+    for old in plates_dir.glob("*.html"):
+        old.unlink()
+    by_plate: dict[str, list[Trip]] = defaultdict(list)
+    for t in trips:
+        by_plate[t.plate].append(t)
+    # build audit note index by (plate, origin_day) for plate-page reason display
+    audit_oday_idx: dict[tuple[str, date], str] = {}
+    if cfg.use_origin_day_fifty:
+  

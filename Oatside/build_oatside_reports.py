@@ -21,6 +21,7 @@ import html as html_module
 import math
 import os
 import re
+import shutil
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -593,6 +594,16 @@ def um_leg_dwell_gap_h(leg: Leg, timeline: list[Leg] | None) -> tuple[float, flo
         return dwell, None
     gap = hours(leg.t_out, timeline[idx + 1].t_in)
     return dwell, gap
+
+
+def um_leg_prev_gap_h(leg: Leg, timeline: list[Leg] | None) -> float | None:
+    """Hours from previous leg's Out to this leg's In (same plate)."""
+    if not timeline:
+        return None
+    idx = next((i for i, L in enumerate(timeline) if L is leg), None)
+    if idx is None or idx == 0:
+        return None
+    return hours(timeline[idx - 1].t_out, leg.t_in)
 
 
 def customer_idle_clip_dest_wait_h(trip: Trip, cfg: OatsideConfig) -> float:
@@ -1847,6 +1858,7 @@ def write_split_excel_exports(wb_path: Path, report_dir: Path, *, built_at: str)
 
     exp = report_dir / "exports"
     exp.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(wb_path, exp / "00_Full_Workbook.xlsx")
     src = load_workbook(wb_path, data_only=False)
     head_fill = PatternFill("solid", fgColor="1E3A5F")
     head_font = Font(color="FFFFFF", bold=True, size=11)
@@ -2254,6 +2266,39 @@ _TRIPS_FILTER_JS = (
     "})();</script>"
 )
 
+_COL_TOGGLE_JS = (
+    "<script>(function(){"
+    "function boot(){"
+    "function init(tableId){"
+    "var tbl=document.getElementById(tableId);"
+    "if(!tbl)return;"
+    "var inner=document.getElementById(tableId+'ColInner');"
+    "var key='oatside_col_hidden:'+location.pathname+':'+tableId;"
+    "function loadH(){try{return JSON.parse(localStorage.getItem(key)||'[]')}catch(e){return[]}}"
+    "function saveH(a){localStorage.setItem(key,JSON.stringify(a))}"
+    "function applyH(hid){"
+    "var ths=tbl.querySelectorAll('thead tr th');var n=ths.length;"
+    "for(var c=0;c<n;c++){var hide=hid.indexOf(c)>=0;var disp=hide?'none':'';"
+    "var rows=tbl.querySelectorAll('tr');for(var r=0;r<rows.length;r++)"
+    "{var cell=rows[r].children[c];if(cell)cell.style.display=disp;}}"
+    "}"
+    "var hid=loadH();var ths=tbl.querySelectorAll('thead tr th');var n=ths.length;"
+    "if(inner){inner.innerHTML='';for(var i=0;i<n;i++)"
+    "{var lab=document.createElement('label');var cb=document.createElement('input');"
+    "cb.type='checkbox';cb.checked=hid.indexOf(i)<0;cb.setAttribute('data-ci',String(i));"
+    "var tx=(ths[i].textContent||'').trim()||('Col '+(i+1));lab.appendChild(cb);"
+    "lab.appendChild(document.createTextNode(' '+tx));"
+    "(function(ci,cbx){cbx.addEventListener('change',function(ev){var h=loadH();var p=h.indexOf(ci);"
+    "if(ev.target.checked){if(p>=0)h.splice(p,1);}else{if(p<0)h.push(ci);}saveH(h);applyH(h);});})(i,cb);"
+    "inner.appendChild(lab);}}applyH(hid);"
+    "var rb=document.getElementById(tableId+'ColReset');if(rb)rb.addEventListener('click',function(){"
+    "saveH([]);applyH([]);if(inner){var boxes=inner.querySelectorAll('input[type=checkbox]');"
+    "for(var j=0;j<boxes.length;j++)boxes[j].checked=true;}});}"
+    "init('tripsAllTable');init('plateTripsTable');}"
+    "if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();"
+    "})();</script>"
+)
+
 
 def html_fifty_surcharge_badge(fr: dict, cfg: OatsideConfig) -> str:
     """Badge: ตีเปล่า (เฉพาะที่ mark) vs ค่าเสียเวลา (+50%% / +100%% รวมข้ามคืน)."""
@@ -2306,6 +2351,7 @@ def unmatched_merged_trip_one_row_html(
     *,
     dwell_h: float,
     gap_h: float | None,
+    prev_gap_h: float | None,
     include_plate_link: bool = True,
     include_plate_column: bool = True,
 ) -> str:
@@ -2323,18 +2369,21 @@ def unmatched_merged_trip_one_row_html(
         site_plate = f"<td>{site_html}</td><td>{plate_html}</td>"
     else:
         site_plate = f"<td>{site_html} {badge}</td>"
+    _pg = fmt_hm(prev_gap_h) if prev_gap_h is not None else dash
     if src == "Origin":
-        od, dd = leg.t_in.date(), dash
+        od, dd = leg.t_in, dash
         oi, oo = leg.t_in, leg.t_out
         di, do = dash, dash
+        ow, trv, dw = fmt_hm(dwell_h), _pg, dash
     else:
-        od, dd = dash, leg.t_in.date()
+        od, dd = dash, leg.t_in
         oi, oo = dash, dash
         di, do = leg.t_in, leg.t_out
+        ow, trv, dw = dash, _pg, fmt_hm(dwell_h)
     return (
         f"<tr class='um' data-plate='{esc(leg.plate)}'><td>{od}</td><td>{dd}</td>{site_plate}"
         f"<td>{oi}</td><td>{oo}</td><td>{di}</td><td>{do}</td>"
-        f"<td>{dash}</td><td>{dash}</td><td>{dash}</td>"
+        f"<td>{ow}</td><td>{trv}</td><td>{dw}</td>"
         f"<td>{fmt_hm(dwell_h)}</td><td>{fmt_hm(gap_h) if gap_h is not None else dash}</td>"
         f"<td>{dash}</td><td>{dash}</td><td>{dash}</td><td>{dash}</td><td>{dash}</td></tr>"
     )
@@ -2560,14 +2609,15 @@ def interleaved_matched_unmatched_rows_html(
     for src, leg, _mp in unmatched:
         if plate is not None and leg.plate != plate:
             continue
-        _dw, _gp = um_leg_dwell_gap_h(
-            leg, leg_timeline_by_plate.get(leg.plate) if leg_timeline_by_plate else None
-        )
+        _tl = leg_timeline_by_plate.get(leg.plate) if leg_timeline_by_plate else None
+        _dw, _gp = um_leg_dwell_gap_h(leg, _tl)
+        _pre = um_leg_prev_gap_h(leg, _tl)
         um_html = unmatched_merged_trip_one_row_html(
             src,
             leg,
             dwell_h=_dw,
             gap_h=_gp,
+            prev_gap_h=_pre,
             include_plate_link=include_plate_link,
             include_plate_column=include_plate_column,
         )
@@ -2673,7 +2723,7 @@ def write_html(
             return_baht=ret_amt,
         )
         return (
-            f"<tr data-plate='{esc(t.plate)}'><td>{t.origin_date}</td><td>{t.dest_date}</td>"
+            f"<tr data-plate='{esc(t.plate)}'><td>{t.origin_date}<br><span class='note'>{t.o_in:%H:%M}</span></td><td>{t.dest_date}<br><span class='note'>{t.d_in:%H:%M}</span></td>"
             f"<td><span class='badge {'bigc' if t.site=='BigC' else 'lcb'}'>{t.site}</span></td>"
             f"<td><a href='plates/{esc(t.plate)}.html'>{esc(t.plate)}</a>{ab}</td>"
             f"<td>{t.o_in}</td><td>{t.o_out}</td><td>{t.d_in}</td><td>{t.d_out}</td>"
@@ -2709,7 +2759,7 @@ def write_html(
             return_baht=ret_amt,
         )
         return (
-            f"<tr data-plate='{esc(t.plate)}'><td>{t.origin_date}</td><td>{t.dest_date}</td><td>{t.site}{ab}</td>"
+            f"<tr data-plate='{esc(t.plate)}'><td>{t.origin_date}<br><span class='note'>{t.o_in:%H:%M}</span></td><td>{t.dest_date}<br><span class='note'>{t.d_in:%H:%M}</span></td><td>{t.site}{ab}</td>"
             f"<td>{t.o_in}</td><td>{t.o_out}</td><td>{t.d_in}</td><td>{t.d_out}</td>"
             f"{_td_wait_h(t.origin_wait_h, _hi_o, False)}<td>{fmt_hm(t.travel_h)}</td>{_td_wait_h(t.dest_wait_h, _hi_d, True)}"
             f"<td>—</td><td>—</td>"
@@ -2785,7 +2835,7 @@ def write_html(
         ".fulltrip{background:#e3f2fd;color:#0d47a1}.blankrun{background:#ede7f6;color:#4a148c}.dwell{background:#fff3e0;color:#bf360c}"
         "tr.um td{color:#5a3b00}"
         ".manual-extra{background:#ede7f6;color:#4a148c;font-weight:600}.return-trip{background:#e8f5e9;color:#1b5e20;font-weight:600}"
-        "tr.day-band-0 td{background:#fafcfe}tr.day-band-1 td{background:#e9f1fa}tr.day-band-0 td.wait-hi{background:#fff1cc;font-weight:600}tr.day-band-1 td.wait-hi{background:#ffecc4;font-weight:600}tr.day-band-0 td.wait-hi-dest{background:#ffe8c8;font-weight:600}tr.day-band-1 td.wait-hi-dest{background:#ffdfba;font-weight:600}""details.section-fold{margin-bottom:10px}""summary.section-sum{cursor:pointer;padding:10px 14px;background:#fff;border-radius:10px;font-weight:600;margin-bottom:6px;display:block;box-shadow:0 2px 8px rgba(16,24,40,.08);list-style:none}""summary.section-sum::-webkit-details-marker{display:none}"".filter-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 14px}"".filter-bar label{font-size:13px;color:#4b5b74}"".filter-bar select,.filter-bar input[type=search]{font:inherit;padding:6px 10px;border-radius:8px;border:1px solid #c5d0e0;background:#fff;min-width:160px}""summary.section-sum-row{display:flex!important;width:100%;box-sizing:border-box;justify-content:space-between;align-items:center;gap:12px;list-style:none}""summary.section-sum-row .sum-main{flex:1 1 auto;min-width:0;text-align:left}""summary.section-sum-row .sum-dl{margin-left:auto;flex:0 0 auto}"".xlsx-dl{font-size:12px;font-weight:700;color:#0b57d0;padding:5px 10px;border-radius:8px;border:1px solid #b8cff4;background:#eef5ff;white-space:nowrap}"".hero-trips{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;background:linear-gradient(135deg,#e8f1ff,#ffffff);border:1px solid #c5d0e0;border-radius:12px;padding:16px 18px;margin:12px 0 16px}"".hero-copy{max-width:720px}"".hero-tag{display:inline-block;font-size:11px;font-weight:700;color:#0b57d0;background:#e3eeff;border-radius:999px;padding:2px 10px;margin-bottom:6px}"".hero-title{font-size:20px;font-weight:800;color:#12243b;margin-bottom:4px}"".hero-sub{color:#4b5b74;font-size:13px;line-height:1.45}"".btn-primary{display:inline-block;padding:12px 18px;border-radius:10px;background:#0b57d0;color:#fff;font-weight:800;box-shadow:0 4px 12px rgba(11,87,208,.22)}"".btn-primary:hover{filter:brightness(1.05)}"".nav-secondary{margin:0 0 12px;font-size:13px;color:#4b5b74}"".panel-title-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}"".panel-title-row h3{margin:0}"".h1 .trips-tag{font-size:13px;font-weight:800;color:#0b57d0;margin-left:8px;vertical-align:middle}"".trips-lead{color:#4b5b74;font-size:14px;margin:-2px 0 10px}"
+        "tr.day-band-0 td{background:#fafcfe}tr.day-band-1 td{background:#e9f1fa}tr.day-band-0 td.wait-hi{background:#fff1cc;font-weight:600}tr.day-band-1 td.wait-hi{background:#ffecc4;font-weight:600}tr.day-band-0 td.wait-hi-dest{background:#ffe8c8;font-weight:600}tr.day-band-1 td.wait-hi-dest{background:#ffdfba;font-weight:600}""details.section-fold{margin-bottom:10px}""summary.section-sum{cursor:pointer;padding:10px 14px;background:#fff;border-radius:10px;font-weight:600;margin-bottom:6px;display:block;box-shadow:0 2px 8px rgba(16,24,40,.08);list-style:none}""summary.section-sum::-webkit-details-marker{display:none}"".filter-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 14px}"".filter-bar label{font-size:13px;color:#4b5b74}"".filter-bar select,.filter-bar input[type=search]{font:inherit;padding:6px 10px;border-radius:8px;border:1px solid #c5d0e0;background:#fff;min-width:160px}""summary.section-sum-row{display:flex!important;width:100%;box-sizing:border-box;justify-content:space-between;align-items:center;gap:12px;list-style:none}""summary.section-sum-row .sum-main{flex:1 1 auto;min-width:0;text-align:left}""summary.section-sum-row .sum-dl{margin-left:auto;flex:0 0 auto}"".xlsx-dl{font-size:12px;font-weight:700;color:#0b57d0;padding:5px 10px;border-radius:8px;border:1px solid #b8cff4;background:#eef5ff;white-space:nowrap}"".hero-trips{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;background:linear-gradient(135deg,#e8f1ff,#ffffff);border:1px solid #c5d0e0;border-radius:12px;padding:16px 18px;margin:12px 0 16px}"".hero-copy{max-width:720px}"".hero-tag{display:inline-block;font-size:11px;font-weight:700;color:#0b57d0;background:#e3eeff;border-radius:999px;padding:2px 10px;margin-bottom:6px}"".hero-title{font-size:20px;font-weight:800;color:#12243b;margin-bottom:4px}"".hero-sub{color:#4b5b74;font-size:13px;line-height:1.45}"".btn-primary{display:inline-block;padding:12px 18px;border-radius:10px;background:#0b57d0;color:#fff;font-weight:800;box-shadow:0 4px 12px rgba(11,87,208,.22)}"".btn-primary:hover{filter:brightness(1.05)}"".nav-secondary{margin:0 0 12px;font-size:13px;color:#4b5b74}"".panel-title-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}"".panel-title-row h3{margin:0}"".h1 .trips-tag{font-size:13px;font-weight:800;color:#0b57d0;margin-left:8px;vertical-align:middle}"".trips-lead{color:#4b5b74;font-size:14px;margin:-2px 0 10px}""details.col-picker{margin:8px 0 14px;border:1px solid #c5d0e0;border-radius:10px;padding:0 14px 4px;background:#fff}""details.col-picker summary{cursor:pointer;font-weight:700;padding:10px 0;font-size:13px;color:#12243b;list-style:none}""details.col-picker summary::-webkit-details-marker{display:none}"".col-picker-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px 16px;padding:4px 0 12px;font-size:13px}"".col-picker-grid label{display:flex;gap:8px;align-items:flex-start;cursor:pointer;line-height:1.35}"".col-picker-grid input{margin-top:3px;flex-shrink:0}"
     )
 
     def _xlsx_dl(fname: str, short: str) -> str:
@@ -2801,7 +2851,7 @@ def write_html(
 <title>Oatside report</title><style>{css}</style></head><body>
 <div class='h1'>Oatside → P&amp;G สรุปรายงาน</div>
 <div class='sub'>{sub}</div>
-<div class='hero-trips'><div class='hero-copy'><div class='hero-tag'>แนะนำสำหรับลูกค้า</div><div class='hero-title'>เริ่มจากรายการเที่ยวทั้งหมด</div><div class='hero-sub'>เวลาเข้า-ออกครบ · ค่าขนส่ง / ส่วนเพิ่ม / ขากลับ — กรองทะเบียนได้ · ดาวน์โหลด Excel รายเที่ยวละเอียดได้จากปุ่มขวาบนหัวตารางในหน้าเที่ยวทั้งหมด</div></div><a class='btn-primary' href='trips.html'>เปิดเที่ยวทั้งหมด</a></div><div class='nav-secondary'><a href='trips.html'>ดูเที่ยวทั้งหมด</a> · <a href='../../../Oatside/Oatside_PG_Trip_Summary_By_Site.xlsx'>ดาวน์โหลด Excel รวมทุกชีต</a></div>
+<div class='hero-trips'><div class='hero-copy'><div class='hero-tag'>แนะนำสำหรับลูกค้า</div><div class='hero-title'>เริ่มจากรายการเที่ยวทั้งหมด</div><div class='hero-sub'>เวลาเข้า-ออกครบ · ค่าขนส่ง / ส่วนเพิ่ม / ขากลับ — กรองทะเบียนได้ · ดาวน์โหลด Excel รายเที่ยวละเอียดได้จากปุ่มขวาบนหัวตารางในหน้าเที่ยวทั้งหมด</div></div><a class='btn-primary' href='trips.html'>เปิดเที่ยวทั้งหมด</a></div><div class='nav-secondary'><a href='trips.html'>ดูเที่ยวทั้งหมด</a> · <a href='exports/00_Full_Workbook.xlsx'>ดาวน์โหลด Excel รวมทุกชีต</a></div>
 <div class='grid'>
 <div class='card'><div class='label'>ค่าเที่ยวปกติ (A)</div><div class='value money'>{base_baht:,}</div></div>
 <div class='card'><div class='label'>ชาร์จเสริม ตีเปล่า/เสียเวลา/ข้ามคืน (C)</div><div class='value money'>{fifty_total_baht:,}</div></div>
@@ -2847,16 +2897,18 @@ def write_html(
 <title>Trips</title><style>{css}</style></head><body>
 <div class='h1'>เที่ยวทั้งหมด <span class='trips-tag'>หน้าหลักลูกค้า</span></div>
 <div class='trips-lead'>เวลาเข้า-ออกครบทุกขา · ค่าขนส่ง / เสียเวลา / ขากลับ — กรองทะเบียนได้ด้านล่าง</div>
-<div class='nav'><a href='index.html'>&larr; สรุปภาพรวม</a> · <a href='../../../Oatside/Oatside_PG_Trip_Summary_By_Site.xlsx'>Excel รวมทุกชีต</a></div>
+<div class='nav'><a href='index.html'>&larr; สรุปภาพรวม</a> · <a href='exports/00_Full_Workbook.xlsx'>Excel รวมทุกชีต</a></div>
 <div class='panel'><div class='panel-title-row'><h3>เที่ยวทั้งหมด (matched + unmatched)</h3><a class='xlsx-dl' href='exports/05_Trip_Detail.xlsx' download onclick='event.stopPropagation()'>ดาวน์โหลด Excel (Trip Detail)</a></div>
 <p class='sub'>เรียงตามเวลา (matched ใช้ Origin In · unmatched ใช้เวลาขา Origin/Destination) — UM-O/UM-D เว้นฝั่งที่ยังไม่มีคู่เป็น —<br>
 <b>ค่าเงิน:</b> ค่าขนส่ง = เรทวัน Dest_In ของเที่ยวนั้น · <b>เสียเวลา+50%/+100%</b> = ยอดรวมส่วนเพิ่ม fifty ของ (ทะเบียน×วัน Dest_In) แสดงที่แถวแรกของวันนั้น — <b>ไม่ได้คิดจากชั่วโมงในช่อง Dest Wait โดยตรง</b> (สีส้ม = แค่เตือนว่ารอปลายทางเกินเกณฑ์) · <b>ขากลับ(฿)</b> = ยอดจาก <code>manual_return_trips</code> แสดงที่แถวแรกของวันนั้น (ไม่เพิ่มจำนวนเที่ยว matched)</p>
 <div class='filter-bar'><label for='tripsPlateFilter'>กรองทะเบียน</label><select id='tripsPlateFilter'><option value=''>ทุกคัน</option>{_trips_plate_opts}</select><label for='tripsPlateQuery' style='margin-left:6px'>ค้นหา</label><input id='tripsPlateQuery' type='search' placeholder='พิมพ์ค้นหา...' autocomplete='off'></div>
-<div class='table-scroll'><table id='tripsAllTable'><thead><tr><th>Origin Date</th><th>Dest Date</th><th>Site</th><th>ทะเบียน</th><th>Origin In</th><th>Origin Out</th><th>Dest In</th><th>Dest Out</th><th>Orig Wait</th><th>Travel</th><th>Dest Wait</th><th>อยู่จุด UM (ชม.)</th><th>ถึงเข้าครั้งถัดไป (ชม.)</th><th>ค่าขนส่ง(฿)</th><th>เสียเวลา+50%(฿)</th><th>เสียเวลา+100%(฿)</th><th>ตีเปล่า+50%(฿)</th><th>ขากลับ(฿)</th></tr></thead><tbody>
+<details class='col-picker' id='tripsAllTableColPicker'><summary>แสดง / ซ่อนคอลัมน์ (เลือกได้เหมือน Excel)</summary><div class='col-picker-grid' id='tripsAllTableColInner'></div><p style='margin:0 0 10px'><button type='button' class='xlsx-dl' id='tripsAllTableColReset'>แสดงทุกคอลัมน์</button></p></details>
+<div class='table-scroll'><table id='tripsAllTable'><thead><tr><th title='วันงานที่ Origin + เวลาเข้าโหลด'>วัน Origin</th><th title='วันงานที่ปลายทาง + เวลาเข้า'>วัน Dest</th><th>Site</th><th>ทะเบียน</th><th>Origin In</th><th>Origin Out</th><th>Dest In</th><th>Dest Out</th><th>Orig Wait</th><th>Travel</th><th>Dest Wait</th><th>อยู่จุด UM (ชม.)</th><th>ถึงเข้าครั้งถัดไป (ชม.)</th><th>ค่าขนส่ง(฿)</th><th>เสียเวลา+50%(฿)</th><th>เสียเวลา+100%(฿)</th><th>ตีเปล่า+50%(฿)</th><th>ขากลับ(฿)</th></tr></thead><tbody>
 {merged_all_rows}
 </tbody></table></div></div>
 """
         + _TRIPS_FILTER_JS
+        + _COL_TOGGLE_JS
         + "\n</body></html>"
     )
 
@@ -2940,7 +2992,9 @@ def write_html(
 <div class='panel'><h3>{summary_hdr}</h3>{summary_sub}<table><thead>{day_thead}</thead><tbody>{day_tbl}</tbody></table></div>
 <div class='panel'><h3>รายเที่ยว (matched + unmatched)</h3>
 <p class='sub'>เรียงตามเวลา (matched ใช้ Origin In · unmatched ใช้เวลาขา Origin/Destination) — UM-O/UM-D เว้นฝั่งที่ยังไม่มีคู่เป็น —<br>หัวตารางล่างเลื่อนตามแบบ freeze แถว (เลื่อนในกรอบ)</p>
-<div class='table-scroll'><table><thead><tr><th>Origin Date</th><th>Dest Date</th><th>Site</th><th>Origin In</th><th>Origin Out</th><th>Dest In</th><th>Dest Out</th><th>Orig Wait</th><th>Travel</th><th>Dest Wait</th><th>อยู่จุด UM (ชม.)</th><th>ถึงเข้าครั้งถัดไป (ชม.)</th><th>ค่าขนส่ง(฿)</th><th>เสียเวลา+50%(฿)</th><th>เสียเวลา+100%(฿)</th><th>ตีเปล่า+50%(฿)</th><th>ขากลับ(฿)</th></tr></thead><tbody>{merged_plate_rows}</tbody></table></div></div>
+<details class='col-picker' id='plateTripsTableColPicker'><summary>แสดง / ซ่อนคอลัมน์ (เลือกได้เหมือน Excel)</summary><div class='col-picker-grid' id='plateTripsTableColInner'></div><p style='margin:0 0 10px'><button type='button' class='xlsx-dl' id='plateTripsTableColReset'>แสดงทุกคอลัมน์</button></p></details>
+<div class='table-scroll'><table id='plateTripsTable'><thead><tr><th title='วันงานที่ Origin + เวลาเข้าโหลด'>วัน Origin</th><th title='วันงานที่ปลายทาง + เวลาเข้า'>วัน Dest</th><th>Site</th><th>Origin In</th><th>Origin Out</th><th>Dest In</th><th>Dest Out</th><th>Orig Wait</th><th>Travel</th><th>Dest Wait</th><th>อยู่จุด UM (ชม.)</th><th>ถึงเข้าครั้งถัดไป (ชม.)</th><th>ค่าขนส่ง(฿)</th><th>เสียเวลา+50%(฿)</th><th>เสียเวลา+100%(฿)</th><th>ตีเปล่า+50%(฿)</th><th>ขากลับ(฿)</th></tr></thead><tbody>{merged_plate_rows}</tbody></table></div></div>
+{_COL_TOGGLE_JS}
 </body></html>"""
         (plates_dir / f"{p}.html").write_text(pg, encoding="utf-8")
 

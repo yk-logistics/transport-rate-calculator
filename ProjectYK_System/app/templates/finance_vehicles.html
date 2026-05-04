@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}ต้นทุนต่อคัน · {{ month }}{% endblock %}
+{% block content %}
+<div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+  <h1 class="text-2xl font-bold">🚛 ต้นทุนต่อคัน · {{ month }}</h1>
+  <form method="get" class="flex gap-2 items-center text-sm">
+    <input type="month" name="month" value="{{ month }}" class="border rounded px-2 py-1" />
+    <select name="site" class="border rounded px-2 py-1">
+      <option value="">ทุกไซท์</option>
+      {% for s in ['AYU','BIGC','LCB'] %}
+      <option value="{{ s }}" {% if site==s %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+    <button class="bg-slate-900 text-white px-3 py-1 rounded">ดู</button>
+    <a href="/finance" class="text-xs text-blue-600 hover:underline ml-3">← Dashboard</a>
+  </form>
+</div>
+
+<div class="grid grid-cols-4 gap-3 mb-4 text-sm">
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">เที่ยวรวม</div><div class="text-lg font-bold">{{ "{:,}".format(totals.trips) }}</div></div>
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">รายรับ</div><div class="text-lg font-bold font-mono text-emerald-700">{{ "{:,.0f}".format(totals.revenue) }}</div></div>
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">น้ำมัน + ซ่อม</div><div class="text-lg font-bold font-mono text-rose-700">{{ "{:,.0f}".format(totals.cost_fuel + totals.cost_maint) }}</div></div>
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">Gross Margin</div><div class="text-lg font-bold font-mono {% if totals.gross_margin>=0 %}text-emerald-700{% else %}text-rose-700{% endif %}">{{ "{:,.0f}".format(totals.gross_margin) }}</div></div>
+</div>
+
+<div class="bg-white border rounded-lg overflow-x-auto">
+  <table class="w-full text-xs">
+    <thead class="bg-slate-100 text-slate-700">
+      <tr>
+        <th class="px-3 py-2 text-left">ทะเบียน</th>
+        <th class="px-3 py-2 text-left">ชื่อเล่น</th>
+        <th class="px-3 py-2 text-left">ประเภท</th>
+        <th class="px-3 py-2 text-right">เที่ยว</th>
+        <th class="px-3 py-2 text-right">รายรับ</th>
+        <th class="px-3 py-2 text-right">เฉลี่ย/เที่ยว</th>
+        <th class="px-3 py-2 text-right">น้ำมัน (บาท)</th>
+        <th class="px-3 py-2 text-right">ลิตร</th>
+        <th class="px-3 py-2 text-right">ซ่อม</th>
+        <th class="px-3 py-2 text-right bg-slate-50">Gross Margin</th>
+        <th class="px-3 py-2 text-right">%</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y font-mono">
+      {% for v in rows %}
+      <tr class="hover:bg-slate-50 {% if v.gross_margin<0 %}bg-rose-50{% endif %}">
+        <td class="px-3 py-2 font-semibold">{{ v.plate }}</td>
+        <td class="px-3 py-2 font-sans">{{ v.nickname }}</td>
+        <td class="px-3 py-2 font-sans">{{ v.truck_type }}</td>
+        <td class="px-3 py-2 text-right font-sans">{{ v.trips }}</td>
+        <td class="px-3 py-2 text-right">{{ "{:,.0f}".format(v.revenue) }}</td>
+        <td class="px-3 py-2 text-right text-xs">{{ "{:,.0f}".format(v.revenue / v.trips) if v.trips else '—' }}</td>
+        <td class="px-3 py-2 text-right text-slate-600">{{ "{:,.0f}".format(v.cost_fuel) }}</td>
+        <td class="px-3 py-2 text-right text-slate-500 text-xs">{{ "{:,.0f}".format(v.fuel_liters) }}</td>
+        <td class="px-3 py-2 text-right text-slate-600">{{ "{:,.0f}".format(v.cost_maint) }}</td>
+        <td class="px-3 py-2 text-right bg-slate-50 font-semibold {% if v.gross_margin<0 %}text-rose-700{% else %}text-emerald-700{% endif %}">{{ "{:,.0f}".format(v.gross_margin) }}</td>
+        <td class="px-3 py-2 text-right text-xs font-sans">{{ "{:.1f}".format(v.margin_pct) }}%</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="11" class="px-3 py-8 text-center text-slate-500">ไม่มีข้อมูลในเดือนนี้</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="text-xs text-slate-400 mt-3">
+  💡 Gross Margin = รายรับ − น้ำมัน − ซ่อมบำรุง (ยังไม่หักเงินเดือน/ดอกเบี้ย/ค่าใช้จ่ายคงที่) · คันที่ติดลบ = เดือนนั้นไม่คุ้มเชื้อเพลิง+ซ่อม ต้องดูเป็นรายปี
+</p>
+{% endblock %}

@@ -1,0 +1,30 @@
+def html_export_downloads_block() -> str:
+    """Panel HTML for index — links to exports/*.xlsx (evaluated inside idx f-string)."""
+    parts: list[str] = [
+        "<div class='panel export-panel'><h3>ดาวน์โหลด Excel แยกตาราง</h3>",
+        "<p class='sub'>โฟลเดอร์ <code>exports/</code> — หัวตารางจัดรูปแบบแล้ว เปิดใน Microsoft Excel / Google Sheets ได้ทันที</p>",
+        "<ul class='export-list'>",
+    ]
+    for _sn, fname, th in OATSIDE_EXPORT_TABLES:
+        parts.append(
+            f"<li><a href='exports/{fname}' download>{th}</a> "
+            f"<span class='note'>({fname})</span></li>"
+        )
+    parts.append("</ul>")
+    parts.append(
+        "<p class='sub'>ไฟล์รวมทุกชีต: "
+        "<a href='../../../Oatside/Oatside_PG_Trip_Summary_By_Site.xlsx'>"
+        "Oatside_PG_Trip_Summary_By_Site.xlsx</a></p></div>"
+    )
+    return "\n".join(parts)
+# ---------------------------------------------------------------------------
+# Excel export
+# ---------------------------------------------------------------------------
+
+def write_excel(
+    path: Path,
+    origin_name: str,
+    dest_name: str,
+    trips: list[Trip],
+    unmatched: list[tuple[str, Leg, str]],
+    daily_time: list[t

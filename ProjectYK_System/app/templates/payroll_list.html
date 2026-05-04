@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Payroll · Project YK{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4">
+  <div>
+    <h1 class="text-2xl font-bold">Payroll · รอบเงินเดือน</h1>
+    <p class="text-sm text-slate-500">สรุปการจ่ายเงินเดือนต่อไซต์ต่อรอบ</p>
+  </div>
+  <a href="/payroll/new"
+     class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded text-sm font-medium">
+    + สร้างรอบใหม่
+  </a>
+</div>
+
+<div class="bg-white border rounded-lg overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-100 text-left">
+      <tr>
+        <th class="px-3 py-2">ไซต์</th>
+        <th class="px-3 py-2">รอบ (YYYY-MM)</th>
+        <th class="px-3 py-2">ช่วงวันที่</th>
+        <th class="px-3 py-2 text-right">คนขับ</th>
+        <th class="px-3 py-2 text-right">รวมรายได้</th>
+        <th class="px-3 py-2 text-right">รวมหัก</th>
+        <th class="px-3 py-2 text-right">ยอดสุทธิ</th>
+        <th class="px-3 py-2">สถานะ</th>
+        <th class="px-3 py-2"></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for s in summary %}
+      <tr class="border-t hover:bg-slate-50">
+        <td class="px-3 py-2">
+          <span class="inline-block px-2 py-0.5 rounded text-xs
+            {% if s.run.site_code == 'AYU' %}bg-blue-100 text-blue-700
+            {% elif s.run.site_code == 'BIGC' %}bg-green-100 text-green-700
+            {% elif s.run.site_code == 'LCB' %}bg-rose-100 text-rose-700
+            {% endif %}">{{ s.run.site_code }}</span>
+        </td>
+        <td class="px-3 py-2 font-mono">{{ s.run.pay_cycle_tag }}</td>
+        <td class="px-3 py-2 text-xs text-slate-600">{{ s.run.period_start | dmy }} → {{ s.run.period_end | dmy }}</td>
+        <td class="px-3 py-2 text-right">{{ s.count }}</td>
+        <td class="px-3 py-2 text-right font-mono text-emerald-700">{{ '{:,.0f}'.format(s.gross) }}</td>
+        <td class="px-3 py-2 text-right font-mono text-rose-700">{{ '{:,.0f}'.format(s.ded) }}</td>
+        <td class="px-3 py-2 text-right font-mono font-semibold">{{ '{:,.0f}'.format(s.net) }}</td>
+        <td class="px-3 py-2">
+          {% if s.run.status == 'finalized' %}
+            <span class="text-xs bg-slate-800 text-white px-2 py-0.5 rounded">ปิดรอบแล้ว</span>
+          {% elif s.run.status == 'paid' %}
+            <span class="text-xs bg-emerald-600 text-white px-2 py-0.5 rounded">จ่ายแล้ว</span>
+          {% else %}
+            <span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">ร่าง</span>
+          {% endif %}
+        </td>
+        <td class="px-3 py-2 text-right">
+          <a href="/payroll/{{ s.run.id }}" class="text-sky-600 hover:underline text-xs">ดู</a>
+        </td>
+      </tr>
+    {% else %}
+      <tr>
+        <td colspan="9" class="px-3 py-8 text-center text-slate-400">
+          ยังไม่มีรอบเงินเดือน — <a href="/payroll/new" class="text-sky-600 hover:underline">สร้างรอบแรก</a>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

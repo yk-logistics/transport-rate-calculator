@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}คนขับ{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-2xl font-bold">คนขับ · {{ rows|length }} คน</h1>
+  <a href="/employees/new" class="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-700">+ เพิ่มคนขับ</a>
+</div>
+
+<form method="get" class="bg-white rounded-lg border p-4 mb-4 flex flex-wrap gap-3 items-end">
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">ไซต์</label>
+    <select name="site" class="border rounded px-3 py-2">
+      <option value="" {% if not site %}selected{% endif %}>ทั้งหมด</option>
+      {% for sc in site_codes %}
+      <option value="{{ sc }}" {% if site==sc %}selected{% endif %}>{{ sc }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="flex-grow">
+    <label class="block text-xs text-slate-500 mb-1">ค้นหา (ชื่อ/ชื่อเล่น/รหัส)</label>
+    <input name="q" value="{{ q }}" class="w-full border rounded px-3 py-2" />
+  </div>
+  <button class="bg-slate-200 px-4 py-2 rounded">ค้นหา</button>
+  <a href="/employees" class="text-sm text-slate-500 underline">ล้าง</a>
+</form>
+
+<div class="bg-white rounded-lg border overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-100 text-left">
+      <tr>
+        <th class="px-3 py-2">รหัส</th>
+        <th class="px-3 py-2">ชื่อ</th>
+        <th class="px-3 py-2">ชื่อเล่น</th>
+        <th class="px-3 py-2">ไซต์</th>
+        <th class="px-3 py-2">รูปแบบจ้าง</th>
+        <th class="px-3 py-2 text-right">ฐานเงินเดือน</th>
+        <th class="px-3 py-2 text-right">ค่าดูแลรถ</th>
+        <th class="px-3 py-2 text-right">Share %</th>
+        <th class="px-3 py-2 text-center">การันตี</th>
+        <th class="px-3 py-2">สถานะ</th>
+        <th class="px-3 py-2"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr class="border-t hover:bg-slate-50">
+        <td class="px-3 py-2 font-mono">{{ r.code }}</td>
+        <td class="px-3 py-2"><a href="/employees/{{ r.id }}/edit" class="text-blue-600 hover:underline">{{ r.full_name }}</a></td>
+        <td class="px-3 py-2">{{ r.nickname }}</td>
+        <td class="px-3 py-2">{{ r.home_site_code }}</td>
+        <td class="px-3 py-2 text-xs">{{ r.pay_mode }}</td>
+        <td class="px-3 py-2 text-right">{{ "%.0f"|format(r.base_salary) }}</td>
+        <td class="px-3 py-2 text-right">{{ "%.0f"|format(r.care_allowance) }}</td>
+        <td class="px-3 py-2 text-right">{% if r.gross_share_rate %}{{ "%.0f"|format(r.gross_share_rate * 100) }}%{% endif %}</td>
+        <td class="px-3 py-2 text-center">{% if r.has_guarantee %}{{ "%.0f"|format(r.guarantee_monthly_amount) }}{% endif %}</td>
+        <td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-xs {% if r.status=='active' %}bg-green-100 text-green-700{% else %}bg-slate-200{% endif %}">{{ r.status }}</span></td>
+        <td class="px-3 py-2">
+          <form method="post" action="/employees/{{ r.id }}/delete" onsubmit="return confirm('ลบ {{ r.full_name }}?');" class="inline">
+            <button class="text-red-500 hover:underline text-xs">ลบ</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="11" class="px-3 py-8 text-center text-slate-400">ยังไม่มีข้อมูล — กด "+ เพิ่มคนขับ" เพื่อเริ่ม</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

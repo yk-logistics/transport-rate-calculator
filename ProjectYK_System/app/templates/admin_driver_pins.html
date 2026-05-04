@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Driver PIN · Admin{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto p-4">
+  <div class="flex items-center justify-between mb-3">
+    <h1 class="text-xl font-bold">🔐 จัดการ PIN คนขับ (Driver PWA)</h1>
+    <a href="/admin/submissions" class="text-sm text-blue-600">→ ดูรายการส่งจากคนขับ</a>
+  </div>
+
+  <div class="bg-amber-50 border border-amber-300 rounded-lg p-3 mb-4 text-sm">
+    <b>วิธีใช้:</b> กรอกเบอร์โทร + PIN (4-6 ตัวเลข) แล้วกดบันทึก → แจ้งคนขับให้ไปที่
+    <code class="bg-white px-1 rounded border">/driver/login</code> บนมือถือ
+  </div>
+
+  <div class="bg-white rounded-xl border overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-100 text-slate-600">
+        <tr>
+          <th class="text-left p-2">คนขับ</th>
+          <th class="text-left p-2">เบอร์โทร (ปัจจุบัน)</th>
+          <th class="text-left p-2">สถานะ PIN</th>
+          <th class="text-left p-2">ตั้ง/เปลี่ยน</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y">
+      {% for e in emps %}
+        <tr>
+          <td class="p-2">
+            <div class="font-medium">{{ e.full_name }}</div>
+            {% if e.nickname %}<div class="text-xs text-slate-500">{{ e.nickname }}</div>{% endif %}
+          </td>
+          <td class="p-2 font-mono text-xs">{{ e.phone or '-' }}</td>
+          <td class="p-2">
+            {% if e.pin_hash %}
+              <span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">
+                ✓ ตั้งแล้ว {% if e.pin_set_at %}({{ e.pin_set_at.strftime('%d/%m/%Y') }}){% endif %}
+              </span>
+            {% else %}
+              <span class="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded">ยังไม่ตั้ง</span>
+            {% endif %}
+          </td>
+          <td class="p-2">
+            <form method="post" action="/admin/drivers/{{ e.id }}/set-pin" class="flex gap-1 items-center flex-wrap">
+              <input type="tel" name="phone" placeholder="เบอร์" value="{{ e.phone }}"
+                     class="border rounded px-2 py-1 text-xs w-28" />
+              <input type="text" name="pin" placeholder="PIN ใหม่" maxlength="6"
+                     class="border rounded px-2 py-1 text-xs w-20" />
+              <button class="text-xs bg-blue-600 text-white px-3 py-1 rounded">บันทึก</button>
+            </form>
+            {% if e.pin_hash %}
+            <form method="post" action="/admin/drivers/{{ e.id }}/clear-pin" class="mt-1"
+                  onsubmit="return confirm('ล้าง PIN ของ {{ e.full_name }} ใช่หรือไม่?')">
+              <button class="text-xs text-rose-600">ล้าง PIN</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

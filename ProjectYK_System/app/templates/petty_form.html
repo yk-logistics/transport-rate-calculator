@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+{% block title %}{% if mode=='new' %}เพิ่มรายการสดย่อย{% else %}แก้ไขสดย่อย #{{ row.id }}{% endif %}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">{% if mode=='new' %}เพิ่มรายการสดย่อย{% else %}แก้ไขสดย่อย #{{ row.id }}{% endif %}</h1>
+
+<form method="post" action="{% if mode=='new' %}/petty-cash/new{% else %}/petty-cash/{{ row.id }}/edit{% endif %}" class="space-y-6">
+{% if next_url %}
+<input type="hidden" name="next_url" value="{{ next_url }}" />
+<p class="mb-2"><a href="{{ next_url }}" class="text-sm text-sky-600 hover:underline">← กลับหน้าเดิม (ไม่บันทึก)</a></p>
+{% endif %}
+
+<section class="bg-white rounded-lg border p-6">
+  <h2 class="font-semibold mb-3">ข้อมูลรายการ</h2>
+  <div class="grid md:grid-cols-3 gap-4">
+    <div>
+      <label class="block text-sm mb-1">วันที่ *</label>
+      <input type="date" name="txn_date" value="{{ row.txn_date if row and row.txn_date else today }}" required class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ไซต์ *</label>
+      <select name="site_code" required class="w-full border rounded px-3 py-2">
+        {% for sc in site_codes %}
+        <option value="{{ sc }}" {% if row and row.site_code==sc %}selected{% endif %}>{{ sc }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ทิศทาง *</label>
+      <select name="direction" class="w-full border rounded px-3 py-2">
+        {% for code, label in petty_directions %}
+        <option value="{{ code }}" {% if row and row.direction==code %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">จำนวนเงิน *</label>
+      <input type="number" step="0.01" name="amount" value="{{ '%g'|format(row.amount) if row else 0 }}" required class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">หมวด</label>
+      <select name="category" class="w-full border rounded px-3 py-2">
+        {% for code, label in petty_categories %}
+        <option value="{{ code }}" {% if row and row.category==code %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm mb-1 inline-flex items-center gap-2">
+        <input type="checkbox" name="has_receipt" value="on" {% if row and row.has_receipt %}checked{% endif %} />
+        มีใบเสร็จ
+      </label>
+    </div>
+    <div class="md:col-span-3">
+      <label class="block text-sm mb-1">รายการ / Memo</label>
+      <input name="memo" value="{{ row.memo if row else '' }}" class="w-full border rounded px-3 py-2" placeholder="เช่น ค่าทางด่วน 28/2, ค่าน้ำมัน 71-0563" />
+    </div>
+  </div>
+</section>
+
+<section class="bg-white rounded-lg border p-6">
+  <h2 class="font-semibold mb-3">ผู้เบิก</h2>
+  <div class="grid md:grid-cols-3 gap-4">
+    <div>
+      <label class="block text-sm mb-1">เลือกจาก master</label>
+      <select name="driver_id" class="w-full border rounded px-3 py-2">
+        <option value="">— ถ้าไม่ใช่คนขับ เว้นว่างได้ —</option>
+        {% for e in employees %}
+        <option value="{{ e.id }}" {% if row and row.driver_id==e.id %}selected{% endif %}>{{ e.full_name }} ({{ e.home_site_code }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="md:col-span-2">
+      <label class="block text-sm mb-1">หรือพิมพ์ชื่อ (ผู้เบิกอื่น เช่น ร้าน, บุคคลทั่วไป)</label>
+      <input name="requester_raw" value="{{ row.requester_raw if row else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+  </div>
+</section>
+
+<section class="bg-white rounded-lg border p-6 bg-amber-50 border-amber-200">
+  <h2 class="font-semibold mb-3 text-amber-800">⚠️ หักเงินคนขับ (จะโยงเข้า payroll)</h2>
+  <div class="grid md:grid-cols-3 gap-4">
+    <div class="md:col-span-3">
+      <label class="inline-flex items-center gap-2">
+        <input type="checkbox" name="deduct_from_driver" value="on" {% if row and row.deduct_from_driver %}checked{% endif %} class="w-4 h-4" />
+        <span class="font-semibold">ใช่ หักเงินคนขับในงวดเงินเดือน</span>
+      </label>
+      <p class="text-xs text-slate-600 mt-1">ตรงกับคอลัมน์ "พขร.เบิก หัก เงินเดือน" ใน Excel เดิม</p>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ยอดที่จะหัก</label>
+      <input type="number" step="0.01" name="deduct_amount" value="{{ '%g'|format(row.deduct_amount) if row and row.deduct_amount else '' }}" class="w-full border rounded px-3 py-2" placeholder="เว้น = ใช้ยอดจ่าย" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">งวดเงินเดือน (YYYY-MM)</label>
+      <div class="flex gap-1">
+        <input id="pay_cycle_tag" name="pay_cycle_tag" value="{{ row.pay_cycle_tag if row else '' }}" class="flex-1 border rounded px-3 py-2" placeholder="auto จากวันที่ + ไซต์" />
+        <button type="button" id="btn_cycle_auto" class="px-2 text-xs border rounded hover:bg-slate-100" title="ใช้รอบตามวันที่">auto</button>
+        <button type="button" id="btn_cycle_prev" class="px-2 text-xs border rounded hover:bg-sky-100 bg-sky-50" title="ย้ายไปรอบก่อนหน้า">−1 เดือน</button>
+        <button type="button" id="btn_cycle_next" class="px-2 text-xs border rounded hover:bg-amber-100 bg-amber-50" title="ย้ายไปรอบถัดไป">+1 เดือน</button>
+      </div>
+      <p id="cycle_hint" class="text-xs text-slate-500 mt-1">auto จะคำนวณ: AYU 26→25, BIGC 1→สิ้นเดือน, LCB 16→15</p>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">สถานะการหัก</label>
+      <select name="deduction_status" class="w-full border rounded px-3 py-2 text-sm">
+        {% set cur = (row.deduction_status if row and row.deduction_status else 'pending') %}
+        <option value="pending"         {% if cur == 'pending' %}selected{% endif %}>รอหัก</option>
+        <option value="deducted"        {% if cur == 'deducted' %}selected{% endif %}>หักแล้ว (โดยระบบ)</option>
+        <option value="settled_offline" {% if cur == 'settled_offline' %}selected{% endif %}>เคยหักแล้ว (นอกระบบ/ทอนไม่คืน)</option>
+        <option value="waived"          {% if cur == 'waived' %}selected{% endif %}>ยกเลิก/ไม่หัก</option>
+      </select>
+      <p class="text-xs text-slate-500 mt-1">settled_offline / waived = payroll จะข้าม</p>
+    </div>
+  </div>
+</section>
+
+<section class="bg-white rounded-lg border p-6 bg-yellow-50 border-yellow-200">
+  <h2 class="font-semibold mb-3 text-yellow-800">รอเคลียร์ (ใบเสร็จ/ทอน)</h2>
+  <p class="text-xs text-yellow-700 mb-3">ตรงกับคอลัมน์ "รอ/ทอน หรือใบเสร็จ" ใน Excel เดิม — ใช้เมื่อรายการยังไม่สมบูรณ์ เช่นจ่ายเงินสดไปยังไม่มีใบเสร็จ หรือรอทอนกลับ</p>
+  <div class="grid md:grid-cols-3 gap-4">
+    <div>
+      <label class="block text-sm mb-1">ยอดค้าง</label>
+      <input type="number" step="0.01" name="pending_amount" value="{{ '%g'|format(row.pending_amount) if row and row.pending_amount else '' }}" class="w-full border rounded px-3 py-2" placeholder="เว้น = ไม่มีค้าง" />
+    </div>
+    <div class="md:col-span-2">
+      <label class="block text-sm mb-1">รายละเอียด</label>
+      <input name="pending_note" value="{{ row.pending_note if row else '' }}" class="w-full border rounded px-3 py-2" placeholder="เช่น รอใบเสร็จร้าน X / รอทอน 50" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">วันที่เคลียร์แล้ว</label>
+      <input type="date" name="pending_cleared_at" value="{{ row.pending_cleared_at if row and row.pending_cleared_at else '' }}" class="w-full border rounded px-3 py-2" />
+      <p class="text-xs text-slate-500">กรอก = หลุดจากรายการค้าง</p>
+    </div>
+  </div>
+</section>
+
+<section class="bg-white rounded-lg border p-6">
+  <h2 class="font-semibold mb-3">ลิงก์เพิ่มเติม (ไม่บังคับ)</h2>
+  <div class="grid md:grid-cols-3 gap-4">
+    <div>
+      <label class="block text-sm mb-1">ทะเบียนรถ (จาก master)</label>
+      <select name="linked_vehicle_id" class="w-full border rounded px-3 py-2">
+        <option value="">—</option>
+        {% for v in vehicles %}
+        <option value="{{ v.id }}" {% if row and row.linked_vehicle_id==v.id %}selected{% endif %}>{{ v.plate_no }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">หรือพิมพ์ทะเบียน</label>
+      <input name="linked_vehicle_plate_raw" value="{{ row.linked_vehicle_plate_raw if row else '' }}" class="w-full border rounded px-3 py-2" placeholder="71-0563" />
+    </div>
+    <div class="md:col-span-3">
+      <label class="block text-sm mb-1">เลข Daily Job ID</label>
+      <div class="flex gap-1">
+        <input id="linked_daily_job_id" type="number" name="linked_daily_job_id" value="{{ row.linked_daily_job_id if row and row.linked_daily_job_id else '' }}" class="flex-1 border rounded px-3 py-2" placeholder="เว้นว่างได้" />
+        <button type="button" id="btn_suggest_jobs" class="px-3 text-sm border rounded hover:bg-sky-100 bg-sky-50 text-sky-700">🔍 แนะนำ Job</button>
+        <button type="button" id="btn_clear_job" class="px-2 text-xs border rounded hover:bg-slate-100 text-slate-500">เคลียร์</button>
+      </div>
+      <p class="text-xs text-slate-500 mt-1">ระบบจะค้นจาก: วันที่ ±3 วัน + ผู้เบิก + ทะเบียน</p>
+      <div id="suggest_panel" class="hidden mt-2 border rounded bg-slate-50 max-h-60 overflow-y-auto">
+        <div id="suggest_list" class="divide-y text-xs"></div>
+        <div id="suggest_empty" class="hidden p-3 text-slate-500 text-xs">ไม่พบรายการที่น่าจะตรง — ลองขยายช่วงวันหรือกรอก driver/ทะเบียน</div>
+        <div id="suggest_loading" class="hidden p-3 text-slate-500 text-xs">กำลังค้นหา…</div>
+      </div>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ยอดคงเหลือสดย่อย (snapshot)</label>
+      <input type="number" step="0.01" name="running_balance" value="{{ '%g'|format(row.running_balance) if row else 0 }}" class="w-full border rounded px-3 py-2" />
+      <p class="text-xs text-slate-500">คอลัมน์ "คงเหลือ" ใน Excel — ไม่บังคับ</p>
+    </div>
+    <div class="md:col-span-2">
+      <label class="block text-sm mb-1">หมายเหตุ</label>
+      <input name="note" value="{{ row.note if row else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+  </div>
+</section>
+
+<input type="hidden" name="status" value="{{ row.status if row else 'posted' }}" />
+
+<div class="flex gap-2">
+  <button class="bg-slate-900 text-white px-5 py-2 rounded-lg hover:bg-slate-700">{% if mode=='new' %}บันทึก{% else %}บันทึกการแก้ไข{% endif %}</button>
+  <a href="/petty-cash" class="px-5 py-2 rounded-lg border">ยกเลิก</a>
+</div>
+</form>
+
+<script>
+(function(){
+  const dateEl = document.querySelector('input[name=txn_date]');
+  const siteEl = document.querySelector('select[name=site_code]');
+  const tagEl  = document.getElementById('pay_cycle_tag');
+  const hint   = document.getElementById('cycle_hint');
+  const btnAuto = document.getElementById('btn_cycle_auto');
+  const btnNext = document.getElementById('btn_cycle_next');
+  const btnPrev = document.getElementById('btn_cycle_prev');
+  let autoTag = '';
+
+  async function fetchAuto(){
+    if(!dateEl.value || !siteEl.value) return;
+    try{
+      const r = await fetch(`/api/cycle-tag?site=${siteEl.value}&d=${dateEl.value}`);
+      const j = await r.json();
+      autoTag = j.tag || '';
+      if(!tagEl.value && autoTag){ tagEl.value = autoTag; }
+      if(autoTag){
+        if(tagEl.value === autoTag){
+          hint.textContent = `รอบ auto: ${autoTag} (ตรงตามวันที่)`;
+          hint.className = 'text-xs text-slate-500 mt-1';
+        }else{
+          hint.textContent = `รอบ auto: ${autoTag} — ตอนนี้ override เป็น ${tagEl.value}`;
+          hint.className = 'text-xs text-amber-700 mt-1 font-semibold';
+        }
+      }
+    }catch(e){}
+  }
+  function shiftMonth(s, delta){
+    const m = /^(\d{4})-(\d{2})$/.exec(s || '');
+    if(!m) return '';
+    let y = +m[1], mo = +m[2] + delta;
+    while(mo > 12){ mo -= 12; y += 1; }
+    while(mo < 1){ mo += 12; y -= 1; }
+    return `${y}-${String(mo).padStart(2,'0')}`;
+  }
+  dateEl.addEventListener('change', fetchAuto);
+  siteEl.addEventListener('change', fetchAuto);
+  tagEl.addEventListener('input', fetchAuto);
+  btnAuto.addEventListener('click', ()=>{ if(autoTag){ tagEl.value = autoTag; fetchAuto(); }});
+  btnNext.addEventListener('click', ()=>{ const base = tagEl.value || autoTag; const next = shiftMonth(base, +1); if(next){ tagEl.value = next; fetchAuto(); }});
+  if(btnPrev){ btnPrev.addEventListener('click', ()=>{ const base = tagEl.value || autoTag; const prev = shiftMonth(base, -1); if(prev){ tagEl.value = prev; fetchAuto(); }}); }
+  fetchAuto();
+})();
+
+// ========== Daily Job Suggester ==========
+(function(){
+  const btn       = document.getElementById('btn_suggest_jobs');
+  const btnClear  = document.getElementById('btn_clear_job');
+  const jobIdEl   = document.getElementById('linked_daily_job_id');
+  const panel     = document.getElementById('suggest_panel');
+  const listEl    = document.getElementById('suggest_list');
+  const emptyEl   = document.getElementById('suggest_empty');
+  const loadEl    = document.getElementById('suggest_loading');
+  const dateEl    = document.querySelector('input[name=txn_date]');
+  const siteEl    = document.querySelector('select[name=site_code]');
+  const drvEl     = document.querySelector('select[name=driver_id]');
+  const reqEl     = document.querySelector('input[name=requester_raw]');
+  const vehEl     = document.querySelector('select[name=linked_vehicle_id]');
+  const plateEl   = document.querySelector('input[name=linked_vehicle_plate_raw]');
+
+  function plateText(){
+    const raw = (plateEl.value || '').trim();
+    if(raw) return raw;
+    if(vehEl && vehEl.value){
+      const opt = vehEl.options[vehEl.selectedIndex];
+      return opt ? (opt.textContent || '').trim() : '';
+    }
+    return '';
+  }
+  function driverName(){
+    const raw = (reqEl.value || '').trim();
+    if(raw) return raw;
+    if(drvEl && drvEl.value){
+      const opt = drvEl.options[drvEl.selectedIndex];
+      const txt = opt ? (opt.textContent || '') : '';
+      return txt.split(' (')[0];
+    }
+    return '';
+  }
+
+  async function runSuggest(){
+    panel.classList.remove('hidden');
+    listEl.innerHTML = '';
+    emptyEl.classList.add('hidden');
+    loadEl.classList.remove('hidden');
+
+    const params = new URLSearchParams();
+    if(dateEl.value) params.set('d', dateEl.value);
+    if(drvEl && drvEl.value) params.set('driver_id', drvEl.value);
+    const nm = driverName(); if(nm) params.set('driver_name', nm);
+    const pl = plateText(); if(pl) params.set('plate', pl);
+    if(siteEl.value) params.set('site', siteEl.value);
+    params.set('window', '5');
+
+    try{
+      const r = await fetch(`/api/daily-jobs/suggest?${params.toString()}`);
+      const j = await r.json();
+      loadEl.classList.add('hidden');
+      const items = j.items || [];
+      if(!items.length){ emptyEl.classList.remove('hidden'); return; }
+      items.forEach(it => {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'w-full text-left p-2 hover:bg-sky-100 flex gap-2 items-start';
+        const picked = (jobIdEl.value && +jobIdEl.value === it.id);
+        row.innerHTML = `
+          <span class="inline-block w-10 text-right font-mono ${picked?'text-sky-700 font-bold':'text-slate-400'}">#${it.id}</span>
+          <span class="flex-1">
+            <span class="font-semibold">${it.work_date}</span>
+            <span class="ml-1 px-1 bg-slate-200 rounded text-[10px]">${it.site_code||'—'}</span>
+            ${it.driver?`<span class="ml-1">👤${it.driver}</span>`:''}
+            ${it.plate?`<span class="ml-1">🚚${it.plate}</span>`:''}
+            ${it.route?`<span class="ml-1 text-slate-600">${it.route}</span>`:''}
+            ${it.revenue?`<span class="ml-1 text-emerald-700">฿${it.revenue.toLocaleString()}</span>`:''}
+            <span class="ml-2 text-[10px] text-amber-700">[${it.why}] ${it.score}</span>
+          </span>
+        `;
+        row.addEventListener('click', ()=>{
+          jobIdEl.value = it.id;
+          panel.classList.add('hidden');
+        });
+        listEl.appendChild(row);
+      });
+    }catch(e){
+      loadEl.classList.add('hidden');
+      emptyEl.textContent = 'เกิดข้อผิดพลาด: ' + e.message;
+      emptyEl.classList.remove('hidden');
+    }
+  }
+
+  btn.addEventListener('click', runSuggest);
+  btnClear.addEventListener('click', ()=>{ jobIdEl.value=''; panel.classList.add('hidden'); });
+})();
+</script>
+{% endblock %}

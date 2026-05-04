@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <title>สลิปเงินเดือน · {{ employee.full_name }} · {{ run.site_code }} {{ run.pay_cycle_tag }}</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      font-family: "Sarabun", "Tahoma", sans-serif;
+      font-size: 12px;
+      color: #1f2937;
+      margin: 0;
+      padding: 0;
+      background: #f1f5f9;
+    }
+    .toolbar {
+      max-width: 820px; margin: 12px auto; padding: 8px 12px;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 12px;
+    }
+    .toolbar a { color: #64748b; text-decoration: none; }
+    .toolbar a:hover { text-decoration: underline; }
+    .toolbar button {
+      padding: 6px 14px; border: 1px solid #94a3b8; border-radius: 6px;
+      background: #fff; cursor: pointer; font-size: 12px;
+    }
+    .toolbar button:hover { background: #f1f5f9; }
+    .slip {
+      max-width: 820px; margin: 0 auto 24px; padding: 18px 22px;
+      background: #fff; border: 1px solid #cbd5e1; border-radius: 4px;
+    }
+    h1 {
+      margin: 0 0 4px; font-size: 18px; font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .header-line {
+      display: flex; justify-content: space-between; align-items: baseline;
+      border-bottom: 2px solid #1f2937; padding-bottom: 6px; margin-bottom: 10px;
+    }
+    .header-line .meta { font-size: 12px; color: #475569; }
+    .driver-line {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px; margin-bottom: 12px; font-size: 12px;
+    }
+    .driver-line .lbl { color: #64748b; font-size: 10px; }
+    .driver-line .val { font-weight: 600; }
+    table.daily {
+      width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 11px;
+    }
+    table.daily th, table.daily td {
+      border: 1px solid #cbd5e1; padding: 3px 6px; text-align: left;
+      vertical-align: top;
+    }
+    table.daily th { background: #f1f5f9; font-weight: 600; font-size: 10px; }
+    table.daily td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .row-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 10px;
+    }
+    .panel {
+      border: 1px solid #cbd5e1; border-radius: 4px; padding: 10px 12px;
+    }
+    .panel h3 {
+      margin: 0 0 6px; font-size: 12px; font-weight: 700; color: #0f172a;
+      border-bottom: 1px solid #e2e8f0; padding-bottom: 3px;
+    }
+    .panel .line {
+      display: flex; justify-content: space-between; padding: 2px 0;
+      font-size: 12px;
+    }
+    .panel .line .v { font-variant-numeric: tabular-nums; }
+    .panel .total {
+      display: flex; justify-content: space-between; padding-top: 4px;
+      margin-top: 4px; border-top: 1px dashed #94a3b8;
+      font-weight: 700;
+    }
+    .net-box {
+      margin-top: 14px; padding: 14px 18px;
+      border: 2px solid #1f2937; border-radius: 6px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .net-box .lbl { font-size: 14px; font-weight: 700; }
+    .net-box .val {
+      font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums;
+    }
+    .net-pos { color: #047857; }
+    .net-neg { color: #b91c1c; }
+    .footer-note {
+      margin-top: 10px; font-size: 10px; color: #64748b;
+      display: flex; justify-content: space-between;
+    }
+    @media print {
+      html, body { background: #fff; }
+      .toolbar { display: none; }
+      .slip {
+        max-width: 100%; margin: 0; padding: 8mm; border: none;
+        border-radius: 0; page-break-after: always;
+      }
+      @page { size: A4 portrait; margin: 8mm; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="toolbar">
+  <a href="/payroll/{{ run.id }}/employee/{{ employee.id }}">← กลับหน้ารายละเอียด</a>
+  <div>
+    <button onclick="window.print()">🖨 พิมพ์สลิป</button>
+  </div>
+</div>
+
+<div class="slip">
+
+  <div class="header-line">
+    <div>
+      <h1>Y.K. LOGISTICS — สลิปเงินเดือน</h1>
+    </div>
+    <div class="meta">
+      ช่วงงวด <strong>{{ run.period_start | dmy }} → {{ run.period_end | dmy }}</strong>
+      &nbsp;·&nbsp; รอบ {{ run.pay_cycle_tag }}
+    </div>
+  </div>
+
+  <div class="driver-line">
+    <div>
+      <div class="lbl">คนขับ</div>
+      <div class="val">{{ employee.full_name }}{% if employee.nickname %} ({{ employee.nickname }}){% endif %}</div>
+    </div>
+    <div>
+      <div class="lbl">รหัส / ไซต์</div>
+      <div class="val">{{ employee.code }} · {{ run.site_code }}</div>
+    </div>
+    <div>
+      <div class="lbl">ทะเบียนรถ</div>
+      <div class="val">{{ plates_used or '—' }}</div>
+    </div>
+  </div>
+
+  <table class="daily">
+    <thead>
+      <tr>
+        <th style="width:62px;">วันที่</th>
+        <th style="width:70px;">ทะเบียน</th>
+        <th>ส่งสินค้า / หมายเหตุ</th>
+        <th style="width:80px;">ใบงาน</th>
+        <th style="width:50px;" class="num">น้ำมัน(L)</th>
+        <th style="width:64px;" class="num">ค่าเที่ยว</th>
+        <th style="width:48px;" class="num">เรท</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in daily_jobs %}
+      <tr>
+        <td>{{ r.work_date | dmy }}</td>
+        <td>{{ r.plate_no_raw or '' }}</td>
+        <td>
+          {% if r.destination %}{{ r.destination }}{% endif %}
+          {% if r.remark %}<span style="color:#64748b;">· {{ r.remark }}</span>{% endif %}
+        </td>
+        <td>{{ r.doc_no or r.job_ref or r.container_no or '' }}</td>
+        <td class="num">{% if r.fuel_liter %}{{ '{:.0f}'.format(r.fuel_liter) }}{% endif %}</td>
+        <td class="num">{% if r.trip_fee_driver %}{{ '{:,.0f}'.format(r.trip_fee_driver) }}{% endif %}</td>
+        <td class="num">{% if r.fuel_rate_km_per_l %}{{ '{:.2f}'.format(r.fuel_rate_km_per_l) }}{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="row-grid">
+
+    <div class="panel">
+      <h3>การใช้รถ / น้ำมัน</h3>
+      <div class="line"><span>ไมล์เริ่มต้น</span><span class="v">{{ '{:,.0f}'.format(mile_start) if mile_start else '—' }}</span></div>
+      <div class="line"><span>ไมล์สิ้นสุด</span><span class="v">{{ '{:,.0f}'.format(mile_end) if mile_end else '—' }}</span></div>
+      <div class="line"><span>กม.ที่วิ่ง</span><span class="v">{% if km_run %}{{ '{:,.0f}'.format(km_run) }}{% else %}—{% endif %}</span></div>
+      <div class="line"><span>น้ำมันที่ใช้</span><span class="v">{% if fuel_used_l %}{{ '{:,.2f}'.format(fuel_used_l) }} L{% else %}—{% endif %}</span></div>
+      <div class="line"><span>เรทน้ำมันเฉลี่ย</span><span class="v">{% if avg_km_per_l %}{{ '{:.2f}'.format(avg_km_per_l) }} km/L{% else %}—{% endif %}</span></div>
+      <div style="margin-top:10px; font-size:10px; color:#64748b;">
+        วันทำงาน {{ '{:.0f}'.format(item.days_worked) }} ·
+        ลา {{ '{:.0f}'.format(item.days_leave) }} ·
+        ขาด {{ '{:.0f}'.format(item.days_absent) }}
+      </div>
+    </div>
+
+    <div>
+      <div class="panel" style="margin-bottom:8px;">
+        <h3>รายได้</h3>
+        {% set inc_total = 0 %}
+        {% if item.base_salary_earned %}
+          <div class="line"><span>เงินเดือน</span><span class="v">{{ '{:,.2f}'.format(item.base_salary_earned) }}</span></div>
+          {% set inc_total = inc_total + item.base_salary_earned %}
+        {% endif %}
+        {% if item.care_allowance_earned %}
+          <div class="line"><span>ค่าดูแลรถ</span><span class="v">{{ '{:,.2f}'.format(item.care_allowance_earned) }}</span></div>
+          {% set inc_total = inc_total + item.care_allowance_earned %}
+        {% endif %}
+        {% if item.trip_fee_total %}
+          <div class="line"><span>ค่าเที่ยว</span><span class="v">{{ '{:,.2f}'.format(item.trip_fee_total) }}</span></div>
+          {% set inc_total = inc_total + item.trip_fee_total %}
+        {% endif %}
+        {% if item.fuel_rate_income %}
+          <div class="line"><span>ค่าเรทน้ำมัน</span><span class="v">{{ '{:,.2f}'.format(item.fuel_rate_income) }}</span></div>
+          {% set inc_total = inc_total + item.fuel_rate_income %}
+        {% endif %}
+        {% if item.fuel_share_income %}
+          <div class="line"><span>ส่วนแบ่งน้ำมัน</span><span class="v">{{ '{:,.2f}'.format(item.fuel_share_income) }}</span></div>
+          {% set inc_total = inc_total + item.fuel_share_income %}
+        {% endif %}
+        {% if item.guarantee_topup %}
+          <div class="line"><span>ชดเชยการันตี</span><span class="v">{{ '{:,.2f}'.format(item.guarantee_topup) }}</span></div>
+          {% set inc_total = inc_total + item.guarantee_topup %}
+        {% endif %}
+        {% if item.other_income %}
+          <div class="line"><span>รายได้อื่น</span><span class="v">{{ '{:,.2f}'.format(item.other_income) }}</span></div>
+          {% set inc_total = inc_total + item.other_income %}
+        {% endif %}
+        <div class="total"><span>รวมรายได้</span><span>{{ '{:,.2f}'.format(item.gross_total) }}</span></div>
+      </div>
+
+      <div class="panel">
+        <h3>เงินหัก</h3>
+        {% if item.social_security %}
+          <div class="line"><span>ประกันสังคม</span><span class="v">{{ '{:,.2f}'.format(item.social_security) }}</span></div>
+        {% endif %}
+        {% if item.income_tax_withholding %}
+          <div class="line"><span>ภาษีหัก ณ ที่จ่าย</span><span class="v">{{ '{:,.2f}'.format(item.income_tax_withholding) }}</span></div>
+        {% endif %}
+        {% if item.deposit_install %}
+          <div class="line"><span>เงินประกัน (ผ่อน)</span><span class="v">{{ '{:,.2f}'.format(item.deposit_install) }}</span></div>
+        {% endif %}
+        {% if item.accident_install %}
+          <div class="line"><span>ผ่อนอุบัติเหตุ</span><span class="v">{{ '{:,.2f}'.format(item.accident_install) }}</span></div>
+        {% endif %}
+        {% for p in petty_lines %}
+          <div class="line">
+            <span>{{ p.txn_date | dmy }} · {{ p.label }}</span>
+            <span class="v">{{ '{:,.2f}'.format(p.amount) }}</span>
+          </div>
+        {% endfor %}
+        {% if item.fuel_cost_self %}
+          <div class="line"><span>ค่าน้ำมัน (ออกเอง)</span><span class="v">{{ '{:,.2f}'.format(item.fuel_cost_self) }}</span></div>
+        {% endif %}
+        {% if item.other_deduction %}
+          <div class="line"><span>หักอื่นๆ</span><span class="v">{{ '{:,.2f}'.format(item.other_deduction) }}</span></div>
+        {% endif %}
+        <div class="total"><span>รวมหัก</span><span>{{ '{:,.2f}'.format(item.deduction_total) }}</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="net-box">
+    <div class="lbl">ยอดรับสุทธิ (หลังหักค่าใช้จ่าย)</div>
+    <div class="val {% if item.net_pay < 0 %}net-neg{% else %}net-pos{% endif %}">
+      {{ '{:,.2f}'.format(item.net_pay) }} ฿
+    </div>
+  </div>
+
+  <div class="footer-note">
+    <div>คำนวณ: {{ item.computed_at | dmy_hm if item.computed_at else '—' }}</div>
+    <div>Y.K. Logistics · One Platform</div>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}อะไหล่{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">🔩 อะไหล่ (Master + Stock + ราคาร้าน)</h1>
+  <div class="flex gap-2">
+    <a href="/maint" class="btn bg-slate-200 hover:bg-slate-300">← Dashboard</a>
+    <a href="/maint/vendor-prices" class="btn bg-indigo-600 text-white hover:bg-indigo-700">📊 เปรียบเทียบราคาร้าน</a>
+  </div>
+</div>
+
+<div class="p-4 bg-white border rounded-lg mb-4">
+  <h2 class="font-semibold mb-2">+ เพิ่มอะไหล่</h2>
+  <form method="post" action="/maint/parts" class="grid grid-cols-1 md:grid-cols-6 gap-2">
+    <input type="text" name="name" placeholder="ชื่อ (เช่น น้ำมันเครื่อง 15W-40)" required class="border rounded px-2 py-1 md:col-span-2">
+    <select name="category" class="border rounded px-2 py-1">
+      {% for c, label in categories %}
+      <option value="{{ c }}">{{ label }}</option>
+      {% endfor %}
+    </select>
+    <select name="unit" class="border rounded px-2 py-1">
+      {% for u in units %}
+      <option value="{{ u }}">{{ u }}</option>
+      {% endfor %}
+    </select>
+    <input type="number" step="1" name="min_stock_qty" placeholder="ขั้นต่ำ" class="border rounded px-2 py-1 text-right">
+    <button class="btn bg-orange-600 text-white hover:bg-orange-700">+ บันทึก</button>
+  </form>
+</div>
+
+<form method="get" action="/maint/parts" class="p-3 bg-white border rounded-lg mb-4 flex flex-wrap gap-2 items-center">
+  <input type="text" name="q" placeholder="ค้นหาชื่อ..." value="{{ q }}" class="border rounded px-2 py-1 text-sm flex-1">
+  <select name="category" class="border rounded px-2 py-1 text-sm">
+    <option value="">ทุกหมวด</option>
+    {% for c, label in categories %}
+    <option value="{{ c }}" {% if category == c %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <button class="btn bg-slate-200 hover:bg-slate-300 text-sm">ค้นหา</button>
+  {% if q or category %}<a href="/maint/parts" class="text-xs text-slate-500 underline">ล้าง</a>{% endif %}
+</form>
+
+<div class="p-4 bg-white border rounded-lg overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="text-xs text-slate-500 bg-slate-50">
+      <tr>
+        <th class="text-left py-1 px-2">ชื่อ</th>
+        <th class="text-left py-1 px-2">หมวด</th>
+        <th class="text-left py-1 px-2">หน่วย</th>
+        <th class="text-right py-1 px-2">คงเหลือ</th>
+        <th class="text-right py-1 px-2">ขั้นต่ำ</th>
+        <th class="text-right py-1 px-2">ราคาอ้างอิง</th>
+        <th class="text-left py-1 px-2">ถูกสุด (ร้าน → ราคา)</th>
+        <th class="text-right py-1 px-2">#ร้าน</th>
+        <th class="text-left py-1 px-2">สถานะ</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in parts %}
+      {% set vps = vp_map.get(p.id, []) %}
+      {% set cheapest = vps|sort(attribute='unit_price')|first if vps else None %}
+      <tr class="border-t hover:bg-slate-50">
+        <td class="py-1 px-2 font-medium">
+          <a href="/maint/parts/{{ p.id }}" class="text-sky-600 hover:underline">{{ p.name }}</a>
+          {% if p.is_tire %} <span class="text-xs text-emerald-600">🛞</span>{% endif %}
+          <span class="text-xs text-slate-400 font-mono ml-1">{{ p.code }}</span>
+        </td>
+        <td class="py-1 px-2">{{ cat_map.get(p.category, p.category) }}</td>
+        <td class="py-1 px-2">{{ p.unit }}</td>
+        <td class="py-1 px-2 text-right font-mono">{{ '{:,.2f}'.format(stock_map.get(p.id, 0)) }}</td>
+        <td class="py-1 px-2 text-right">{{ p.min_stock_qty }}</td>
+        <td class="py-1 px-2 text-right font-mono">{{ '{:,.2f}'.format(p.default_price) }}</td>
+        <td class="py-1 px-2 text-xs">
+          {% if cheapest and vendor_map.get(cheapest.vendor_id) %}
+          <span class="text-emerald-700 font-semibold">{{ vendor_map[cheapest.vendor_id].name }}</span> →
+          <span class="font-mono">{{ '{:,.2f}'.format(cheapest.unit_price) }}</span>
+          {% if cheapest.is_preferred %} ⭐{% endif %}
+          {% else %}<span class="text-slate-400">—</span>{% endif %}
+        </td>
+        <td class="py-1 px-2 text-right text-xs">{{ vps|length }}</td>
+        <td class="py-1 px-2">
+          {% set stock = stock_map.get(p.id, 0) %}
+          {% if stock < p.min_stock_qty %}
+          <span class="px-2 py-0.5 rounded text-xs bg-rose-100 text-rose-800">ต่ำกว่ากำหนด</span>
+          {% else %}
+          <span class="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-800">ปกติ</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="py-6 text-center text-slate-400">ยังไม่มีอะไหล่ — ระบบรองรับการเพิ่มแบบ Ad-hoc ในบันทึกซ่อมได้เช่นกัน</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

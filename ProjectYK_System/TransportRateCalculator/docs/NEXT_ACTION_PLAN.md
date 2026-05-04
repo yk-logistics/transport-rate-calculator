@@ -17,6 +17,7 @@
 - [done] **`trips.html` กรอง/ค้นหาทะเบียน** + **`index.html` พับหัวข้อสรุป** (`section-fold`, Audit/รายทะเบียน style เดียวกัน) — `apply_oatside_ui_trips_filter_index_fold.py` — Session #105
 - [done] **Excel ลูกค้า**: ไฟล์แยกต่อตารางใน **`exports/*.xlsx`** + จัดรูปหัวตาราง/สีแถว + ลิงก์จาก **`index.html`** — `patch_oatside_excel_exports.py` — Session #106
 - [done] **UX ลูกค้า**: hero ชี้ `trips.html` + Excel ขวาหัวแต่ละ `<details>` + ตัดบล็อกคำอธิบายสี — `patch_oatside_hero_xlsx_inline.py` — Session #107
+- [done] **`trips.html` + หน้า plate**: แถบ **แสดง/ซ่อนคอลัมน์** (checkbox + `localStorage`) สำหรับจอแคบ — `build_oatside_reports.py` + `apply_oatside_col_toggle.py` — Session #111
 - [done] **HTML Oatside — หลายป้าย/เซลล์ + ตีเปล่า (No-work recovery)**: รวม `nw_rows` ในคอลัมน์ส่วนเพิ่มตาราง (2); หน้า plate รองรับหลาย fifty ต่อวัน — `patch_oatside_multi_badge_nw.py`
 - [done] **HTML Oatside — ป้าย surcharge**: เคสข้ามคืนเต็มเรทแสดง **+100%**; แยก **ตีเปล่า** vs **ค่าเสียเวลา** (`fifty_kind` + `html_fifty_surcharge_badge`) — `build_oatside_reports.py` + tools `apply_oatside_fifty_patch.py` / `patch_oatside_audit_sub.py`
 - [done] **`OATSIDE_BACKEND_SCHEMA.md`** — พิมพ์เขียว schema + prompt ตัวอย่างสำหรับโยน **Claude บนเว็บ (Artifacts)** ออกแบบ Dashboard mock (`TransportRateCalculator/docs/OATSIDE_BACKEND_SCHEMA.md`)

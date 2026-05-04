@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}ลูกค้า{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-2xl font-bold">ลูกค้า · {{ rows|length }} ราย</h1>
+  <a href="/customers/new" class="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-700">+ เพิ่มลูกค้า</a>
+</div>
+
+<form method="get" class="bg-white rounded-lg border p-4 mb-4 flex flex-wrap gap-3 items-end">
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">ไซต์หลัก</label>
+    <select name="site" class="border rounded px-3 py-2">
+      <option value="" {% if not site %}selected{% endif %}>ทั้งหมด</option>
+      {% for sc in site_codes %}
+      <option value="{{ sc }}" {% if site==sc %}selected{% endif %}>{{ sc }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="flex-grow">
+    <label class="block text-xs text-slate-500 mb-1">ค้นหา</label>
+    <input name="q" value="{{ q }}" class="w-full border rounded px-3 py-2" />
+  </div>
+  <button class="bg-slate-200 px-4 py-2 rounded">ค้นหา</button>
+  <a href="/customers" class="text-sm text-slate-500 underline">ล้าง</a>
+</form>
+
+<div class="bg-white rounded-lg border overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-100 text-left">
+      <tr>
+        <th class="px-3 py-2">รหัส</th>
+        <th class="px-3 py-2">ชื่อ</th>
+        <th class="px-3 py-2">ไซต์หลัก</th>
+        <th class="px-3 py-2">Billing Profile</th>
+        <th class="px-3 py-2">หมายเหตุ</th>
+        <th class="px-3 py-2"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr class="border-t hover:bg-slate-50">
+        <td class="px-3 py-2 font-mono">{{ r.code }}</td>
+        <td class="px-3 py-2"><a href="/customers/{{ r.id }}/edit" class="text-blue-600 hover:underline">{{ r.name }}</a></td>
+        <td class="px-3 py-2">{{ r.home_site_code }}</td>
+        <td class="px-3 py-2 text-xs">{{ r.billing_profile_ref }}</td>
+        <td class="px-3 py-2 text-xs text-slate-600">{{ r.notes }}</td>
+        <td class="px-3 py-2">
+          <form method="post" action="/customers/{{ r.id }}/delete" onsubmit="return confirm('ลบ {{ r.name }}?');" class="inline">
+            <button class="text-red-500 hover:underline text-xs">ลบ</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="px-3 py-8 text-center text-slate-400">ยังไม่มีข้อมูล — กด "+ เพิ่มลูกค้า" เพื่อเริ่ม</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

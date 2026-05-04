@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Cash Flow · {{ days }} วันข้างหน้า{% endblock %}
+{% block content %}
+<div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+  <h1 class="text-2xl font-bold">💸 Cash Flow Projection</h1>
+  <form method="get" class="flex gap-2 items-center text-sm">
+    <label class="text-slate-500">มองไป</label>
+    <select name="days" class="border rounded px-2 py-1">
+      {% for d in [30, 60, 90, 120, 180] %}
+      <option value="{{ d }}" {% if days==d %}selected{% endif %}>{{ d }} วัน</option>
+      {% endfor %}
+    </select>
+    <button class="bg-slate-900 text-white px-3 py-1 rounded">ดู</button>
+    <a href="/finance" class="text-xs text-blue-600 hover:underline ml-3">← Dashboard</a>
+  </form>
+</div>
+
+<div class="grid grid-cols-3 gap-3 mb-4">
+  <div class="bg-white border rounded-lg p-3">
+    <div class="text-xs text-slate-500">เงินเข้า (คาด)</div>
+    <div class="text-xl font-bold font-mono text-emerald-700">+{{ "{:,.0f}".format(total_in) }}</div>
+  </div>
+  <div class="bg-white border rounded-lg p-3">
+    <div class="text-xs text-slate-500">เงินออก (คาด)</div>
+    <div class="text-xl font-bold font-mono text-rose-700">−{{ "{:,.0f}".format(total_out) }}</div>
+  </div>
+  <div class="bg-white border rounded-lg p-3 {% if net<0 %}bg-rose-50{% else %}bg-emerald-50{% endif %}">
+    <div class="text-xs text-slate-500">Net (ตลอดช่วง)</div>
+    <div class="text-xl font-bold font-mono {% if net<0 %}text-rose-700{% else %}text-emerald-700{% endif %}">{{ "{:+,.0f}".format(net) }}</div>
+  </div>
+</div>
+
+<div class="bg-white border rounded-lg overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-100 text-slate-700 text-xs">
+      <tr>
+        <th class="px-3 py-2 text-left">วันที่</th>
+        <th class="px-3 py-2 text-left">ประเภท</th>
+        <th class="px-3 py-2 text-left">รายการ</th>
+        <th class="px-3 py-2 text-right">เข้า</th>
+        <th class="px-3 py-2 text-right">ออก</th>
+        <th class="px-3 py-2 text-right">สะสม</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y">
+      {% for r in rows %}
+      <tr class="hover:bg-slate-50 {% if r.direction=='note' %}bg-slate-50 text-xs italic text-slate-500{% endif %}">
+        <td class="px-3 py-2 text-xs">{{ r.date }}</td>
+        <td class="px-3 py-2 text-xs">
+          {% if r.direction=='in' %}<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">เข้า</span>
+          {% elif r.direction=='out' %}<span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded">ออก</span>
+          {% else %}<span class="bg-slate-200 px-2 py-0.5 rounded">note</span>{% endif %}
+          <span class="ml-1 text-slate-500 text-xs">{{ r.category }}</span>
+        </td>
+        <td class="px-3 py-2">{{ r.label }}</td>
+        <td class="px-3 py-2 text-right font-mono text-emerald-700">{% if r.direction=='in' %}{{ "{:,.0f}".format(r.amount) }}{% endif %}</td>
+        <td class="px-3 py-2 text-right font-mono text-rose-700">{% if r.direction=='out' %}{{ "{:,.0f}".format(r.amount) }}{% endif %}</td>
+        <td class="px-3 py-2 text-right font-mono font-semibold {% if r.running<0 %}text-rose-700{% else %}text-slate-700{% endif %}">{{ "{:+,.0f}".format(r.running) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="text-xs text-slate-400 mt-3">
+  💡 <b>สมมติฐาน</b>: AR รับปลายเดือน M+1 · เงินเดือน/หนี้ไปตามกำหนด · รายจ่ายรายวันจากค่าเฉลี่ย 30 วันย้อนหลัง ·
+  ตัวเลขนี้เป็นการประมาณการเพื่อเตือนภัย ไม่ใช่พยากรณ์แม่นยำ
+</p>
+{% endblock %}

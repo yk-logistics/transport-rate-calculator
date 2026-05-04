@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}Daily · รายการงานประจำวัน{% endblock %}
+{% block content %}
+{# Build the non-sort query string once so sortable headers can preserve filters. #}
+{% set base_qs = [] %}
+{% if site %}{% set _ = base_qs.append('site=' + site) %}{% endif %}
+{% if d %}{% set _ = base_qs.append('d=' + d) %}{% endif %}
+{% if d_from %}{% set _ = base_qs.append('d_from=' + d_from) %}{% endif %}
+{% if d_to %}{% set _ = base_qs.append('d_to=' + d_to) %}{% endif %}
+{% if status %}{% set _ = base_qs.append('status=' + status) %}{% endif %}
+{% if driver %}{% set _ = base_qs.append('driver=' + driver) %}{% endif %}
+{% if plate %}{% set _ = base_qs.append('plate=' + plate) %}{% endif %}
+{% set _ = base_qs.append('per_page=' + per_page|string) %}
+{% set base_qs_str = base_qs|join('&') %}
+{% macro sort_th(key, label, align='left') -%}
+  {%- set next_dir = 'desc' if (sort == key and dir == 'asc') else 'asc' -%}
+  {%- set arrow = '' -%}
+  {%- if sort == key -%}{%- set arrow = ' ▲' if dir == 'asc' else ' ▼' -%}{%- endif -%}
+  <th class="px-2 py-2 {{ 'text-right' if align=='right' else '' }}">
+    <a href="?sort={{ key }}&dir={{ next_dir }}&{{ base_qs_str }}"
+       class="hover:underline inline-flex items-center gap-0.5 {% if sort == key %}text-slate-900 font-semibold{% else %}text-slate-600{% endif %}">
+      {{ label }}<span class="text-xs">{{ arrow }}</span>
+    </a>
+  </th>
+{%- endmacro %}
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-2xl font-bold">Daily · {{ total_rows }} งาน <span class="text-sm text-slate-500 font-normal">(หน้า {{ page }}/{{ total_pages }})</span></h1>
+  <a href="/daily/new" class="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-700">+ เพิ่มงาน</a>
+</div>
+
+<form method="get" class="bg-white rounded-lg border p-4 mb-4 grid md:grid-cols-6 gap-3 items-end">
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">ไซต์</label>
+    <select name="site" class="border rounded px-2 py-1.5 text-sm w-full">
+      <option value="" {% if not site %}selected{% endif %}>ทั้งหมด</option>
+      {% for sc in site_codes %}
+      <option value="{{ sc }}" {% if site==sc %}selected{% endif %}>{{ sc }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">ตั้งแต่</label>
+    <input type="date" name="d_from" value="{{ d_from }}" class="border rounded px-2 py-1.5 text-sm w-full" />
+  </div>
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">ถึง</label>
+    <input type="date" name="d_to" value="{{ d_to }}" class="border rounded px-2 py-1.5 text-sm w-full" />
+  </div>
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">สถานะ</label>
+    <select name="status" class="border rounded px-2 py-1.5 text-sm w-full">
+      <option value="">ทั้งหมด</option>
+      <option value="real" {% if status=='real' %}selected{% endif %}>เฉพาะงานจริง</option>
+      <option value="idle" {% if status=='idle' %}selected{% endif %}>รถจอด</option>
+      <option value="leave" {% if status=='leave' %}selected{% endif %}>ลา</option>
+      <option value="placeholder" {% if status=='placeholder' %}selected{% endif %}>placeholder</option>
+    </select>
+  </div>
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">คนขับ</label>
+    <input name="driver" value="{{ driver }}" class="border rounded px-2 py-1.5 text-sm w-full" />
+  </div>
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">ทะเบียน</label>
+    <input name="plate" value="{{ plate }}" class="border rounded px-2 py-1.5 text-sm w-full" />
+  </div>
+  <div class="md:col-span-6 flex gap-2">
+    <button class="bg-slate-200 px-4 py-1.5 rounded text-sm">กรอง</button>
+    <a href="/daily" class="text-sm text-slate-500 underline self-center">ล้างตัวกรอง</a>
+  </div>
+</form>
+
+<div class="grid grid-cols-3 gap-4 mb-4">
+  <div class="bg-white border rounded-lg p-4">
+    <div class="text-xs text-slate-500">รายได้ (ตามที่กรอง)</div>
+    <div class="text-xl font-semibold text-emerald-600">฿{{ "%.0f"|format(total_rev) }}</div>
+  </div>
+  <div class="bg-white border rounded-lg p-4">
+    <div class="text-xs text-slate-500">ค่าเที่ยว พขร.</div>
+    <div class="text-xl font-semibold">฿{{ "%.0f"|format(total_trip) }}</div>
+  </div>
+  <div class="bg-white border rounded-lg p-4">
+    <div class="text-xs text-slate-500">ค่าน้ำมัน</div>
+    <div class="text-xl font-semibold text-red-600">฿{{ "%.0f"|format(total_fuel) }}</div>
+  </div>
+</div>
+
+<div class="bg-white rounded-lg border overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-100 text-left">
+      <tr>
+        {{ sort_th('work_date', 'วันที่') }}
+        {{ sort_th('site_code', 'ไซต์') }}
+        {{ sort_th('driver', 'พขร.') }}
+        {{ sort_th('plate', 'ทะเบียน') }}
+        <th class="px-2 py-2">หาง</th>
+        {{ sort_th('customer', 'ลูกค้า') }}
+        <th class="px-2 py-2">Type</th>
+        <th class="px-2 py-2">ปลายทาง</th>
+        <th class="px-2 py-2">ลา</th>
+        {{ sort_th('revenue', 'รายได้', 'right') }}
+        {{ sort_th('trip', 'ค่าเที่ยว', 'right') }}
+        {{ sort_th('fuel', 'น้ำมัน', 'right') }}
+        <th class="px-2 py-2"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr class="border-t hover:bg-slate-50 {% if r.status_code in ['idle','placeholder'] %}bg-slate-50/50 text-slate-500{% elif r.status_code=='leave' %}bg-amber-50/50{% endif %}">
+        <td class="px-2 py-2 whitespace-nowrap">{{ r.work_date | dmy }}</td>
+        <td class="px-2 py-2">{{ r.site_code }}</td>
+        <td class="px-2 py-2">{{ r.driver_name }}</td>
+        <td class="px-2 py-2 font-mono">{{ r.plate_no }}</td>
+        <td class="px-2 py-2 font-mono text-xs">{{ r.tail_plate }}</td>
+        <td class="px-2 py-2">{{ r.customer_name }}</td>
+        <td class="px-2 py-2 text-xs">
+          {{ r.trip_type_code }}
+          {% if r.status_code and r.status_code not in ['idle','placeholder','leave'] %}
+            <span class="ml-1 px-1 rounded bg-sky-100 text-sky-700 text-[10px]">{{ r.status_code }}</span>
+          {% elif r.status_code in ['idle','placeholder','leave'] %}
+            <span class="ml-1 px-1 rounded bg-slate-200 text-slate-600 text-[10px]">{{ r.status_code }}</span>
+          {% endif %}
+        </td>
+        <td class="px-2 py-2 text-xs">{{ r.destination }}</td>
+        <td class="px-2 py-2 text-xs">{% if r.leave_status %}<span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">{{ r.leave_status }}</span>{% endif %}</td>
+        <td class="px-2 py-2 text-right">{{ "%.0f"|format(r.revenue_customer) }}</td>
+        <td class="px-2 py-2 text-right">{{ "%.0f"|format(r.trip_fee_driver) }}</td>
+        <td class="px-2 py-2 text-right">{{ "%.0f"|format(r.fuel_amount) }}</td>
+        <td class="px-2 py-2 whitespace-nowrap">
+          <a href="/daily/{{ r.id }}/edit" class="text-blue-600 hover:underline text-xs">แก้</a>
+          <form method="post" action="/daily/{{ r.id }}/delete" onsubmit="return confirm('ลบแถวนี้?');" class="inline ml-2">
+            <button class="text-red-500 hover:underline text-xs">ลบ</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="13" class="px-3 py-8 text-center text-slate-400">ยังไม่มีข้อมูล — กด "+ เพิ่มงาน" เพื่อเริ่ม</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if total_pages > 1 %}
+{% set qs = '&' + base_qs_str + '&sort=' + sort + '&dir=' + dir %}
+<div class="flex items-center justify-center gap-1 mt-4 flex-wrap text-sm">
+  {% if page > 1 %}
+    <a href="?page=1{{ qs }}" class="px-3 py-1 border rounded hover:bg-slate-100">« หน้าแรก</a>
+    <a href="?page={{ page-1 }}{{ qs }}" class="px-3 py-1 border rounded hover:bg-slate-100">‹ ก่อนหน้า</a>
+  {% endif %}
+  <span class="px-3 py-1">หน้า {{ page }} / {{ total_pages }}</span>
+  {% if page < total_pages %}
+    <a href="?page={{ page+1 }}{{ qs }}" class="px-3 py-1 border rounded hover:bg-slate-100">ถัดไป ›</a>
+    <a href="?page={{ total_pages }}{{ qs }}" class="px-3 py-1 border rounded hover:bg-slate-100">สุดท้าย »</a>
+  {% endif %}
+  <span class="text-xs text-slate-500">ไปหน้า:</span>
+  <select onchange="if(this.value) window.location.href='?page='+this.value+'{{ qs }}'"
+          class="px-2 py-1 border rounded text-xs">
+    <option value="">เลือก…</option>
+    {% for p in range(1, total_pages + 1) %}
+      <option value="{{ p }}" {% if p == page %}selected{% endif %}>{{ p }}/{{ total_pages }}</option>
+    {% endfor %}
+  </select>
+  <span class="ml-2 text-xs text-slate-500">แสดง {{ per_page }}/หน้า</span>
+</div>
+{% endif %}
+{% endblock %}

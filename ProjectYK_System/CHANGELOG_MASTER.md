@@ -2,6 +2,18 @@
 
 สรุปการตัดสินใจสำคัญระดับภาพรวมข้ามทุกโมดูล
 
+## 2026-05-01 (Oatside — ซ่อน/แสดงคอลัมน์บน `trips.html` + หน้า plate)
+
+- **`Oatside/build_oatside_reports.py`**: แผง **แสดง/ซ่อนคอลัมน์** (checkbox + `localStorage` ต่อ path + ตาราง) สำหรับ `#tripsAllTable` / `#plateTripsTable` — สคริปต์ `_COL_TOGGLE_JS`
+
+## 2026-05-04 (Oatside — trips.html: วัน+เวลาในคอลัมน์แรก; แถว UM เติม Orig/Travel/Dest Wait + `um_leg_prev_gap_h`)
+
+- **`Oatside/build_oatside_reports.py`**: `um_leg_prev_gap_h`; UM แถวใช้ dwell/prev ใน 3 คอลัมน์รอ — เครื่องมือ `ProjectYK_System/tools/patch_oatside_trips_um_wait_time.py`, `patch_oatside_trips_date_cells.py`
+
+## 2026-05-01 (Oatside — GitHub Pages: ไฟล์รวมใน exports/ + ลิงก์ไม่ใช้ ../../../Oatside)
+
+- **`Oatside/build_oatside_reports.py`**: `write_split_excel_exports` คัดลอก workbook เต็ม → **`exports/00_Full_Workbook.xlsx`**; ลิงก์ «Excel รวมทุกชีต» ชี้ **`exports/00_Full_Workbook.xlsx`** (แทน path ออกนอกโฟลเดอร์รายงาน) — deploy ต้องรวมโฟลเดอร์ **`exports/`** ขึ้น Pages
+
 ## 2026-05-01 (Oatside — Unmatched เวลาอยู่จุด + gap ถึง In ถัดไป)
 
 - **`Oatside/build_oatside_reports.py`**: `build_leg_timeline_by_plate` / `um_leg_dwell_gap_h` — คอลัมน์ **อยู่จุด (ชม.)** / **ถึงเข้าครั้งถัดไป (ชม.)** (HTML + Excel **Unmatched_Log** `Dwell_h`, `Gap_to_next_In_h`); แถว matched บน `trips`/`plates` เป็น `—` — **`ProjectYK_System/tools/apply_oatside_um_v2.py`** + อัปเดต **`OATSIDE_CUSTOMER_REPORT_SPEC.md`**

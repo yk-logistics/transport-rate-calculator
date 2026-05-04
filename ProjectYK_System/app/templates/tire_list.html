@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}ยาง{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">🛞 ยาง</h1>
+  <div class="flex gap-2">
+    <a href="/maint" class="btn bg-slate-200 hover:bg-slate-300">← Dashboard</a>
+    <a href="/maint/tires/new" class="btn bg-orange-600 text-white hover:bg-orange-700">+ ยางเส้นใหม่</a>
+  </div>
+</div>
+
+<div class="grid grid-cols-2 md:grid-cols-6 gap-2 mb-4">
+  <a href="/maint/tires" class="p-3 bg-white border rounded {% if not status_filter %}ring-2 ring-slate-400{% endif %}">
+    <div class="text-xs text-slate-500">ทั้งหมด</div>
+    <div class="text-2xl font-bold">{{ total }}</div>
+  </a>
+  {% for k, label in status_options %}
+  <a href="/maint/tires?status_filter={{ k }}" class="p-3 bg-white border rounded {% if status_filter == k %}ring-2 ring-orange-400{% endif %}">
+    <div class="text-xs text-slate-500">{{ label }}</div>
+    <div class="text-2xl font-bold">{{ counts.get(k, 0) }}</div>
+  </a>
+  {% endfor %}
+</div>
+
+<form method="get" action="/maint/tires" class="p-3 bg-white border rounded-lg mb-4 flex flex-wrap gap-2 items-center">
+  <input type="hidden" name="status_filter" value="{{ status_filter }}">
+  <input type="text" name="vehicle_filter" placeholder="ทะเบียน..." value="{{ vehicle_filter }}" class="border rounded px-2 py-1 text-sm">
+  <input type="text" name="q" placeholder="ค้นหา brand/model/serial/spec..." value="{{ q }}" class="border rounded px-2 py-1 text-sm flex-1">
+  <button class="btn bg-slate-200 hover:bg-slate-300 text-sm">ค้นหา</button>
+  {% if vehicle_filter or q or status_filter %}
+  <a href="/maint/tires" class="text-sm text-slate-500 underline">ล้างตัวกรอง</a>
+  {% endif %}
+</form>
+
+<div class="mb-4 p-3 bg-white border rounded-lg">
+  <h2 class="font-semibold text-sm mb-2">⚡ ดูแบบผังยางต่อรถ</h2>
+  <div class="flex flex-wrap gap-2">
+    {% for v in vehicles[:30] %}
+    <a href="/maint/tires/by-vehicle/{{ v.id }}" class="px-3 py-1 border rounded text-sm hover:bg-slate-50">
+      {{ v.plate_no }}{% if v.nickname %} <span class="text-xs text-slate-500">({{ v.nickname }})</span>{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="bg-white border rounded-lg overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-xs text-slate-500">
+      <tr>
+        <th class="text-left py-2 px-2">รหัส</th>
+        <th class="text-left py-2 px-2">Brand / Model / Spec</th>
+        <th class="text-left py-2 px-2">Serial</th>
+        <th class="text-left py-2 px-2">สถานะ</th>
+        <th class="text-left py-2 px-2">รถ / ตำแหน่ง</th>
+        <th class="text-right py-2 px-2">ดอก (mm)</th>
+        <th class="text-right py-2 px-2">หล่อดอก</th>
+        <th class="text-right py-2 px-2">วันซื้อ</th>
+        <th class="text-right py-2 px-2">ราคา</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in tires %}
+      <tr class="border-t hover:bg-slate-50">
+        <td class="py-1 px-2 font-mono"><a href="/maint/tires/{{ t.id }}" class="text-orange-600 hover:underline">{{ t.code }}</a></td>
+        <td class="py-1 px-2">{{ t.brand or '-' }} {{ t.model or '' }} <span class="text-xs text-slate-500">{{ t.spec or '' }}</span></td>
+        <td class="py-1 px-2 font-mono text-xs">{{ t.serial_no or '-' }}</td>
+        <td class="py-1 px-2 text-xs">
+          {% if t.status == 'in_use' %}<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">ใช้งาน</span>
+          {% elif t.status == 'stored' %}<span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700">สต็อก</span>
+          {% elif t.status == 'retreaded' %}<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-700">หล่อดอก</span>
+          {% elif t.status == 'scrapped' %}<span class="px-2 py-0.5 rounded bg-red-100 text-red-700">ทิ้ง</span>
+          {% else %}<span class="px-2 py-0.5 rounded bg-sky-100 text-sky-700">ใหม่</span>{% endif %}
+        </td>
+        <td class="py-1 px-2 text-xs">
+          {% if t.current_vehicle_id and v_map.get(t.current_vehicle_id) %}
+          <a href="/maint/tires/by-vehicle/{{ t.current_vehicle_id }}" class="text-sky-600 hover:underline">{{ v_map[t.current_vehicle_id].plate_no }}</a>
+          / <span class="font-mono">{{ t.current_position }}</span>
+          {% else %}<span class="text-slate-400">-</span>{% endif %}
+        </td>
+        <td class="py-1 px-2 text-right font-mono">{{ "%.1f"|format(t.tread_depth_mm) if t.tread_depth_mm else '-' }}</td>
+        <td class="py-1 px-2 text-right">{{ t.retread_count }}×</td>
+        <td class="py-1 px-2 text-right text-xs">{{ t.purchase_date or '-' }}</td>
+        <td class="py-1 px-2 text-right font-mono">{{ '{:,.0f}'.format(t.purchase_price) if t.purchase_price else '-' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="py-6 text-center text-slate-400">ยังไม่มียางในระบบ — <a href="/maint/tires/new" class="underline">เพิ่มใหม่</a></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

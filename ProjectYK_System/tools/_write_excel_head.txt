@@ -1,0 +1,121 @@
+ 1656|
+ 1657|def write_excel(
+ 1658|    path: Path,
+ 1659|    origin_name: str,
+ 1660|    dest_name: str,
+ 1661|    trips: list[Trip],
+ 1662|    unmatched: list[tuple[str, Leg, str]],
+ 1663|    daily_time: list[tuple],
+ 1664|    daily_rows: list[tuple[date, dict]],
+ 1665|    fifty_rows: list[dict],
+ 1666|    fifty_total_baht: int,
+ 1667|    min_trip_extra_baht: int,
+ 1668|    audit_rows: list[dict],
+ 1669|    cfg: OatsideConfig,
+ 1670|    customer_grand_baht: int,
+ 1671|    no_work_rows: list[dict],
+ 1672|    no_work_total_baht: int,
+ 1673|    phantom_rows: list[dict],
+ 1674|    hint_rows: list[dict],
+ 1675|) -> None:
+ 1676|    base_baht = base_trips_revenue_baht(trips, cfg)
+ 1677|    pday = plate_dest_day_rows(trips, fifty_rows, cfg, nw_rows=no_work_rows)
+ 1678|    wb = openpyxl.Workbook()
+ 1679|    default = wb.active
+ 1680|    wb.remove(default)
+ 1681|
+ 1682|    # --- Info ---
+ 1683|    info = wb.create_sheet("Info", 0)
+ 1684|    info.append(["Built", datetime.now().strftime("%Y-%m-%d %H:%M")])
+ 1685|    info.append(["Origin file", origin_name])
+ 1686|    info.append(["Dest file", dest_name])
+ 1687|    info.append(["Config file", str(_config_path())])
+ 1688|    info.append(["Max_travel_h", cfg.max_travel_h])
+ 1689|    info.append(["Max_origin_chain_gap_h", cfg.max_origin_chain_gap_h])
+ 1690|    info.append(["Enable_origin_chain_merge", cfg.enable_origin_chain_merge])
+ 1691|    info.append(["Min_trips_per_truck_per_day", cfg.min_trips_per_truck])
+ 1692|    info.append(["One_trip_surcharge_pct", cfg.one_trip_surcharge_pct])
+ 1693|    info.append(["Trip_rates", config_rate_summary(cfg)])
+ 1694|    info.append(["Matcher",
+ 1695|        f"Greedy min-travel; feasible if Dest_In>=Origin_Out and travel<={cfg.max_travel_h}h"])
+ 1696|    info.append(["Surcharge_50pct_1Trip",
+ 1697|        f"If exactly 1 matched trip on Dest_In day -> add {cfg.one_trip_surcharge_pct:.0f}% of trip rate. "
+ 1698|        f"Overrides: {_overrides_json_path()} (exclude_50 / include_50)"])
+ 1699|    info.append(["Base_trips_revenue_baht", base_baht])
+ 1700|    info.append(["Use_origin_24h_fifty", cfg.use_origin_24h_fifty])
+ 1701|    info.append(["Customer_idle_windows", len(cfg.customer_idle_windows)])
+ 1702|    info.append(["Charge_min_trip_shortfall", cfg.charge_min_trip_shortfall])
+ 1703|    info.append(["Min2trips_extra_baht", min_trip_extra_baht])
+ 1704|    info.append(["Fifty_pct_surcharge_total_baht", fifty_total_baht])
+ 1705|    info.append(["No_work_outbound_50pct_total_baht", no_work_total_baht])
+ 1706|    info.append(
+ 1707|        [
+ 1708|            "Policy_recovery_plus_fifty",
+ 1709|            "เก็บคู่: วัน recovery เที่ยวแรกอาจได้ทั้ง surcharge fifty (ดาวน์ไทม์) และ No-work outbound 50pct — บวกทั้งคู่ตามนโยบายผู้ใช้ 2026-05-01",
+ 1710|        ]
+ 1711|    )
+ 1712|    info.append(["Phantom_zero_trip_candidates", len(phantom_rows)])
+ 1713|    info.append(["Double_origin_um_hints", len(hint_rows)])
+ 1714|    cg_note = (
+ 1715|        "base + min_trips + fifty + no_work_recovery"
+ 1716|        if cfg.charge_min_trip_shortfall
+ 1717|        else "base + fifty + no_work_recovery (min-trip shortfall not charged)"
+ 1718|    )
+ 1719|    info.append([f"Customer_grand_baht ({cg_note})", customer_grand_baht])
+ 1720|
+ 1721|    # --- Customer Summary ---
+ 1722|    cs = wb.create_sheet("Customer_Summary")
+ 1723|    cs.append(["Line", "รายการ", "บาท"])
+ 1724|    cs.append(["A", "ค่าเที่ยวปกติ (นับ 1 เที่ยว = 1 เรทตามวันที่ Dest_In)", base_baht])
+ 1725|    if cfg.charge_min_trip_shortfall:
+ 1726|        b_line = f"เที่ยวขาดจาก commit {cfg.min_trips_per_truck} เที่ยว/คัน/วัน (min trips)"
+ 1727|    else:
+ 1728|        b_line = (
+ 1729|            f"ค่าชดเชยเที่ยวขาด (min {cfg.min_trips_per_truck}/คัน/วัน) — ไม่เก็บเงิน "
+ 1730|            f"(ใช้ชาร์จ {cfg.one_trip_surcharge_pct:.0f}% วันละ 1 เที่ยวแทน)"
+ 1731|        )
+ 1732|    cs.append(["B", b_line, min_trip_extra_baht])
+ 1733|    cs.append(["C", f"ชาร์จ {cfg.one_trip_surcharge_pct:.0f}% วันที่วิ่งได้ 1 เที่ยว (หลัง override)", fifty_total_baht])
+ 1734|    cs.append(
+ 1735|        [
+ 1736|            "D",
+ 1737|            "No-work recovery outbound 50pct (first matched trip that Dest_In day on recovery dates)",
+ 1738|            no_work_total_baht,
+ 1739|        ]
+ 1740|    )
+ 1741|    tot_lbl = (
+ 1742|        "Grand (A+B+C+D)"
+ 1743|        if cfg.charge_min_trip_shortfall
+ 1744|        else "Grand (A+C+D)"
+ 1745|    )
+ 1746|    cs.append(["TOTAL", tot_lbl, customer_grand_baht])
+ 1747|
+ 1748|    # --- Customer: trips per day (matched, by Dest_In date) ---
+ 1749|    cpd_rows = customer_trips_per_day_rows(trips)
+ 1750|    cpd = wb.create_sheet("Customer_Trips_Per_Day")
+ 1751|    cpd.append(["วันที่_Dest_In", "จำนวนเที่ยว_matched", "จำนวนรถ_มีเที่ยววันนั้น"])
+ 1752|    for r in cpd_rows:
+ 1753|        cpd.append([r["dest_date"], r["matched_trips"], r["active_trucks"]])
+ 1754|
+ 1755|    # --- Audit Log (ชีตใหม่ — อธิบายเหตุผลการคิดเงินรายวัน/ทะเบียน) ---
+ 1756|    al = wb.create_sheet("Audit_Log")
+ 1757|    al.append([
+ 1758|        "Dest_In_date", "Plate", "Site",
+ 1759|        "เที่ยว", "เรท(฿)", "ค่าเที่ยว(฿)",
+ 1760|        f"+{cfg.one_trip_surcharge_pct:.0f}%(฿)", "รวมวันนี้(฿)",
+ 1761|        "เหตุผลการคิดเงิน",
+ 1762|    ])
+ 1763|    for r in audit_rows:
+ 1764|        al.append([
+ 1765|            r["dest_date"], r["plate"], r["site"],
+ 1766|            r["matched_trips"], r["trip_rate_baht"], r["base_line_baht"],
+ 1767|            r["fifty_pct_baht"], r["customer_day_baht"],
+ 1768|            r["billing_note"],
+ 1769|        ])
+ 1770|
+ 1771|    # --- Trip Detail ---
+ 1772|    td = wb.create_sheet("Trip_Detail")
+ 1773|    td.append([
+ 1774|        "Trip_Date", "Origin_Date", "Dest_Date", "Site", "Plate", "Device",
+ 1775|        "Origin_Row", "Dest_Row",
+ 1776|        "Origin_In", "Origin_Out", "Origin_Wait_h",

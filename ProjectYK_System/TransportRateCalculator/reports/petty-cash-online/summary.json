@@ -1,0 +1,45 @@
+{
+  "record_count": 152410,
+  "sites": {
+    "AYU": {
+      "rows": 50843,
+      "expense_total": 308477690.8065,
+      "deduct_salary_total": 22132429.13,
+      "finance_rows": 2062
+    },
+    "BigC": {
+      "rows": 50792,
+      "expense_total": 308312319.3265,
+      "deduct_salary_total": 22127636.13,
+      "finance_rows": 2062
+    },
+    "LCB": {
+      "rows": 50775,
+      "expense_total": 308293359.8265,
+      "deduct_salary_total": 22126886.13,
+      "finance_rows": 2062
+    }
+  },
+  "categories": {
+    "advance": {
+      "rows": 36396,
+      "expense_total": 57412800.63,
+      "deduct_salary_total": 54917737.1
+    },
+    "container": {
+      "rows": 5708,
+      "expense_total": 6459704.49,
+      "deduct_salary_total": 249752.36
+    },
+    "finance": {
+      "rows": 6186,
+      "expense_total": 170457484.07999998,
+      "deduct_salary_total": 479400.0
+    },
+    "other": {
+      "rows": 104120,
+      "expense_total": 690753380.7595,
+      "deduct_salary_total": 10740061.929999998
+    }
+  }
+}

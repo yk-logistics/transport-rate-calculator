@@ -1,0 +1,273 @@
+948|# ---------------------------------------------------------------------------
+949|
+950|def write_excel(
+951|    path: Path,
+952|    origin_name: str,
+953|    dest_name: str,
+954|    trips: list[Trip],
+955|    unmatched: list[tuple[str, Leg, str]],
+956|    daily_time: list[tuple],
+957|    daily_rows: list[tuple[date, dict]],
+958|    fifty_rows: list[dict],
+959|    fifty_total_baht: int,
+960|    min_trip_extra_baht: int,
+961|    audit_rows: list[dict],
+962|    cfg: OatsideConfig,
+963|) -> None:
+964|    base_baht = base_trips_revenue_baht(trips, cfg)
+965|    customer_grand_baht = int(base_baht) + int(min_trip_extra_baht) + int(fifty_total_baht)
+966|    pday = plate_dest_day_rows(trips, fifty_rows, cfg)
+967|    wb = openpyxl.Workbook()
+968|    default = wb.active
+969|    wb.remove(default)
+970|
+971|    # --- Info ---
+972|    info = wb.create_sheet("Info", 0)
+973|    info.append(["Built", datetime.now().strftime("%Y-%m-%d %H:%M")])
+974|    info.append(["Origin file", origin_name])
+975|    info.append(["Dest file", dest_name])
+976|    info.append(["Config file", str(_config_path())])
+977|    info.append(["Max_travel_h", cfg.max_travel_h])
+978|    info.append(["Max_origin_chain_gap_h", cfg.max_origin_chain_gap_h])
+979|    info.append(["Enable_origin_chain_merge", cfg.enable_origin_chain_merge])
+980|    info.append(["Min_trips_per_truck_per_day", cfg.min_trips_per_truck])
+981|    info.append(["One_trip_surcharge_pct", cfg.one_trip_surcharge_pct])
+982|    info.append(["Trip_rates", config_rate_summary(cfg)])
+983|    info.append(["Matcher",
+984|        f"Greedy min-travel; feasible if Dest_In>=Origin_Out and travel<={cfg.max_travel_h}h"])
+985|    info.append(["Surcharge_50pct_1Trip",
+986|        f"If exactly 1 matched trip on Dest_In day -> add {cfg.one_trip_surcharge_pct:.0f}% of trip rate. "
+987|        f"Overrides: {_overrides_json_path()} (exclude_50 / include_50)"])
+988|    info.append(["Base_trips_revenue_baht", base_baht])
+989|    info.append(["Charge_min_trip_shortfall", cfg.charge_min_trip_shortfall])
+990|    info.append(["Min2trips_extra_baht", min_trip_extra_baht])
+991|    info.append(["Fifty_pct_surcharge_total_baht", fifty_total_baht])
+992|    cg_note = "base + min_trips + fifty" if cfg.charge_min_trip_shortfall else "base + fifty (min-trip shortfall not charged)"
+993|    info.append([f"Customer_grand_baht ({cg_note})", customer_grand_baht])
+994|
+995|    # --- Customer Summary ---
+996|    cs = wb.create_sheet("Customer_Summary")
+997|    cs.append(["Line", "รายการ", "บาท"])
+998|    cs.append(["A", "ค่าเที่ยวปกติ (นับ 1 เที่ยว = 1 เรทตามวันที่ Dest_In)", base_baht])
+999|    if cfg.charge_min_trip_shortfall:
+1000|        b_line = f"เที่ยวขาดจาก commit {cfg.min_trips_per_truck} เที่ยว/คัน/วัน (min trips)"
+1001|    else:
+1002|        b_line = (
+1003|            f"ค่าชดเชยเที่ยวขาด (min {cfg.min_trips_per_truck}/คัน/วัน) — ไม่เก็บเงิน "
+1004|            f"(ใช้ชาร์จ {cfg.one_trip_surcharge_pct:.0f}% วันละ 1 เที่ยวแทน)"
+1005|        )
+1006|    cs.append(["B", b_line, min_trip_extra_baht])
+1007|    cs.append(["C", f"ชาร์จ {cfg.one_trip_surcharge_pct:.0f}% วันที่วิ่งได้ 1 เที่ยว (หลัง override)", fifty_total_baht])
+1008|    tot_lbl = "รวมเสนอลูกค้า (A+B+C)" if cfg.charge_min_trip_shortfall else "รวมเสนอลูกค้า (A+C)"
+1009|    cs.append(["TOTAL", tot_lbl, customer_grand_baht])
+1010|
+1011|    # --- Audit Log (ชีตใหม่ — อธิบายเหตุผลการคิดเงินรายวัน/ทะเบียน) ---
+1012|    al = wb.create_sheet("Audit_Log")
+1013|    al.append([
+1014|        "Dest_In_date", "Plate", "Site",
+1015|        "เที่ยว", "เรท(฿)", "ค่าเที่ยว(฿)",
+1016|        f"+{cfg.one_trip_surcharge_pct:.0f}%(฿)", "รวมวันนี้(฿)",
+1017|        "เหตุผลการคิดเงิน",
+1018|    ])
+1019|    for r in audit_rows:
+1020|        al.append([
+1021|            r["dest_date"], r["plate"], r["site"],
+1022|            r["matched_trips"], r["trip_rate_baht"], r["base_line_baht"],
+1023|            r["fifty_pct_baht"], r["customer_day_baht"],
+1024|            r["billing_note"],
+1025|        ])
+1026|
+1027|    # --- Trip Detail ---
+1028|    td = wb.create_sheet("Trip_Detail")
+1029|    td.append([
+1030|        "Trip_Date", "Origin_Date", "Dest_Date", "Site", "Plate", "Device",
+1031|        "Origin_Row", "Dest_Row",
+1032|        "Origin_In", "Origin_Out", "Origin_Wait_h",
+1033|        "Dest_In", "Dest_Out",
+1034|        "Travel_h(OriginOut->DestIn)", "Dest_Wait_h", "Total_Cycle_h",
+1035|        "Travel_Flag", "Billable_Trip",
+1036|    ])
+1037|    for t in sorted(trips, key=lambda x: (x.dest_date, x.plate, x.d_in)):
+1038|        td.append([
+1039|            t.trip_date, t.origin_date, t.dest_date,
+1040|            t.site, t.plate, t.device, t.o_row, t.d_row,
+1041|            t.o_in, t.o_out, round(t.origin_wait_h, 2),
+1042|            t.d_in, t.d_out,
+1043|            round(t.travel_h, 2), round(t.dest_wait_h, 2), round(t.total_cycle_h, 2),
+1044|            t.travel_flag, 1,
+1045|        ])
+1046|
+1047|    # --- Unmatched Log ---
+1048|    um = wb.create_sheet("Unmatched_Log")
+1049|    um.append(["Source", "Plate", "Device", "Row_No", "In", "Out"])
+1050|    for src, leg, _ in sorted(unmatched, key=lambda x: (x[2], x[1].t_in)):
+1051|        um.append([src, leg.plate, leg.device, leg.row_no, leg.t_in, leg.t_out])
+1052|
+1053|    # --- Daily Activity ---
+1054|    da = wb.create_sheet("Daily_Activity")
+1055|    da.append([
+1056|        "Dest_In date", "Active trucks (all)", "Actual trips (all)",
+1057|        f"Commit min ({cfg.min_trips_per_truck}x trucks)", "Shortfall trips (all)",
+1058|        "BigC trucks", "BigC trips", "LCB trucks", "LCB trips",
+1059|    ])
+1060|    for d, s in daily_rows:
+1061|        da.append([
+1062|            d, s["trucks"], s["trips"], s["commit"], s["short"],
+1063|            len(s["bigc_p"]), s["bigc_t"], len(s["lcb_p"]), s["lcb_t"],
+1064|        ])
+1065|
+1066|    # --- Daily Time 24h Check ---
+1067|    dt = wb.create_sheet("Daily_Time_24h_Check")
+1068|    dt.append([
+1069|        "Activity_Date", "Plate", "Site",
+1070|        "Matched_Cycle_h", "Matched_Origin_Wait_h", "Matched_Dest_Wait_h", "Matched_Travel_h",
+1071|        "Unmatched_Origin_h", "Unmatched_Dest_h",
+1072|        "Adjusted_Origin_Wait_h", "Adjusted_Dest_Wait_h",
+1073|        "Combined_h(AdjustedWait+Travel)", "Gap_vs_24_h",
+1074|    ])
+1075|    for d, plate, site, cycle_h, m_ow, m_dw, m_tr, um_ow, um_dw, ad_ow, ad_dw, comb, gap in daily_time:
+1076|        dt.append([
+1077|            d.isoformat(), plate, site,
+1078|            round(cycle_h, 2), round(m_ow, 2), round(m_dw, 2), round(m_tr, 2),
+1079|            round(um_ow, 2), round(um_dw, 2), round(ad_ow, 2), round(ad_dw, 2),
+1080|            round(comb, 2), round(gap, 2),
+1081|        ])
+1082|
+1083|    # --- Plate DestDay ---
+1084|    pd_sheet = wb.create_sheet("Plate_DestDay")
+1085|    pd_sheet.append([
+1086|        "Dest_In_date", "Plate", "Site", "Matched_trips",
+1087|        "Trip_rate_baht", "Base_line_baht", "Fifty_pct_baht", "Customer_day_baht",
+1088|    ])
+1089|    for r in pday:
+1090|        pd_sheet.append([
+1091|            r["dest_date"], r["plate"], r["site"], r["matched_trips"],
+1092|            r["trip_rate_baht"], r["base_line_baht"], r["fifty_pct_baht"], r["customer_day_baht"],
+1093|        ])
+1094|
+1095|    # --- Surcharge 50% 1Trip ---
+1096|    lt = wb.create_sheet("Surcharge_50pct_1Trip")
+1097|    lt.append([
+1098|        "Dest_In_date", "Plate", "Site", "Trips_that_day",
+1099|        "Auto_1trip_rule_Y/N", "Override_action", "Override_note",
+1100|        "Trip_rate_baht", f"Surcharge_baht_{cfg.one_trip_surcharge_pct:.0f}pct",
+1101|    ])
+1102|    for r in fifty_rows:
+1103|        lt.append([
+1104|            r["dest_date"], r["plate"], r["site"], r["trips_that_day"],
+1105|            "Y" if r["auto_1trip"] else "N",
+1106|            r.get("override_action", ""), r.get("override_note", ""),
+1107|            r["trip_rate_baht"], r["surcharge_baht"],
+1108|        ])
+1109|
+1110|    wb.save(path)
+1111|
+1112|
+1113|# ---------------------------------------------------------------------------
+1114|# HTML helpers
+1115|# ---------------------------------------------------------------------------
+1116|
+1117|def esc(x) -> str:
+1118|    return html_module.escape(str(x), quote=True)
+1119|
+1120|
+1121|def fmt_h(x: float) -> str:
+1122|    return f"{x:.2f}".rstrip("0").rstrip(".")
+1123|
+1124|
+1125|def fmt_hm(x: float) -> str:
+1126|    sign = "-" if x < 0 else ""
+1127|    total_minutes = int(round(abs(x) * 60))
+1128|    hh = total_minutes // 60
+1129|    mm = total_minutes % 60
+1130|    return f"{sign}{hh}.{mm:02d}"
+1131|
+1132|
+1133|def unmatched_merged_trip_one_row_html(
+1134|    src: str,
+1135|    leg: Leg,
+1136|    *,
+1137|    include_plate_link: bool = True,
+1138|    include_plate_column: bool = True,
+1139|) -> str:
+1140|    """One <tr> aligned with trip_row (full) or trip_row_plate (no plate column)."""
+1141|    dash = "—"
+1142|    tag = "UM-O" if src == "Origin" else "UM-D"
+1143|    badge = f"<span class='badge abn'>{tag}</span> "
+1144|    site = site_for_plate(leg.plate)
+1145|    site_html = f"<span class='badge {'bigc' if site == 'BigC' else 'lcb'}'>{site}</span>"
+1146|    if include_plate_column:
+1147|        if include_plate_link:
+1148|            plate_html = f"{badge}<a href='plates/{esc(leg.plate)}.html'>{esc(leg.plate)}</a>"
+1149|        else:
+1150|            plate_html = f"{badge}{esc(leg.plate)}"
+1151|        site_plate = f"<td>{site_html}</td><td>{plate_html}</td>"
+1152|    else:
+1153|        site_plate = f"<td>{site_html} {badge}</td>"
+1154|    if src == "Origin":
+1155|        od, dd = leg.t_in.date(), dash
+1156|        oi, oo = leg.t_in, leg.t_out
+1157|        di, do = dash, dash
+1158|    else:
+1159|        od, dd = dash, leg.t_in.date()
+1160|        oi, oo = dash, dash
+1161|        di, do = leg.t_in, leg.t_out
+1162|    return (
+1163|        f"<tr class='um'><td>{od}</td><td>{dd}</td>{site_plate}"
+1164|        f"<td>{oi}</td><td>{oo}</td><td>{di}</td><td>{do}</td>"
+1165|        f"<td>{dash}</td><td>{dash}</td><td>{dash}</td></tr>"
+1166|    )
+1167|
+1168|
+1169|def interleaved_matched_unmatched_rows_html(
+1170|    trips: list[Trip],
+1171|    unmatched: list[tuple[str, Leg, str]],
+1172|    trip_row_cb: Callable[[Trip], str],
+1173|    *,
+1174|    plate: str | None = None,
+1175|    include_plate_link: bool = True,
+1176|    include_plate_column: bool = True,
+1177|) -> str:
+1178|    """Sort matched (by Dest_In time) and unmatched (by leg time) into one timeline."""
+1179|    rows: list[tuple[datetime, tuple[Any, ...], str]] = []
+1180|    for t in trips:
+1181|        if plate is not None and t.plate != plate:
+1182|            continue
+1183|        rows.append((t.d_in, (0, t.plate, t.d_row or "", t.o_row or ""), trip_row_cb(t)))
+1184|    for src, leg, _mp in unmatched:
+1185|        if plate is not None and leg.plate != plate:
+1186|            continue
+1187|        um_html = unmatched_merged_trip_one_row_html(
+1188|            src,
+1189|            leg,
+1190|            include_plate_link=include_plate_link,
+1191|            include_plate_column=include_plate_column,
+1192|        )
+1193|        kind = 1 if src == "Origin" else 2
+1194|        rows.append((leg.t_in, (kind, leg.plate, src, leg.row_no), um_html))
+1195|    rows.sort(key=lambda x: (x[0], x[1]))
+1196|    return "".join(r[2] for r in rows)
+1197|
+1198|
+1199|# ---------------------------------------------------------------------------
+1200|# HTML export
+1201|# ---------------------------------------------------------------------------
+1202|
+1203|def write_html(
+1204|    report_dir: Path,
+1205|    origin_label: str,
+1206|    trips: list[Trip],
+1207|    daily_rows: list[tuple[date, dict]],
+1208|    daily_time: list[tuple],
+1209|    actual: int,
+1210|    commit: int,
+1211|    short: int,
+1212|    extra: int,
+1213|    bc: tuple,
+1214|    fifty_rows: list[dict],
+1215|    fifty_total_baht: int,
+1216|    grand_extra_baht: int,
+1217|    base_baht: int,
+1218|    customer_grand_baht: int,
+1219|    pday_rows: list[dict],
+1220|    audit_rows: list[dict],

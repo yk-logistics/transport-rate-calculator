@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{% if mode=='new' %}เพิ่มลูกค้า{% else %}แก้ไขลูกค้า {{ row.name }}{% endif %}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">{% if mode=='new' %}เพิ่มลูกค้า{% else %}แก้ไขลูกค้า {{ row.name }}{% endif %}</h1>
+
+<form method="post" action="{% if mode=='new' %}/customers/new{% else %}/customers/{{ row.id }}/edit{% endif %}" class="bg-white rounded-lg border p-6 grid md:grid-cols-2 gap-4">
+  <div>
+    <label class="block text-sm mb-1">รหัส</label>
+    <input name="code" value="{{ row.code if row else '' }}" class="w-full border rounded px-3 py-2" placeholder="เว้นว่าง = ระบบสร้างให้ (C0001, ...) หรือพิมพ์ BIGC/DHL/MOL" />
+  </div>
+  <div>
+    <label class="block text-sm mb-1">ชื่อลูกค้า *</label>
+    <input name="name" value="{{ row.name if row else '' }}" required class="w-full border rounded px-3 py-2" />
+  </div>
+  <div>
+    <label class="block text-sm mb-1">ไซต์หลัก</label>
+    <select name="home_site_code" class="w-full border rounded px-3 py-2">
+      <option value="">—</option>
+      {% for sc in site_codes %}
+      <option value="{{ sc }}" {% if row and row.home_site_code==sc %}selected{% endif %}>{{ sc }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="block text-sm mb-1">Billing Profile อ้างอิง</label>
+    <input name="billing_profile_ref" value="{{ row.billing_profile_ref if row else '' }}" class="w-full border rounded px-3 py-2" placeholder="เช่น bigc_standard, lcb_export" />
+    <p class="text-xs text-slate-500 mt-1">อ้างอิงไปที่ docs/CUSTOMER_BILLING_PROFILES.md</p>
+  </div>
+  <div class="md:col-span-2">
+    <label class="block text-sm mb-1">หมายเหตุ</label>
+    <textarea name="notes" rows="3" class="w-full border rounded px-3 py-2">{{ row.notes if row else '' }}</textarea>
+  </div>
+  <div class="md:col-span-2 flex gap-2">
+    <button class="bg-slate-900 text-white px-5 py-2 rounded-lg hover:bg-slate-700">บันทึก</button>
+    <a href="/customers" class="px-5 py-2 rounded-lg border">ยกเลิก</a>
+  </div>
+</form>
+{% endblock %}

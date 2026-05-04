@@ -1,0 +1,85 @@
+# ---------------------------------------------------------------------------
+# Project YK — .gitignore
+# Keeps sensitive business data, runtime artefacts, and local state out of git.
+# ---------------------------------------------------------------------------
+
+# Database / runtime data
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Python bytecode / caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtualenvs
+venv/
+.venv/
+env/
+ENV/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# OS
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Secrets
+.env
+.env.*
+*.pem
+*.key
+credentials*.json
+
+# Sensitive business data (payroll/accounting files — NEVER commit)
+data/
+ProjectYK_System/*.xlsx
+ProjectYK_System/*.xls
+ProjectYK_System/*.xlsm
+ProjectYK_System/Daily.xlsx
+ProjectYK_System/*.csv
+audit_*.csv
+fuel_*.csv
+*.pdf
+*payroll*.xlsx
+*เงินเดือน*
+
+# AccidentCases raw photos / large binary inputs
+AccidentCases/uploads/
+AccidentCases/*.jpg
+AccidentCases/*.png
+
+# Nested git repos (deployable subfolders — keep separate)
+transport-rate-calculator-repo/.git/
+
+# Backups
+*.bak
+*.backup
+backup_*/
+
+# Docs scratch
+.cursor/history/
+.cursor/sessions/
+.cursor/projects/
+
+# Temporary commit messages
+.git/COMMIT_MSG*.txt
+
+# Python build artefacts
+build/
+dist/
+*.egg-info/

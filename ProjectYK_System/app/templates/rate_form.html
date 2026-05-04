@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}{% if card %}แก้ไขเรท{% else %}เพิ่มเรทใหม่{% endif %}{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">
+    {% if card %}✏️ แก้ไขกฎเรท #{{ card.id }}{% else %}💡 เพิ่มกฎเรทใหม่{% endif %}
+  </h1>
+  <div class="flex gap-2">
+    <a href="/rates" class="btn bg-slate-200 hover:bg-slate-300">← กลับ</a>
+    {% if card %}
+    <form method="post" action="/rates/{{ card.id }}/delete" onsubmit="return confirm('ลบกฎนี้?')">
+      <button class="btn bg-rose-600 text-white hover:bg-rose-700">🗑 ลบ</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<form method="post" class="space-y-4">
+  <div class="p-4 bg-white border rounded-lg grid grid-cols-1 md:grid-cols-3 gap-3">
+    <div>
+      <label class="text-xs text-slate-500 block">ประเภทเรท <span class="text-rose-500">*</span></label>
+      <select name="kind" required class="border rounded px-2 py-1 w-full">
+        {% for k, label in kinds %}
+        <option value="{{ k }}" {% if card and card.kind == k %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="text-xs text-slate-500 block">ค่า <span class="text-rose-500">*</span></label>
+      <input type="number" step="0.01" name="rate_value" value="{{ card.rate_value if card else '' }}" required class="border rounded px-2 py-1 w-full text-right font-mono font-semibold">
+      <div class="text-xs text-slate-400 mt-1">หน่วย: <code id="unitHint">{{ card.rate_unit if card else 'THB' }}</code> (auto จากประเภท)</div>
+    </div>
+    <div>
+      <label class="text-xs text-slate-500 block">Priority</label>
+      <input type="number" step="1" name="priority" value="{{ card.priority if card else 0 }}" class="border rounded px-2 py-1 w-full">
+      <div class="text-xs text-slate-400 mt-1">สูง = ชนะ · manual pin = 1+</div>
+    </div>
+  </div>
+
+  <div class="p-4 bg-white border rounded-lg">
+    <h2 class="font-semibold mb-2">🎯 เงื่อนไข Pattern (ใส่ <code>*</code> ถ้าไม่ต้องการเจาะจง)</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div>
+        <label class="text-xs text-slate-500 block">Site</label>
+        <select name="site_code" class="border rounded px-2 py-1 w-full">
+          <option value="*" {% if card and card.site_code == '*' %}selected{% endif %}>* (any)</option>
+          {% for s in sites %}
+          <option value="{{ s }}" {% if card and card.site_code == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-slate-500 block">ลูกค้า</label>
+        <select name="customer_id" class="border rounded px-2 py-1 w-full">
+          <option value="">* (any customer)</option>
+          {% for c in customers %}
+          <option value="{{ c.id }}" {% if card and card.customer_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-slate-500 block">ประเภทรถ</label>
+        <input type="text" name="vehicle_kind" value="{{ card.vehicle_kind if card else '*' }}" list="vehicle_kinds" class="border rounded px-2 py-1 w-full" placeholder="6W / 10W / trailer / *">
+        <datalist id="vehicle_kinds">
+          <option value="*">any</option>
+          <option value="6W"><option value="10W"><option value="trailer"><option value="head">
+        </datalist>
+      </div>
+      <div>
+        <label class="text-xs text-slate-500 block">Trip Type</label>
+        <input type="text" name="trip_type_code" value="{{ card.trip_type_code if card else '*' }}" list="trip_types" class="border rounded px-2 py-1 w-full" placeholder="เช่น 1BigC, 2BigC, loading, backhaul, *">
+        <datalist id="trip_types">
+          <option value="*"><option value="1BigC"><option value="1+"><option value="2BigC"><option value="2++">
+          <option value="1DH"><option value="loading"><option value="backhaul">
+        </datalist>
+      </div>
+      <div>
+        <label class="text-xs text-slate-500 block">ต้นทาง</label>
+        <input type="text" name="origin" value="{{ card.origin if card else '*' }}" class="border rounded px-2 py-1 w-full" placeholder="* = any">
+      </div>
+      <div>
+        <label class="text-xs text-slate-500 block">ปลายทาง</label>
+        <input type="text" name="destination" value="{{ card.destination if card else '*' }}" class="border rounded px-2 py-1 w-full" placeholder="* = any">
+      </div>
+      <div class="md:col-span-3">
+        <label class="text-xs text-slate-500 block">Loading (LCB: ชื่อโรงงาน เช่น CNC, Harn Engineering)</label>
+        <input type="text" name="pickup_location" value="{{ card.pickup_location if card else '*' }}" class="border rounded px-2 py-1 w-full" placeholder="* = any">
+      </div>
+      <div class="md:col-span-3">
+        <label class="text-xs text-slate-500 block">Except pattern (annotation เท่านั้น — ยังไม่ enforce)</label>
+        <input type="text" name="except_pattern" value="{{ card.except_pattern if card else '' }}" class="border rounded px-2 py-1 w-full" placeholder="เช่น except destination=แหลมฉบัง — ใช้จดบันทึกเพื่อเตือน admin">
+      </div>
+    </div>
+  </div>
+
+  <div class="p-4 bg-white border rounded-lg grid grid-cols-1 md:grid-cols-3 gap-3">
+    <div>
+      <label class="text-xs text-slate-500 block">เริ่มใช้ (optional)</label>
+      <input type="date" name="effective_from" value="{{ card.effective_from if card and card.effective_from else '' }}" class="border rounded px-2 py-1 w-full">
+    </div>
+    <div>
+      <label class="text-xs text-slate-500 block">สิ้นสุด (optional)</label>
+      <input type="date" name="effective_to" value="{{ card.effective_to if card and card.effective_to else '' }}" class="border rounded px-2 py-1 w-full">
+    </div>
+    {% if card and card.source == 'auto' %}
+    <div>
+      <label class="text-xs text-slate-500 block">ล็อกเป็น Manual?</label>
+      <label class="inline-flex items-center mt-2">
+        <input type="checkbox" name="promote_to_manual" value="on" class="mr-1">
+        <span class="text-sm">📌 ปักหมุดเป็น manual (กัน auto-update ทับ)</span>
+      </label>
+    </div>
+    {% endif %}
+    <div class="md:col-span-3">
+      <label class="text-xs text-slate-500 block">หมายเหตุ</label>
+      <textarea name="notes" rows="2" class="border rounded px-2 py-1 w-full">{{ card.notes if card else '' }}</textarea>
+    </div>
+  </div>
+
+  {% if card %}
+  <div class="p-3 bg-slate-50 border rounded-lg text-xs text-slate-600 flex gap-4 flex-wrap">
+    <div>Source: <strong>{{ card.source }}</strong></div>
+    <div>ใช้แล้ว: <strong>{{ card.use_count }}</strong> ครั้ง</div>
+    <div>ครั้งล่าสุด: <strong>{{ card.last_used_at or '-' }}</strong></div>
+    <div>Job ล่าสุดที่ใช้: <strong>{% if card.last_seen_job_id %}<a href="/daily?q={{ card.last_seen_job_id }}" class="text-sky-600 hover:underline">#{{ card.last_seen_job_id }}</a>{% else %}-{% endif %}</strong></div>
+    <div>สร้าง: <strong>{{ card.created_at }}</strong></div>
+  </div>
+  {% endif %}
+
+  <div class="flex gap-2">
+    <button class="btn bg-cyan-600 text-white hover:bg-cyan-700">💾 บันทึก</button>
+    <a href="/rates" class="btn bg-slate-200 hover:bg-slate-300">ยกเลิก</a>
+  </div>
+</form>
+
+<script>
+  // Update unit hint when kind changes
+  const UNIT_MAP = {
+    "fuel_budget_liter": "L",
+    "revenue_customer": "THB",
+    "trip_fee_driver": "THB",
+    "toll_fee": "THB",
+    "other": "THB"
+  };
+  const kindSel = document.querySelector('[name=kind]');
+  const unitHint = document.getElementById('unitHint');
+  if (kindSel && unitHint) {
+    kindSel.addEventListener('change', () => {
+      unitHint.textContent = UNIT_MAP[kindSel.value] || 'THB';
+    });
+  }
+</script>
+
+{% endblock %}

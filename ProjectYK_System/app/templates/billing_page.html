@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Billing · {{ month }}{% endblock %}
+{% block content %}
+<div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+  <h1 class="text-2xl font-bold">วางบิล · {{ month }}</h1>
+  <div class="text-sm text-slate-500">
+    ช่วงรอบ: {{ period_start }} – {{ period_end }}
+  </div>
+</div>
+
+<form method="get" class="flex flex-wrap gap-2 items-end mb-4 bg-white border rounded-lg p-3">
+  <div>
+    <label class="block text-xs text-slate-500">ไซท์</label>
+    <select name="site" class="border rounded px-2 py-1">
+      <option value="">ทั้งหมด</option>
+      {% for s in ['AYU','BIGC','LCB'] %}
+        <option value="{{ s }}" {% if site==s %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="block text-xs text-slate-500">เดือน</label>
+    <input type="month" name="month" value="{{ month }}" class="border rounded px-2 py-1" />
+  </div>
+  <div>
+    <label class="block text-xs text-slate-500">ลูกค้า (ถ้าเลือก)</label>
+    <select name="customer_id" class="border rounded px-2 py-1 min-w-[220px]">
+      <option value="">ทุกลูกค้า</option>
+      {% for c in customers %}
+        <option value="{{ c.id }}" {% if customer_id|string==c.id|string %}selected{% endif %}>{{ c.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button class="bg-slate-900 text-white px-4 py-1.5 rounded text-sm">กรอง</button>
+  <a class="bg-emerald-600 text-white px-4 py-1.5 rounded text-sm"
+     href="/billing/export.csv?site={{ site }}&month={{ month }}&customer_id={{ customer_id }}">
+    ดาวน์โหลด CSV
+  </a>
+</form>
+
+<div class="grid grid-cols-4 gap-3 mb-4 text-sm">
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">เที่ยวรวม</div><div class="text-lg font-semibold">{{ "{:,}".format(summary.count) }}</div></div>
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">ค่าขนส่ง</div><div class="text-lg font-semibold font-mono">{{ "{:,.2f}".format(summary.revenue) }}</div></div>
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">ค่าใช้จ่ายอื่น</div><div class="text-lg font-semibold font-mono">{{ "{:,.2f}".format(summary.fees) }}</div></div>
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">ภงด.53</div><div class="text-lg font-semibold font-mono text-rose-700">{{ "{:,.2f}".format(summary.wht) }}</div></div>
+</div>
+
+<p class="text-xs text-slate-500 mb-3">
+  * นับเฉพาะ DailyJob ที่ <code>revenue_customer &gt; 0</code> · รวมค่าใช้จ่ายอื่น (LCB: lift/yard/clean/shore/port/weighing/mflow/pickup_return/special/ot) ผูกกับ job นั้น
+</p>
+
+{% for g in groups %}
+  <div class="bg-white border rounded-lg mb-4">
+    <div class="px-4 py-2 border-b flex justify-between items-center">
+      <div>
+        <span class="font-semibold">{{ g.name }}</span>
+        <span class="text-xs text-slate-500 ml-2">{{ g.count }} เที่ยว</span>
+      </div>
+      <div class="text-sm flex gap-4">
+        <span>ค่าขนส่ง: <span class="font-mono font-semibold">{{ "{:,.2f}".format(g.revenue) }}</span></span>
+        <span class="text-slate-500">+ อื่น ๆ: <span class="font-mono">{{ "{:,.2f}".format(g.fees) }}</span></span>
+        <span class="text-rose-700">− ภงด.53: <span class="font-mono">{{ "{:,.2f}".format(g.wht) }}</span></span>
+        <span class="font-semibold text-emerald-700">สุทธิ: <span class="font-mono">{{ "{:,.2f}".format(g.revenue + g.fees - g.wht) }}</span></span>
+      </div>
+    </div>
+    <table class="w-full text-xs">
+      <thead class="bg-slate-50 text-slate-600">
+        <tr>
+          <th class="px-2 py-1 text-left">วันที่</th>
+          <th class="px-2 py-1 text-left">เอกสาร</th>
+          <th class="px-2 py-1 text-left">คนขับ</th>
+          <th class="px-2 py-1 text-left">ทะเบียน</th>
+          <th class="px-2 py-1 text-left">ต้นทาง → ปลายทาง</th>
+          <th class="px-2 py-1 text-left">ตู้</th>
+          <th class="px-2 py-1 text-right">ค่าขนส่ง</th>
+          <th class="px-2 py-1 text-right">อื่น ๆ</th>
+          <th class="px-2 py-1 text-right">ภงด.</th>
+          <th class="px-2 py-1 text-right">สุทธิ</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in g.rows %}
+        <tr class="border-t hover:bg-slate-50">
+          <td class="px-2 py-1">{{ r.work_date }}</td>
+          <td class="px-2 py-1">{{ r.doc_no }}</td>
+          <td class="px-2 py-1">{{ r.driver }}</td>
+          <td class="px-2 py-1">{{ r.plate }}</td>
+          <td class="px-2 py-1">{{ r.origin }} → {{ r.destination }}</td>
+          <td class="px-2 py-1">{{ r.container_no }}</td>
+          <td class="px-2 py-1 text-right font-mono">{{ "{:,.2f}".format(r.revenue) }}</td>
+          <td class="px-2 py-1 text-right font-mono text-slate-500">{{ "{:,.2f}".format(r.extra_fee) if r.extra_fee else '—' }}</td>
+          <td class="px-2 py-1 text-right font-mono text-rose-600">{{ "{:,.2f}".format(r.wht) if r.wht else '—' }}</td>
+          <td class="px-2 py-1 text-right font-mono font-semibold">{{ "{:,.2f}".format(r.net) }}</td>
+        </tr>
+        {% endfor %}
+        {% if g.count > g.rows|length %}
+          <tr><td colspan="10" class="px-2 py-2 text-xs text-slate-500 text-center">
+            … แสดงแค่ {{ g.rows|length }}/{{ g.count }} แถวแรก ดูครบที่ CSV export
+          </td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="bg-white border rounded-lg p-8 text-center text-slate-500">
+    ไม่มี DailyJob ที่มี revenue &gt; 0 ในช่วงนี้
+  </div>
+{% endfor %}
+{% endblock %}

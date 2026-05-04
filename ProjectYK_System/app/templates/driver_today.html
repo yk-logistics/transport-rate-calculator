@@ -1,0 +1,55 @@
+{% extends "driver_base.html" %}
+{% set active = 'today' %}
+{% block title %}งานวันนี้ · YK Driver{% endblock %}
+
+{% block content %}
+<form method="get" class="mb-3 flex gap-2">
+  <input type="date" name="day" value="{{ wd.isoformat() }}"
+         class="flex-1 border rounded-xl px-3 py-2 bg-white"
+         onchange="this.form.submit()" />
+</form>
+
+<div class="text-sm font-semibold mb-2">วันที่ {{ wd.strftime('%d/%m/%Y') }} ({{ jobs|length }} งาน)</div>
+
+{% if jobs %}
+  <div class="space-y-3 mb-4">
+  {% for j in jobs %}
+    <div class="bg-white rounded-xl p-4 border shadow-sm">
+      <div class="flex justify-between mb-1">
+        <div class="font-semibold">{{ j.customer_name or 'ลูกค้า -' }}</div>
+        <div class="text-xs text-slate-500">#{{ j.id }}</div>
+      </div>
+      {% if j.origin or j.destination %}
+      <div class="text-sm text-slate-700">
+        📍 {{ j.origin or '?' }} → {{ j.destination or '?' }}
+      </div>
+      {% endif %}
+      <div class="grid grid-cols-2 text-xs text-slate-600 mt-2 gap-1">
+        {% if j.plate_raw %}<div>🚚 {{ j.plate_raw }}</div>{% endif %}
+        {% if j.container_no %}<div>📦 {{ j.container_no }}</div>{% endif %}
+        {% if j.seal_no %}<div>🔒 {{ j.seal_no }}</div>{% endif %}
+        {% if j.job_number %}<div>หมายเลขงาน {{ j.job_number }}</div>{% endif %}
+      </div>
+      {% if j.notes %}<div class="text-xs text-amber-700 bg-amber-50 rounded p-2 mt-2">📝 {{ j.notes }}</div>{% endif %}
+    </div>
+  {% endfor %}
+  </div>
+{% else %}
+  <div class="bg-white rounded-xl p-6 text-center text-slate-500 border">ไม่มีงานในวันที่เลือก</div>
+{% endif %}
+
+{% if ahead %}
+<div class="mt-6 mb-2 text-sm font-semibold text-slate-500">งานล่วงหน้า 7 วัน</div>
+<div class="space-y-2">
+  {% for j in ahead %}
+  <div class="bg-slate-50 rounded-xl p-3 border text-sm">
+    <div class="flex justify-between">
+      <div class="font-medium">{{ j.customer_name or '-' }}</div>
+      <div class="text-xs text-slate-500">{{ j.work_date.strftime('%d/%m') }}</div>
+    </div>
+    <div class="text-xs text-slate-500">{{ j.origin or '' }} → {{ j.destination or '' }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}{% if plan %}แผน PM {{ plan.code }}{% else %}แผน PM ใหม่{% endif %}{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">
+    📅 {% if plan %}{{ plan.name or plan.code }}{% else %}แผน PM ใหม่{% endif %}
+  </h1>
+  <a href="/maint/pm" class="btn bg-slate-200 hover:bg-slate-300">← PM List</a>
+</div>
+
+{% if plan and status_info %}
+<div class="mb-4 p-3 rounded-lg border
+  {% if status_info.status == 'overdue' %}bg-red-50 border-red-300
+  {% elif status_info.status == 'due_soon' %}bg-amber-50 border-amber-300
+  {% elif status_info.status == 'ok' %}bg-emerald-50 border-emerald-300
+  {% else %}bg-slate-50 border-slate-200{% endif %}">
+  <div class="font-semibold text-sm">
+    สถานะ:
+    {% if status_info.status == 'overdue' %}⚠️ เลยกำหนด
+    {% elif status_info.status == 'due_soon' %}🟡 ใกล้ถึงกำหนด
+    {% elif status_info.status == 'ok' %}✅ ปกติ
+    {% else %}❓ ยังไม่มีข้อมูล{% endif %}
+  </div>
+  {% for reason in status_info.reasons %}<div class="text-sm">{{ reason }}</div>{% endfor %}
+  {% if vehicle and vehicle.current_mile %}
+  <div class="text-xs text-slate-500">Current mile ของรถ: {{ "%.0f"|format(vehicle.current_mile) }} km</div>
+  {% endif %}
+  {% if last_record %}
+  <div class="text-xs text-slate-500">MaintRecord ล่าสุด: <a class="underline" href="/maint/records/{{ last_record.id }}">{{ last_record.record_no }}</a></div>
+  {% endif %}
+</div>
+{% endif %}
+
+<form method="post" action="{% if plan %}/maint/pm/{{ plan.id }}{% else %}/maint/pm/new{% endif %}" class="p-4 bg-white border rounded-lg grid grid-cols-1 md:grid-cols-3 gap-3">
+
+  <div class="md:col-span-2">
+    <label class="text-xs text-slate-500">ชื่อแผน</label>
+    <input type="text" name="name" required value="{{ plan.name if plan else '' }}"
+      placeholder="เช่น เปลี่ยนน้ำมันเครื่อง, เช็คเบรก, เปลี่ยนจารบีล้อ"
+      class="border rounded px-2 py-1 w-full">
+  </div>
+
+  <div>
+    <label class="text-xs text-slate-500">ชนิด</label>
+    <select name="kind" class="border rounded px-2 py-1 w-full">
+      {% for k in ['PM','RM','inspection','other'] %}
+      <option value="{{ k }}" {% if plan and plan.kind == k %}selected{% endif %}>{{ k }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    <label class="text-xs text-slate-500">ทะเบียนรถ</label>
+    <select name="vehicle_id" class="border rounded px-2 py-1 w-full">
+      <option value="">— Global (ใช้กับทุกคัน) —</option>
+      {% for v in vehicles %}
+      <option value="{{ v.id }}"
+        {% if plan and plan.vehicle_id == v.id %}selected{% elif preselect_vehicle_id == v.id %}selected{% endif %}
+      >{{ v.plate_no }}{% if v.nickname %} ({{ v.nickname }}){% endif %}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    <label class="text-xs text-slate-500">ประเภท (fluid_kind)</label>
+    <select name="fluid_kind" class="border rounded px-2 py-1 w-full">
+      {% for k, label in fluid_kinds %}
+      <option value="{{ k }}" {% if plan and plan.fluid_kind == k %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    <label class="text-xs text-slate-500">สถานะ</label>
+    <select name="status" class="border rounded px-2 py-1 w-full">
+      {% for s in ['active','paused','archived'] %}
+      <option value="{{ s }}" {% if plan and plan.status == s %}selected{% elif s == 'active' and not plan %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    <label class="text-xs text-slate-500">รอบ (กิโลเมตร)</label>
+    <input type="number" step="1" name="interval_km" value="{{ plan.interval_km if plan else '' }}"
+      placeholder="25000" class="border rounded px-2 py-1 w-full">
+  </div>
+  <div>
+    <label class="text-xs text-slate-500">รอบ (วัน)</label>
+    <input type="number" step="1" name="interval_days" value="{{ plan.interval_days if plan else '' }}"
+      placeholder="180" class="border rounded px-2 py-1 w-full">
+  </div>
+  <div>
+    <label class="text-xs text-slate-500">แจ้งก่อน (km)</label>
+    <input type="number" step="1" name="alert_km_before" value="{{ plan.alert_km_before if plan else 1000 }}"
+      class="border rounded px-2 py-1 w-full">
+  </div>
+
+  <div>
+    <label class="text-xs text-slate-500">เปลี่ยนครั้งล่าสุด (วันที่)</label>
+    <input type="date" name="last_done_date" value="{{ plan.last_done_date or '' }}"
+      class="border rounded px-2 py-1 w-full">
+  </div>
+  <div>
+    <label class="text-xs text-slate-500">เลขไมล์ตอนเปลี่ยนล่าสุด</label>
+    <input type="number" step="1" name="last_done_mile" value="{{ plan.last_done_mile if plan else '' }}"
+      class="border rounded px-2 py-1 w-full">
+  </div>
+  <div>
+    <label class="text-xs text-slate-500">ระบบจะคำนวณ next_due ให้อัตโนมัติ</label>
+    <div class="text-xs text-slate-500 bg-slate-50 border rounded px-2 py-1">
+      next_due_date = last_done_date + interval_days<br>
+      next_due_mile = last_done_mile + interval_km
+    </div>
+  </div>
+
+  <div class="md:col-span-3">
+    <label class="text-xs text-slate-500">คำอธิบาย</label>
+    <textarea name="description" rows="2" class="border rounded px-2 py-1 w-full">{{ plan.description if plan else '' }}</textarea>
+  </div>
+  <div class="md:col-span-3">
+    <label class="text-xs text-slate-500">หมายเหตุ</label>
+    <textarea name="notes" rows="2" class="border rounded px-2 py-1 w-full">{{ plan.notes if plan else '' }}</textarea>
+  </div>
+
+  <div class="md:col-span-3 flex gap-2 justify-end">
+    <button type="submit" class="btn bg-orange-600 text-white hover:bg-orange-700">
+      {% if plan %}💾 อัปเดต{% else %}+ สร้างแผน{% endif %}
+    </button>
+  </div>
+</form>
+
+{% if plan %}
+<div class="mt-4 p-4 bg-white border rounded-lg">
+  <h2 class="font-semibold mb-2">🛠 บันทึก "เปลี่ยนแล้ว"</h2>
+  <form method="post" action="/maint/pm/{{ plan.id }}/mark_done" class="grid grid-cols-1 md:grid-cols-4 gap-2">
+    <div>
+      <label class="text-xs text-slate-500">วันที่เปลี่ยน</label>
+      <input type="date" name="done_date" required class="border rounded px-2 py-1 w-full">
+    </div>
+    <div>
+      <label class="text-xs text-slate-500">เลขไมล์ ณ วันที่เปลี่ยน</label>
+      <input type="number" step="1" name="done_mile" class="border rounded px-2 py-1 w-full">
+    </div>
+    <div>
+      <label class="text-xs text-slate-500">สร้าง MaintRecord อัตโนมัติด้วย?</label>
+      <label class="flex items-center gap-1 py-1"><input type="checkbox" name="create_record" value="1" checked> สร้าง MaintRecord</label>
+    </div>
+    <div>
+      <label class="text-xs text-slate-500">หมายเหตุ MaintRecord</label>
+      <input type="text" name="record_note" class="border rounded px-2 py-1 w-full">
+    </div>
+    <div class="md:col-span-4 flex justify-end">
+      <button type="submit" class="btn bg-emerald-600 text-white hover:bg-emerald-700">✅ เปลี่ยนแล้ว — รีเซ็ต next_due</button>
+    </div>
+  </form>
+</div>
+
+<form method="post" action="/maint/pm/{{ plan.id }}/delete" class="mt-4 text-right"
+  onsubmit="return confirm('ลบแผน {{ plan.name }}?');">
+  <button class="text-sm text-red-600 hover:underline">🗑 ลบแผนนี้</button>
+</form>
+{% endif %}
+
+{% endblock %}

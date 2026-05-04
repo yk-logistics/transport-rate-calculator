@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}ตรวจสภาพรถ{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">🔍 ตรวจสภาพรถ (Monthly Inspection)</h1>
+  <div class="flex gap-2">
+    <a href="/maint" class="btn bg-slate-200 hover:bg-slate-300">← Dashboard</a>
+    <a href="/maint/inspections/new" class="btn bg-indigo-600 text-white hover:bg-indigo-700">+ ตรวจใหม่</a>
+  </div>
+</div>
+
+<form method="get" action="/maint/inspections" class="p-3 bg-white border rounded-lg mb-4 flex flex-wrap gap-2 items-end">
+  <div>
+    <label class="text-xs text-slate-500">ตั้งแต่</label>
+    <input type="date" name="date_from" value="{{ date_from }}" class="border rounded px-2 py-1 text-sm">
+  </div>
+  <div>
+    <label class="text-xs text-slate-500">ถึง</label>
+    <input type="date" name="date_to" value="{{ date_to }}" class="border rounded px-2 py-1 text-sm">
+  </div>
+  <div>
+    <label class="text-xs text-slate-500">รถ</label>
+    <select name="vehicle_id" class="border rounded px-2 py-1 text-sm">
+      <option value="">ทั้งหมด</option>
+      {% for v in vehicles %}
+      <option value="{{ v.id }}" {% if vehicle_id == v.id %}selected{% endif %}>{{ v.plate_no }}{% if v.nickname %} ({{ v.nickname }}){% endif %}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="text-xs text-slate-500">สถานะ</label>
+    <select name="overall_status" class="border rounded px-2 py-1 text-sm">
+      <option value="">ทั้งหมด</option>
+      {% for k, label in status_options %}
+      <option value="{{ k }}" {% if overall_status == k %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button class="btn bg-slate-200 hover:bg-slate-300 text-sm">ค้นหา</button>
+  {% if date_from or date_to or vehicle_id or overall_status %}
+  <a href="/maint/inspections" class="text-xs text-slate-500 underline">ล้าง</a>
+  {% endif %}
+</form>
+
+<div class="bg-white border rounded-lg overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-xs text-slate-500">
+      <tr>
+        <th class="text-left py-2 px-2">วันที่ตรวจ</th>
+        <th class="text-left py-2 px-2">รถ</th>
+        <th class="text-left py-2 px-2">ผู้ตรวจ</th>
+        <th class="text-center py-2 px-2">สถานะ</th>
+        <th class="text-right py-2 px-2">✓ / ⚠ / ✗</th>
+        <th class="text-left py-2 px-2">หมายเหตุ</th>
+        <th class="text-right py-2 px-2"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for i in inspections %}
+      {% set stats = item_stats.get(i.id, {}) %}
+      <tr class="border-t hover:bg-slate-50">
+        <td class="py-1 px-2 text-xs">{{ i.inspection_date }}</td>
+        <td class="py-1 px-2">
+          {% if v_map.get(i.vehicle_id) %}
+            <a href="/maint/inspections?vehicle_id={{ i.vehicle_id }}" class="text-sky-600 hover:underline">{{ v_map[i.vehicle_id].plate_no }}</a>
+          {% else %}<span class="text-slate-400">{{ i.plate_raw or '—' }}</span>{% endif %}
+        </td>
+        <td class="py-1 px-2 text-xs">{{ i.inspector_name or '-' }}</td>
+        <td class="py-1 px-2 text-center text-xs">
+          {% if i.overall_status == 'pass' %}<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">ผ่าน</span>
+          {% elif i.overall_status == 'partial' %}<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-700">ผ่านบางส่วน</span>
+          {% elif i.overall_status == 'fail' %}<span class="px-2 py-0.5 rounded bg-rose-100 text-rose-700">ไม่ผ่าน</span>
+          {% else %}<span class="text-slate-400">{{ i.overall_status }}</span>{% endif %}
+        </td>
+        <td class="py-1 px-2 text-right text-xs font-mono">
+          <span class="text-emerald-600">{{ stats.get('ok', 0) }}</span> /
+          <span class="text-amber-600">{{ stats.get('warning', 0) }}</span> /
+          <span class="text-rose-600">{{ stats.get('fail', 0) }}</span>
+          <span class="text-slate-400"> · {{ stats.get('total', 0) }}</span>
+        </td>
+        <td class="py-1 px-2 text-xs text-slate-500 truncate max-w-xs">{{ i.notes }}</td>
+        <td class="py-1 px-2 text-right">
+          <a href="/maint/inspections/{{ i.id }}" class="text-xs text-sky-600 hover:underline">แก้ไข</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="py-8 text-center text-slate-400">ยังไม่มีบันทึกตรวจสภาพ — <a href="/maint/inspections/new" class="text-indigo-600 hover:underline">เริ่มต้นตรวจ</a></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

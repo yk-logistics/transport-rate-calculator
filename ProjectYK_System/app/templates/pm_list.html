@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}PM / RM Plan{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">📅 PM / RM Plan</h1>
+  <div class="flex gap-2">
+    <a href="/maint" class="btn bg-slate-200 hover:bg-slate-300">← Dashboard</a>
+    <a href="/maint/pm/new" class="btn bg-orange-600 text-white hover:bg-orange-700">+ แผนใหม่</a>
+  </div>
+</div>
+
+<div class="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
+  <a href="/maint/pm" class="p-3 bg-white border rounded {% if not status_filter %}ring-2 ring-slate-400{% endif %}">
+    <div class="text-xs text-slate-500">ทั้งหมด</div>
+    <div class="text-2xl font-bold">{{ total }}</div>
+  </a>
+  <a href="/maint/pm?status_filter=overdue" class="p-3 bg-red-50 border border-red-200 rounded {% if status_filter == 'overdue' %}ring-2 ring-red-400{% endif %}">
+    <div class="text-xs text-red-700">⚠️ เลยกำหนด</div>
+    <div class="text-2xl font-bold text-red-700">{{ counts.overdue }}</div>
+  </a>
+  <a href="/maint/pm?status_filter=due_soon" class="p-3 bg-amber-50 border border-amber-200 rounded {% if status_filter == 'due_soon' %}ring-2 ring-amber-400{% endif %}">
+    <div class="text-xs text-amber-700">🟡 ใกล้ถึง</div>
+    <div class="text-2xl font-bold text-amber-700">{{ counts.due_soon }}</div>
+  </a>
+  <a href="/maint/pm?status_filter=ok" class="p-3 bg-emerald-50 border border-emerald-200 rounded {% if status_filter == 'ok' %}ring-2 ring-emerald-400{% endif %}">
+    <div class="text-xs text-emerald-700">✅ ปกติ</div>
+    <div class="text-2xl font-bold text-emerald-700">{{ counts.ok }}</div>
+  </a>
+  <a href="/maint/pm?status_filter=unknown" class="p-3 bg-slate-50 border rounded {% if status_filter == 'unknown' %}ring-2 ring-slate-400{% endif %}">
+    <div class="text-xs text-slate-600">❓ ไม่มีข้อมูล</div>
+    <div class="text-2xl font-bold text-slate-600">{{ counts.unknown }}</div>
+  </a>
+</div>
+
+<form method="get" action="/maint/pm" class="p-3 bg-white border rounded-lg mb-4 flex flex-wrap gap-2 items-center">
+  <input type="hidden" name="status_filter" value="{{ status_filter }}">
+  <label class="text-sm">ประเภท:</label>
+  <select name="fluid_filter" class="border rounded px-2 py-1 text-sm">
+    <option value="">— ทั้งหมด —</option>
+    {% for k, label in fluid_kinds %}
+    <option value="{{ k }}" {% if fluid_filter == k %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <input type="text" name="vehicle_filter" placeholder="ทะเบียน..." value="{{ vehicle_filter }}" class="border rounded px-2 py-1 text-sm">
+  <button class="btn bg-slate-200 hover:bg-slate-300 text-sm">กรอง</button>
+  {% if fluid_filter or vehicle_filter or status_filter %}
+  <a href="/maint/pm" class="text-sm text-slate-500 underline">ล้างตัวกรอง</a>
+  {% endif %}
+</form>
+
+<div class="bg-white border rounded-lg overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-xs text-slate-500">
+      <tr>
+        <th class="text-left py-2 px-2">สถานะ</th>
+        <th class="text-left py-2 px-2">ทะเบียน</th>
+        <th class="text-left py-2 px-2">แผน</th>
+        <th class="text-left py-2 px-2">ประเภท</th>
+        <th class="text-right py-2 px-2">รอบ (km / วัน)</th>
+        <th class="text-right py-2 px-2">เปลี่ยนล่าสุด</th>
+        <th class="text-right py-2 px-2">เลขไมล์ล่าสุด</th>
+        <th class="text-right py-2 px-2">ถึงกำหนดถัดไป</th>
+        <th class="text-left py-2 px-2">เหลือ / เหตุผล</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      {% set p = r.plan %}{% set v = r.vehicle %}{% set st = r.st %}
+      <tr class="border-t hover:bg-slate-50
+        {% if st.status == 'overdue' %}bg-red-50{% elif st.status == 'due_soon' %}bg-amber-50{% endif %}">
+        <td class="py-1 px-2">
+          {% if st.status == 'overdue' %}<span class="text-red-700 font-bold">⚠️ เลย</span>
+          {% elif st.status == 'due_soon' %}<span class="text-amber-700 font-semibold">🟡 ใกล้</span>
+          {% elif st.status == 'ok' %}<span class="text-emerald-600">✅</span>
+          {% else %}<span class="text-slate-400">❓</span>{% endif %}
+        </td>
+        <td class="py-1 px-2 font-medium">
+          {% if v %}<a href="/maint/pm?vehicle_filter={{ v.plate_no }}" class="text-orange-600 hover:underline">{{ v.plate_no }}</a>
+            {% if v.nickname %}<span class="text-xs text-slate-500 ml-1">({{ v.nickname }})</span>{% endif %}
+          {% else %}<span class="text-slate-400">— (global) —</span>{% endif %}
+        </td>
+        <td class="py-1 px-2"><a href="/maint/pm/{{ p.id }}" class="hover:underline">{{ p.name }}</a></td>
+        <td class="py-1 px-2 text-xs">{{ fluid_map.get(p.fluid_kind, p.fluid_kind) }}</td>
+        <td class="py-1 px-2 text-right text-xs text-slate-600">
+          {% if p.interval_km %}{{ "%.0f"|format(p.interval_km) }} km{% endif %}
+          {% if p.interval_km and p.interval_days %} / {% endif %}
+          {% if p.interval_days %}{{ p.interval_days }} วัน{% endif %}
+        </td>
+        <td class="py-1 px-2 text-right text-xs">{{ p.last_done_date or '-' }}</td>
+        <td class="py-1 px-2 text-right text-xs">
+          {% if p.last_done_mile %}{{ "%.0f"|format(p.last_done_mile) }}{% else %}-{% endif %}
+        </td>
+        <td class="py-1 px-2 text-right text-xs">
+          {% if p.next_due_mile %}<div>{{ "%.0f"|format(p.next_due_mile) }} km</div>{% endif %}
+          {% if p.next_due_date %}<div>{{ p.next_due_date }}</div>{% endif %}
+        </td>
+        <td class="py-1 px-2 text-xs">
+          {% for reason in st.reasons %}<div class="text-slate-700">{{ reason }}</div>{% endfor %}
+          {% if v and v.current_mile %}<div class="text-slate-400">current: {{ "%.0f"|format(v.current_mile) }} km</div>{% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="py-6 text-center text-slate-400">ยังไม่มีแผน — <a href="/maint/pm/new" class="underline">เพิ่มใหม่</a></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

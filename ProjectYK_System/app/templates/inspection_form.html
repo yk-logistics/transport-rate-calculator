@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}{% if inspection %}แก้ไขตรวจสภาพ #{{ inspection.id }}{% else %}ตรวจสภาพใหม่{% endif %}{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">
+    🔍 {% if inspection %}ตรวจสภาพ #{{ inspection.id }} ({{ inspection.inspection_date }}){% else %}ตรวจสภาพใหม่{% endif %}
+  </h1>
+  <a href="/maint/inspections" class="btn bg-slate-200 hover:bg-slate-300">← รายการตรวจสภาพ</a>
+</div>
+
+<form method="post" action="{% if inspection %}/maint/inspections/{{ inspection.id }}{% else %}/maint/inspections/new{% endif %}">
+
+  <div class="p-4 bg-white border rounded-lg mb-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+    <div>
+      <label class="text-xs text-slate-500">วันที่ตรวจ</label>
+      <input type="date" name="inspection_date" value="{{ inspection.inspection_date if inspection else today }}" required class="border rounded px-2 py-1 w-full">
+    </div>
+    <div>
+      <label class="text-xs text-slate-500">ทะเบียนรถ</label>
+      <select name="vehicle_id" class="border rounded px-2 py-1 w-full">
+        <option value="">— เลือก —</option>
+        {% for v in vehicles %}
+        <option value="{{ v.id }}" {% if selected_vehicle_id == v.id %}selected{% endif %}>{{ v.plate_no }}{% if v.nickname %} ({{ v.nickname }}){% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="text-xs text-slate-500">ผู้ตรวจ</label>
+      <input type="text" name="inspector_name" value="{{ inspection.inspector_name if inspection else '' }}" class="border rounded px-2 py-1 w-full">
+    </div>
+    <div>
+      <label class="text-xs text-slate-500">สถานะโดยรวม</label>
+      <select name="overall_status" class="border rounded px-2 py-1 w-full">
+        {% for k, label in status_options %}
+        <option value="{{ k }}" {% if inspection and inspection.overall_status == k %}selected{% elif not inspection and k == 'pass' %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <label class="text-xs text-slate-500 mt-1 flex items-center gap-1">
+        <input type="checkbox" name="auto_status" checked> คำนวนจากรายการอัตโนมัติ
+      </label>
+    </div>
+    <div class="md:col-span-4">
+      <label class="text-xs text-slate-500">หมายเหตุรวม</label>
+      <textarea name="notes" rows="2" class="border rounded px-2 py-1 w-full">{{ inspection.notes if inspection else '' }}</textarea>
+    </div>
+  </div>
+
+  <div class="p-4 bg-white border rounded-lg mb-4">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-semibold">📋 รายการตรวจ (Checklist)</h2>
+      <button type="button" onclick="addRow()" class="text-sm bg-indigo-600 text-white px-3 py-1 rounded hover:bg-indigo-700">+ เพิ่มรายการ</button>
+    </div>
+
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-xs text-slate-500">
+        <tr>
+          <th class="text-left py-1 px-2 w-1/2">รายการ</th>
+          <th class="text-left py-1 px-2">สถานะ</th>
+          <th class="text-left py-1 px-2">Remark</th>
+          <th class="text-right py-1 px-2 w-12"></th>
+        </tr>
+      </thead>
+      <tbody id="items-body">
+        {% if items %}
+          {% for it in items %}
+          <tr class="border-t">
+            <td class="py-1 px-2">
+              <input type="text" name="item_name" value="{{ it.item_name }}" required class="border rounded px-2 py-1 w-full text-sm">
+            </td>
+            <td class="py-1 px-2">
+              <select name="item_status" class="border rounded px-2 py-1 text-sm">
+                {% for k, label in item_status_options %}
+                <option value="{{ k }}" {% if it.status == k %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td class="py-1 px-2">
+              <input type="text" name="item_remark" value="{{ it.remark }}" class="border rounded px-2 py-1 w-full text-sm">
+            </td>
+            <td class="py-1 px-2 text-right">
+              <button type="button" onclick="this.closest('tr').remove()" class="text-xs text-red-600 hover:underline">ลบ</button>
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          {% for d in default_items %}
+          <tr class="border-t">
+            <td class="py-1 px-2">
+              <input type="text" name="item_name" value="{{ d }}" required class="border rounded px-2 py-1 w-full text-sm">
+            </td>
+            <td class="py-1 px-2">
+              <select name="item_status" class="border rounded px-2 py-1 text-sm">
+                {% for k, label in item_status_options %}
+                <option value="{{ k }}" {% if k == 'ok' %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td class="py-1 px-2">
+              <input type="text" name="item_remark" value="" class="border rounded px-2 py-1 w-full text-sm">
+            </td>
+            <td class="py-1 px-2 text-right">
+              <button type="button" onclick="this.closest('tr').remove()" class="text-xs text-red-600 hover:underline">ลบ</button>
+            </td>
+          </tr>
+          {% endfor %}
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="flex justify-end gap-2">
+    {% if inspection %}
+    <a href="/maint/inspections" class="btn bg-slate-200 hover:bg-slate-300">ยกเลิก</a>
+    {% endif %}
+    <button type="submit" class="btn bg-indigo-600 text-white hover:bg-indigo-700">
+      {% if inspection %}💾 บันทึกการแก้ไข{% else %}+ บันทึกตรวจสภาพ{% endif %}
+    </button>
+  </div>
+</form>
+
+{% if inspection %}
+<form method="post" action="/maint/inspections/{{ inspection.id }}/delete" class="mt-4 text-right"
+      onsubmit="return confirm('ลบบันทึกตรวจสภาพนี้และทุกรายการ?');">
+  <button class="text-sm text-red-600 hover:underline">🗑 ลบบันทึกนี้</button>
+</form>
+{% endif %}
+
+<template id="row-tpl">
+  <tr class="border-t">
+    <td class="py-1 px-2">
+      <input type="text" name="item_name" required class="border rounded px-2 py-1 w-full text-sm">
+    </td>
+    <td class="py-1 px-2">
+      <select name="item_status" class="border rounded px-2 py-1 text-sm">
+        {% for k, label in item_status_options %}
+        <option value="{{ k }}" {% if k == 'ok' %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </td>
+    <td class="py-1 px-2">
+      <input type="text" name="item_remark" class="border rounded px-2 py-1 w-full text-sm">
+    </td>
+    <td class="py-1 px-2 text-right">
+      <button type="button" onclick="this.closest('tr').remove()" class="text-xs text-red-600 hover:underline">ลบ</button>
+    </td>
+  </tr>
+</template>
+
+<script>
+function addRow() {
+  const tpl = document.getElementById('row-tpl');
+  const clone = tpl.content.firstElementChild.cloneNode(true);
+  document.getElementById('items-body').appendChild(clone);
+}
+</script>
+
+{% endblock %}

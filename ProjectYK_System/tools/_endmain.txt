@@ -1,0 +1,52 @@
+    phantom_rows = phantom_zero_trip_candidates(o_legs_all, trips, cfg)
+    hint_rows = double_origin_um_hints(unmatched)
+    grand_extra = min_trip_money + int(fifty_total) + int(nw_total)
+    customer_grand_baht = int(base_baht) + int(grand_extra)
+
+    xlsx_out = folder / "Oatside_PG_Trip_Summary_By_Site.xlsx"
+    write_excel(
+        xlsx_out,
+        origin_path.name,
+        dest_path.name,
+        trips,
+        unmatched,
+        daily_time,
+        daily_rows,
+        fifty_rows,
+        int(fifty_total),
+        min_trip_money,
+        audit_rows,
+        cfg,
+        int(customer_grand_baht),
+        nw_rows,
+        int(nw_total),
+        phantom_rows,
+        hint_rows,
+    )
+
+    report_dir = _root() / "TransportRateCalculator" / "reports" / "oatside-apr2026"
+    write_html(
+        report_dir,
+        origin_path.name,
+        trips,
+        daily_rows,
+        daily_time,
+        actual,
+        commit,
+        short,
+        min_trip_money,
+        bc_stats,
+        fifty_rows,
+        int(fifty_total),
+        grand_extra,
+        int(base_baht),
+        int(customer_grand_baht),
+        pday_rows,
+        audit_rows,
+        unmatched,
+        int(nw_total),
+        cfg,
+    )
+
+    print(f"Config:  {_config_path()}")
+    print(f"Trips: {len(trips)} | Unmatched legs: {len(unmatched)}")

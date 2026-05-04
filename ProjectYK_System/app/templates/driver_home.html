@@ -1,0 +1,89 @@
+{% extends "driver_base.html" %}
+{% set active = 'home' %}
+{% block title %}หน้าหลัก · YK Driver{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <div class="text-xs text-slate-500">วันนี้ {{ today }} · {{ now }}</div>
+  <div class="text-xl font-bold">สวัสดี {{ emp.nickname or emp.full_name }}</div>
+</div>
+
+{# ACTION CARDS — the two mandatory daily submissions #}
+<div class="grid grid-cols-2 gap-3 mb-5">
+  <a href="/driver/check" class="tile text-center
+     {% if done_check %}bg-emerald-50 border-emerald-300{% else %}bg-amber-50 border-amber-300{% endif %}">
+    <div class="text-3xl mb-1">🔧</div>
+    <div class="font-semibold">ตรวจรถ</div>
+    <div class="text-xs mt-1 {% if done_check %}text-emerald-700{% else %}text-amber-700{% endif %}">
+      {% if done_check %}✓ ส่งแล้ววันนี้{% else %}รอส่ง{% endif %}
+    </div>
+  </a>
+  <a href="/driver/alcohol" class="tile text-center
+     {% if done_alcohol %}bg-emerald-50 border-emerald-300{% else %}bg-amber-50 border-amber-300{% endif %}">
+    <div class="text-3xl mb-1">🫁</div>
+    <div class="font-semibold">เป่าแอลกอฮอล์</div>
+    <div class="text-xs mt-1 {% if done_alcohol %}text-emerald-700{% else %}text-amber-700{% endif %}">
+      {% if done_alcohol %}✓ ส่งแล้ววันนี้{% else %}รอส่ง{% endif %}
+    </div>
+  </a>
+</div>
+
+{# TODAY'S JOBS #}
+<div class="mb-3 flex items-center justify-between">
+  <div class="font-semibold">งานวันนี้ ({{ todays_jobs|length }})</div>
+  <a href="/driver/today" class="text-xs text-blue-600">ดูทั้งหมด →</a>
+</div>
+{% if todays_jobs %}
+  <div class="space-y-2 mb-5">
+  {% for j in todays_jobs %}
+    <div class="bg-white rounded-xl p-3 border shadow-sm">
+      <div class="flex justify-between items-start">
+        <div>
+          <div class="font-medium">{{ j.customer_name or '-' }}</div>
+          <div class="text-xs text-slate-500">{{ j.origin or '' }} → {{ j.destination or '' }}</div>
+        </div>
+        <div class="text-right">
+          <div class="text-xs text-slate-500">{{ j.plate_raw or '' }}</div>
+          {% if j.container_no %}<div class="text-xs text-slate-400">{{ j.container_no }}</div>{% endif %}
+        </div>
+      </div>
+      {% if j.notes %}<div class="text-xs text-slate-500 mt-1">📝 {{ j.notes }}</div>{% endif %}
+    </div>
+  {% endfor %}
+  </div>
+{% else %}
+  <div class="bg-white rounded-xl p-5 text-center text-slate-500 text-sm mb-5 border">
+    ยังไม่มีงานวันนี้
+  </div>
+{% endif %}
+
+{# RECENT SUBMISSIONS #}
+{% if recent_subs %}
+<div class="mb-3 font-semibold">ส่งล่าสุด</div>
+<div class="space-y-2">
+  {% for s in recent_subs[:5] %}
+  <div id="sub-{{ s.id }}" class="bg-white rounded-xl p-3 border text-sm flex items-center justify-between">
+    <div>
+      <div class="font-medium">
+        {% if s.kind == 'vehicle_check' %}🔧 ตรวจรถ
+        {% elif s.kind == 'alcohol_test' %}🫁 แอลกอฮอล์
+        {% elif s.kind == 'job_photo' %}📷 รูปงาน
+        {% elif s.kind == 'fuel_receipt' %}⛽ ใบเสร็จน้ำมัน
+        {% else %}📄 {{ s.kind }}{% endif %}
+      </div>
+      <div class="text-xs text-slate-500">{{ s.submitted_at.strftime('%d/%m %H:%M') }}</div>
+    </div>
+    <div class="text-xs px-2 py-1 rounded
+      {% if s.review_status == 'approved' %}bg-emerald-100 text-emerald-700
+      {% elif s.review_status == 'flagged' %}bg-rose-100 text-rose-700
+      {% else %}bg-slate-100 text-slate-600{% endif %}">
+      {% if s.review_status == 'approved' %}ผ่าน
+      {% elif s.review_status == 'flagged' %}ทักท้วง
+      {% elif s.review_status == 'archived' %}เก็บ
+      {% else %}รอตรวจ{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

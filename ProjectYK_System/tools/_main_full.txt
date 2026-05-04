@@ -1,0 +1,91 @@
+ 2350|
+ 2351|def main() -> None:
+ 2352|    cfg = load_oatside_config()
+ 2353|    folder = _oatside_dir()
+ 2354|    origin_path, dest_path = discover_gps_files(folder)
+ 2355|    trips, unmatched, _travels = build_trips(origin_path, dest_path, cfg)
+ 2356|    daily_rows = daily_activity_by_dest(trips, cfg)
+ 2357|    daily_time = daily_time_rows(trips, unmatched, cfg)
+ 2358|    actual, commit, short, extra = billing_totals(daily_rows, cfg)
+ 2359|    bc_stats = site_billing(daily_rows, cfg)
+ 2360|    overrides = load_billing_overrides()
+ 2361|    if cfg.use_origin_day_fifty:
+ 2362|        fifty_rows, fifty_total = one_trip_fifty_pct_origin_day(trips, overrides, cfg)
+ 2363|    elif cfg.use_origin_24h_fifty:
+ 2364|        fifty_rows, fifty_total = one_trip_fifty_pct_details_origin24h(trips, overrides, cfg)
+ 2365|    else:
+ 2366|        fifty_rows, fifty_total = one_trip_fifty_pct_details(trips, overrides, cfg)
+ 2367|    add_fr, add_tot = supplement_long_dest_wait_midnight_fifty(trips, fifty_rows, overrides, cfg)
+ 2368|    fifty_rows = fifty_rows + add_fr
+ 2369|    fifty_total += add_tot
+ 2370|    if cfg.use_origin_day_fifty:
+ 2371|        audit_rows = origin_day_audit_rows(trips, fifty_rows, overrides, cfg)
+ 2372|    elif cfg.use_origin_24h_fifty:
+ 2373|        audit_rows = audit_log_rows(trips, fifty_rows, overrides, cfg)
+ 2374|    else:
+ 2375|        audit_rows = audit_log_rows(trips, fifty_rows, overrides, cfg)
+ 2376|    base_baht = base_trips_revenue_baht(trips, cfg)
+ 2377|    o_legs_all = parse_legs(origin_path)
+ 2378|    nw_rows, nw_total = no_work_outbound_rows(trips, cfg)
+ 2379|    pday_rows = plate_dest_day_rows(trips, fifty_rows, cfg, nw_rows=nw_rows)
+ 2380|    min_trip_money = int(extra) if cfg.charge_min_trip_shortfall else 0
+ 2381|    if not cfg.charge_min_trip_shortfall:
+ 2382|        bc_a, bc_c, bc_s, bc_e, lc_a, lc_c, lc_s, lc_e = bc_stats
+ 2383|        bc_stats = (bc_a, bc_c, bc_s, 0, lc_a, lc_c, lc_s, 0)
+ 2384|    phantom_rows = phantom_zero_trip_candidates(o_legs_all, trips, cfg)
+ 2385|    hint_rows = double_origin_um_hints(unmatched)
+ 2386|    grand_extra = min_trip_money + int(fifty_total) + int(nw_total)
+ 2387|    customer_grand_baht = int(base_baht) + int(grand_extra)
+ 2388|
+ 2389|    xlsx_out = folder / "Oatside_PG_Trip_Summary_By_Site.xlsx"
+ 2390|    write_excel(
+ 2391|        xlsx_out,
+ 2392|        origin_path.name,
+ 2393|        dest_path.name,
+ 2394|        trips,
+ 2395|        unmatched,
+ 2396|        daily_time,
+ 2397|        daily_rows,
+ 2398|        fifty_rows,
+ 2399|        int(fifty_total),
+ 2400|        min_trip_money,
+ 2401|        audit_rows,
+ 2402|        cfg,
+ 2403|        int(customer_grand_baht),
+ 2404|        nw_rows,
+ 2405|        int(nw_total),
+ 2406|        phantom_rows,
+ 2407|        hint_rows,
+ 2408|    )
+ 2409|
+ 2410|    report_dir = _root() / "TransportRateCalculator" / "reports" / "oatside-apr2026"
+ 2411|    write_html(
+ 2412|        report_dir,
+ 2413|        origin_path.name,
+ 2414|        trips,
+ 2415|        daily_rows,
+ 2416|        daily_time,
+ 2417|        actual,
+ 2418|        commit,
+ 2419|        short,
+ 2420|        min_trip_money,
+ 2421|        bc_stats,
+ 2422|        fifty_rows,
+ 2423|        int(fifty_total),
+ 2424|        grand_extra,
+ 2425|        int(base_baht),
+ 2426|        int(customer_grand_baht),
+ 2427|        pday_rows,
+ 2428|        audit_rows,
+ 2429|        unmatched,
+ 2430|        int(nw_total),
+ 2431|        cfg,
+ 2432|    )
+ 2433|
+ 2434|    print(f"Config:  {_config_path()}")
+ 2435|    print(f"Trips: {len(trips)} | Unmatched legs: {len(unmatched)}")
+ 2436|    print(f"Excel:   {xlsx_out}")
+ 2437|    print(f"HTML:    {report_dir}")
+ 2438|
+ 2439|
+ 2440|if __name__ == "__main__":

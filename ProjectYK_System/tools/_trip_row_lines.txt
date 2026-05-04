@@ -1,0 +1,50 @@
+2401:     def trip_row(t: Trip) -> str:
+2402:         ab = " <span class='badge abn'>ABNORMAL</span>" if t.travel_flag else ""
+2403:         ft0 = firsts.get((t.plate, t.dest_date))
+2404:         ret_amt = (
+2405:             int(ret_by_pd.get((str(t.plate), t.dest_date), 0))
+2406:             if ft0 is not None and id(ft0) == id(t)
+2407:             else 0
+2408:         )
+2409:         money = trip_row_pricing_cells(
+2410:             t,
+2411:             firsts=firsts,
+2412:             first_no_work=first_no_work,
+2413:             fifty_by_lists=fifty_by_lists,
+2414:             cfg=cfg,
+2415:             return_baht=ret_amt,
+2416:         )
+2417:         return (
+2418:             f"<tr><td>{t.origin_date}</td><td>{t.dest_date}</td>"
+2419:             f"<td><span class='badge {'bigc' if t.site=='BigC' else 'lcb'}'>{t.site}</span></td>"
+2420:             f"<td><a href='plates/{esc(t.plate)}.html'>{esc(t.plate)}</a>{ab}</td>"
+2421:             f"<td>{t.o_in}</td><td>{t.o_out}</td><td>{t.d_in}</td><td>{t.d_out}</td>"
+2422:             f"{_td_wait_h(t.origin_wait_h, _hi_o, False)}<td>{fmt_hm(t.travel_h)}</td>{_td_wait_h(t.dest_wait_h, _hi_d, True)}"
+2423:             f"{money}</tr>"
+2424:         )
+2425: 
+2435:     def trip_row_plate(t: Trip) -> str:
+2436:         ab = " <span class='badge abn'>ABNORMAL</span>" if t.travel_flag else ""
+2437:         ft0 = firsts.get((t.plate, t.dest_date))
+2438:         ret_amt = (
+2439:             int(ret_by_pd.get((str(t.plate), t.dest_date), 0))
+2440:             if ft0 is not None and id(ft0) == id(t)
+2441:             else 0
+2442:         )
+2443:         money = trip_row_pricing_cells(
+2444:             t,
+2445:             firsts=firsts,
+2446:             first_no_work=first_no_work,
+2447:             fifty_by_lists=fifty_by_lists,
+2448:             cfg=cfg,
+2449:             return_baht=ret_amt,
+2450:         )
+2451:         return (
+2452:             f"<tr><td>{t.origin_date}</td><td>{t.dest_date}</td><td>{t.site}{ab}</td>"
+2453:             f"<td>{t.o_in}</td><td>{t.o_out}</td><td>{t.d_in}</td><td>{t.d_out}</td>"
+2454:             f"{_td_wait_h(t.origin_wait_h, _hi_o, False)}<td>{fmt_hm(t.travel_h)}</td>{_td_wait_h(t.dest_wait_h, _hi_d, True)}"
+2455:             f"{money}</tr>"
+2456:         )
+2457: 
+2458:     daily_act_rows_html = "".join(
+2459:         f"<tr><td>{d}</td><td>{s['trucks']}</td><td>{s['trips']}</td><td>{s['commit']}</td><td>{s['short']}</td>"

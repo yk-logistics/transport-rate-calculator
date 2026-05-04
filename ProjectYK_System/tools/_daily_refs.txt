@@ -1,0 +1,5 @@
+﻿1060     for d, s in daily_rows:
+1270         for d, s in daily_rows
+1435     daily_rows = daily_activity_by_dest(trips, cfg)
+1437     actual, commit, short, extra = billing_totals(daily_rows, cfg)
+1438     bc_stats = site_billing(daily_rows, cfg)

@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block title %}{% if mode=='new' %}เพิ่มงานประจำวัน{% else %}แก้ไขงาน #{{ row.id }}{% endif %}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">{% if mode=='new' %}เพิ่มงานประจำวัน{% else %}แก้ไขงาน #{{ row.id }}{% endif %}</h1>
+
+<form method="post" action="{% if mode=='new' %}/daily/new{% else %}/daily/{{ row.id }}/edit{% endif %}" class="space-y-6">
+
+<section class="bg-white rounded-lg border p-6">
+  <h2 class="font-semibold mb-3">ข้อมูลหลัก</h2>
+  <div class="grid md:grid-cols-3 gap-4">
+    <div>
+      <label class="block text-sm mb-1">วันที่ *</label>
+      <input type="date" name="work_date" value="{{ row.work_date if row and row.work_date else today }}" required class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ไซต์ *</label>
+      <select name="site_code" required class="w-full border rounded px-3 py-2" onchange="document.getElementById('tripTypeHint').textContent = ({'AYU':'AYU: mao/trip','BIGC':'BIGC: รับรถ/1DH/1Big c/1+/2BigC/2++','LCB':'LCB: Export/Import/Domestic'})[this.value] || ''">
+        {% for sc in site_codes %}
+        <option value="{{ sc }}" {% if row and row.site_code==sc %}selected{% endif %}>{{ sc }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ประเภทเที่ยว / Trip Type</label>
+      <input name="trip_type_code" value="{{ row.trip_type_code if row else '' }}" class="w-full border rounded px-3 py-2" placeholder="เช่น 1Big c, 2++, Export" />
+      <p class="text-xs text-slate-500 mt-1" id="tripTypeHint">ดู docs/BIGC_BRANCH_RATE_SPEC.md</p>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">สถานะงาน (ข้อความอิสระ)</label>
+      <input name="status_code" value="{{ row.status_code if row else '' }}" class="w-full border rounded px-3 py-2" placeholder="เช่น MOL, KLND, รถจอด" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">สถานะลา</label>
+      <select name="leave_status" class="w-full border rounded px-3 py-2">
+        {% for code, label in leave_status_choices %}
+        <option value="{{ code }}" {% if row and row.leave_status==code %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div></div>
+  </div>
+</section>
+
+<section class="bg-white rounded-lg border p-6">
+  <h2 class="font-semibold mb-3">คนขับ / รถ</h2>
+  <div class="grid md:grid-cols-3 gap-4">
+    <div>
+      <label class="block text-sm mb-1">พนักงานขับรถ</label>
+      <select name="driver_id" class="w-full border rounded px-3 py-2">
+        <option value="">— เลือกจาก master —</option>
+        {% for e in employees %}
+        <option value="{{ e.id }}" {% if row and row.driver_id==e.id %}selected{% endif %}>{{ e.full_name }} ({{ e.home_site_code }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="md:col-span-2">
+      <label class="block text-sm mb-1">หรือพิมพ์ชื่อ (ยังไม่มีใน master)</label>
+      <input name="driver_raw_name" value="{{ row.driver_raw_name if row else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+
+    <div>
+      <label class="block text-sm mb-1">ทะเบียน (รถหลัก)</label>
+      <select name="head_vehicle_id" class="w-full border rounded px-3 py-2">
+        <option value="">— เลือก —</option>
+        {% for v in vehicles %}{% if v.vehicle_kind != 'tail' %}
+        <option value="{{ v.id }}" {% if row and row.head_vehicle_id==v.id %}selected{% endif %}>{{ v.plate_no }} ({{ v.truck_type }})</option>
+        {% endif %}{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ทะเบียน (หาง — BIGC)</label>
+      <select name="tail_vehicle_id" class="w-full border rounded px-3 py-2">
+        <option value="">—</option>
+        {% for v in vehicles %}{% if v.vehicle_kind == 'tail' %}
+        <option value="{{ v.id }}" {% if row and row.tail_vehicle_id==v.id %}selected{% endif %}>{{ v.plate_no }}</option>
+        {% endif %}{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ทะเบียนพิมพ์มือ (fallback)</label>
+      <input name="plate_no_raw" value="{{ row.plate_no_raw if row else '' }}" class="w-full border rounded px-3 py-2" placeholder="หลัก" />
+      <input name="tail_plate_raw" value="{{ row.tail_plate_raw if row else '' }}" class="w-full border rounded px-3 py-2 mt-1" placeholder="หาง (ถ้ามี)" />
+    </div>
+  </div>
+</section>
+
+<section class="bg-white rounded-lg border p-6">
+  <h2 class="font-semibold mb-3">ลูกค้า / เส้นทาง</h2>
+  <div class="grid md:grid-cols-3 gap-4">
+    <div>
+      <label class="block text-sm mb-1">ลูกค้า</label>
+      <select name="customer_id" class="w-full border rounded px-3 py-2">
+        <option value="">— เลือก —</option>
+        {% for c in customers %}
+        <option value="{{ c.id }}" {% if row and row.customer_id==c.id %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="md:col-span-2">
+      <label class="block text-sm mb-1">หรือพิมพ์ชื่อลูกค้า</label>
+      <input name="customer_name_raw" value="{{ row.customer_name_raw if row else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ต้นทาง</label>
+      <input name="origin" value="{{ row.origin if row else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div class="md:col-span-2">
+      <label class="block text-sm mb-1">ปลายทาง</label>
+      <input name="destination" value="{{ row.destination if row else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">เลขเอกสาร (Doc no)</label>
+      <input name="doc_no" value="{{ row.doc_no if row else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">Job Ref (LCB)</label>
+      <input name="job_ref" value="{{ row.job_ref if row else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div></div>
+    <div>
+      <label class="block text-sm mb-1">เบอร์ตู้ (Container no)</label>
+      <input name="container_no" value="{{ row.container_no if row else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ขนาดตู้</label>
+      <input name="container_size" value="{{ row.container_size if row else '' }}" class="w-full border rounded px-3 py-2" placeholder="20 / 40" />
+    </div>
+  </div>
+</section>
+
+<section class="bg-white rounded-lg border p-6">
+  <h2 class="font-semibold mb-3">เงิน</h2>
+  <div class="grid md:grid-cols-3 gap-4">
+    <div>
+      <label class="block text-sm mb-1">ค่าขนส่ง (รายได้จากลูกค้า)</label>
+      <input id="fld_revenue_customer" type="number" step="0.01" name="revenue_customer" value="{{ '%g'|format(row.revenue_customer) if row else 0 }}" class="w-full border rounded px-3 py-2" />
+      <div id="fuel_surcharge_preview" class="mt-1 text-xs text-slate-500"></div>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ค่าเที่ยว (จ่ายคนขับ)</label>
+      <input type="number" step="0.01" name="trip_fee_driver" value="{{ '%g'|format(row.trip_fee_driver) if row else 0 }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ยอดหัก ภงด.53</label>
+      <input type="number" step="0.01" name="wht_53" value="{{ '%g'|format(row.wht_53) if row else 0 }}" class="w-full border rounded px-3 py-2" />
+      <p class="text-xs text-slate-500 mt-1">ค่าขนส่งปกติหัก 1% — อนาคตระบบจะ auto-calc ให้ตอน export ใบวางบิล</p>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">เลขที่ใบแจ้งหนี้</label>
+      <input name="invoice_no" value="{{ row.invoice_no if row else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">วันที่ใบแจ้งหนี้</label>
+      <input type="date" name="invoice_date" value="{{ row.invoice_date if row and row.invoice_date else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div></div>
+  </div>
+</section>
+
+<section class="bg-white rounded-lg border p-6">
+  <h2 class="font-semibold mb-3">น้ำมัน / ไมล์ <span class="text-xs text-slate-500 font-normal">(เว้นว่างได้ — จะมีหน้า /fuel แยกต่างหากที่คีย์ภายหลังจากทะเบียนรถ)</span></h2>
+  <div class="grid md:grid-cols-3 gap-4">
+    <div>
+      <label class="block text-sm mb-1">ลิตร</label>
+      <input type="number" step="0.01" name="fuel_liter" value="{{ '%g'|format(row.fuel_liter) if row else 0 }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">บาท (ค่าน้ำมัน)</label>
+      <input type="number" step="0.01" name="fuel_amount" value="{{ '%g'|format(row.fuel_amount) if row else 0 }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ปั้มน้ำมัน</label>
+      <input name="fuel_station" value="{{ row.fuel_station if row else '' }}" class="w-full border rounded px-3 py-2" placeholder="PTT / Shell" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">เรท กม./ล.</label>
+      <input type="number" step="0.01" name="fuel_rate_km_per_l" value="{{ '%g'|format(row.fuel_rate_km_per_l) if row else 0 }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">เลขไมล์</label>
+      <input type="number" step="0.01" name="mile_snapshot" value="{{ '%g'|format(row.mile_snapshot) if row else 0 }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div></div>
+  </div>
+</section>
+
+<section class="bg-white rounded-lg border p-6">
+  <h2 class="font-semibold mb-3">หมายเหตุ</h2>
+  <textarea name="remark" rows="2" class="w-full border rounded px-3 py-2">{{ row.remark if row else '' }}</textarea>
+</section>
+
+<div class="flex gap-2">
+  <button class="bg-slate-900 text-white px-5 py-2 rounded-lg hover:bg-slate-700">{% if mode=='new' %}บันทึก{% else %}บันทึกการแก้ไข{% endif %}</button>
+  <a href="/daily" class="px-5 py-2 rounded-lg border">ยกเลิก</a>
+</div>
+
+<p class="text-xs text-slate-500">
+  ยังไม่มีส่วน "ค่าย่อย LCB" (lift/yard/clean/shore/port/weighing/special/ot/pickup_return/mflow) — จะเพิ่มในเฟสถัดไป
+  ตอนนี้ใส่รวมลง "ค่าขนส่ง" หรือ "ค่าเที่ยว" ไปก่อน
+</p>
+</form>
+
+<script>
+(function() {
+  const fldRevenue   = document.getElementById('fld_revenue_customer');
+  const preview      = document.getElementById('fuel_surcharge_preview');
+  if (!fldRevenue || !preview) return;
+  const fldCustomer  = document.querySelector('[name="customer_id"]');
+  const fldTrip      = document.querySelector('[name="trip_type_code"]');
+  const fldVehKind   = document.querySelector('[name="vehicle_kind"]') || document.querySelector('[name="truck_type"]');
+  const fldDate      = document.querySelector('[name="work_date"]');
+
+  async function refresh() {
+    const base = parseFloat(fldRevenue.value || '0');
+    if (!base || base <= 0) { preview.innerHTML = ''; return; }
+    const params = new URLSearchParams({
+      base_rate: base,
+      customer_id: (fldCustomer && fldCustomer.value) || '',
+      trip_type_code: (fldTrip && fldTrip.value) || '*',
+      vehicle_kind: (fldVehKind && fldVehKind.value) || '*',
+      work_date: (fldDate && fldDate.value) || '',
+    });
+    try {
+      const r = await fetch('/api/rates/effective?' + params.toString());
+      if (!r.ok) return;
+      const d = await r.json();
+      if (d.band_id) {
+        preview.innerHTML =
+          '<span class="text-amber-700">⛽ ' + d.explain + '</span>' +
+          ' · <a href="/rates/fuel-surcharge" class="text-sky-600 underline">band #' + d.band_id + '</a>';
+      } else if (d.diesel_price) {
+        preview.innerHTML =
+          '<span class="text-slate-400">⛽ น้ำมันเดือน ' + d.fuel_month + '=' +
+          d.diesel_price.toFixed(2) + ' ฿/L · ไม่เข้า band ใด (ใช้ base)</span>';
+      } else {
+        preview.innerHTML = '';
+      }
+    } catch (e) {}
+  }
+  fldRevenue.addEventListener('blur', refresh);
+  [fldCustomer, fldTrip, fldVehKind, fldDate].forEach(f => f && f.addEventListener('change', refresh));
+  refresh();
+})();
+</script>
+{% endblock %}

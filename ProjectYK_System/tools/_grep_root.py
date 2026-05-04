@@ -1,0 +1,5 @@
+from pathlib import Path
+import re
+s = Path(r"c:\Users\Home\Desktop\Project YK\Oatside\build_oatside_reports.py").read_text(encoding="utf-8")
+for m in re.finditer(r"def _root\([^)]*\)[^:]*:", s):
+    print(s[m.start():m.start()+200])

@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+{% block title %}สร้าง Master จากข้อมูลจริง · Promote{% endblock %}
+{% block content %}
+
+<h1 class="text-2xl font-bold mb-1">สร้าง Master จากข้อมูลจริง</h1>
+<p class="text-sm text-slate-500 mb-4">ดึงรายชื่อคนขับ + ทะเบียนรถที่ปรากฏในข้อมูล Daily / Petty Cash / Fuel แล้วสร้าง Employee / Vehicle พร้อมเชื่อม ID กลับเข้าแถวเดิม</p>
+
+{% if request.query_params.get('created') %}
+<div class="mb-4 p-3 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">
+  ✓ สร้าง Master ใหม่ {{ request.query_params.get('created') }} รายการ · เชื่อม ID เข้าข้อมูลเดิม {{ request.query_params.get('filled') }} แถว
+</div>
+{% endif %}
+
+<div class="grid grid-cols-4 gap-3 mb-4">
+  <div class="bg-white border rounded-lg p-3">
+    <div class="text-xs text-slate-500">Employee ทั้งหมด</div>
+    <div class="text-xl font-semibold">{{ emp_count }}</div>
+  </div>
+  <div class="bg-white border rounded-lg p-3">
+    <div class="text-xs text-slate-500">Vehicle ทั้งหมด</div>
+    <div class="text-xl font-semibold">{{ veh_count }}</div>
+  </div>
+  <div class="bg-white border rounded-lg p-3">
+    <div class="text-xs text-slate-500">แถวที่ driver_id ยังว่าง</div>
+    <div class="text-xl font-semibold text-amber-700">{{ total_drv_raw }}</div>
+  </div>
+  <div class="bg-white border rounded-lg p-3">
+    <div class="text-xs text-slate-500">แถวที่ vehicle_id ยังว่าง</div>
+    <div class="text-xl font-semibold text-amber-700">{{ total_plt_raw }}</div>
+  </div>
+</div>
+
+<div class="flex gap-2 mb-4 border-b">
+  <a href="/admin/promote?tab=drivers" class="px-4 py-2 text-sm {% if tab=='drivers' %}border-b-2 border-sky-600 text-sky-700 font-medium{% else %}text-slate-500 hover:text-slate-800{% endif %}">
+    คนขับ / Employee
+  </a>
+  <a href="/admin/promote?tab=plates" class="px-4 py-2 text-sm {% if tab=='plates' %}border-b-2 border-sky-600 text-sky-700 font-medium{% else %}text-slate-500 hover:text-slate-800{% endif %}">
+    ทะเบียน / Vehicle
+  </a>
+</div>
+
+{% if tab == 'drivers' %}
+<form method="post" action="/admin/promote/drivers">
+  <div class="flex items-center justify-between mb-3">
+    <div class="text-sm text-slate-600">
+      พบ <b>{{ drivers|length }}</b> คนขับที่ยังไม่อยู่ใน Master
+      · <span class="text-xs text-slate-500">ติ๊กที่คุณจะสร้างทันที (ระบบติ๊กให้แล้วเฉพาะที่มั่นใจ)</span>
+    </div>
+    <div class="flex gap-2">
+      <button type="button" onclick="togglePromoteAll(true)" class="text-xs px-3 py-1.5 border rounded hover:bg-slate-100">เลือกทั้งหมด</button>
+      <button type="button" onclick="togglePromoteAll(false)" class="text-xs px-3 py-1.5 border rounded hover:bg-slate-100">ล้างเลือก</button>
+      <button class="bg-sky-600 text-white px-4 py-1.5 rounded text-sm hover:bg-sky-700">สร้าง + ลิงก์ข้อมูลเก่า</button>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-lg border overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-100 text-left">
+        <tr>
+          <th class="px-2 py-2 w-8"></th>
+          <th class="px-2 py-2">รวม</th>
+          <th class="px-2 py-2">ไซต์</th>
+          <th class="px-2 py-2">ชื่อจริง + นามสกุล <span class="text-[10px] text-slate-400 font-normal">(แนะนำให้ใส่เต็ม)</span></th>
+          <th class="px-2 py-2">ชื่อเล่น</th>
+          <th class="px-2 py-2">Role</th>
+          <th class="px-2 py-2">ไซต์หลัก</th>
+          <th class="px-2 py-2">Pay Mode</th>
+          <th class="px-2 py-2">ที่มา / variants</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in drivers %}
+        {% set key = loop.index0 %}
+        <tr class="border-t {% if not c.is_confident %}bg-amber-50{% endif %} align-top">
+          <td class="px-2 py-2">
+            <input type="checkbox" name="pick_{{ key }}" class="promote-pick"
+              {% if c.is_confident %}checked{% endif %} />
+          </td>
+          <td class="px-2 py-2 font-semibold text-center">{{ c.total }}</td>
+          <td class="px-2 py-2 text-xs">
+            {% for site, cnt in c.site_counter.most_common() %}
+              <span class="inline-block px-1 py-0.5 rounded text-[10px] mr-0.5
+                {% if site == 'AYU' %}bg-blue-100 text-blue-700
+                {% elif site == 'BIGC' %}bg-green-100 text-green-700
+                {% elif site == 'LCB' %}bg-rose-100 text-rose-700
+                {% else %}bg-slate-200 text-slate-600{% endif %}">{{ site }}:{{ cnt }}</span>
+            {% endfor %}
+          </td>
+          <td class="px-2 py-2">
+            <input name="full_{{ key }}" value="{{ c.display_name }}"
+              placeholder="เช่น สมัย สายศิลป์"
+              class="w-52 border rounded px-2 py-1 text-xs" />
+          </td>
+          <td class="px-2 py-2">
+            <input name="nick_{{ key }}" value="{{ c.nickname }}"
+              placeholder="ชื่อเล่น"
+              class="w-24 border rounded px-2 py-1 text-xs" />
+          </td>
+          <td class="px-2 py-2">
+            <select name="role_{{ key }}" class="border rounded px-2 py-1 text-xs role-select">
+              {% for rid, rlabel in employee_roles %}
+              <option value="{{ rid }}" {% if rid == c.suggested_role %}selected{% endif %}>{{ rlabel }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td class="px-2 py-2">
+            <select name="site_{{ key }}" class="border rounded px-2 py-1 text-xs">
+              {% for sc in site_codes %}
+              <option value="{{ sc }}" {% if sc == c.home_site_code %}selected{% endif %}>{{ sc }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td class="px-2 py-2">
+            <select name="paymode_{{ key }}" class="border rounded px-2 py-1 text-xs pay-mode-select">
+              {% for code, label in pay_modes %}
+              <option value="{{ code }}"
+                {% if (c.home_site_code=='AYU' and code=='ayu_trip') or
+                      (c.home_site_code=='BIGC' and code=='bigc_monthly') or
+                      (c.home_site_code=='LCB' and code=='lcb_monthly') %}selected{% endif %}>
+                {{ label }}
+              </option>
+              {% endfor %}
+            </select>
+          </td>
+          <td class="px-2 py-2 text-xs text-slate-600">
+            <div class="flex flex-wrap gap-1">
+              {% for v in c.variants %}
+                <span class="inline-block px-1.5 py-0.5 bg-slate-100 rounded text-[10px]">{{ v }}</span>
+              {% endfor %}
+            </div>
+            <div class="text-[10px] text-slate-400 mt-1">
+              {% for src, cnt in c.source_counter.most_common() %}{{ src }}:{{ cnt }}{% if not loop.last %} · {% endif %}{% endfor %}
+              {% if c.top_plate %}· หลักๆใช้ <span class="font-mono">{{ c.top_plate }}</span>{% endif %}
+            </div>
+            <input type="hidden" name="variants_{{ key }}" value='{{ c.variants|tojson }}' />
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="px-3 py-8 text-center text-slate-400">ไม่พบคนขับที่ยังไม่อยู่ใน Master 🎉</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</form>
+{% endif %}
+
+{% if tab == 'plates' %}
+<form method="post" action="/admin/promote/vehicles">
+  <div class="flex items-center justify-between mb-3">
+    <div class="text-sm text-slate-600">
+      พบ <b>{{ plates|length }}</b> ทะเบียนที่ยังไม่อยู่ใน Master
+    </div>
+    <div class="flex gap-2">
+      <button type="button" onclick="togglePromoteAll(true)" class="text-xs px-3 py-1.5 border rounded hover:bg-slate-100">เลือกทั้งหมด</button>
+      <button type="button" onclick="togglePromoteAll(false)" class="text-xs px-3 py-1.5 border rounded hover:bg-slate-100">ล้างเลือก</button>
+      <button class="bg-sky-600 text-white px-4 py-1.5 rounded text-sm hover:bg-sky-700">สร้าง + ลิงก์ข้อมูลเก่า</button>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-lg border overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-100 text-left">
+        <tr>
+          <th class="px-2 py-2 w-8"></th>
+          <th class="px-2 py-2">รวม</th>
+          <th class="px-2 py-2">ทะเบียน</th>
+          <th class="px-2 py-2">ไซต์หลัก</th>
+          <th class="px-2 py-2">ประเภท</th>
+          <th class="px-2 py-2">สัดส่วนตามไซต์</th>
+          <th class="px-2 py-2">ที่มา</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in plates %}
+        {% set key = loop.index0 %}
+        <tr class="border-t {% if not c.is_confident %}bg-amber-50{% endif %}">
+          <td class="px-2 py-2">
+            <input type="checkbox" name="pick_{{ key }}" class="promote-pick"
+              {% if c.is_confident %}checked{% endif %} />
+          </td>
+          <td class="px-2 py-2 font-semibold text-center">{{ c.total }}</td>
+          <td class="px-2 py-2 font-mono">
+            <input name="plate_{{ key }}" value="{{ c.normalized_plate }}" class="w-28 border rounded px-2 py-1 text-xs" />
+          </td>
+          <td class="px-2 py-2">
+            <select name="site_{{ key }}" class="border rounded px-2 py-1 text-xs">
+              {% for sc in site_codes %}
+              <option value="{{ sc }}" {% if sc == c.home_site_code %}selected{% endif %}>{{ sc }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td class="px-2 py-2">
+            <select name="type_{{ key }}" class="border rounded px-2 py-1 text-xs">
+              <option value="">-</option>
+              {% for tt in truck_types %}
+              <option value="{{ tt }}">{{ tt }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td class="px-2 py-2 text-xs">
+            {% for site, cnt in c.site_counter.most_common() %}
+              <span class="inline-block px-1 py-0.5 rounded text-[10px] mr-0.5
+                {% if site == 'AYU' %}bg-blue-100 text-blue-700
+                {% elif site == 'BIGC' %}bg-green-100 text-green-700
+                {% elif site == 'LCB' %}bg-rose-100 text-rose-700
+                {% else %}bg-slate-200 text-slate-600{% endif %}">{{ site }}:{{ cnt }}</span>
+            {% endfor %}
+          </td>
+          <td class="px-2 py-2 text-xs text-slate-500">
+            {% for src, cnt in c.source_counter.most_common() %}{{ src }}:{{ cnt }}{% if not loop.last %} · {% endif %}{% endfor %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="px-3 py-8 text-center text-slate-400">ไม่พบทะเบียนที่ยังไม่อยู่ใน Master 🎉</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</form>
+{% endif %}
+
+<script>
+function togglePromoteAll(val) {
+  document.querySelectorAll('input.promote-pick').forEach(cb => cb.checked = val);
+}
+// When a role is switched away from "driver", auto-pick pay_mode="none"
+// (non-driver employees don't get a payroll run)
+document.querySelectorAll('select.role-select').forEach(sel => {
+  sel.addEventListener('change', (e) => {
+    const row = e.target.closest('tr');
+    const pm = row.querySelector('select.pay-mode-select');
+    if (!pm) return;
+    if (e.target.value !== 'driver') {
+      for (const opt of pm.options) {
+        if (opt.value === 'none') { pm.value = 'none'; break; }
+      }
+    }
+  });
+});
+</script>
+
+{% endblock %}

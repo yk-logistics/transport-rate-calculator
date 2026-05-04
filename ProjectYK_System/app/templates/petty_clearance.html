@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}สดย่อย — รอเคลียร์ใบเสร็จ/ทอน{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">รอเคลียร์ (ใบเสร็จ / ทอน)</h1>
+  <div class="flex gap-2">
+    <a href="/petty-cash" class="px-3 py-2 text-sm border rounded">← กลับสดย่อย</a>
+  </div>
+</div>
+
+<form method="get" class="flex flex-wrap gap-2 mb-4 bg-white border rounded-lg p-3">
+  <select name="site" class="border rounded px-2 py-1">
+    <option value="">ทุกไซต์</option>
+    {% for sc in site_codes %}
+    <option value="{{ sc }}" {% if site==sc %}selected{% endif %}>{{ sc }}</option>
+    {% endfor %}
+  </select>
+  <button class="bg-slate-900 text-white px-4 py-1 rounded">ดู</button>
+</form>
+
+<div class="grid md:grid-cols-2 gap-3 mb-4">
+  <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+    <div class="text-xs text-yellow-700">รวมยอดค้าง</div>
+    <div class="text-2xl font-bold text-yellow-800">{{ '{:,.2f}'.format(total_pending) }} ฿</div>
+    <div class="text-xs text-yellow-700 mt-1">จำนวน {{ rows|length }} รายการ</div>
+  </div>
+  <div class="bg-slate-50 border rounded-lg p-4 text-sm text-slate-600">
+    รายการในหน้านี้คือ สดย่อยที่มี "ยอดค้าง" และยังไม่กรอก "วันที่เคลียร์"<br>
+    กดปุ่ม <span class="inline-block px-2 py-0.5 border rounded bg-green-50 text-green-800 text-xs">เคลียร์แล้ว</span> เมื่อรับใบเสร็จ/ทอนครบแล้ว
+  </div>
+</div>
+
+<div class="bg-white rounded-lg border overflow-x-auto">
+  <table class="min-w-full text-sm">
+    <thead class="bg-slate-50 text-slate-600 text-xs uppercase">
+      <tr>
+        <th class="px-3 py-2 text-left">วันที่</th>
+        <th class="px-3 py-2">ค้าง (วัน)</th>
+        <th class="px-3 py-2 text-left">ไซต์</th>
+        <th class="px-3 py-2 text-left">ผู้เบิก</th>
+        <th class="px-3 py-2 text-left">รายการ</th>
+        <th class="px-3 py-2 text-right">ยอดจ่าย</th>
+        <th class="px-3 py-2 text-right">ยอดค้าง</th>
+        <th class="px-3 py-2 text-left">รายละเอียด</th>
+        <th class="px-3 py-2"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y">
+      {% for r in rows %}
+      <tr class="{% if r.days_old > 14 %}bg-red-50{% elif r.days_old > 7 %}bg-amber-50{% endif %}">
+        <td class="px-3 py-2">{{ r.txn_date | dmy }}</td>
+        <td class="px-3 py-2 text-center font-semibold {% if r.days_old > 14 %}text-red-700{% elif r.days_old > 7 %}text-amber-700{% else %}text-slate-600{% endif %}">{{ r.days_old }}</td>
+        <td class="px-3 py-2">{{ r.site_code }}</td>
+        <td class="px-3 py-2">{{ r.requester }}</td>
+        <td class="px-3 py-2">{{ r.memo }}</td>
+        <td class="px-3 py-2 text-right">{{ '{:,.2f}'.format(r.amount) }}</td>
+        <td class="px-3 py-2 text-right font-semibold text-yellow-800">{{ '{:,.2f}'.format(r.pending_amount) }}</td>
+        <td class="px-3 py-2 text-slate-600">{{ r.pending_note }}</td>
+        <td class="px-3 py-2 text-right space-x-1 whitespace-nowrap">
+          <a href="/petty-cash/{{ r.id }}/edit" class="text-xs text-slate-600 hover:underline">แก้</a>
+          <a href="/petty-cash/clearance/{{ r.id }}/clear"
+             onclick="return confirm('ยืนยันเคลียร์รายการนี้?')"
+             class="inline-block px-2 py-1 text-xs bg-green-100 text-green-800 rounded hover:bg-green-200">เคลียร์แล้ว</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="text-center py-8 text-slate-400">ไม่มีรายการค้างเคลียร์ ✓</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

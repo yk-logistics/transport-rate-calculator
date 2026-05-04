@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}ยาง — {{ vehicle.plate_no }}{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">
+    🛞 ยางของ {{ vehicle.plate_no }}
+    {% if vehicle.nickname %}<span class="text-slate-500 text-lg">({{ vehicle.nickname }})</span>{% endif %}
+  </h1>
+  <div class="flex gap-2">
+    <a href="/maint/tires" class="btn bg-slate-200 hover:bg-slate-300">← รายการยาง</a>
+    <a href="/maint/pm?vehicle_filter={{ vehicle.plate_no }}" class="btn bg-slate-200 hover:bg-slate-300">PM ของรถนี้</a>
+  </div>
+</div>
+
+<div class="p-3 bg-white border rounded-lg mb-4 text-sm text-slate-600">
+  <strong>รถ:</strong> {{ vehicle.brand or '-' }} {{ vehicle.model or '' }} ({{ vehicle.truck_type or vehicle.vehicle_kind }})
+  {% if vehicle.current_mile %} · <strong>เลขไมล์:</strong> {{ "%.0f"|format(vehicle.current_mile) }} km{% endif %}
+  · <strong>ตำแหน่งยางต่อรถ:</strong> {{ positions|length }} ตำแหน่ง
+</div>
+
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+  {% for pos in positions %}
+  {% set t = by_pos.get(pos) %}
+  <div class="p-3 bg-white border rounded-lg {% if not t %}border-dashed text-slate-400{% endif %}">
+    <div class="text-xs font-mono text-slate-500">{{ pos }}</div>
+    {% if t %}
+      <div class="font-semibold text-sm">{{ t.brand or '-' }} {{ t.model or '' }}</div>
+      <div class="text-xs text-slate-500 font-mono">{{ t.serial_no or '-' }}</div>
+      <div class="text-xs text-slate-500">{{ t.spec or '' }}</div>
+      <div class="text-xs mt-1">ดอก: <strong>{{ "%.1f"|format(t.tread_depth_mm) if t.tread_depth_mm else '?' }}</strong> mm</div>
+      <div class="mt-1">
+        <a href="/maint/tires/{{ t.id }}" class="text-xs text-sky-600 hover:underline">จัดการ</a>
+      </div>
+    {% else %}
+      <div class="text-xs italic mt-2">— ว่าง —</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{% if other_tires %}
+<div class="p-3 bg-amber-50 border border-amber-200 rounded-lg mb-4">
+  <h2 class="font-semibold text-sm mb-2">⚠️ ยางที่ผูกกับรถนี้แต่ไม่มีตำแหน่ง</h2>
+  <ul class="text-sm list-disc ml-5">
+    {% for t in other_tires %}
+    <li><a href="/maint/tires/{{ t.id }}" class="text-sky-600 hover:underline">{{ t.code }}</a> — {{ t.brand }} {{ t.model }} ({{ t.serial_no }})</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="p-4 bg-white border rounded-lg mb-4">
+  <h2 class="font-semibold mb-3">⚡ ติดตั้งยาง spare ขึ้นรถ</h2>
+  {% if spare_tires %}
+  <div class="grid grid-cols-1 md:grid-cols-6 gap-2">
+    {% for t in spare_tires[:24] %}
+    <form method="post" action="/maint/tires/{{ t.id }}/event" class="flex gap-1">
+      <input type="hidden" name="event_type" value="mount">
+      <input type="hidden" name="event_date" value="{{ today }}">
+      <input type="hidden" name="to_vehicle_id" value="{{ vehicle.id }}">
+      <input type="text" name="to_position" placeholder="ตำแหน่ง" required
+             class="border rounded px-1 py-0.5 text-xs w-20 font-mono">
+      <button class="text-xs bg-emerald-600 text-white px-2 py-0.5 rounded hover:bg-emerald-700">
+        🔧 {{ t.code }}
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-sm text-slate-500">ไม่มียาง spare (status=new/stored). <a href="/maint/tires/new" class="text-orange-600 hover:underline">+ เพิ่มยางใหม่</a></div>
+  {% endif %}
+</div>
+
+{% if events %}
+<div class="p-4 bg-white border rounded-lg">
+  <h2 class="font-semibold mb-3">📜 ประวัติเหตุการณ์ยางของรถคันนี้</h2>
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-xs text-slate-500">
+      <tr>
+        <th class="text-left py-1 px-2">วันที่</th>
+        <th class="text-left py-1 px-2">Tire</th>
+        <th class="text-left py-1 px-2">เหตุการณ์</th>
+        <th class="text-left py-1 px-2">จาก</th>
+        <th class="text-left py-1 px-2">ไป</th>
+        <th class="text-right py-1 px-2">ไมล์</th>
+        <th class="text-left py-1 px-2">หมายเหตุ</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in events %}
+      <tr class="border-t">
+        <td class="py-1 px-2 text-xs">{{ e.event_date }}</td>
+        <td class="py-1 px-2 text-xs font-mono"><a href="/maint/tires/{{ e.tire_id }}" class="text-sky-600 hover:underline">T{{ e.tire_id }}</a></td>
+        <td class="py-1 px-2 text-xs">{{ e.event_type }}</td>
+        <td class="py-1 px-2 text-xs font-mono">{{ e.from_position or '-' }}</td>
+        <td class="py-1 px-2 text-xs font-mono">{{ e.to_position or '-' }}</td>
+        <td class="py-1 px-2 text-right text-xs font-mono">{{ "%.0f"|format(e.mile) if e.mile else '-' }}</td>
+        <td class="py-1 px-2 text-xs text-slate-600">{{ e.note or '' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% endblock %}

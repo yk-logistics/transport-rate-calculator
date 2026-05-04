@@ -1,0 +1,8 @@
+<!-- converted from Y.K._Logistics_Solutions_Service_Co.,_Ltd._รายงานการผ่านจุด_22.04.2026_14-22-47 P&G.xlsx -->
+
+## Sheet: Content
+| 0.333333 | 0.291667 |
+| --- | --- |
+## Sheet: อุปกรณ์
+| № | การจัดกลุ่ม |
+| --- | --- |

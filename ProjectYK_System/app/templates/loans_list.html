@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}จัดการหนี้{% endblock %}
+{% block content %}
+<div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+  <h1 class="text-2xl font-bold">💳 จัดการหนี้/เงินกู้</h1>
+  <div class="flex gap-2">
+    <a href="/finance" class="bg-slate-200 px-3 py-1.5 rounded text-sm">← CFO Dashboard</a>
+    <a href="/finance/loans/new" class="bg-rose-600 text-white px-4 py-1.5 rounded text-sm">+ เพิ่มหนี้</a>
+  </div>
+</div>
+
+<div class="grid grid-cols-3 gap-3 mb-4">
+  <div class="bg-white border rounded-lg p-3">
+    <div class="text-xs text-slate-500">จำนวนหนี้ (active)</div>
+    <div class="text-xl font-bold">{{ rows | selectattr('loan.status', 'equalto', 'active') | list | length }}</div>
+  </div>
+  <div class="bg-white border rounded-lg p-3">
+    <div class="text-xs text-slate-500">ยอดคงเหลือรวม</div>
+    <div class="text-xl font-bold font-mono text-rose-700">{{ "{:,.0f}".format(total_balance) }}</div>
+  </div>
+  <div class="bg-white border rounded-lg p-3">
+    <div class="text-xs text-slate-500">ต้องจ่ายต่อเดือน</div>
+    <div class="text-xl font-bold font-mono">{{ "{:,.0f}".format(total_monthly) }}</div>
+  </div>
+</div>
+
+<div class="flex gap-2 mb-3 text-sm">
+  <a href="/finance/loans?show=active" class="px-3 py-1 rounded {% if show=='active' %}bg-slate-900 text-white{% else %}bg-white border{% endif %}">ใช้งานอยู่</a>
+  <a href="/finance/loans?show=all" class="px-3 py-1 rounded {% if show=='all' %}bg-slate-900 text-white{% else %}bg-white border{% endif %}">ทั้งหมด</a>
+</div>
+
+<div class="bg-white border rounded-lg overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-100 text-slate-600 text-xs">
+      <tr>
+        <th class="px-3 py-2 text-left">รหัส</th>
+        <th class="px-3 py-2 text-left">เจ้าหนี้</th>
+        <th class="px-3 py-2 text-left">ประเภท</th>
+        <th class="px-3 py-2 text-left">วัตถุประสงค์/หลักประกัน</th>
+        <th class="px-3 py-2 text-right">ยอดกู้</th>
+        <th class="px-3 py-2 text-right">คงเหลือ</th>
+        <th class="px-3 py-2 text-right">ดอก %</th>
+        <th class="px-3 py-2 text-right">งวด</th>
+        <th class="px-3 py-2 text-right">จ่าย/เดือน</th>
+        <th class="px-3 py-2 text-center">สถานะ</th>
+        <th class="px-3 py-2"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y">
+      {% for r in rows %}
+      {% set loan = r.loan %}
+      <tr class="hover:bg-slate-50">
+        <td class="px-3 py-2 font-mono text-xs">{{ loan.code }}</td>
+        <td class="px-3 py-2 font-semibold">{{ loan.lender }}</td>
+        <td class="px-3 py-2 text-xs">
+          {% for k, label in loan_kinds %}{% if k==loan.loan_kind %}{{ label }}{% endif %}{% endfor %}
+        </td>
+        <td class="px-3 py-2 text-xs">{{ loan.purpose }}{% if loan.collateral %} <span class="text-slate-400">· {{ loan.collateral }}</span>{% endif %}</td>
+        <td class="px-3 py-2 text-right font-mono">{{ "{:,.0f}".format(loan.principal) }}</td>
+        <td class="px-3 py-2 text-right font-mono font-semibold text-rose-700">{{ "{:,.0f}".format(loan.current_balance) }}</td>
+        <td class="px-3 py-2 text-right">{{ "{:.2f}".format(loan.annual_rate_pct) }}</td>
+        <td class="px-3 py-2 text-right text-xs">{{ loan.term_months }} ด.</td>
+        <td class="px-3 py-2 text-right font-mono">{{ "{:,.0f}".format(r.monthly) }}</td>
+        <td class="px-3 py-2 text-center text-xs">
+          {% if loan.status=='active' %}<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">active</span>
+          {% elif loan.status=='paid_off' %}<span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded">ใช้หมด</span>
+          {% else %}<span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{{ loan.status }}</span>{% endif %}
+        </td>
+        <td class="px-3 py-2"><a href="/finance/loans/{{ loan.id }}" class="text-blue-600 hover:underline">ดู/แก้ไข</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="11" class="px-3 py-8 text-center text-slate-500">ยังไม่มีหนี้ — <a href="/finance/loans/new" class="text-blue-600 underline">+ เพิ่มเลย</a></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

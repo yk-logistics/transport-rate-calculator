@@ -1,0 +1,57 @@
+{% extends "driver_base.html" %}
+{% set active = 'history' %}
+{% block title %}ประวัติการส่ง · YK Driver{% endblock %}
+
+{% block content %}
+<div class="text-xl font-bold mb-3">📜 ประวัติการส่ง</div>
+
+<form method="get" class="mb-3">
+  <select name="kind" class="w-full border rounded-xl px-3 py-2 bg-white"
+          onchange="this.form.submit()">
+    <option value="">-- ทุกประเภท --</option>
+    {% for k, lbl in kinds %}
+      <option value="{{ k }}" {% if k==kind_filter %}selected{% endif %}>{{ lbl }}</option>
+    {% endfor %}
+  </select>
+</form>
+
+{% if subs %}
+<div class="space-y-2">
+  {% for s in subs %}
+  <div class="bg-white rounded-xl p-3 border shadow-sm">
+    <div class="flex justify-between items-start">
+      <div>
+        <div class="font-medium">
+          {% if s.kind == 'vehicle_check' %}🔧 ตรวจรถ
+          {% elif s.kind == 'alcohol_test' %}🫁 แอลกอฮอล์
+          {% elif s.kind == 'job_photo' %}📷 รูปงาน
+          {% elif s.kind == 'fuel_receipt' %}⛽ ใบเสร็จน้ำมัน
+          {% else %}📄 {{ s.kind }}{% endif %}
+        </div>
+        <div class="text-xs text-slate-500">{{ s.submitted_at.strftime('%d/%m/%Y %H:%M') }}</div>
+        {% if s.plate_raw %}<div class="text-xs text-slate-500">🚚 {{ s.plate_raw }}</div>{% endif %}
+      </div>
+      <div class="text-xs px-2 py-1 rounded
+        {% if s.review_status == 'approved' %}bg-emerald-100 text-emerald-700
+        {% elif s.review_status == 'flagged' %}bg-rose-100 text-rose-700
+        {% else %}bg-slate-100 text-slate-600{% endif %}">
+        {% if s.review_status == 'approved' %}ผ่าน
+        {% elif s.review_status == 'flagged' %}ทักท้วง
+        {% elif s.review_status == 'archived' %}เก็บ
+        {% else %}รอตรวจ{% endif %}
+      </div>
+    </div>
+    {% if s.review_note %}
+    <div class="text-xs bg-amber-50 border border-amber-200 rounded p-2 mt-2">
+      💬 {{ s.review_note }}
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-xl p-6 text-center text-slate-500 border">
+  ยังไม่มีการส่ง
+</div>
+{% endif %}
+{% endblock %}

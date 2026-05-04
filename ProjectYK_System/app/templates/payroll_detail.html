@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+{% block title %}{{ run.site_code }} {{ run.pay_cycle_tag }} · Payroll{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-1">
+  <div>
+    <div class="flex items-center gap-2">
+      <h1 class="text-2xl font-bold">
+        Payroll · {{ run.site_code }} · {{ run.pay_cycle_tag }}
+      </h1>
+      {% if run.status == 'finalized' %}
+        <span class="text-xs bg-slate-800 text-white px-2 py-0.5 rounded">ปิดรอบแล้ว</span>
+      {% elif run.status == 'paid' %}
+        <span class="text-xs bg-emerald-600 text-white px-2 py-0.5 rounded">จ่ายแล้ว</span>
+      {% else %}
+        <span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">ร่าง — แก้ไขได้</span>
+      {% endif %}
+    </div>
+    <p class="text-sm text-slate-500">
+      ช่วง {{ run.period_start | dmy }} → {{ run.period_end | dmy }} · สร้างเมื่อ {{ run.created_at | dmy_hm }}
+    </p>
+    <p class="text-xs text-slate-500 mt-1">
+      ประกันสังคมรอบนี้:
+      <span class="font-mono">{{ '%.2f%%'|format((run.ss_rate if run.ss_rate is not none else 0.05) * 100) }}</span>
+      · ฐาน {{ '%.0f'|format(run.ss_base_min if run.ss_base_min is not none else 1650) }}–{{ '%.0f'|format(run.ss_base_max if run.ss_base_max is not none else 15000) }}
+      {% if run.status != 'finalized' %}
+      <button type="button" onclick="document.getElementById('ssPanel').classList.toggle('hidden')"
+              class="text-blue-600 hover:underline ml-1">[ตั้งค่า]</button>
+      {% endif %}
+    </p>
+    {% if run.status != 'finalized' %}
+    <div id="ssPanel" class="hidden mt-2 p-3 bg-slate-50 border rounded text-xs max-w-2xl">
+      <form method="post" action="/payroll/{{ run.id }}/ss-settings" class="space-y-2">
+        <div class="font-semibold text-slate-700">ตั้งประกันสังคมระดับ "ทั้งรอบ" (override default)</div>
+        <p class="text-slate-500">
+          ใช้เมื่อรัฐประกาศลด rate ชั่วคราว เช่น 1% / 2.5% / 3% — ค่าว่าง = ใช้ default 5% / 1,650 / 15,000
+        </p>
+        <div class="grid grid-cols-3 gap-2">
+          <label>
+            <span class="block text-slate-600">% rate (เช่น 0.03 = 3%)</span>
+            <input type="number" step="0.001" min="0" max="1" name="ss_rate"
+                   value="{{ run.ss_rate if run.ss_rate is not none else '' }}"
+                   class="w-full border rounded px-2 py-1" placeholder="0.05" />
+          </label>
+          <label>
+            <span class="block text-slate-600">ฐานต่ำสุด</span>
+            <input type="number" step="1" min="0" name="ss_base_min"
+                   value="{{ run.ss_base_min if run.ss_base_min is not none else '' }}"
+                   class="w-full border rounded px-2 py-1" placeholder="1650" />
+          </label>
+          <label>
+            <span class="block text-slate-600">ฐานสูงสุด</span>
+            <input type="number" step="1" min="0" name="ss_base_max"
+                   value="{{ run.ss_base_max if run.ss_base_max is not none else '' }}"
+                   class="w-full border rounded px-2 py-1" placeholder="15000" />
+          </label>
+        </div>
+        <div class="flex gap-2 pt-1">
+          <button type="submit" class="bg-slate-900 text-white px-3 py-1 rounded hover:bg-slate-700">บันทึก + คำนวณใหม่</button>
+          <button type="submit" name="clear" value="1" onclick="return confirm('ล้างเป็น default?')"
+                  class="bg-slate-200 text-slate-700 px-3 py-1 rounded hover:bg-slate-300">↺ ล้าง (default)</button>
+        </div>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+  <div class="flex gap-2">
+    <a href="/payroll" class="text-sm px-3 py-1.5 border rounded hover:bg-slate-50">← กลับ</a>
+    {% if run.status != 'finalized' %}
+    <form method="post" action="/payroll/{{ run.id }}/recompute" class="inline">
+      {% if stale and stale.is_stale %}
+      <button class="text-sm px-4 py-1.5 rounded bg-amber-500 hover:bg-amber-600 text-white font-semibold shadow-sm"
+              title="ข้อมูลต้นทางถูกแก้หลังจากคำนวณครั้งล่าสุด">
+        ⚠ คำนวณใหม่ ({{ stale.counts.total }} รายการใหม่)
+      </button>
+      {% else %}
+      <button class="text-sm px-3 py-1.5 border rounded hover:bg-slate-50">คำนวณใหม่</button>
+      {% endif %}
+    </form>
+    <form method="post" action="/payroll/{{ run.id }}/finalize" class="inline"
+      onsubmit="return confirm('ปิดรอบจะล็อกรายการสดย่อยของรอบนี้ ห้ามแก้ไขอีก · ยืนยัน?');">
+      <button class="bg-slate-900 text-white text-sm px-4 py-1.5 rounded hover:bg-slate-800">
+        ปิดรอบ + ล็อก
+      </button>
+    </form>
+    <form method="post" action="/payroll/{{ run.id }}/delete" class="inline"
+      onsubmit="return confirm('ลบรอบนี้ทั้งหมด?');">
+      <button class="text-sm px-3 py-1.5 border border-rose-200 text-rose-700 rounded hover:bg-rose-50">
+        ลบรอบ
+      </button>
+    </form>
+    {% endif %}
+    <form method="post" action="/payroll/{{ run.id }}/export-pdfs" class="inline"
+          title="บันทึกที่ Salary/{{ run.site_code }}/{{ salary_export_folder_month }}/Driver/"
+          onsubmit="return confirm('สร้าง PDF และบันทึกในโฟลเดอร์ Salary/{{ run.site_code }}/{{ salary_export_folder_month }}/Driver ?');">
+      <button type="submit" class="text-sm px-3 py-1.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-medium">
+        📄 ส่งออก PDF (สลิปทุกคน + สรุป + โอนเงิน)
+      </button>
+    </form>
+  </div>
+</div>
+
+{% if run.notes %}
+<p class="text-xs text-slate-600 mb-3">Note: {{ run.notes }}</p>
+{% endif %}
+
+{% if err == 'unlinked_pending' %}
+<div class="mb-3 rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-900">
+  ปิดรอบไม่ได้: ยังมีรายการหักคนขับที่ไม่ลิงก์คนขับอยู่ กรุณาแก้รายการค้างก่อน
+</div>
+{% endif %}
+
+{% if stale and stale.is_stale and run.status != 'finalized' %}
+<div class="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3 flex items-start gap-3">
+  <div class="text-amber-600 text-xl leading-none">⚠</div>
+  <div class="flex-1 text-sm">
+    <div class="font-semibold text-amber-900">ข้อมูลล่าสมัย — ตัวเลขด้านล่างยังเป็นผลจากการคำนวณครั้งก่อน</div>
+    <div class="text-amber-800 mt-0.5">
+      มีการแก้ไขต้นทางหลัง {{ stale.baseline.strftime('%Y-%m-%d %H:%M') if stale.baseline else '-' }}:
+      {% if stale.counts.petty %}<span class="ml-1 px-1.5 py-0.5 rounded bg-white border text-xs">สดย่อย {{ stale.counts.petty }}</span>{% endif %}
+      {% if stale.counts.daily %}<span class="ml-1 px-1.5 py-0.5 rounded bg-white border text-xs">เดลี่ {{ stale.counts.daily }}</span>{% endif %}
+      {% if stale.counts.fuel  %}<span class="ml-1 px-1.5 py-0.5 rounded bg-white border text-xs">น้ำมัน {{ stale.counts.fuel }}</span>{% endif %}
+      — กด <span class="font-semibold">"⚠ คำนวณใหม่"</span> เพื่ออัปเดต
+    </div>
+  </div>
+  <form method="post" action="/payroll/{{ run.id }}/recompute" class="inline">
+    <button class="text-sm px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-600 text-white font-semibold">
+      คำนวณใหม่เลย
+    </button>
+  </form>
+</div>
+{% endif %}
+
+{% if unlinked and unlinked.count > 0 %}
+<div class="mb-3 rounded-lg border border-rose-300 bg-rose-50 p-3 flex items-start gap-3">
+  <div class="text-rose-600 text-xl leading-none">⚠</div>
+  <div class="flex-1 text-sm">
+    <div class="font-semibold text-rose-900">มีรายการหักคนขับที่ยังไม่ลิงก์ {{ unlinked.count }} รายการ ({{ '{:,.0f}'.format(unlinked.amount) }} บาท)</div>
+    <div class="text-rose-800 mt-0.5">รายการพวกนี้ยังไม่ถูกคิดรวมใน payroll จนกว่าจะผูกคนขับให้เรียบร้อย</div>
+    {% if unlinked.rows %}
+    <div class="mt-1 text-xs text-rose-700">
+      ตัวอย่าง:
+      {% for r in unlinked.rows %}
+      <span class="inline-block mr-2">{{ r.txn_date | dmy }} {{ r.requester_raw }} {{ '{:,.0f}'.format(r.deduct_amount or 0) }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  <a href="/petty-cash?cycle={{ run.pay_cycle_tag }}&dstatus=pending&deduct=1&unlinked=1"
+     class="text-sm px-3 py-1.5 rounded bg-rose-600 hover:bg-rose-700 text-white font-semibold">
+    ไปแก้รายการค้างลิงก์ (ทุกไซต์ในรอบนี้)
+  </a>
+</div>
+{% endif %}
+
+<div class="grid grid-cols-4 gap-3 mb-4">
+  <div class="bg-white border rounded-lg p-3">
+    <div class="text-xs text-slate-500">พนักงาน</div>
+    <div class="text-xl font-semibold">{{ rows|length }}</div>
+  </div>
+  <div class="bg-white border rounded-lg p-3">
+    <div class="text-xs text-slate-500">รวมรายได้</div>
+    <div class="text-xl font-semibold text-emerald-700">{{ '{:,.0f}'.format(totals.gross) }}</div>
+  </div>
+  <div class="bg-white border rounded-lg p-3">
+    <div class="text-xs text-slate-500">รวมหัก</div>
+    <div class="text-xl font-semibold text-rose-700">{{ '{:,.0f}'.format(totals.ded) }}</div>
+  </div>
+  <div class="bg-white border rounded-lg p-3">
+    <div class="text-xs text-slate-500">ยอดสุทธิที่ต้องจ่าย</div>
+    <div class="text-xl font-bold">{{ '{:,.0f}'.format(totals.net) }}</div>
+  </div>
+</div>
+
+<div class="bg-white rounded-lg border overflow-x-auto">
+  <table class="w-full text-xs">
+    <thead class="bg-slate-100 text-left sticky top-0">
+      <tr>
+        <th class="px-2 py-2">#</th>
+        <th class="px-2 py-2">คนขับ</th>
+        <th class="px-2 py-2">Pay Mode</th>
+        <th class="px-2 py-2 text-right">วันทำงาน</th>
+        <th class="px-2 py-2 text-right">ลา</th>
+        <th class="px-2 py-2 text-right">ขาด</th>
+        <th class="px-2 py-2 text-right">เงินเดือน</th>
+        <th class="px-2 py-2 text-right">ค่าดูแลรถ</th>
+        <th class="px-2 py-2 text-right">ค่าเที่ยว</th>
+        <th class="px-2 py-2 text-right">เรทน้ำมัน</th>
+        <th class="px-2 py-2 text-right">60%</th>
+        <th class="px-2 py-2 text-right">การันตี</th>
+        <th class="px-2 py-2 text-right bg-emerald-50">รวมรายได้</th>
+        <th class="px-2 py-2 text-right">ปกส.</th>
+        <th class="px-2 py-2 text-right">ภาษี</th>
+        <th class="px-2 py-2 text-right">ประกันตน</th>
+        <th class="px-2 py-2 text-right">อุบัติเหตุ</th>
+        <th class="px-2 py-2 text-right">หักสดย่อย</th>
+        <th class="px-2 py-2 text-right">น้ำมัน</th>
+        <th class="px-2 py-2 text-right bg-rose-50">รวมหัก</th>
+        <th class="px-2 py-2 text-right bg-slate-100">สุทธิ</th>
+        <th class="px-2 py-2">หมายเหตุ</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}
+      {% set it = r.item %}
+      {% set e = r.employee %}
+      <tr class="border-t hover:bg-slate-50 {% if it.net_pay < 0 %}bg-rose-50{% endif %}">
+        <td class="px-2 py-1 text-slate-400">{{ loop.index }}</td>
+        <td class="px-2 py-1">
+          <a href="/payroll/{{ run.id }}/employee/{{ e.id }}"
+             class="text-sky-700 hover:underline font-medium"
+             title="ดูรายละเอียดงาน/สดย่อย/น้ำมันของ {{ e.full_name }}">{{ e.full_name }}</a>
+          <div class="text-[10px] text-slate-400">{{ e.code }}</div>
+        </td>
+        <td class="px-2 py-1 font-mono text-[10px]">{{ it.pay_mode }}</td>
+        <td class="px-2 py-1 text-right">{{ it.days_worked|int }}</td>
+        <td class="px-2 py-1 text-right text-amber-700">{{ it.days_leave|int }}</td>
+        <td class="px-2 py-1 text-right text-rose-700">{{ it.days_absent|int }}</td>
+        <td class="px-2 py-1 text-right font-mono">{{ '{:,.0f}'.format(it.base_salary_earned) if it.base_salary_earned else '—' }}</td>
+        <td class="px-2 py-1 text-right font-mono">{{ '{:,.0f}'.format(it.care_allowance_earned) if it.care_allowance_earned else '—' }}</td>
+        <td class="px-2 py-1 text-right font-mono">{{ '{:,.0f}'.format(it.trip_fee_total) if it.trip_fee_total else '—' }}</td>
+        <td class="px-2 py-1 text-right font-mono">{{ '{:,.0f}'.format(it.fuel_rate_income) if it.fuel_rate_income else '—' }}</td>
+        <td class="px-2 py-1 text-right font-mono">{{ '{:,.0f}'.format(it.fuel_share_income) if it.fuel_share_income else '—' }}</td>
+        <td class="px-2 py-1 text-right font-mono">{{ '{:,.0f}'.format(it.guarantee_topup) if it.guarantee_topup else '—' }}</td>
+        <td class="px-2 py-1 text-right font-mono font-semibold bg-emerald-50">{{ '{:,.0f}'.format(it.gross_total) }}</td>
+        <td class="px-2 py-1 text-right font-mono text-rose-700">{{ '{:,.0f}'.format(it.social_security) if it.social_security else '—' }}</td>
+        <td class="px-2 py-1 text-right font-mono text-rose-700">{{ '{:,.0f}'.format(it.income_tax_withholding) if it.income_tax_withholding else '—' }}</td>
+        <td class="px-2 py-1 text-right font-mono text-rose-700">{{ '{:,.0f}'.format(it.deposit_install) if it.deposit_install else '—' }}</td>
+        <td class="px-2 py-1 text-right font-mono text-rose-700">{{ '{:,.0f}'.format(it.accident_install) if it.accident_install else '—' }}</td>
+        <td class="px-2 py-1 text-right font-mono text-rose-700">{{ '{:,.0f}'.format(it.petty_cash_deduction) if it.petty_cash_deduction else '—' }}</td>
+        <td class="px-2 py-1 text-right font-mono text-rose-700">{{ '{:,.0f}'.format(it.fuel_cost_self) if it.fuel_cost_self else '—' }}</td>
+        <td class="px-2 py-1 text-right font-mono font-semibold bg-rose-50">{{ '{:,.0f}'.format(it.deduction_total) }}</td>
+        <td class="px-2 py-1 text-right font-mono font-bold bg-slate-100 {% if it.net_pay < 0 %}text-rose-700{% endif %}">{{ '{:,.0f}'.format(it.net_pay) }}</td>
+        <td class="px-2 py-1 text-[10px] text-slate-500 max-w-xs truncate" title="{{ it.note }}">{{ it.note }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="22" class="px-3 py-8 text-center text-slate-400">ไม่มีข้อมูล — ยังไม่มีพนักงานในไซต์นี้</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="text-xs text-slate-400 mt-3">
+  * ปกส = ประกันสังคม · 5% ของฐาน 9,000 บาท (หักตามวันลา)
+  · ภาษี = คำนวณแบบขั้นบันได (default catch-up เฉลี่ยเดือนที่เหลือ)
+  · ประกันตน = เก็บเดือนละ 1,000 จนครบ 10,000
+  · หักสดย่อย = รวมรายการสดย่อยที่มี pay_cycle_tag = {{ run.pay_cycle_tag }} และ deduct_from_driver=ใช่
+</p>
+
+{% endblock %}

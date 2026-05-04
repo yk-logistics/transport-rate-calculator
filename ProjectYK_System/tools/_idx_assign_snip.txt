@@ -1,0 +1,40 @@
+ 2547|        "tr.um td{color:#5a3b00}"
+ 2548|        ".manual-extra{background:#ede7f6;color:#4a148c;font-weight:600}.return-trip{background:#e8f5e9;color:#1b5e20;font-weight:600}"
+ 2549|        "tr.day-band-0 td{background:#fafcfe}tr.day-band-1 td{background:#e9f1fa}tr.day-band-0 td.wait-hi{background:#fff1cc;font-weight:600}tr.day-band-1 td.wait-hi{background:#ffecc4;font-weight:600}tr.day-band-0 td.wait-hi-dest{background:#ffe8c8;font-weight:600}tr.day-band-1 td.wait-hi-dest{background:#ffdfba;font-weight:600}""details.section-fold{margin-bottom:10px}""summary.section-sum{cursor:pointer;padding:10px 14px;background:#fff;border-radius:10px;font-weight:600;margin-bottom:6px;display:block;box-shadow:0 2px 8px rgba(16,24,40,.08);list-style:none}""summary.section-sum::-webkit-details-marker{display:none}"".filter-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 14px}"".filter-bar label{font-size:13px;color:#4b5b74}"".filter-bar select,.filter-bar input[type=search]{font:inherit;padding:6px 10px;border-radius:8px;border:1px solid #c5d0e0;background:#fff;min-width:160px}"
+ 2550|    )
+ 2551|
+ 2552|    idx = f"""<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
+ 2553|<title>Oatside report</title><style>{css}</style></head><body>
+ 2554|<div class='h1'>Oatside → P&amp;G สรุปรายงาน</div>
+ 2555|<div class='sub'>{sub}</div>
+ 2556|<div class='nav'><a href='trips.html'>ดูเที่ยวทั้งหมด</a></div>
+ 2557|<div class='grid'>
+ 2558|<div class='card'><div class='label'>ค่าเที่ยวปกติ (A)</div><div class='value money'>{base_baht:,}</div></div>
+ 2559|<div class='card'><div class='label'>ชาร์จเสริม ตีเปล่า/เสียเวลา/ข้ามคืน (C)</div><div class='value money'>{fifty_total_baht:,}</div></div>
+ 2560|<div class='card'><div class='label'>No-work Recovery +50% (D)</div><div class='value money'>{nw_total_baht:,}</div></div>
+ 2561|<div class='card'><div class='label'>รวมลูกค้า</div><div class='value money'>{customer_grand_baht:,}</div></div>
+ 2562|</div>
+ 2563|<details class='section-fold'><summary class='section-sum'>คำอธิบายสี / ไฮไลต์ชั่วโมงรอ</summary>
+ 2564|<div class='panel'><p class='sub'><b>สีไฮไลต์:</b> เหลืองอ่อน = รอต้นทางนาน ≥ {_hi_o:g} ชม.; ส้มอ่อน = รอปลายทางนาน ≥ {_hi_d:g} ชม. (ตรวจก่อนตัดสินใจเก็บลูกค้า)</p></div>
+ 2565|</details>
+ 2566|<details class='section-fold'><summary class='section-sum'>(1) จำนวนเที่ยวต่อวัน (matched Dest_In)</summary>
+ 2567|<div class='panel'>
+ 2568|<p class='sub'>นับตาม Dest_In · รวมทุกทะเบียน · เฉพาะเที่ยวที่จับคู่แล้ว</p>
+ 2569|<table><thead><tr><th>วันที่</th><th>จำนวนเที่ยว</th><th>จำนวนรถ</th></tr></thead><tbody>
+ 2570|{tpd_rows_html}
+ 2571|</tbody></table></div>
+ 2572|</details>
+ 2573|<details class='section-fold'><summary class='section-sum'>(2) เดลี่รถทุกคัน — Dest_In × ทะเบียน</summary>
+ 2574|<div class='panel'>
+ 2575|<p class='sub'>เรท: {config_rate_summary(cfg)} ฿/เที่ยว · คอลัมน์ส่วนเพิ่มแสดงได้หลายป้ายในวันเดียวกัน (เว้นวรรค) — ตีเปล่า = No-work recovery หรือ mark override; ค่าเสียเวลา = fifty; ข้ามคืนเต็มเที่ยว = +100% (หลัง override) · Policy: recovery-day บวกคู่กับ fifty หากมี (2026-05-01){'<br>ตาราง (2) นับตาม Dest_In · <b>Audit Log ด้านล่างคิดตาม วันงาน (Origin_In)</b>' if cfg.use_origin_day_fifty else ''}</p>
+ 2576|<table><thead><tr><th>วันที่</th><th>ทะเบียน</th><th>Site</th><th>เที่ยว</th><th>เรท(฿)</th><th>ค่าเที่ยว(฿)</th><th>ส่วนเพิ่ม (฿)</th><th>ขากลับ(฿)</th><th>รวมวัน(฿)</th></tr></thead><tbody>
+ 2577|{"".join(f"<tr><td>{r['dest_date']}</td><td><a href='plates/{esc(r['plate'])}.html'>{esc(r['plate'])}</a></td><td><span class='badge {'bigc' if r['site']=='BigC' else 'lcb'}'>{r['site']}</span></td><td>{r['matched_trips']}</td><td>{r['trip_rate_baht']:,}</td><td>{r['base_line_baht']:,}</td><td>{(r['fifty_badge_html'] if r.get('fifty_badge_html') else f"<span class='money'>{r['fifty_pct_baht']:,}</span>")}</td><td class='money'>{int(r.get('return_trip_baht',0) or 0):,}</td><td class='money'>{r['customer_day_baht']:,}</td></tr>" for r in pday_rows) or "<tr><td colspan=9>ไม่มีข้อมูล</td></tr>"}
+ 2578|</tbody></table></div>
+ 2579|</details>
+ 2580|<details class='section-fold'><summary class='section-sum'>(3) Unmatched — {len(unmatched)} legs เรียงตามเวลา</summary>
+ 2581|<div class='panel'>
+ 2582|<p class='sub'>UM-O = Origin ไม่มี Dest คู่ · UM-D = Dest ไม่มี Origin คู่ · max_travel_h={cfg.max_travel_h}h · match เลือก Origin ที่ t_in ล่าสุดก่อน Dest</p>
+ 2583|<table><thead><tr><th>ประเภท</th><th>ทะเบียน</th><th>เวลาเข้า</th><th>เวลาออก</th><th>เหตุผล</th></tr></thead><tbody>
+ 2584|{um_section_html}
+ 2585|</tbody></table></div>
+ 2586|</details>

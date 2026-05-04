@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+{% block title %}{{ employee.full_name }} · {{ run.site_code }} {{ run.pay_cycle_tag }}{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4 no-print">
+  <div>
+    <a href="/payroll/{{ run.id }}" class="text-sm text-slate-500 hover:underline">← กลับไปรอบ {{ run.site_code }} {{ run.pay_cycle_tag }}</a>
+    <h1 class="text-2xl font-bold mt-1">
+      {{ employee.full_name }}
+      {% if employee.nickname %}<span class="text-slate-400 text-base">({{ employee.nickname }})</span>{% endif %}
+    </h1>
+    <p class="text-sm text-slate-500">
+      {{ employee.code }} · {{ employee.home_site_code }} · {{ employee.pay_mode }}
+      · ช่วง {{ run.period_start | dmy }} → {{ run.period_end | dmy }}
+    </p>
+  </div>
+  <div class="flex gap-2">
+    <a href="/employees/{{ employee.id }}/edit" class="text-sm px-3 py-1.5 border rounded hover:bg-slate-50">แก้ข้อมูลพนักงาน</a>
+    <a href="/payroll/{{ run.id }}/employee/{{ employee.id }}/slip" target="_blank"
+       class="text-sm px-3 py-1.5 border rounded hover:bg-slate-50">🖨 พิมพ์สลิป</a>
+  </div>
+</div>
+
+{% if petty_saved_hint and run.status != 'finalized' %}
+<div class="mb-4 rounded-lg border border-sky-400 bg-sky-50 p-3 flex flex-wrap items-center justify-between gap-3 no-print">
+  <div class="text-sm text-sky-950">
+    <span class="font-semibold">แก้สดย่อยแล้ว</span>
+    — ตัวเลขสรุปด้านล่าง (หักสดย่อย / สุทธิ) ยังเป็นค่าจากครั้งคำนวณล่าสุด · กด
+    <strong>คำนวณใหม่</strong> เพื่อให้ระบบดึงยอดจากสดย่อยที่แก้แล้ว
+  </div>
+  <form method="post" action="/payroll/{{ run.id }}/recompute" class="inline shrink-0">
+    <input type="hidden" name="return_to" value="/payroll/{{ run.id }}/employee/{{ employee.id }}" />
+    <button type="submit" class="text-sm px-4 py-1.5 rounded bg-sky-600 hover:bg-sky-700 text-white font-semibold shadow-sm">
+      คำนวณใหม่
+    </button>
+  </form>
+</div>
+{% endif %}
+
+{% if stale and stale.is_stale and run.status != 'finalized' %}
+<div class="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 flex items-start gap-3 no-print">
+  <div class="text-amber-600 text-xl leading-none">⚠</div>
+  <div class="flex-1 text-sm">
+    <div class="font-semibold text-amber-900">ตัวเลขในสลิปยังเป็นค่าเก่า — มีการแก้ไขต้นทางหลังคำนวณครั้งล่าสุด</div>
+    <div class="text-amber-800 mt-0.5">
+      คำนวณล่าสุด: {{ stale.baseline.strftime('%Y-%m-%d %H:%M') if stale.baseline else '-' }} ·
+      {% if stale.counts.petty %}<span class="ml-1 px-1.5 py-0.5 rounded bg-white border text-xs">สดย่อยแก้ {{ stale.counts.petty }}</span>{% endif %}
+      {% if stale.counts.daily %}<span class="ml-1 px-1.5 py-0.5 rounded bg-white border text-xs">เดลี่แก้ {{ stale.counts.daily }}</span>{% endif %}
+      {% if stale.counts.fuel  %}<span class="ml-1 px-1.5 py-0.5 rounded bg-white border text-xs">น้ำมันแก้ {{ stale.counts.fuel }}</span>{% endif %}
+      — กด "คำนวณใหม่" เพื่ออัปเดตตัวเลขสรุป
+    </div>
+  </div>
+  <form method="post" action="/payroll/{{ run.id }}/recompute" class="inline">
+    <input type="hidden" name="return_to" value="/payroll/{{ run.id }}/employee/{{ employee.id }}" />
+    <button class="text-sm px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-600 text-white font-semibold">
+      คำนวณใหม่
+    </button>
+  </form>
+</div>
+{% endif %}
+
+{% if item %}
+<div class="bg-slate-50 border border-slate-300 rounded-lg p-5 mb-6">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="text-lg font-semibold">สรุปการคำนวณ</h2>
+    <div class="text-3xl font-bold {% if item.net_pay < 0 %}text-rose-700{% else %}text-emerald-700{% endif %}">
+      {{ '{:,.2f}'.format(item.net_pay) }} ฿
+    </div>
+  </div>
+  <div class="grid grid-cols-3 gap-4 text-sm">
+    <div>
+      <div class="font-semibold text-emerald-700 mb-2">รายได้</div>
+      <table class="w-full">
+        <tr><td class="py-0.5">เงินเดือน</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.base_salary_earned) }}</td></tr>
+        <tr><td class="py-0.5">ค่าดูแลรถ</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.care_allowance_earned) }}</td></tr>
+        <tr><td class="py-0.5">ค่าเที่ยว</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.trip_fee_total) }}</td></tr>
+        <tr><td class="py-0.5">ค่าเรทน้ำมัน</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.fuel_rate_income) }}</td></tr>
+        <tr><td class="py-0.5">60% เหมาน้ำมัน</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.fuel_share_income) }}</td></tr>
+        <tr><td class="py-0.5">ชดเชยการันตี</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.guarantee_topup) }}</td></tr>
+        <tr class="border-t font-semibold"><td class="py-0.5">รวมรายได้</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.gross_total) }}</td></tr>
+      </table>
+    </div>
+    <div>
+      <div class="font-semibold text-rose-700 mb-2">หัก</div>
+      <table class="w-full">
+        <tr><td class="py-0.5">ประกันสังคม</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.social_security) }}</td></tr>
+        <tr><td class="py-0.5">ภาษีหัก ณ ที่จ่าย</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.income_tax_withholding) }}</td></tr>
+        <tr><td class="py-0.5">เงินประกันตน</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.deposit_install) }}</td></tr>
+        <tr><td class="py-0.5">ผ่อนอุบัติเหตุ</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.accident_install) }}</td></tr>
+        <tr>
+          <td class="py-0.5">หักสดย่อย</td>
+          <td class="text-right font-mono">
+            {{ '{:,.2f}'.format(item.petty_cash_deduction) }}
+            {% if petty_totals and (petty_totals.deduct|round(2) != item.petty_cash_deduction|round(2)) %}
+              <div class="text-[10px] text-amber-700 font-semibold" title="จาก PettyCashTxn ปัจจุบันในรอบ — ยังไม่ได้คำนวณใหม่">
+                สด ณ ตอนนี้ = {{ '{:,.2f}'.format(petty_totals.deduct) }}
+              </div>
+            {% endif %}
+          </td>
+        </tr>
+        <tr><td class="py-0.5">น้ำมัน</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.fuel_cost_self) }}</td></tr>
+        <tr class="border-t font-semibold"><td class="py-0.5">รวมหัก</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.deduction_total) }}</td></tr>
+      </table>
+    </div>
+    <div>
+      <div class="font-semibold text-slate-700 mb-2 flex items-center gap-2">
+        <span>การทำงาน</span>
+        <button type="button" onclick="document.getElementById('daysOverridePanel').classList.toggle('hidden')"
+                class="text-xs text-blue-600 hover:underline">แก้ Manual</button>
+      </div>
+      <table class="w-full">
+        <tr>
+          <td class="py-0.5">วันทำงาน</td>
+          <td class="text-right font-mono">
+            {{ item.days_worked|int }}
+            {% if adjust and adjust.days_worked_override is not none %}
+              <span class="text-amber-600 text-xs ml-1" title="manual override">✎</span>
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
+          <td class="py-0.5">ลา</td>
+          <td class="text-right font-mono">
+            {{ item.days_leave|int }}
+            {% if adjust and adjust.days_leave_override is not none %}<span class="text-amber-600 text-xs ml-1">✎</span>{% endif %}
+          </td>
+        </tr>
+        <tr>
+          <td class="py-0.5">ขาด</td>
+          <td class="text-right font-mono">
+            {{ item.days_absent|int }}
+            {% if adjust and adjust.days_absent_override is not none %}<span class="text-amber-600 text-xs ml-1">✎</span>{% endif %}
+          </td>
+        </tr>
+        <tr><td class="py-0.5">บริษัทไม่มีงาน</td><td class="text-right font-mono">{{ item.days_company_no_work|int }}</td></tr>
+        <tr><td class="py-0.5 text-xs text-slate-500">ประกันสังคม</td>
+          <td class="text-right font-mono text-xs text-slate-500">
+            {{ '{:,.2f}'.format(item.social_security) }}
+          </td>
+        </tr>
+      </table>
+      {% if item.note %}
+      <p class="text-xs text-slate-500 mt-2 italic">{{ item.note }}</p>
+      {% endif %}
+
+      <div id="daysOverridePanel" class="hidden mt-3 p-3 bg-amber-50 border border-amber-200 rounded text-xs">
+        <form method="post" action="/payroll/{{ run.id }}/employee/{{ item.employee_id }}/override" class="space-y-2">
+          <div class="font-semibold text-amber-900 mb-1">แก้วันทำงาน/ลา/ขาด แบบ Manual</div>
+          <div class="grid grid-cols-3 gap-2">
+            <label class="block">
+              <span class="text-slate-600">วันทำงาน</span>
+              <input type="number" step="0.5" min="0" name="days_worked_override"
+                     value="{{ adjust.days_worked_override if adjust and adjust.days_worked_override is not none else '' }}"
+                     placeholder="auto" class="w-full border rounded px-2 py-1 text-sm" />
+            </label>
+            <label class="block">
+              <span class="text-slate-600">ลา</span>
+              <input type="number" step="0.5" min="0" name="days_leave_override"
+                     value="{{ adjust.days_leave_override if adjust and adjust.days_leave_override is not none else '' }}"
+                     placeholder="auto" class="w-full border rounded px-2 py-1 text-sm" />
+            </label>
+            <label class="block">
+              <span class="text-slate-600">ขาด</span>
+              <input type="number" step="0.5" min="0" name="days_absent_override"
+                     value="{{ adjust.days_absent_override if adjust and adjust.days_absent_override is not none else '' }}"
+                     placeholder="auto" class="w-full border rounded px-2 py-1 text-sm" />
+            </label>
+          </div>
+          <div class="font-semibold text-amber-900 mt-3 mb-1">ประกันสังคม override (เฉพาะคนนี้)</div>
+          <div class="grid grid-cols-3 gap-2">
+            <label class="block">
+              <span class="text-slate-600">% rate</span>
+              <input type="number" step="0.01" min="0" max="1" name="ss_rate_override"
+                     value="{{ adjust.ss_rate_override if adjust and adjust.ss_rate_override is not none else '' }}"
+                     placeholder="0.05 = 5%" class="w-full border rounded px-2 py-1 text-sm" />
+            </label>
+            <label class="block">
+              <span class="text-slate-600">ฐานต่ำสุด</span>
+              <input type="number" step="1" min="0" name="ss_base_min_override"
+                     value="{{ adjust.ss_base_min_override if adjust and adjust.ss_base_min_override is not none else '' }}"
+                     placeholder="1650" class="w-full border rounded px-2 py-1 text-sm" />
+            </label>
+            <label class="block">
+              <span class="text-slate-600">ฐานสูงสุด</span>
+              <input type="number" step="1" min="0" name="ss_base_max_override"
+                     value="{{ adjust.ss_base_max_override if adjust and adjust.ss_base_max_override is not none else '' }}"
+                     placeholder="15000" class="w-full border rounded px-2 py-1 text-sm" />
+            </label>
+          </div>
+          <label class="block">
+            <span class="text-slate-600">หมายเหตุ</span>
+            <input type="text" name="note" value="{{ adjust.note if adjust else '' }}"
+                   placeholder="เช่น เกษียณ, ออกแล้ว, ลดประกันสังคมเดือนนี้ตามนโยบายรัฐ"
+                   class="w-full border rounded px-2 py-1 text-sm" />
+          </label>
+          <div class="flex gap-2 pt-2">
+            <button type="submit" class="bg-amber-600 text-white px-3 py-1 rounded text-sm hover:bg-amber-700">บันทึก + คำนวณใหม่</button>
+            <button type="submit" name="clear" value="1"
+                    onclick="return confirm('ลบ override กลับเป็น auto?')"
+                    class="bg-slate-200 text-slate-700 px-3 py-1 rounded text-sm hover:bg-slate-300">↺ ล้าง (กลับ auto)</button>
+          </div>
+          <p class="text-[11px] text-slate-500">ค่าว่าง = ใช้ auto ที่ระบบคำนวณ. รายการ override จะคงอยู่หลัง recompute.</p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  {% if run.site_code == 'BIGC' and (item.fuel_budget_liter or item.fuel_consumed_liter) %}
+  <div class="mt-4 pt-4 border-t">
+    <div class="text-xs text-slate-500 mb-2 font-semibold">⛽ BIGC Fuel-Rate Audit</div>
+    <div class="grid grid-cols-4 gap-4 text-sm">
+      <div class="p-2 bg-white border rounded">
+        <div class="text-xs text-slate-500">งบตามสาขา (Σ DailyJob.fuel_liter)</div>
+        <div class="text-lg font-mono font-semibold">{{ '{:,.2f}'.format(item.fuel_budget_liter) }} L</div>
+      </div>
+      <div class="p-2 bg-white border rounded">
+        <div class="text-xs text-slate-500">ใช้จริง (Σ FuelTxn.liter)</div>
+        <div class="text-lg font-mono font-semibold text-rose-600">{{ '{:,.2f}'.format(item.fuel_consumed_liter) }} L</div>
+      </div>
+      <div class="p-2 bg-white border rounded">
+        <div class="text-xs text-slate-500">คงเหลือ (+ adjust)</div>
+        <div class="text-lg font-mono font-semibold
+          {% if item.fuel_residual_liter < 0 %}text-rose-700{% else %}text-emerald-700{% endif %}">
+          {{ '{:+,.2f}'.format(item.fuel_residual_liter) }} L
+        </div>
+      </div>
+      <div class="p-2 bg-emerald-50 border border-emerald-200 rounded">
+        <div class="text-xs text-slate-500">× 16 ฿ = rebate</div>
+        <div class="text-lg font-mono font-semibold
+          {% if item.fuel_rate_income < 0 %}text-rose-700{% else %}text-emerald-700{% endif %}">
+          {{ '{:+,.2f}'.format(item.fuel_rate_income) }} ฿
+        </div>
+      </div>
+    </div>
+    {% if adjust %}
+    <p class="text-xs text-slate-500 mt-2 italic">
+      Admin adjust: {{ '{:+.2f}'.format(adjust.fuel_adjust_liter) }}L — {{ adjust.note }}
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% else %}
+<div class="mb-4 p-3 rounded bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+  ยังไม่มีการคำนวณของพนักงานในรอบนี้ (อาจเพราะ role ≠ driver หรือ pay_mode=none)
+</div>
+{% endif %}
+
+<!-- DAILY JOBS -->
+<div class="mb-6">
+  <h2 class="text-lg font-semibold mb-2">
+    1. งานรายวัน — DailyJob
+    <span class="text-xs text-slate-500 font-normal ml-2">
+      {{ daily_totals.rows }} แถว · ค่าเที่ยวรวม {{ '{:,.0f}'.format(daily_totals.trip_fee) }} ฿
+      · รายได้บริษัทรวม {{ '{:,.0f}'.format(daily_totals.revenue) }} ฿
+    </span>
+  </h2>
+  <div class="bg-white rounded-lg border overflow-x-auto">
+    <table class="w-full text-xs">
+      <thead class="bg-slate-100 text-left">
+        <tr>
+          <th class="px-2 py-1.5">วันที่</th>
+          <th class="px-2 py-1.5">ชนิด</th>
+          <th class="px-2 py-1.5">ลูกค้า</th>
+          <th class="px-2 py-1.5">ต้นทาง → ปลายทาง</th>
+          <th class="px-2 py-1.5">ทะเบียน</th>
+          <th class="px-2 py-1.5">สถานะ</th>
+          <th class="px-2 py-1.5 text-right">รายได้</th>
+          <th class="px-2 py-1.5 text-right">ค่าเที่ยว</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in daily_jobs %}
+        <tr class="border-t {% if d.leave_status %}bg-amber-50{% endif %} {% if stale and d.id in stale.daily_ids %}ring-2 ring-inset ring-amber-400{% endif %}"
+            {% if stale and d.id in stale.daily_ids %}title="แก้ไขหลังคำนวณล่าสุด"{% endif %}>
+          <td class="px-2 py-1 font-mono">{{ d.work_date | dmy }}</td>
+          <td class="px-2 py-1">{{ d.trip_type_code or '—' }}</td>
+          <td class="px-2 py-1">{{ d.customer_name_raw or '—' }}</td>
+          <td class="px-2 py-1 text-[11px]">{{ d.origin or '' }}{% if d.destination %} → {{ d.destination }}{% endif %}</td>
+          <td class="px-2 py-1 font-mono">{{ d.plate_no_raw or '—' }}</td>
+          <td class="px-2 py-1">
+            {% if d.leave_status %}<span class="text-amber-700">{{ d.leave_status }}</span>
+            {% elif d.status_code %}<span class="text-slate-500">{{ d.status_code }}</span>
+            {% else %}ทำงาน{% endif %}
+          </td>
+          <td class="px-2 py-1 text-right font-mono">{{ '{:,.0f}'.format(d.revenue_customer) if d.revenue_customer else '—' }}</td>
+          <td class="px-2 py-1 text-right font-mono">{{ '{:,.0f}'.format(d.trip_fee_driver) if d.trip_fee_driver else '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="px-3 py-6 text-center text-slate-400">ไม่มีงานในรอบนี้</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- PETTY CASH -->
+<div class="mb-6">
+  <h2 class="text-lg font-semibold mb-2">
+    2. สดย่อย — PettyCashTxn
+    <span class="text-xs text-slate-500 font-normal ml-2">
+      {{ petty_totals.rows }} แถว · จ่ายออก {{ '{:,.0f}'.format(petty_totals.out) }} ฿
+      · เข้า {{ '{:,.0f}'.format(petty_totals.in) }} ฿
+      · <span class="text-rose-700">หักเงินเดือนรวม {{ '{:,.0f}'.format(petty_totals.deduct) }} ฿</span>
+    </span>
+  </h2>
+  <div class="bg-white rounded-lg border overflow-x-auto">
+    <table class="w-full text-xs">
+      <thead class="bg-slate-100 text-left">
+        <tr>
+          <th class="px-2 py-1.5">วันที่</th>
+          <th class="px-2 py-1.5">ทิศทาง</th>
+          <th class="px-2 py-1.5">หมวด</th>
+          <th class="px-2 py-1.5">บันทึก</th>
+          <th class="px-2 py-1.5 text-right">จำนวน</th>
+          <th class="px-2 py-1.5">หักเงินเดือน?</th>
+          <th class="px-2 py-1.5 text-right">หักจริง</th>
+          <th class="px-2 py-1.5">สถานะ</th>
+          <th class="px-2 py-1.5 no-print whitespace-nowrap">แก้ไข</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in petty_rows %}
+        <tr class="border-t {% if p.deduct_from_driver %}bg-rose-50{% endif %} {% if stale and p.id in stale.petty_ids %}ring-2 ring-inset ring-amber-400{% endif %}"
+            {% if stale and p.id in stale.petty_ids %}title="แก้ไขหลังคำนวณล่าสุด — กด 'คำนวณใหม่' ด้านบน"{% endif %}>
+          <td class="px-2 py-1 font-mono">{{ p.txn_date | dmy }}</td>
+          <td class="px-2 py-1">
+            {% if p.direction == 'out' %}<span class="text-rose-700">จ่ายออก</span>
+            {% else %}<span class="text-emerald-700">รับเข้า</span>{% endif %}
+          </td>
+          <td class="px-2 py-1">{{ p.category }}</td>
+          <td class="px-2 py-1 text-[11px] max-w-sm truncate" title="{{ p.memo }}">{{ p.memo }}</td>
+          <td class="px-2 py-1 text-right font-mono">{{ '{:,.2f}'.format(p.amount) }}</td>
+          <td class="px-2 py-1">
+            {% if p.deduct_from_driver %}<span class="text-xs bg-rose-200 text-rose-800 px-1.5 py-0.5 rounded">หัก</span>
+            {% else %}—{% endif %}
+          </td>
+          <td class="px-2 py-1 text-right font-mono">
+            {% if p.deduct_from_driver %}{{ '{:,.2f}'.format(p.deduct_amount if p.deduct_amount else p.amount) }}{% endif %}
+          </td>
+          <td class="px-2 py-1">
+            {% if p.deduction_status == 'deducted' %}<span class="text-xs bg-slate-800 text-white px-1.5 py-0.5 rounded">หักแล้ว</span>
+            {% elif p.deduction_status == 'waived' %}<span class="text-xs bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">ยกเลิก</span>
+            {% else %}<span class="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">รอหัก</span>{% endif %}
+          </td>
+          <td class="px-2 py-1 no-print">
+            <a href="/petty-cash/{{ p.id }}/edit?next=/payroll/{{ run.id }}/employee/{{ employee.id }}"
+               class="text-sky-600 hover:underline font-medium">แก้ไข</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="px-3 py-6 text-center text-slate-400">ไม่มีสดย่อยในรอบนี้</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- FUEL -->
+<div class="mb-6">
+  <h2 class="text-lg font-semibold mb-2">
+    3. น้ำมัน — FuelTxn
+    <span class="text-xs text-slate-500 font-normal ml-2">
+      {{ fuel_totals.rows }} แถว · {{ '{:,.1f}'.format(fuel_totals.liter) }} ลิตร
+      · {{ '{:,.0f}'.format(fuel_totals.amount) }} ฿
+    </span>
+  </h2>
+  <div class="bg-white rounded-lg border overflow-x-auto">
+    <table class="w-full text-xs">
+      <thead class="bg-slate-100 text-left">
+        <tr>
+          <th class="px-2 py-1.5">วันที่</th>
+          <th class="px-2 py-1.5">ทะเบียน</th>
+          <th class="px-2 py-1.5 text-right">ลิตร</th>
+          <th class="px-2 py-1.5 text-right">บาท/ลิตร</th>
+          <th class="px-2 py-1.5 text-right">รวม</th>
+          <th class="px-2 py-1.5">ปั๊ม</th>
+          <th class="px-2 py-1.5">ที่มา</th>
+          <th class="px-2 py-1.5">เชื่อม Daily</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in fuel_rows %}
+        <tr class="border-t {% if stale and f.id in stale.fuel_ids %}ring-2 ring-inset ring-amber-400{% endif %}"
+            {% if stale and f.id in stale.fuel_ids %}title="แก้ไขหลังคำนวณล่าสุด"{% endif %}>
+          <td class="px-2 py-1 font-mono">{{ f.txn_date | dmy }}</td>
+          <td class="px-2 py-1 font-mono">{{ f.plate_no_raw }}</td>
+          <td class="px-2 py-1 text-right font-mono">{{ '{:,.1f}'.format(f.liter) }}</td>
+          <td class="px-2 py-1 text-right font-mono">{{ '{:,.2f}'.format(f.price_per_liter) if f.price_per_liter else '—' }}</td>
+          <td class="px-2 py-1 text-right font-mono">{{ '{:,.2f}'.format(f.amount) }}</td>
+          <td class="px-2 py-1 text-[11px]">{{ f.station or '—' }}</td>
+          <td class="px-2 py-1">
+            <span class="text-[10px] px-1 py-0.5 rounded
+              {% if f.source == 'caltex' %}bg-emerald-100 text-emerald-700
+              {% elif f.source == 'import_daily' %}bg-sky-100 text-sky-700
+              {% else %}bg-slate-100 text-slate-600{% endif %}">{{ f.source }}</span>
+          </td>
+          <td class="px-2 py-1">
+            {% if f.daily_job_id %}<a href="/daily/{{ f.daily_job_id }}/edit" class="text-sky-600 hover:underline">Job #{{ f.daily_job_id }}</a>
+            {% else %}<span class="text-amber-600 text-[10px]">ยังไม่เชื่อม</span>{% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="px-3 py-6 text-center text-slate-400">ไม่มีการเติมน้ำมันในรอบนี้</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<style>
+  @media print {
+    .no-print { display: none !important; }
+    body { font-size: 11px; }
+  }
+</style>
+
+{% endblock %}

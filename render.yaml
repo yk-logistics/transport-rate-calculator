@@ -1,0 +1,12 @@
+# Render.com — Web Service ฟรี (หลับเมื่อไม่มีคนใช้) + Neon Postgres ฟรีแยก
+# ตั้งค่า env ในแดชบอร์ด Render: DATABASE_URL, YK_PREVIEW_AUTH, YK_PREVIEW_USER, YK_PREVIEW_PASSWORD
+# คู่มือละเอียด: ProjectYK_System/docs/HOSTING_FREE_DEMO_TH.md
+
+services:
+  - type: web
+    name: project-yk-demo
+    runtime: python
+    rootDir: ProjectYK_System/app
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    plan: free

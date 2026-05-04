@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}{% if mode=='new' %}เพิ่มการเติมน้ำมัน{% else %}แก้ไข #{{ row.id }}{% endif %}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">{% if mode=='new' %}เพิ่มการเติมน้ำมัน{% else %}แก้ไขการเติม #{{ row.id }}{% endif %}</h1>
+
+<form method="post" action="{% if mode=='new' %}/fuel/new{% else %}/fuel/{{ row.id }}/edit{% endif %}" class="space-y-6">
+
+<section class="bg-white rounded-lg border p-6">
+  <h2 class="font-semibold mb-3">ข้อมูลการเติม</h2>
+  <div class="grid md:grid-cols-3 gap-4">
+    <div>
+      <label class="block text-sm mb-1">วันที่ *</label>
+      <input type="date" name="txn_date" value="{{ row.txn_date if row and row.txn_date else today }}" required class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ไซต์</label>
+      <select name="site_code" class="w-full border rounded px-3 py-2">
+        <option value="">—</option>
+        {% for sc in site_codes %}
+        <option value="{{ sc }}" {% if row and row.site_code==sc %}selected{% endif %}>{{ sc }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ปั๊ม</label>
+      <input name="station" value="{{ row.station if row else '' }}" class="w-full border rounded px-3 py-2" placeholder="PTT / BCP / Caltex" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ทะเบียน (master)</label>
+      <select name="vehicle_id" class="w-full border rounded px-3 py-2">
+        <option value="">—</option>
+        {% for v in vehicles %}
+        <option value="{{ v.id }}" {% if row and row.vehicle_id==v.id %}selected{% endif %}>{{ v.plate_no }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="md:col-span-2">
+      <label class="block text-sm mb-1">หรือพิมพ์ทะเบียน</label>
+      <input name="plate_no_raw" value="{{ row.plate_no_raw if row else '' }}" class="w-full border rounded px-3 py-2" placeholder="71-0556" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">คนขับ (master)</label>
+      <select name="driver_id" class="w-full border rounded px-3 py-2">
+        <option value="">—</option>
+        {% for e in employees %}
+        <option value="{{ e.id }}" {% if row and row.driver_id==e.id %}selected{% endif %}>{{ e.full_name }} ({{ e.home_site_code }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="md:col-span-2">
+      <label class="block text-sm mb-1">หรือพิมพ์ชื่อ</label>
+      <input name="driver_raw_name" value="{{ row.driver_raw_name if row else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+  </div>
+</section>
+
+<section class="bg-white rounded-lg border p-6">
+  <h2 class="font-semibold mb-3">ตัวเลข</h2>
+  <div class="grid md:grid-cols-3 gap-4">
+    <div>
+      <label class="block text-sm mb-1">จำนวน (ลิตร)</label>
+      <input type="number" step="0.01" name="liter" value="{{ '%g'|format(row.liter) if row and row.liter else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">จำนวนเงิน (บาท)</label>
+      <input type="number" step="0.01" name="amount" value="{{ '%g'|format(row.amount) if row and row.amount else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ราคา ฿/L</label>
+      <input type="number" step="0.001" name="price_per_liter" value="{{ '%g'|format(row.price_per_liter) if row and row.price_per_liter else '' }}" class="w-full border rounded px-3 py-2" placeholder="เว้น = คำนวณอัตโนมัติ" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">เลขไมล์</label>
+      <input type="number" step="0.01" name="mile_snapshot" value="{{ '%g'|format(row.mile_snapshot) if row and row.mile_snapshot else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">เรท กม/L</label>
+      <input type="number" step="0.01" name="rate_km_per_l" value="{{ '%g'|format(row.rate_km_per_l) if row and row.rate_km_per_l else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ลักษณะการเติม</label>
+      <select name="fill_type" class="w-full border rounded px-3 py-2">
+        <option value="" {% if not row or not row.fill_type %}selected{% endif %}>—</option>
+        <option value="full" {% if row and row.fill_type=='full' %}selected{% endif %}>เต็มถัง</option>
+        <option value="partial" {% if row and row.fill_type=='partial' %}selected{% endif %}>เติมบางส่วน</option>
+        <option value="budget" {% if row and row.fill_type=='budget' %}selected{% endif %}>ตามงบ / target</option>
+      </select>
+    </div>
+  </div>
+</section>
+
+<section class="bg-white rounded-lg border p-6">
+  <h2 class="font-semibold mb-3">ลิงก์เพิ่มเติม (ไม่บังคับ)</h2>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div>
+      <label class="block text-sm mb-1">Daily Job ID</label>
+      <input type="number" name="daily_job_id" value="{{ row.daily_job_id if row and row.daily_job_id else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">หมายเหตุ</label>
+      <input name="note" value="{{ row.note if row else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+  </div>
+</section>
+
+<div class="flex gap-2">
+  <button class="bg-slate-900 text-white px-5 py-2 rounded-lg hover:bg-slate-700">{% if mode=='new' %}บันทึก{% else %}บันทึกการแก้ไข{% endif %}</button>
+  <a href="/fuel" class="px-5 py-2 rounded-lg border">ยกเลิก</a>
+</div>
+</form>
+{% endblock %}

@@ -1,0 +1,5 @@
+return-trip{background:#e8f5e9;color:#1b5e20;font-weight:600}"
+        "tr.day-band-0 td{background:#fafcfe}tr.day-band-1 td{background:#e9f1fa}tr.day-band-0 td.wait-hi{background:#fff1cc;font-weight:600}tr.day-band-1 td.wait-hi{background:#ffecc4;font-weight:600}tr.day-band-0 td.wait-hi-dest{background:#ffe8c8;font-weight:600}tr.day-band-1 td.wait-hi-dest{background:#ffdfba;font-weight:600}"
+    )
+
+    idx = f"""<!doctype html><html><h

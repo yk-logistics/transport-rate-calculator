@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Project YK{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <style>
+    body { font-family: -apple-system, "Segoe UI", Tahoma, sans-serif; }
+    .btn { @apply inline-block px-4 py-2 rounded-lg text-sm; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <nav class="bg-slate-900 text-white">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between flex-wrap gap-2">
+      <a href="/daily" class="font-bold text-lg">Project YK · One Platform</a>
+      <div class="flex gap-3 text-sm flex-wrap">
+        <a href="/daily" class="hover:underline">Daily</a>
+        <a href="/fuel" class="hover:underline">น้ำมัน</a>
+        <a href="/petty-cash" class="hover:underline">สดย่อย</a>
+        <a href="/petty-cash/pending" class="hover:underline text-amber-300">รอหักคนขับ</a>
+        <a href="/petty-cash/clearance" class="hover:underline text-yellow-300">รอเคลียร์</a>
+        <span class="text-slate-500">|</span>
+        <a href="/employees" class="hover:underline">คนขับ</a>
+        <a href="/vehicles" class="hover:underline">รถ</a>
+        <a href="/customers" class="hover:underline">ลูกค้า</a>
+        <a href="/admin/promote" class="hover:underline text-sky-300">สร้าง Master</a>
+        <a href="/payroll" class="hover:underline text-emerald-300 font-medium">Payroll</a>
+        <a href="/rates" class="hover:underline text-cyan-300 font-medium">เรทราคา</a>
+        <a href="/fuel-index" class="hover:underline text-cyan-300" title="ราคาน้ำมันรายเดือน + Fuel Surcharge">⛽ Fuel</a>
+        <a href="/maint" class="hover:underline text-orange-300 font-medium">ซ่อม/ยาง/PM</a>
+        <span class="text-slate-500">|</span>
+        <span class="text-slate-400">Dispatch</span>
+        <a href="/billing" class="hover:underline text-amber-300 font-medium">Billing</a>
+        <a href="/finance" class="hover:underline text-violet-300 font-medium">💰 CFO</a>
+        <a href="/admin/submissions" class="hover:underline text-pink-300 font-medium" title="รายการส่งจากคนขับ (PWA)">📱 Driver</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto px-4 py-6">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="max-w-7xl mx-auto px-4 py-6 text-xs text-slate-400">
+    Phase 1.1 — Master Data + Expanded Daily · SQLite: app.db
+  </footer>
+</body>
+</html>

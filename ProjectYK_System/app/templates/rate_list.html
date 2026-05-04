@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}เรทราคา · Rate Book{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4">
+  <div>
+    <h1 class="text-2xl font-bold">💡 Rate Book — เรทราคาที่ระบบจำไว้</h1>
+    <p class="text-sm text-slate-500 mt-1">
+      กฎทั้งหมด: <strong>{{ total }}</strong> ·
+      {% for kd, label in kinds %}
+        {% if by_kind.get(kd) %}
+          <span class="text-slate-700">{{ label }}: {{ by_kind[kd] }}</span>
+          {% if not loop.last %} · {% endif %}
+        {% endif %}
+      {% endfor %}
+    </p>
+  </div>
+  <div class="flex gap-2 flex-wrap">
+    <a href="/fuel-index" class="btn bg-slate-200 hover:bg-slate-300 text-sm">⛽ ราคาน้ำมัน/เดือน</a>
+    <a href="/fuel-surcharge" class="btn bg-slate-200 hover:bg-slate-300 text-sm">🧾 Fuel Surcharge</a>
+    <form method="post" action="/rates/backfill" onsubmit="return confirm('เรียนรู้จาก DailyJob ที่มีอยู่ทั้งหมด? (ถ้ามีกฎเดิมเหมือนกัน use_count จะ +1 เฉย ๆ)')">
+      <button class="btn bg-amber-500 text-white hover:bg-amber-600">🔁 Backfill จาก Daily</button>
+    </form>
+    <a href="/rates/new" class="btn bg-cyan-600 text-white hover:bg-cyan-700">+ สร้างกฎใหม่</a>
+  </div>
+</div>
+
+<div class="p-3 bg-cyan-50 border border-cyan-200 rounded-lg text-sm mb-4">
+  <strong>วิธีใช้:</strong> ระบบจะเรียนรู้เรทที่ admin เคยกรอกไว้ใน Daily โดยอัตโนมัติ (source=auto)
+  ครั้งต่อไปที่งานเดิมซ้ำ ระบบจะ suggest ค่าเดิมมาให้
+  · คลิก "🔁 Backfill" เพื่อเรียนจากข้อมูลเก่าครั้งเดียว
+  · admin ตั้งกฎแบบ wildcard <code>*</code> (any) เองก็ได้ — เหมาะกับ LCB ที่ focus Loading
+  · ถ้าแก้กฎ auto แล้วต้องการล็อก ให้เลือก "ปักหมุดเป็น manual"
+</div>
+
+<form method="get" class="mb-4 p-3 bg-white border rounded-lg flex items-end gap-2 flex-wrap">
+  <div>
+    <label class="text-xs text-slate-500 block">ประเภท</label>
+    <select name="kind" class="border rounded px-2 py-1 text-sm">
+      <option value="">(ทั้งหมด)</option>
+      {% for k, label in kinds %}
+      <option value="{{ k }}" {% if kind == k %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="text-xs text-slate-500 block">Site</label>
+    <select name="site" class="border rounded px-2 py-1 text-sm">
+      <option value="">(ทั้งหมด)</option>
+      {% for s in sites %}
+      <option value="{{ s }}" {% if site == s %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+      <option value="*" {% if site == '*' %}selected{% endif %}>* (any)</option>
+    </select>
+  </div>
+  <div>
+    <label class="text-xs text-slate-500 block">แหล่งที่มา</label>
+    <select name="source" class="border rounded px-2 py-1 text-sm">
+      <option value="">(ทั้งหมด)</option>
+      <option value="manual" {% if source == 'manual' %}selected{% endif %}>Manual (ปักหมุด)</option>
+      <option value="auto" {% if source == 'auto' %}selected{% endif %}>Auto (เรียนรู้)</option>
+      <option value="import" {% if source == 'import' %}selected{% endif %}>Import</option>
+    </select>
+  </div>
+  <div>
+    <label class="text-xs text-slate-500 block">ค้นหา (origin/dest/loading/note)</label>
+    <input type="text" name="q" value="{{ q or '' }}" class="border rounded px-2 py-1 text-sm">
+  </div>
+  <button class="btn bg-slate-700 text-white">กรอง</button>
+  <a href="/rates" class="btn bg-slate-200 hover:bg-slate-300">ล้าง</a>
+</form>
+
+<div class="p-3 bg-white border rounded-lg overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="text-xs text-slate-500 bg-slate-50">
+      <tr>
+        <th class="text-left py-1 px-2">ประเภท</th>
+        <th class="text-left py-1 px-2">Site</th>
+        <th class="text-left py-1 px-2">ลูกค้า</th>
+        <th class="text-left py-1 px-2">รถ</th>
+        <th class="text-left py-1 px-2">Trip</th>
+        <th class="text-left py-1 px-2">ต้นทาง</th>
+        <th class="text-left py-1 px-2">ปลายทาง</th>
+        <th class="text-left py-1 px-2">Loading</th>
+        <th class="text-right py-1 px-2">ค่า</th>
+        <th class="text-center py-1 px-2">หน่วย</th>
+        <th class="text-center py-1 px-2">src</th>
+        <th class="text-right py-1 px-2">ใช้</th>
+        <th class="text-left py-1 px-2">หมายเหตุ</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in cards %}
+      <tr class="border-t hover:bg-slate-50">
+        <td class="py-1 px-2">
+          <a href="/rates/{{ c.id }}" class="text-sky-600 hover:underline">{{ kind_map.get(c.kind, c.kind) }}</a>
+        </td>
+        <td class="py-1 px-2 font-mono {% if c.site_code == '*' %}text-slate-400{% endif %}">{{ c.site_code }}</td>
+        <td class="py-1 px-2 {% if c.customer_id is none %}text-slate-400{% endif %}">
+          {{ customer_map.get(c.customer_id, '*') if c.customer_id else '*' }}
+        </td>
+        <td class="py-1 px-2 font-mono {% if c.vehicle_kind == '*' %}text-slate-400{% endif %}">{{ c.vehicle_kind }}</td>
+        <td class="py-1 px-2 font-mono {% if c.trip_type_code == '*' %}text-slate-400{% endif %}">{{ c.trip_type_code }}</td>
+        <td class="py-1 px-2 {% if c.origin == '*' %}text-slate-400{% endif %}">{{ c.origin }}</td>
+        <td class="py-1 px-2 {% if c.destination == '*' %}text-slate-400{% endif %}">{{ c.destination }}</td>
+        <td class="py-1 px-2 {% if c.pickup_location == '*' %}text-slate-400{% endif %}">{{ c.pickup_location }}</td>
+        <td class="py-1 px-2 text-right font-mono font-semibold">{{ '{:,.2f}'.format(c.rate_value) }}</td>
+        <td class="py-1 px-2 text-center text-xs">{{ c.rate_unit }}</td>
+        <td class="py-1 px-2 text-center">
+          {% if c.source == 'manual' %}
+            <span class="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-800" title="ปักหมุดโดย admin — ชนะ auto">📌 manual</span>
+          {% elif c.source == 'auto' %}
+            <span class="px-2 py-0.5 rounded text-xs bg-sky-100 text-sky-800" title="ระบบเรียนจาก DailyJob">🤖 auto</span>
+          {% else %}
+            <span class="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-600">{{ c.source }}</span>
+          {% endif %}
+        </td>
+        <td class="py-1 px-2 text-right">{{ c.use_count }}</td>
+        <td class="py-1 px-2 text-slate-500 text-xs truncate max-w-xs">{{ c.notes or '' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="13" class="py-8 text-center text-slate-400">
+        ยังไม่มีกฎใน Rate Book — ลอง
+        <a href="/rates/new" class="text-cyan-600 hover:underline">สร้างกฎเอง</a> หรือ
+        <form method="post" action="/rates/backfill" class="inline">
+          <button class="text-amber-600 hover:underline">🔁 Backfill จาก Daily ที่มีอยู่</button>
+        </form>
+      </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="mt-3 text-xs text-slate-500">
+  💡 เคล็ดลับ: <code>*</code> = wildcard (match ทุกอย่าง) · ฟิลด์ที่ระบุเฉพาะเจาะจง = +10 คะแนน, wildcard = +1 คะแนน
+  · priority สูง ชนะ ·  manual ชนะ auto (ถ้า score เท่ากัน)
+</p>
+
+{% endblock %}

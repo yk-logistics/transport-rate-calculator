@@ -1,0 +1,16 @@
+<div class='panel'><p class='sub'><b>สีไฮไลต์:</b> เหลืองอ่อน = รอต้นทางนาน ≥ {_hi_o:g} ชม.; ส้มอ่อน = รอปลายทางนาน ≥ {_hi_d:g} ชม. (ตรวจก่อนตัดสินใจเก็บลูกค้า)</p></div>
+<div class='panel'><h3>(1) จำนวนเที่ยวต่อวัน (matched Dest_In)</h3>
+<p class='sub'>นับตาม Dest_In · รวมทุกทะเบียน · เฉพาะเที่ยวที่จับคู่แล้ว</p>
+<table><thead><tr><th>วันที่</th><th>จำนวนเที่ยว</th><th>จำนวนรถ</th></tr></thead><tbody>
+{tpd_rows_html}
+</tbody></table></div>
+<div class='panel'><h3>(2) เดลี่รถทุกคัน — Dest_In × ทะเบียน</h3>
+<p class='sub'>เรท: {config_rate_summary(cfg)} ฿/เที่ยว · คอลัมน์ส่วนเพิ่มแสดงได้หลายป้ายในวันเดียวกัน (เว้นวรรค) — ตีเปล่า = No-work recovery หรือ mark override; ค่าเสียเวลา = fifty; ข้ามคืนเต็มเที่ยว = +100% (หลัง override) · Policy: recovery-day บวกคู่กับ fifty หากมี (2026-05-01){'<br>ตาราง (2) นับตาม Dest_In · <b>Audit Log ด้านล่างคิดตาม วันงาน (Origin_In)</b>' if cfg.use_origin_day_fifty else ''}</p>
+<table><thead><tr><th>วันที่</th><th>ทะเบียน</th><th>Site</th><th>เที่ยว</th><th>เรท(฿)</th><th>ค่าเที่ยว(฿)</th><th>ส่วนเพิ่ม (฿)</th><th>รวมวัน(฿)</th></tr></thead><tbody>
+{"".join(f"<tr><td>{r['dest_date']}</td><td><a href='plates/{esc(r['plate'])}.html'>{esc(r['plate'])}</a></td><td><span class='badge {'bigc' if r['site']=='BigC' else 'lcb'}'>{r['site']}</span></td><td>{r['matched_trips']}</td><td>{r['trip_rate_baht']:,}</td><td>{r['base_line_baht']:,}</td><td>{(r['fifty_badge_html'] if r.get('fifty_badge_html') else f"<span class='money'>{r['fifty_pct_baht']:,}</span>")}</td><td class='money'>{r['customer_day_baht']:,}</td></tr>" for r in pday_rows) or "<tr><td colspan=8>ไม่มีข้อมูล</td></tr>"}
+</tbody></table></div>
+<div class='panel'><h3>(3) Unmatched — {len(unmatched)} legs เรียงตามเวลา</h3>
+<p class='sub'>UM-O = Origin ไม่มี Dest คู่ · UM-D = Dest ไม่มี Origin คู่ · max_travel_h={cfg.max_travel_h}h · match เลือก Origin ที่ t_in ล่าสุดก่อน Dest</p>
+<table><thead><tr><th>ประเภท</th><th>ทะเบียน</th><th>เวลาเข้า</th><th>เวลาออก</th><th>เหตุผล</th></tr></thead><tbody>
+{um_section_html}
+</tbody></table></div>

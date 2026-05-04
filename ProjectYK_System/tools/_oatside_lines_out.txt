@@ -1,0 +1,4 @@
+950:def write_excel(
+996:    cs = wb.create_sheet("Customer_Summary")
+1084:    pd_sheet = wb.create_sheet("Plate_DestDay")
+1354:<div class='panel'><h3>รายวัน × ทะเบียน (Plate_DestDay)</h3>

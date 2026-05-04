@@ -1,0 +1,10 @@
+<details class='section-fold'><summary class='section-sum'>รายทะเบียน</summary>
+<div class='panel'><ul>{''.join(f"<li><a href='plates/{esc(p)}.html'>{esc(p)}</a></li>" for p in plates)}</ul></div>
+</details></body></html>"""
+
+    report_dir.mkdir(parents=True, exist_ok=True)
+    (report_dir / "index.html").write_text(idx, encoding="utf-8")
+
+    _trips_plate_opts = "".join(f"<option value='{esc(p)}'>{esc(p)}</option>" for p in plates)
+    trips_html_content = (
+        f"""<!doctype html><html><h

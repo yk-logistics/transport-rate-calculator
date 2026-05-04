@@ -60,6 +60,16 @@ if (-not $best) {
 $srcAbs = $best
 Write-Host "Using report dir: $srcAbs" -ForegroundColor Cyan
 
+$expDir = Join-Path $srcAbs "exports"
+if (-not (Test-Path -LiteralPath $expDir)) {
+  throw "Missing exports/ under report dir. Run: python Oatside\build_oatside_reports.py  (then redeploy). Expected: $expDir"
+}
+$xlsxCount = (Get-ChildItem -LiteralPath $expDir -Filter "*.xlsx" -File -ErrorAction SilentlyContinue | Measure-Object).Count
+if ($xlsxCount -lt 1) {
+  throw "exports/ exists but has no .xlsx files - rebuild the report, then redeploy. Path: $expDir"
+}
+Write-Host "exports/: $xlsxCount .xlsx file(s) OK" -ForegroundColor Green
+
 $slug = $PagesReportSlug.Trim().Trim('/').Replace('\', '')
 if (-not $slug) { throw "PagesReportSlug is empty." }
 if ($slug -match '[\./\\]') { throw "PagesReportSlug must be a single folder name (no slashes)." }

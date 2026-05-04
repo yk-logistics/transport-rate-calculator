@@ -1,0 +1,14 @@
+﻿# Cursor: ลด index โฟลเดอร์ใหญ่/อ่อนไหว — ประหยัด token (ไม่แตะ .gitignore)
+
+data/
+Resulted/
+PDF Merge/
+Delete/
+logbooks/
+AYU_sheets_csv/
+Oatside/
+Whale/
+transport-rate-calculator-repo/
+ProjectYK_System/TransportRateCalculator/reports/
+__pycache__/
+.git/

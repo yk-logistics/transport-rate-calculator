@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>รายงานสอบสวนอุบัติเหตุ</title>
+  <style>
+    :root {
+      --ink: #1f2937;
+      --muted: #6b7280;
+      --brand: #0f4c81;
+      --brand-2: #e8f1fa;
+      --line: #d9e2ec;
+      --ok: #0b7a4b;
+      --warn: #9a6700;
+      --bg: #f8fbff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "TH Sarabun New", "Sarabun", "Segoe UI", Tahoma, sans-serif;
+      color: var(--ink);
+      background: #eef3f8;
+      line-height: 1.4;
+      font-size: 20px;
+    }
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 10mm auto;
+      background: #fff;
+      padding: 14mm 14mm 12mm;
+      box-shadow: 0 4px 24px rgba(16,24,40,.12);
+      border: 1px solid #e5e7eb;
+    }
+    .header {
+      border: 2px solid var(--brand);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .header-top {
+      display: grid;
+      grid-template-columns: 1fr 120px;
+      gap: 10px;
+      padding: 12px 14px;
+      background: linear-gradient(120deg, #f1f7ff, #ffffff 60%);
+      align-items: center;
+    }
+    .company h1 {
+      margin: 0;
+      font-size: 34px;
+      letter-spacing: .3px;
+      color: var(--brand);
+    }
+    .company p {
+      margin: 2px 0;
+      color: #374151;
+      font-size: 18px;
+    }
+    .badge {
+      border: 2px solid #9ca3af;
+      background: #fffde8;
+      border-radius: 8px;
+      text-align: center;
+      padding: 8px 6px;
+      font-weight: 700;
+      color: #334155;
+      font-size: 20px;
+      line-height: 1.2;
+    }
+    .header-bottom {
+      background: var(--brand);
+      color: #fff;
+      padding: 8px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 18px;
+    }
+    .doc-title {
+      margin: 14px 0 6px;
+      font-size: 34px;
+      color: #0b2239;
+      text-align: center;
+      font-weight: 800;
+    }
+    .subline {
+      text-align: center;
+      color: var(--muted);
+      margin: 0 0 10px;
+      font-size: 18px;
+    }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin: 10px 0 14px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: var(--bg);
+    }
+    .card .k {
+      color: var(--muted);
+      font-size: 16px;
+      margin-bottom: 2px;
+    }
+    .card .v {
+      font-weight: 700;
+      color: #111827;
+      font-size: 20px;
+    }
+    .section {
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .section h2 {
+      margin: 0;
+      background: var(--brand-2);
+      color: #0f3559;
+      font-size: 24px;
+      padding: 7px 10px;
+      border-bottom: 1px solid var(--line);
+    }
+    .section .body {
+      padding: 8px 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 4px;
+      font-size: 19px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 6px 8px;
+      vertical-align: top;
+    }
+    th {
+      background: #f8fafc;
+      text-align: left;
+      color: #334155;
+      width: 28%;
+    }
+    .timeline th:nth-child(1) { width: 20%; }
+    .timeline th:nth-child(2) { width: 80%; }
+    ul {
+      margin: 4px 0 0 20px;
+      padding: 0;
+    }
+    .cause-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 1px 10px;
+      font-size: 16px;
+      font-weight: 700;
+      margin-right: 6px;
+      margin-bottom: 4px;
+    }
+    .pill.ok { background: #e8f7ef; color: var(--ok); }
+    .pill.warn { background: #fff4d6; color: var(--warn); }
+    .signatures {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .sign-box {
+      border: 1px dashed #9ca3af;
+      border-radius: 8px;
+      padding: 10px;
+      min-height: 96px;
+      background: #fcfcfd;
+    }
+    .footer-note {
+      margin-top: 10px;
+      font-size: 16px;
+      color: var(--muted);
+    }
+    .edit-note {
+      margin: 0 auto 6px;
+      width: 210mm;
+      font-size: 16px;
+      color: #1f2937;
+      background: #fff7d6;
+      border: 1px solid #e5c874;
+      border-radius: 8px;
+      padding: 6px 10px;
+    }
+    .editable {
+      outline: 1px dashed #93c5fd;
+      outline-offset: 2px;
+      border-radius: 3px;
+      cursor: text;
+    }
+    .editable:focus {
+      outline: 2px solid #2563eb;
+      background: #eff6ff;
+    }
+    @media print {
+      @page { size: A4; margin: 8mm; }
+      body { background: #fff; }
+      .edit-note { display: none; }
+      .editable {
+        outline: none;
+        background: transparent;
+      }
+      .page {
+        margin: 0;
+        border: 0;
+        box-shadow: none;
+        width: auto;
+        min-height: auto;
+        padding: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="edit-note">
+    โหมดแก้ไข: คลิกในช่องที่มีกรอบเส้นประเพื่อพิมพ์แก้ไข แล้วพิมพ์เป็น PDF ได้ทันที
+  </div>
+  <main class="page">
+    <header class="header">
+      <div class="header-top">
+        <div class="company">
+          <h1>Y.K. LOGISTICS CO., LTD.</h1>
+          <p>บริษัท วาย.เค. ลอจิสติค จำกัด (สำนักงานใหญ่)</p>
+          <p>70 หมู่ 5 ตำบลเชียงรากน้อย อำเภอบางปะอิน จังหวัดพระนครศรีอยุธยา 13180</p>
+          <p>เลขประจำตัวผู้เสียภาษี 0125548009248</p>
+        </div>
+        <div class="badge">Y.K.<br/>LOGISTICS<br/>CO., LTD.</div>
+      </div>
+      <div class="header-bottom">
+        <span>รายงานควบคุมความปลอดภัยภายในบริษัท</span>
+        <span>Doc No. YK-AIR-2026-04-25-71-8008</span>
+      </div>
+    </header>
+
+    <h1 class="doc-title">รายงานสอบสวนอุบัติเหตุทางถนน</h1>
+    <p class="subline">กรณีรถหัว 71-8008 ชนท้ายรถคันหน้า</p>
+
+    <section class="meta-grid">
+      <div class="card"><div class="k">วันที่เกิดเหตุ</div><div class="v editable" contenteditable="true">25/04/2569</div></div>
+      <div class="card"><div class="k">เวลาเกิดเหตุ</div><div class="v editable" contenteditable="true">11:19 น.</div></div>
+      <div class="card"><div class="k">ผู้ขับขี่</div><div class="v editable" contenteditable="true">นายพรศักดิ์ เด่นดวง</div></div>
+      <div class="card"><div class="k">โทรศัพท์</div><div class="v editable" contenteditable="true">089-237-5456</div></div>
+      <div class="card"><div class="k">ทะเบียนหัว</div><div class="v editable" contenteditable="true">71-8008</div></div>
+      <div class="card"><div class="k">ทะเบียนหาง</div><div class="v editable" contenteditable="true">70-6677</div></div>
+      <div class="card"><div class="k">ต้นทาง</div><div class="v editable" contenteditable="true">BigC บางปะอิน</div></div>
+      <div class="card"><div class="k">ปลายทาง</div><div class="v editable" contenteditable="true">11130 บางนา</div></div>
+    </section>
+
+    <section class="section">
+      <h2>1) วัตถุประสงค์และแหล่งข้อมูล</h2>
+      <div class="body">
+        <ul>
+          <li>รวบรวมข้อเท็จจริงและลำดับเหตุการณ์อย่างเป็นระบบ</li>
+          <li>วิเคราะห์สาเหตุใกล้ชิดและรากสาเหตุเพื่อป้องกันการเกิดซ้ำ</li>
+          <li>กำหนดมาตรการแก้ไข พร้อมผู้รับผิดชอบและกำหนดติดตามผล</li>
+          <li>ข้อมูลอ้างอิง: คำให้การผู้ขับ, ข้อมูลเที่ยวงาน, ข้อมูลชั่วโมงรถจากไฟล์ GPS</li>
+          <li class="editable" contenteditable="true">คณะผู้สอบสวน: .................................................................</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>2) ลำดับเหตุการณ์ (Timeline)</h2>
+      <div class="body">
+        <table class="timeline">
+          <thead><tr><th>เวลา</th><th>เหตุการณ์</th></tr></thead>
+          <tbody>
+            <tr><td class="editable" contenteditable="true">09:00</td><td class="editable" contenteditable="true">พนักงานขับรถเข้าต่อหาง</td></tr>
+            <tr><td class="editable" contenteditable="true">10:50</td><td class="editable" contenteditable="true">รถออกจากคลัง</td></tr>
+            <tr><td class="editable" contenteditable="true">11:19</td><td class="editable" contenteditable="true">เกิดเหตุชนท้ายรถคันหน้า หน้ารถฝั่งคนขับเสียหายหนัก</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>3) คำให้การและผลกระทบ</h2>
+      <div class="body">
+        <table>
+          <tr>
+            <th>คำให้การผู้ขับขี่</th>
+            <td class="editable" contenteditable="true">
+              ผู้ขับขี่แจ้งว่าเกิดอาการวูบ/ง่วงระหว่างขับ และรับประทานยาคลายกล้ามเนื้อเวลาประมาณ 07:00 น.
+              เมื่อรู้สึกตัวอีกครั้งคิดว่าเบรกไม่ทัน จึงพยายามหักหลบซ้ายเข้าไหล่ทาง แต่ระยะกระชั้นชิดจึงชนท้ายรถคันหน้า
+            </td>
+          </tr>
+          <tr>
+            <th>อาการบาดเจ็บ</th>
+            <td class="editable" contenteditable="true">บาดเจ็บสาหัส เท้าขวาเส้นเลือด/เส้นเอ็นขาด สะโพกเคลื่อน และต้องตัดขาขวาจากข้อจำกัดเวลาการรักษา</td>
+          </tr>
+          <tr>
+            <th>ทรัพย์สินเสียหาย</th>
+            <td class="editable" contenteditable="true">รถหัวลากเสียหายหนักบริเวณหน้าฝั่งคนขับ (รอประเมินมูลค่าซ่อมจากฝ่ายซ่อมบำรุง/ประกัน)</td>
+          </tr>
+        </table>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>4) ข้อเท็จจริงด้านระบบจ่ายงานของบริษัท</h2>
+      <div class="body">
+        <p>
+          <span class="pill ok">มาตรฐานปัจจุบัน</span>
+          หัวหน้าจ่ายงานสอบถามคนขับก่อนรับงานเสมอว่า “ไหวไหม / ได้พักหรือยัง” และหากไม่พร้อม
+          สามารถต่อหางแล้วออกไปจอดพักในจุดปลอดภัยได้ทันที
+        </p>
+        <p>
+          <span class="pill ok">แนวทางความปลอดภัย</span>
+          หากไปไม่ทันเวลานัด บริษัทประสานคลังต้นทางเพื่อเลื่อนเวลา ไม่เร่งให้ขับเสี่ยง
+        </p>
+        <p>
+          <span class="pill warn">ช่องว่างที่พบ</span>
+          การยืนยันความพร้อมก่อนปล่อยรถยังพึ่งการตอบด้วยวาจาเป็นหลัก
+          จำเป็นต้องเพิ่มการตรวจหลักฐานชั่วโมงพักแบบเป็นระบบ
+        </p>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>5) วิเคราะห์สาเหตุ</h2>
+      <div class="body cause-grid">
+        <div>
+          <h3 style="margin:0 0 4px;font-size:21px;color:#0f3559;">สาเหตุใกล้ชิด (Immediate Cause)</h3>
+          <ul>
+            <li>ตอบสนองต่อสถานการณ์ช้าลงและเบรกไม่ทัน</li>
+            <li>ระยะหลบฉุกเฉินไม่พอ</li>
+          </ul>
+        </div>
+        <div>
+          <h3 style="margin:0 0 4px;font-size:21px;color:#0f3559;">รากสาเหตุ (Root Cause)</h3>
+          <ul>
+            <li>ยังไม่มี “Gate ก่อนปล่อยรถ” ที่บังคับพักครบ 10 ชั่วโมง</li>
+            <li>ยังไม่มีบันทึกเวลาเริ่มพัก/สิ้นสุดพักเป็นหลักฐานทุกเที่ยว</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>6) มาตรการแก้ไขและป้องกัน (CAPA)</h2>
+      <div class="body">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:16%;">ระยะเวลา</th>
+              <th style="width:48%;">มาตรการ</th>
+              <th style="width:18%;">ผู้รับผิดชอบ</th>
+              <th style="width:18%;">กำหนดเสร็จ</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>ทันที</td>
+              <td>ตรวจและบันทึกชั่วโมงพักก่อนปล่อยรถทุกเที่ยว (ขั้นต่ำ 10 ชม.)</td>
+              <td>หัวหน้าจ่ายงาน</td>
+              <td>เริ่มใช้ทันที</td>
+            </tr>
+            <tr>
+              <td>ภายใน 7 วัน</td>
+              <td>ใช้ Checklist ก่อนปล่อยรถ + คัดกรองยาที่มีผลข้างเคียงง่วงซึม</td>
+              <td>Ops + Safety</td>
+              <td>7 วัน</td>
+            </tr>
+            <tr>
+              <td>ภายใน 30 วัน</td>
+              <td>เชื่อมการจ่ายงานกับหลักฐานชั่วโมงพักจาก GPS/ระบบที่ใช้งานจริง</td>
+              <td>Ops + IT</td>
+              <td>30 วัน</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>7) บทสรุป</h2>
+      <div class="body">
+        เหตุการณ์นี้มีแนวโน้มเกี่ยวข้องกับความไม่พร้อมของผู้ขับขี่ขณะปฏิบัติงาน ร่วมกับความเสี่ยงจากยาที่อาจมีผลข้างเคียง
+        แม้บริษัทไม่มีนโยบายเร่งรอบ แต่ต้องยกระดับระบบคัดกรองก่อนปล่อยรถจาก “สอบถามด้วยวาจา” ไปสู่ “หลักฐานชั่วโมงพัก”
+        เพื่อป้องกันการเกิดเหตุซ้ำอย่างเป็นรูปธรรม
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>8) หลักฐานประกอบการสอบสวน</h2>
+      <div class="body">
+        <ul>
+          <li class="editable" contenteditable="true">รูปถ่ายจุดเกิดเหตุ / ความเสียหายรถ</li>
+          <li class="editable" contenteditable="true">ข้อมูล GPS / เส้นทาง / เวลา</li>
+          <li class="editable" contenteditable="true">บันทึกคำให้การผู้ขับขี่และผู้เกี่ยวข้อง</li>
+          <li class="editable" contenteditable="true">เอกสารประกัน / ใบซ่อม / ใบรับรองแพทย์</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>9) ผลติดตามการปิดมาตรการ (สำหรับ Audit)</h2>
+      <div class="body">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:44%;">รายการติดตาม</th>
+              <th style="width:18%;">สถานะ</th>
+              <th style="width:18%;">วันที่ปิด</th>
+              <th style="width:20%;">ผู้ยืนยัน</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="editable" contenteditable="true">Checklist ก่อนปล่อยรถใช้งานครบทุกเที่ยว</td>
+              <td class="editable" contenteditable="true">เปิด</td>
+              <td class="editable" contenteditable="true">-</td>
+              <td class="editable" contenteditable="true">-</td>
+            </tr>
+            <tr>
+              <td class="editable" contenteditable="true">อบรมเคสยาที่มีผลข้างเคียงกับพนักงานขับรถ</td>
+              <td class="editable" contenteditable="true">เปิด</td>
+              <td class="editable" contenteditable="true">-</td>
+              <td class="editable" contenteditable="true">-</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="signatures">
+      <div class="sign-box editable" contenteditable="true">
+        ผู้จัดทำรายงาน<br/><br/>
+        ลงชื่อ ...............................................<br/>
+        วันที่ ................................................
+      </div>
+      <div class="sign-box editable" contenteditable="true">
+        ผู้ทบทวน<br/><br/>
+        ลงชื่อ ...............................................<br/>
+        วันที่ ................................................
+      </div>
+      <div class="sign-box editable" contenteditable="true">
+        ผู้อนุมัติ<br/><br/>
+        ลงชื่อ ...............................................<br/>
+        วันที่ ................................................
+      </div>
+    </section>
+
+    <p class="footer-note">
+      หมายเหตุ: เอกสารนี้เป็นรายงานภายในเพื่อควบคุมความปลอดภัยและป้องกันการเกิดซ้ำ สามารถใช้เป็นแม่แบบสำหรับเคสถัดไปได้
+    </p>
+  </main>
+</body>
+</html>

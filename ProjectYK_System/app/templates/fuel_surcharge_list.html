@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Fuel Surcharge Bands{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold">🧾 Fuel Surcharge — ตารางบวกราคาตามน้ำมัน</h1>
+    <p class="text-xs text-slate-500">หนึ่งแถว = ช่วงราคาน้ำมันเดียว ระบบจะจับคู่อัตโนมัติตอนคำนวณค่าขนส่ง</p>
+  </div>
+  <div class="flex gap-2 text-sm">
+    <a href="/fuel-index" class="btn bg-slate-200 hover:bg-slate-300">← ราคาน้ำมัน</a>
+    <a href="/rates" class="btn bg-slate-200 hover:bg-slate-300">Rate Book</a>
+  </div>
+</div>
+
+<div class="mb-4 p-4 bg-white border rounded-lg">
+  <h2 class="font-semibold mb-3">➕ เพิ่ม band</h2>
+  <form method="post" action="/fuel-surcharge/new" class="grid grid-cols-1 md:grid-cols-6 gap-3 text-sm">
+    <label class="flex flex-col">
+      <span class="text-xs text-slate-500">ลูกค้า</span>
+      <select name="customer_id" class="border rounded px-2 py-1">
+        <option value="">— ทุกลูกค้า (*) —</option>
+        {% for c in customers %}
+        <option value="{{ c.id }}">{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="flex flex-col">
+      <span class="text-xs text-slate-500">Trip type</span>
+      <input name="trip_type_code" value="*" placeholder="* | 1BigC | 2BigC | loading" class="border rounded px-2 py-1">
+    </label>
+    <label class="flex flex-col">
+      <span class="text-xs text-slate-500">ประเภทรถ</span>
+      <input name="vehicle_kind" value="*" placeholder="* | 6W | 10W | trailer" class="border rounded px-2 py-1">
+    </label>
+    <label class="flex flex-col">
+      <span class="text-xs text-slate-500">ช่วงน้ำมัน ตั้งแต่ (฿/L)</span>
+      <input name="fuel_min" type="number" step="0.01" value="0" class="border rounded px-2 py-1">
+    </label>
+    <label class="flex flex-col">
+      <span class="text-xs text-slate-500">ถึง (น้อยกว่า ฿/L)</span>
+      <input name="fuel_max" type="number" step="0.01" value="999" class="border rounded px-2 py-1">
+    </label>
+    <label class="flex flex-col">
+      <span class="text-xs text-slate-500">+ %</span>
+      <input name="surcharge_pct" type="number" step="0.01" value="0" class="border rounded px-2 py-1">
+    </label>
+    <label class="flex flex-col">
+      <span class="text-xs text-slate-500">+ บาท flat</span>
+      <input name="surcharge_flat" type="number" step="0.01" value="0" class="border rounded px-2 py-1">
+    </label>
+    <label class="flex flex-col">
+      <span class="text-xs text-slate-500">อ้างอิงน้ำมันเดือน</span>
+      <select name="fuel_ref_mode" class="border rounded px-2 py-1">
+        {% for code, label in ref_modes %}
+        <option value="{{ code }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="flex flex-col">
+      <span class="text-xs text-slate-500">ภูมิภาค</span>
+      <input name="region" value="BKK" class="border rounded px-2 py-1">
+    </label>
+    <label class="flex flex-col">
+      <span class="text-xs text-slate-500">เริ่มใช้</span>
+      <input name="effective_from" type="date" class="border rounded px-2 py-1">
+    </label>
+    <label class="flex flex-col">
+      <span class="text-xs text-slate-500">สิ้นสุด</span>
+      <input name="effective_to" type="date" class="border rounded px-2 py-1">
+    </label>
+    <label class="flex flex-col">
+      <span class="text-xs text-slate-500">Priority</span>
+      <input name="priority" type="number" value="0" class="border rounded px-2 py-1">
+    </label>
+    <label class="flex flex-col md:col-span-3">
+      <span class="text-xs text-slate-500">หมายเหตุ</span>
+      <input name="notes" placeholder="เช่น MOU 2025-01 BigC" class="border rounded px-2 py-1">
+    </label>
+    <div class="flex items-end">
+      <button class="btn bg-emerald-600 text-white hover:bg-emerald-700">เพิ่ม band</button>
+    </div>
+  </form>
+</div>
+
+<form method="get" class="mb-3 flex gap-2 text-sm items-center">
+  <span class="text-xs text-slate-500">กรองลูกค้า</span>
+  <select name="customer_id" class="border rounded px-2 py-1" onchange="this.form.submit()">
+    <option value="">— ทั้งหมด —</option>
+    {% for c in customers %}
+    <option value="{{ c.id }}" {% if filter_customer_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+    {% endfor %}
+  </select>
+</form>
+
+<div class="bg-white border rounded-lg overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-xs text-slate-500">
+      <tr>
+        <th class="text-left py-2 px-3">ลูกค้า</th>
+        <th class="text-left py-2 px-3">Trip</th>
+        <th class="text-left py-2 px-3">รถ</th>
+        <th class="text-right py-2 px-3">ช่วงน้ำมัน (฿/L)</th>
+        <th class="text-right py-2 px-3">+%</th>
+        <th class="text-right py-2 px-3">+฿</th>
+        <th class="text-left py-2 px-3">อ้างอิงเดือน</th>
+        <th class="text-left py-2 px-3">ช่วงใช้</th>
+        <th class="text-right py-2 px-3">Prio</th>
+        <th class="text-left py-2 px-3">สถานะ</th>
+        <th class="text-left py-2 px-3">หมายเหตุ</th>
+        <th class="py-2 px-3">-</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in rows %}
+      <tr class="border-t hover:bg-slate-50">
+        <td class="py-1 px-3">
+          {% if b.customer_id %}{{ customer_map.get(b.customer_id, '(ไม่มี)') }}{% else %}<span class="text-slate-400">* ทุกลูกค้า</span>{% endif %}
+        </td>
+        <td class="py-1 px-3 font-mono text-xs">{{ b.trip_type_code }}</td>
+        <td class="py-1 px-3 font-mono text-xs">{{ b.vehicle_kind }}</td>
+        <td class="py-1 px-3 text-right font-mono text-xs">{{ '{:.2f}'.format(b.fuel_min) }} – {{ '{:.2f}'.format(b.fuel_max) }}</td>
+        <td class="py-1 px-3 text-right font-mono {% if b.surcharge_pct > 0 %}text-amber-700{% endif %}">{{ '{:+.2f}'.format(b.surcharge_pct) }}%</td>
+        <td class="py-1 px-3 text-right font-mono">{{ '{:+.2f}'.format(b.surcharge_flat) }}</td>
+        <td class="py-1 px-3 text-xs">{{ b.fuel_ref_mode }}/{{ b.region }}</td>
+        <td class="py-1 px-3 text-xs text-slate-500">
+          {% if b.effective_from %}{{ b.effective_from }}{% endif %}{% if b.effective_to %} → {{ b.effective_to }}{% endif %}
+        </td>
+        <td class="py-1 px-3 text-right">{{ b.priority }}</td>
+        <td class="py-1 px-3">
+          {% if b.status == 'active' %}
+          <span class="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-800">ใช้งาน</span>
+          {% else %}
+          <span class="px-2 py-0.5 rounded text-xs bg-slate-200 text-slate-600">{{ b.status }}</span>
+          {% endif %}
+        </td>
+        <td class="py-1 px-3 text-xs text-slate-500 truncate max-w-[180px]">{{ b.notes }}</td>
+        <td class="py-1 px-3">
+          <form method="post" action="/fuel-surcharge/{{ b.id }}/delete" onsubmit="return confirm('ลบ band นี้?')" class="inline">
+            <button class="text-red-600 hover:underline text-xs">ลบ</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="12" class="py-8 text-center text-slate-400">ยังไม่มี band — กรอกอันแรกด้านบน</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="mt-4 p-3 bg-sky-50 border border-sky-200 rounded text-xs text-sky-900">
+  <strong>หลักการเลือก band:</strong>
+  customer เฉพาะ &gt; *, trip เฉพาะ &gt; *, priority สูง &gt; ต่ำ, effective_from ล่าสุด<br>
+  <strong>สูตรผล:</strong> <code>effective = base × (1 + pct/100) + flat</code><br>
+  <strong>อ้างอิงน้ำมัน:</strong> <code>current</code> = เดือนงาน · <code>prev1</code> = เดือนก่อน · <code>prev2</code> = 2 เดือนก่อน (นำราคาจาก <a href="/fuel-index" class="underline">/fuel-index</a>)
+</div>
+
+{% endblock %}

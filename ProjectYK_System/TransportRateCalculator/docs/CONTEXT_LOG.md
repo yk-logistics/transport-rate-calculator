@@ -3282,3 +3282,66 @@ o_work_outbound_rows ใช้เรทตาม **วัน anchor R** ไม�
 
 ### Action ถัดไป
 - รัน `python Oatside/build_oatside_reports.py` แล้วเปิดโฟลเดอร์รายงาน — ต้องมี `exports/03_Unmatched_Legs.xlsx` คอลัมน์ใหม่ + HTML ตรงกัน — hard refresh (Ctrl+F5)
+
+---
+
+## 2026-05-01 (Session Summary #109 - GitHub Pages: ลิงก์ Excel 404 + วิธี deploy ให้ดาวน์โหลดได้)
+
+### บริบทจากผู้ใช้
+- หน้า `https://yk-logistics.github.io/.../reports/oatside-pg-2026/index.html` กดดาวน์โหลดไฟล์แนบไม่ได้
+
+### การตัดสินใจรอบนี้
+- **สาเหตุ (1)** ลิงก์ «Excel รวมทุกชีต» ใช้ `../../../Oatside/Oatside_PG_Trip_Summary_By_Site.xlsx` — บน GitHub Pages กลายเป็น URL นอก repo → 404
+- **สาเหตุ (2)** ลิงก์ตารางย่อยชี้ `exports/*.xlsx` แต่ **โฟลเดอร์ `exports/` ไม่ถูก deploy ขึ้น Pages** (มีแค่ HTML) → 404
+- **แก้โค้ด:** `write_split_excel_exports` คัดลอกไฟล์รวมทุกชีตไป `exports/00_Full_Workbook.xlsx`; แก้ HTML ให้ลิงก์ `exports/00_Full_Workbook.xlsx` แทน path ออกนอกรายงาน
+- **แก่ฝั่ง deploy:** ต้อง **commit + push โฟลเดอร์ `exports/` พร้อม `.xlsx` ทั้งหมด** ไปกับรายงาน HTML (หรือใช้ Git LFS ถ้าไฟล์ใหญ่)
+
+### สิ่งที่ทำแล้ว
+- แก้ `Oatside/build_oatside_reports.py` (shutil + copy + href) — `py_compile` ผ่าน
+
+### Action ถัดไป
+- รัน build → copy/sync ชุดรายงานไป branch ที่ Pages ใช้ → **อย่าลืมรวม `exports/`** → ทดสอบ HEAD/ดาวน์โหลดบน URL จริง
+
+### ต่อมา (deploy จริง)
+- **สาเหตุ 404 จริง:** โฟลเดอร์ที่ deploy ขึ้น `reports/oatside-pg-2026` **ไม่มี `exports/`** (มีแค่ HTML) เพราะตอน copy ครั้งก่อน **ยังไม่ได้รัน build** ให้สร้าง split Excel — ไม่ใช่แค่ลิงก์ผิด
+- **`deploy_oatside_report.ps1`:** เพิ่มเช็คว่ามี `exports/*.xlsx` ก่อน copy — รัน `python Oatside\build_oatside_reports.py` แล้วค่อย deploy
+- **push แล้ว:** commit `8907525` บน `yk-logistics/transport-rate-calculator` — เพิ่ม 15 ไฟล์ใน `reports/oatside-pg-2026/exports/` — GET `.../exports/05_Trip_Detail.xlsx` ได้ **200**
+
+---
+
+## 2026-05-04 (Session Summary #110 - trips.html: เวลาในคอลัมน์วัน + UM เติม Orig/Travel/Dest Wait)
+
+### บริบทจากผู้ใช้
+- หน้าเที่ยวทั้งหมดต้องการ **เห็นเวลา** และแถว UM เดิม Orig Wait / Travel / Dest Wait ว่าง
+
+### การตัดสินใจรอบนี้
+- **Matched:** คอลัมน์วัน Origin / Dest = `วัน + เวลาเข้า (HH:MM)` ใต้บรรทัด (`origin_date`/`dest_date` + `<span class=note>` จาก `o_in`/`d_in`)
+- **UM-O:** Orig Wait = อยู่ที่จุด Origin · Travel = **จากออกจุดก่อนหน้า → เข้าจุดนี้** (`um_leg_prev_gap_h`) · Dest Wait = —
+- **UM-D:** Orig Wait = — · Travel = prev gap · Dest Wait = อยู่ที่ปลายทาง (dwell)
+- **`um_leg_prev_gap_h`:** ชม. จาก `timeline[i-1].t_out` ถึง `leg.t_in`
+- เครื่องมือ: `ProjectYK_System/tools/patch_oatside_trips_um_wait_time.py`, `patch_oatside_trips_date_cells.py`
+
+### สิ่งที่ทำแล้ว
+- build + `py_compile` ผ่าน
+
+### Action ถัดไป
+- รัน build + deploy หน้า `trips.html` ตามเดิม
+
+---
+
+## 2026-05-01 (Session Summary #111 - Backup โปรเจกต์ + Oatside: ซ่อน/แสดงคอลัมน์เหมือน Excel)
+
+### บริบทจากผู้ใช้
+- ขอ **backup ทั้งโปรเจกต์** และต้องการบนหน้าเที่ยว Oatside **ซ่อน/แสดงคอลัมน์ได้เหมือน Excel** เพราะจอเล็กมองไม่ครบ
+
+### การตัดสินใจรอบนี้
+- **Backup:** ใช้ `robocopy` จากโฟลเดอร์โปรเจกต์ไป Desktop (`Project_YK_backup_2026-05-04_1843`, ~722 MB) — ยกเว้น `.cursor`, `.venv`, `node_modules`, `__pycache__`, `*.pyc` (สรุปจากเทิร์นก่อนในคำถามเดียวกัน)
+- **คอลัมน์:** เพิ่ม `<details class='col-picker'>` + checkbox ต่อหัวคอลัมน์จาก `<thead>`; JS ซ่อน `th`/`td` ตาม index; เก็บสถานะใน **`localStorage`** คีย์ `oatside_col_hidden:<pathname>:<tableId>` — ตาราง `#tripsAllTable` และ `#plateTripsTable`; แก้ closure ลูป checkbox ด้วย `(function(ci,cbx){...})(i,cb)`
+
+### สิ่งที่ทำแล้ว
+- แก้ **`Oatside/build_oatside_reports.py`**: CSS `col-picker` + `_COL_TOGGLE_JS`; แทรกแผงหน้า `trips.html` และหน้า `plates/*.html` + `id='plateTripsTable'`; แก้ typo ต่อสตริง CSS `}""` (หลังแพตช์ครั้งแรกเคยเกิด `"""` ทำให้ syntax พัง)
+- เครื่องมือช่วยแพตช์/แก้: `ProjectYK_System/tools/apply_oatside_col_toggle.py`, `fix_css_typo.py`, `fix_col_toggle_cb_closure.py`
+- รัน **`python Oatside/build_oatside_reports.py`** สร้าง HTML ที่ `Oatside/TransportRateCalculator/reports/oatside-apr2026` — ผ่าน
+
+### Action ถัดไป
+- เปิด **`trips.html`** → คลิก **แสดง / ซ่อนคอลัมน์** → ยกเลิกบางคอลัมน์แล้วเลื่อนตาราง — ยืนยันบนมือถือ; ถ้า deploy GitHub Pages ให้ build + copy ชุดเดิม

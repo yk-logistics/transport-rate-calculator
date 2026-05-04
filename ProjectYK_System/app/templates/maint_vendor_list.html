@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}ร้านค้า/อู่{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">🏪 ร้านค้า / อู่</h1>
+  <a href="/maint" class="btn bg-slate-200 hover:bg-slate-300">← Dashboard</a>
+</div>
+
+<div class="p-4 bg-white border rounded-lg mb-4">
+  <h2 class="font-semibold mb-2">+ เพิ่มร้าน</h2>
+  <form method="post" action="/maint/vendors" class="grid grid-cols-1 md:grid-cols-6 gap-2">
+    <input type="text" name="name" placeholder="ชื่อร้าน" required class="border rounded px-2 py-1 md:col-span-2">
+    <select name="kind" class="border rounded px-2 py-1">
+      {% for k, label in kinds %}
+      <option value="{{ k }}">{{ label }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" name="phone" placeholder="โทร" class="border rounded px-2 py-1">
+    <input type="text" name="address" placeholder="ที่อยู่" class="border rounded px-2 py-1">
+    <button class="btn bg-orange-600 text-white hover:bg-orange-700">+ บันทึก</button>
+  </form>
+</div>
+
+<div class="p-4 bg-white border rounded-lg">
+  <table class="w-full text-sm">
+    <thead class="text-xs text-slate-500 bg-slate-50">
+      <tr>
+        <th class="text-left py-1 px-2">ชื่อ</th>
+        <th class="text-left py-1 px-2">ประเภท</th>
+        <th class="text-left py-1 px-2">โทร</th>
+        <th class="text-left py-1 px-2">ที่อยู่</th>
+        <th class="text-right py-1 px-2">จำนวนใช้</th>
+        <th class="text-left py-1 px-2">หมายเหตุ</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for v in vendors %}
+      <tr class="border-t">
+        <td class="py-1 px-2 font-medium">{{ v.name }}</td>
+        <td class="py-1 px-2">{{ kind_map.get(v.kind, v.kind) }}</td>
+        <td class="py-1 px-2">{{ v.phone or '-' }}</td>
+        <td class="py-1 px-2 text-slate-600">{{ v.address or '-' }}</td>
+        <td class="py-1 px-2 text-right">{{ usage.get(v.id, 0) }}</td>
+        <td class="py-1 px-2 text-slate-500">{{ v.notes or '' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="py-6 text-center text-slate-400">ยังไม่มีร้าน</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

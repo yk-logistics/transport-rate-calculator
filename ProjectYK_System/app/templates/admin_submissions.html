@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Driver Submissions · Admin{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto p-4">
+  <div class="flex items-center justify-between mb-3">
+    <h1 class="text-xl font-bold">📬 รายการส่งจากคนขับ</h1>
+    <a href="/admin/drivers/pins" class="text-sm text-blue-600">🔐 จัดการ PIN</a>
+  </div>
+
+  <form method="get" class="bg-white rounded-xl border p-3 mb-3 flex flex-wrap gap-2 text-sm">
+    <select name="driver_id" class="border rounded px-2 py-1.5">
+      <option value="">-- ทุกคนขับ --</option>
+      {% for e in emps %}
+        <option value="{{ e.id }}" {% if (driver_id|string)==(e.id|string) %}selected{% endif %}>{{ e.full_name }}</option>
+      {% endfor %}
+    </select>
+    <select name="kind" class="border rounded px-2 py-1.5">
+      <option value="">-- ทุกประเภท --</option>
+      {% for k, lbl in kinds %}
+        <option value="{{ k }}" {% if k==kind_filter %}selected{% endif %}>{{ lbl }}</option>
+      {% endfor %}
+    </select>
+    <select name="review" class="border rounded px-2 py-1.5">
+      <option value="">-- ทุกสถานะ --</option>
+      {% for k, lbl in review_statuses %}
+        <option value="{{ k }}" {% if k==review_filter %}selected{% endif %}>{{ lbl }}</option>
+      {% endfor %}
+    </select>
+    <input type="date" name="day" value="{{ day }}" class="border rounded px-2 py-1.5" />
+    <button class="bg-blue-600 text-white px-4 py-1.5 rounded">กรอง</button>
+    <a href="/admin/submissions" class="px-4 py-1.5 rounded border">ล้าง</a>
+  </form>
+
+  <div class="text-xs text-slate-500 mb-2">พบ {{ rows|length }} รายการ</div>
+
+  <div class="space-y-3">
+  {% for r in rows %}
+    {% set sub = r.sub %}
+    <div class="bg-white rounded-xl border shadow-sm p-3">
+      <div class="flex items-start justify-between flex-wrap gap-2">
+        <div class="flex-1 min-w-[200px]">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="font-semibold">
+              {% if sub.kind == 'vehicle_check' %}🔧 ตรวจรถ
+              {% elif sub.kind == 'alcohol_test' %}🫁 แอลกอฮอล์
+              {% elif sub.kind == 'job_photo' %}📷 รูปงาน
+              {% elif sub.kind == 'fuel_receipt' %}⛽ ใบเสร็จน้ำมัน
+              {% else %}📄 {{ sub.kind }}{% endif %}
+            </span>
+            <span class="text-xs px-2 py-0.5 rounded
+              {% if sub.review_status == 'approved' %}bg-emerald-100 text-emerald-700
+              {% elif sub.review_status == 'flagged' %}bg-rose-100 text-rose-700
+              {% elif sub.review_status == 'archived' %}bg-slate-100 text-slate-500
+              {% else %}bg-amber-100 text-amber-700{% endif %}">
+              {% if sub.review_status == 'approved' %}ผ่าน
+              {% elif sub.review_status == 'flagged' %}ทักท้วง
+              {% elif sub.review_status == 'archived' %}เก็บ
+              {% else %}รอตรวจ{% endif %}
+            </span>
+          </div>
+          <div class="text-xs text-slate-600 space-x-3">
+            <span>👤 <b>{{ r.emp.full_name if r.emp else '?' }}</b></span>
+            <span>🕐 {{ sub.submitted_at.strftime('%d/%m/%Y %H:%M') }}</span>
+            {% if r.vehicle %}<span>🚚 {{ r.vehicle.plate_no }}</span>{% elif sub.plate_raw %}<span>🚚 {{ sub.plate_raw }}</span>{% endif %}
+            {% if sub.gps_lat %}
+              <a href="https://maps.google.com/?q={{ sub.gps_lat }},{{ sub.gps_lng }}" target="_blank"
+                 class="text-blue-600">📍 GPS</a>
+            {% endif %}
+          </div>
+
+          {# Data details per kind #}
+          {% if sub.kind == 'alcohol_test' %}
+            <div class="mt-2 text-sm">
+              ค่าที่วัด: <b class="text-lg">{{ r.data.get('reading') or '0' }}</b> mg%
+              {% if r.data.get('note') %}<div class="text-xs text-slate-500">หมายเหตุ: {{ r.data.get('note') }}</div>{% endif %}
+            </div>
+          {% elif sub.kind == 'vehicle_check' %}
+            {% set items = r.data.get('items') or {} %}
+            {% set fails = [] %}
+            {% set warns = [] %}
+            {% for key, val in items.items() %}
+              {% if val.status == 'fail' %}{% set _ = fails.append((key, val)) %}{% endif %}
+              {% if val.status == 'warn' %}{% set _ = warns.append((key, val)) %}{% endif %}
+            {% endfor %}
+            <div class="mt-2 text-sm">
+              {% if fails %}
+                <div class="text-rose-700">❌ ชำรุด: 
+                  {% for k, v in fails %}<span class="bg-rose-50 px-1 rounded">{{ k }}{% if v.note %} ({{ v.note }}){% endif %}</span>{% if not loop.last %}, {% endif %}{% endfor %}
+                </div>
+              {% endif %}
+              {% if warns %}
+                <div class="text-amber-700">⚠️ ผิดปกติ: 
+                  {% for k, v in warns %}<span class="bg-amber-50 px-1 rounded">{{ k }}{% if v.note %} ({{ v.note }}){% endif %}</span>{% if not loop.last %}, {% endif %}{% endfor %}
+                </div>
+              {% endif %}
+              {% if not fails and not warns %}
+                <div class="text-emerald-700">✓ ทุกรายการปกติ</div>
+              {% endif %}
+              {% if r.data.get('note') %}<div class="text-xs text-slate-500 mt-1">หมายเหตุ: {{ r.data.get('note') }}</div>{% endif %}
+            </div>
+          {% endif %}
+
+          {# Photos #}
+          {% if r.photos %}
+          <div class="mt-3 flex gap-2 flex-wrap">
+            {% for p in r.photos %}
+              <a href="/uploads/{{ p }}" target="_blank">
+                <img src="/uploads/{{ p }}" class="w-24 h-24 object-cover rounded border" />
+              </a>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          {% if sub.review_note %}
+          <div class="mt-2 text-xs bg-amber-50 border border-amber-200 rounded p-2">
+            💬 {{ sub.review_note }} 
+            <span class="text-slate-500">— {{ sub.reviewed_by }} ({{ sub.reviewed_at.strftime('%d/%m %H:%M') if sub.reviewed_at else '' }})</span>
+          </div>
+          {% endif %}
+        </div>
+
+        {# REVIEW ACTIONS #}
+        <form method="post" action="/admin/submissions/{{ sub.id }}/review"
+              class="flex flex-col gap-1 min-w-[180px]">
+          <select name="status" class="border rounded px-2 py-1 text-xs">
+            {% for k, lbl in review_statuses %}
+              <option value="{{ k }}" {% if k==sub.review_status %}selected{% endif %}>{{ lbl }}</option>
+            {% endfor %}
+          </select>
+          <input type="text" name="note" placeholder="หมายเหตุ" value="{{ sub.review_note }}"
+                 class="border rounded px-2 py-1 text-xs" />
+          <input type="text" name="reviewer" placeholder="ผู้ตรวจ" value="{{ sub.reviewed_by }}"
+                 class="border rounded px-2 py-1 text-xs" />
+          <button class="bg-blue-600 text-white rounded px-3 py-1 text-xs">บันทึก</button>
+        </form>
+      </div>
+    </div>
+  {% else %}
+    <div class="bg-white rounded-xl p-8 text-center text-slate-500 border">
+      ไม่มีรายการที่ตรงกับตัวกรอง
+    </div>
+  {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,155 @@
+---
+description: Mandatory context bootstrap and update policy for Project YK across all chats
+alwaysApply: true
+---
+
+# Project YK — Context Bootstrap & Update Policy
+
+This repository is "Project YK" — a one-platform system for dispatch, daily ops, billing, petty cash, payroll, and maintenance. Context lives in Markdown files. Context MUST survive across chat sessions.
+
+## 1) Mandatory read order at start of EVERY chat
+
+Before doing anything else, read these files in this order (silently, don't dump to user):
+
+1. `ProjectYK_System/AGENT_BOOTSTRAP.md`
+2. `ProjectYK_System/MODULE_REGISTRY.md`
+3. `ProjectYK_System/CHANGELOG_MASTER.md`
+4. `ProjectYK_System/TransportRateCalculator/docs/CONTEXT_LOG.md` — latest 2-3 sessions
+5. `ProjectYK_System/TransportRateCalculator/docs/NEXT_ACTION_PLAN.md`
+
+If the user's request relates to a specific module, also read that module's `AGENT_MEMORY.md` / `DECISION_LOG.md` listed in `MODULE_REGISTRY.md`.
+
+## 1b) ก่อนลงมือทำตามคำสั่งผู้ใช้ (ทุกแชท)
+
+เมื่อผู้ใช้สั่งให้ทำงาน — ถ้ายังมีจุด **ไม่เคลียร์** → **ถามให้เคลียร์ก่อน** แล้วค่อยลงมือ (รายละเอียดเดียวกับ `.cursor/rules/oa-careful-default.mdc` ข้อ 0)
+
+## 2) Mandatory update BEFORE ending each turn
+
+If this turn produced any of the following, you MUST update context files before the final reply:
+
+- Created/modified code in `ProjectYK_System/app/` or any module folder
+- Made a design/technology/scope decision
+- Completed or added an action item
+- Learned new domain knowledge from the user (e.g. site workflow, column meanings)
+
+Update targets:
+
+- `ProjectYK_System/TransportRateCalculator/docs/CONTEXT_LOG.md` — append a new "Session Summary #N" at the end
+- `ProjectYK_System/TransportRateCalculator/docs/NEXT_ACTION_PLAN.md` — mark `[done]` / add new `[next]`
+- `ProjectYK_System/CHANGELOG_MASTER.md` — one-line bullets for cross-module decisions
+- `ProjectYK_System/MODULE_REGISTRY.md` — when a new module folder is introduced
+
+Keep each Session Summary structured:
+
+```
+## YYYY-MM-DD (Session Summary #N - <short title>)
+
+### บริบทจากผู้ใช้
+- ...
+
+### การตัดสินใจรอบนี้
+- ...
+
+### สิ่งที่ทำแล้ว
+- ...
+
+### Action ถัดไป
+- ...
+```
+
+## 3) Never lose the user's domain facts
+
+The user is a non-coder manager with a 7-person team. They have manual expertise about sites AYU / BIGC / LCB and real-world Thai transport workflow. Any time the user teaches you a fact about how a site works, how a field is named, who approves what, etc. — record it in `CONTEXT_LOG.md` and (if structural) in `ProjectYK_System/TransportRateCalculator/docs/DATA_DICTIONARY.md` or the relevant doc.
+
+## 4) Tech stack already locked
+
+- Backend: FastAPI + SQLModel
+- DB: SQLite for dev (single file `ProjectYK_System/app/app.db`), PostgreSQL for production
+- Frontend: Jinja2 + HTMX + Tailwind (CDN) — no Node build
+- Launcher: `ProjectYK_System/app/start.bat`
+- Secure multi-site access later: Tailscale
+
+Do not propose swapping these without the user's explicit approval.
+
+## 5) Language
+
+- Reply to the user in Thai by default (they speak Thai).
+- Keep code identifiers in English. Keep UI labels in Thai.
+- Keep document content in Thai except for headings/keywords where English is clearer.
+
+## 6) Build philosophy
+
+- "Skeleton + Absorb": ship working pieces fast, then absorb existing Excel logic.
+- Every session should leave the app runnable (`start.bat` still works).
+- Prefer 1 small feature fully working over 5 half-done features.
+- The user vibe-tests (runs, reports bugs). You implement and fix.
+
+## 7) User profile (จำไว้)
+
+- **ชื่อเล่น**: โอ (พงษกาญจน์) — ผู้จัดการ, ลูกชายเจ้าของ
+- **ไม่เขียนโค้ดเอง** — สั่ง, ทดสอบ, หาบั๊ก, ปรับแต่ง (vibe coding)
+- เก่งเรื่อง domain (ทำแมนนวลมาหมด, เข้าใจ business ลึก)
+- **ภาษาที่ใช้คุย**: ไทย เสมอ
+
+## 8) ทีม (7+1+ช่าง/ยาม/แม่บ้าน)
+
+| คน | บทบาท |
+|---|---|
+| พ่อ | เจ้าของกิจการ (รัตนาวดีคือแม่ใหม่) |
+| โอ (ผู้ใช้) | ผู้จัดการ ดูทั้งหมด |
+| หมิว (จุฑามาศ) | บัญชี สนญ. — แฟนผู้ใช้ |
+| พี่หวาน (Nan Khan Hon San) | Operation AYU+BIGC — พม่าเก่งไทย |
+| พี่ตาล | บัญชี + หัวหน้าไซท์ LCB (แหลม) |
+| ข้าวฟ่าง | Operation LCB |
+| พี่เอ๊ะ (บรรจิด) | ซ่อมบำรุง+น้ำมัน (อนาคตช่วย OP เพิ่ม) |
+| มาร์ค (สมภพ) | Operation กะกลางคืน ทุกไซท์ |
+| พบ | ยาม+ส่งเอกสาร |
+| พม่า 1 คน | ยาม+ช่างเบื้องต้น (เปลี่ยนน้ำมันเครื่อง, เบรค, ไฟ) |
+| ช่าง + แม่บ้าน | support |
+| เมย์ | **ออกไปแล้ว** (เคยทำสดย่อยแหลม) |
+
+Driver pool: ~50 คน
+
+## 9) สถานการณ์ธุรกิจ (สำคัญ - เก็บไว้เพื่อ context)
+
+- **Cash flow ติดขัด**: รอเงินลูกค้าเข้าอย่างเดียว เต็มทีสัปดาห์หมด
+- **ขายรถไปแล้ว 4 คัน** เพื่อเอาเงินสดหมุน (พ่อเสียดาย ไม่อยากขาย)
+- **กำไรมีตามงบ แต่หายกับดอกเบี้ย** → Cash flow ไม่สอดคล้องกับ P&L
+- **เจ้าของควัก**: บัตรเครดิตส่วนตัว / หนี้ส่วนตัว มาประคอง
+- **Factoring**: ใช้กับบางลูกค้า (ดอกนิดหน่อย แลกเงินเร็ว)
+- **ประกัน**: ชั้น 1 ทุกคัน
+- **ปัญหายาง**: ถูก 2 เดือนหมด แพงแต่คนขับเบียด แล้วหนี → ต้อง rebalance
+- **นโยบายอุบัติเหตุ**: ปัจจุบันบริษัทปฏิเสธเกิน พรบ.+ประกัน → คนขับมองว่าใจร้าย แต่ถ้าควักจะเจ๊ง
+
+## 10) ปรัชญาการบริหารที่ผู้ใช้อยากทำ
+
+- **Open-Book Management**: โชว์ตัวเลข P&L / ต้นทุน / หนี้ ให้พนักงานออฟฟิสเห็นทั้งหมด
+- **Profit Share กับพนักงานออฟฟิส** (คนขับไว้เฟสถัดไป)
+- **True-Be-Fair ต่อเจ้าของ**: คืนเงินที่ควักส่วนตัว + ปันผลบางส่วน ไม่ยกให้ตัวเองหมด
+- **Waterfall ที่ตกลงเบื้องต้น** (แนะนำ, ยังไม่ final):
+  - 40% จ่ายเงินต้นหนี้
+  - 20% กองทุนฉุกเฉิน
+  - 15% คืนเงินเจ้าของที่ควัก
+  - 15% Profit Share ออฟฟิส
+  - 10% ปันผลเจ้าของ
+
+## 11) เป้าหมายระยะยาว
+
+- ระบบเดียวจบ ตั้งแต่ต้นน้ำ (dispatch) → ปลาย (เจ้าของตัดสินใจ)
+- ลดงาน manual ของแอดมินให้มากสุด
+- คนขับมี Driver App (PWA) แทนไลน์กลุ่ม (ยอมจ่าย OCR Google Vision ~300฿/เดือน)
+- Line OA ไว้ส่งรูปให้ลูกค้า (เฟส 5) — บอทเข้ากลุ่มลูกค้าได้
+- สร้าง **CFO Dashboard** เพื่อเห็นตัวเลขจริง ก่อนตัดสินใจขายรถเพิ่ม/ไม่ขาย
+
+## 12) Phase 4 — Driver mobile (planned)
+
+- ตรวจรถก่อนวิ่ง + **เป่าแอลกอฮอล์ (ถ่ายรูป)** + timestamp/GPS
+- ต่อยอดเป็น **Safety / Audit pack** ตามที่ลูกค้า (เช่น DHL-class) ขอ checklist + หลักฐาน — ฟอร์มละเอียดค่อย adjust ทีหลัง
+
+## 13) Locked decisions
+
+- Tech stack: FastAPI + SQLite → PostgreSQL, HTMX+Tailwind, PWA (ไม่ทำ native app)
+- LINE Notify ตายไปแล้ว (31 มี.ค. 2025) — ใช้ LINE Messaging API แทน
+- OCR: Google Cloud Vision (ยอมรับต้นทุน)
+- Driver App: PWA ไม่ใช่ native
+- คนขับทุกคนมีมือถือ+เน็ต (ใช้ไลน์ปกติ)

@@ -1,0 +1,4 @@
+Audit Log — เหตุผลการคิดเงิน"),
+    ("Trip_Detail", "05_Trip_Detail.xlsx", "รายเที่ยว Trip Detail"),
+    ("Customer_Summary", "06_Customer_Summary.xlsx", "สรุปลูกค้า (บรรทัด A/B/C/D)"),
+    ("Daily_Ac

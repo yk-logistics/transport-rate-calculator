@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}ส่งออก PDF · Payroll{% endblock %}
+{% block content %}
+
+<div class="max-w-3xl mx-auto">
+  <h1 class="text-xl font-bold mb-4">ส่งออก PDF เงินเดือน</h1>
+
+  {% if export_error %}
+  <div class="rounded-lg border border-rose-300 bg-rose-50 p-4 text-sm text-rose-900 mb-4">
+    <div class="font-semibold mb-1">สร้าง PDF ไม่สำเร็จ</div>
+    <pre class="whitespace-pre-wrap font-mono text-xs">{{ export_error }}</pre>
+    <p class="mt-2 text-rose-800">ติดตั้งฟอนต์ไทยใน Windows (Tahoma / TH Sarabun) แล้วลองใหม่</p>
+    {% if run %}
+    <a href="/payroll/{{ run.id }}" class="inline-block mt-3 text-sm text-blue-600 hover:underline">← กลับรอบนี้</a>
+    {% else %}
+    <a href="/payroll/{{ run_id }}" class="inline-block mt-3 text-sm text-blue-600 hover:underline">← กลับรอบนี้</a>
+    {% endif %}
+  </div>
+  {% elif manifest %}
+
+  <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 mb-4 text-sm">
+    <div class="font-semibold text-emerald-900 mb-2">✓ สร้างไฟล์แล้ว — เก็บอัตโนมัติที่โฟลเดอร์ Salary</div>
+    <p class="text-emerald-800 mb-2">
+      <strong>{{ manifest.site_code }}</strong>
+      · งวดวิ่ง <strong>{{ manifest.pay_cycle_tag }}</strong>
+      {% if manifest.folder_month_tag and manifest.folder_month_tag != manifest.pay_cycle_tag %}
+      · เก็บไฟล์เดือนจ่าย <strong>{{ manifest.folder_month_tag }}</strong>
+      {% endif %}
+    </p>
+    <p class="text-xs text-slate-600 mb-3 font-mono break-all">{{ manifest.out_dir }}</p>
+
+    <ul class="space-y-2 text-sm">
+      <li><span class="text-slate-500">สรุปรวม (ให้พ่อดู)</span><br/>
+        <code class="text-xs bg-white px-2 py-1 rounded border block mt-1">{{ manifest.files.summary_pdf }}</code></li>
+      <li><span class="text-slate-500">โอนเงินบัญชี</span><br/>
+        <code class="text-xs bg-white px-2 py-1 rounded border block mt-1">{{ manifest.files.bank_pdf }}</code></li>
+      <li><span class="text-slate-500">ชุดครบ (สรุป + โอน + สลิปทุกคนเรียงชื่อ)</span><br/>
+        <code class="text-xs bg-white px-2 py-1 rounded border block mt-1">{{ manifest.files.bundle_pdf }}</code></li>
+      <li><span class="text-slate-500">สลิปรายคน (ส่งไลน์)</span> — {{ manifest.files.per_driver_pdfs|length }} ไฟล์<br/>
+        <code class="text-xs bg-white px-2 py-1 rounded border block mt-1">{{ manifest.files.per_driver_folder }}</code></li>
+    </ul>
+  </div>
+
+  <div class="flex gap-2 flex-wrap">
+    <a href="/payroll/{{ run.id }}" class="text-sm px-3 py-1.5 border rounded hover:bg-slate-50">← กลับรอบนี้</a>
+    <a href="/payroll" class="text-sm px-3 py-1.5 border rounded hover:bg-slate-50">รายการ Payroll</a>
+  </div>
+
+  <p class="text-xs text-slate-500 mt-6">
+    ข้อมูลเลขบัญชีโอน: แก้ในฟอร์มพนักงาน → JSON <code>custom_terms</code> ใส่ <code>bank_name</code>, <code>bank_account</code>
+    หรือ <code>payment_note</code> (กดเงินสด) — ไซต์ BIGC ถ้ายังว่างระบบจะเติมจากชุดตัวอย่างอัตโนมัติ
+  </p>
+  {% endif %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,8 @@
+export-panel{border:1px solid #c5d0e0;border-radius:12px;background:linear-gradient(180deg,#fbfdff,#eef4fb)}.export-list{margin:8px 0 0 18px;line-height:1.75}</style></head><body>
+<div class='h1'>Oatside → P&amp;G สรุปรายงาน</div>
+<div class='sub'>สร้าง 2026-05-04 14:10 | ต้นทาง: Y.K._Logistics_Solutions_Service_Co.,_Ltd._รายงานการผ่านจุด_02.05.2026_07-15-32 Oatside.xlsx | เรท: 2026-04-12–2026-04-15=8,000 / ปกติ=7,500 ฿/เที่ยว | min 2 เที่ยว/คัน/วัน | +50% วันที่วิ่ง 1 เที่ยว | max travel 48.0h | ไม่เก็บเงินค่าชดเชยเที่ยวขาด (min trips) — ใช้ชาร์จ % วันละ 1 เที่ยวแทน</div>
+<div class='nav'><a href='trips.html'>ดูเที่ยวทั้งหมด</a></div>
+<div class='panel export-panel'><h3>ดาวน์โหลด Excel แยกตาราง</h3>
+<p class='sub'>โฟลเดอร์ <code>exports/</code> — หัวตารางจัดรูปแบบแล้ว เปิดใน Microsoft Excel / Google Sheets ได้ทันที</p>
+<ul class='export-list'>
+<li><a href='exports/01_CPD_MatchedTripsPer

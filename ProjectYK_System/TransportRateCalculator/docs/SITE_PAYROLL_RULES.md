@@ -1,0 +1,233 @@
+# SITE PAYROLL RULES
+
+บันทึกโครงสร้างค่าจ้างและรอบเงินเดือนของแต่ละไซต์ (ต้นฉบับจากผู้ใช้ 22-04-2026)
+
+> กฎเหล่านี้เป็น **source of truth** สำหรับการคำนวณ payroll อัตโนมัติ ห้ามเปลี่ยนโดยไม่ได้รับยืนยันจากผู้จัดการ
+
+---
+
+## 1) กฎที่เหมือนกันทุกไซต์ (common)
+
+### 1.1 เงินประกันตน (deposit)
+- เพดาน 10,000 บาท / คน
+- หัก 1,000 บาท / เดือน จนครบ → หยุดหัก
+- เก็บเป็น running balance ต่อคน
+
+### 1.2 ประกันสังคม
+- อัตรา 5% (แล้วแต่รัฐประกาศ; เก็บเป็น config เปลี่ยนได้)
+- ฐานคำนวณ: **สมมุติทุกคนเงินเดือน 9,000** บาท เสมอ (ไม่ใช่เงินเดือนจริง)
+- หักตามจำนวนวันทำงาน: `5% × 9000 × (วันทำ / 30)` หรือ `5% × 9000` เต็มเดือนถ้าครบ
+
+### 1.3 เงินเบิกรายสัปดาห์ / รายการหัก
+- แอดมินบันทึกใน "สดย่อย" ช่องหักคนขับ
+- ระบบใหม่ต้องดึงจาก Petty Cash module → หักในรอบจ่ายเงินเดือน
+
+### 1.4 ค่าอุบัติเหตุ (accident installment)
+- ครั้งละ 2,000 บาท
+- อนุโลมผ่อนได้ 500 บาท/เดือน (ปกติ 4 งวด)
+- แอดมินใส่ล่วงหน้าใน Excel เดือนถัดไปว่า "หักครั้งที่ 1/2/3/4"
+- **Edge cases:**
+  - หักเต็ม 2,000 ในครั้งเดียว
+  - หักเฉพาะยอดคงเหลือจากผ่อน (เช่น เคยผ่อนไปแล้ว 500 × 2 = 1000 จะเหลือ 1000)
+  - มีอุบัติเหตุใหม่ระหว่างผ่อนเก่าไม่เสร็จ → ต้อง review case-by-case
+- **ต้องเก็บ**: `accident_cases` table (case_id, driver, date, total_amount, installments[])
+
+---
+
+## 2) BIGC — เงินเดือนประจำ + ค่าเที่ยว + ค่าน้ำมันเหลือคืน
+
+### 2.1 ฐานเงินเดือน
+- **9,000 บาท / เดือน (base salary)**
+- ถ้าลา/หยุด: หักรายวัน = `9000 / 30 = 300 บาท/วัน`
+- วิธีปัจจุบัน: แอดมินใส่คำว่า **"ลาหยุด"** ใน col G (ที่ส่งสินค้า) ของ Daily
+  - → ระบบใหม่จะแยกเป็น column `leave_status` ให้ชัด
+
+### 2.2 ค่าเที่ยว (trip fee)
+อิงประเภท `รับตู้` ใน Daily:
+
+| ประเภท | ค่าขนส่ง (ลูกค้า) | ค่าเที่ยว (คนขับ) | เงื่อนไข |
+|---|---|---|---|
+| `รับรถ` | — | — | event เปลี่ยนคนขับ ไม่ใช่เที่ยววิ่ง |
+| `1DH` | — | — | direct backhaul วิ่งตรงจากคลังไปรับ BH |
+| `1Big c` | คิดสาขาไกลสุดของเที่ยวนั้น | **250** | สายสั้น กทม./ปริมณฑล — สาขาหลัก |
+| `1+` | 400 / สาขา | **100** / สาขา | สายสั้น พ่วง (1Big c + 1+ × N) |
+| `2BigC` | สาขาไกลสุดของเที่ยวนั้น | **ตามระยะทาง** (ต้องใช้ตาราง) | สาขาต่างจังหวัด |
+| `2++` | 600 / สาขา | **200** / สาขา | สายยาว พ่วง (2BigC + 2++ × N) |
+
+**⚠ ต้องการข้อมูล: ตารางสาขา BigC → ระยะทาง (กม.) → ค่าขนส่ง → ค่าเที่ยว**
+- ผู้ใช้มีไฟล์จากลูกค้า จะส่งเมื่อทำงานส่วนนี้
+
+### 2.3 ค่าเรทน้ำมัน (fuel saving bonus)
+กลไก:
+1. ระบบกำหนด **น้ำมันมาตรฐาน (target liter)** ต่อเที่ยว จาก `ระยะทาง / เรท กม./ล`
+2. ก่อนออกเดินทาง: **เติมเต็ม**
+3. ระหว่างทาง: เติมได้
+4. กลับมา: **เติมเต็มอีกรอบ** → คำนวณ actual liter ที่ใช้
+5. `liter_saved = target_liter − actual_liter`
+6. คืนให้คนขับ: `liter_saved × 16` บาท
+   - 16 = 32 / 2 (มาจากราคาน้ำมันประมาณ 32 แบ่ง 50/50 บริษัท+คนขับ)
+   - **config-driven**: อนาคตอาจเปลี่ยน เก็บเป็น `fuel_saving_rate` ใน config
+
+### 2.4 รอบจ่าย
+- ตัดรอบ: **1 → สิ้นเดือน**
+- จ่ายวันที่: **1 ของเดือนถัดไป**
+- เงินค้าง 1 เดือนเต็ม
+
+---
+
+## 3) LCB — มี 2 ระบบการจ้าง
+
+### 3.1 Mode A: รายเที่ยว (Trip-based)
+| Component | จำนวน | หัก |
+|---|---|---|
+| เงินเดือนฐาน | **9,240** บาท | หักรายวันเมื่อลา/หยุด |
+| ค่าดูแลรถ | **3,000** บาท | หักรายวันเมื่อลา/หยุด |
+| ค่าเที่ยว | ตามงานจริง | — |
+
+- หักรายวัน: `(9240 + 3000) / 30 = 408 บาท/วัน` (หรือแยกหัก 308 + 100)
+- **⚠ ต้องยืนยัน**: หักแบบรวม `12240/30` หรือแยก `9240/30 + 3000/30`?
+
+### 3.2 Mode B: เหมาน้ำมัน (Gross-share)
+- คนขับได้ **60%** ของค่าขนส่งที่วางบิลลูกค้า
+- บางค่า**ไม่แบ่ง** (ไม่นับเข้า gross):
+  - ค่าเสียเวลา
+  - ค่าค้างคืน
+  - (อื่น ๆ ที่ต้องรวบรวม)
+- คนขับรับผิดชอบ **ค่าน้ำมันเติมจริงทั้งหมด**
+- ตัดรอบ: **ให้เติมเต็ม** → รู้ยอดใช้จริง
+
+### 3.3 รอบจ่าย
+- ตัดรอบ: **16 → 15** (ของเดือนถัดไป)
+- จ่ายวันที่: **1**
+
+---
+
+## 4) AYU — มี 2 ระบบการจ้าง
+
+### 4.1 Mode A: รายเที่ยว (Trip-only, optional guarantee)
+- **ไม่มีเงินเดือนฐาน** — มีแค่ค่าเที่ยว
+- ค่าเที่ยวต่อเที่ยว:
+  - 6 ล้อ: **300 – 500** บาท (แล้วแต่งาน)
+  - 10 ล้อ: **6 ล้อ + 100** (เช่น 400 – 600)
+- **การันตีขั้นต่ำ (optional)** — พ่อประกาศช่วงขาดคนขับ:
+  - 6 ล้อ: **12,000 บาท / เดือน**
+  - 10 ล้อ: **15,000 บาท / เดือน**
+  - **กฎการันตี**:
+    - ไม่รวมวันที่คนขับไม่มาทำงาน (ขาด/ลาเอง) → ไม่นับ
+    - วันที่บริษัทไม่มีงานให้ → **นับ** (บริษัทชดเชย)
+    - คนใหม่ที่ไม่ได้ตกลงการันตีตอนสัมภาษณ์ → **ไม่จ่าย**
+  - → ต้องเก็บ flag `has_guarantee` ต่อ employee contract
+
+### 4.2 Mode B: เหมาน้ำมัน (Gross-share)
+- คนขับได้ **55 – 60%** ของค่าขนส่ง (ตกลงเป็นราย ๆ)
+- คนขับมี 2 กลุ่ม (รับผิดชอบเหมือนกัน แต่เปอร์เซ็นต์ต่าง)
+- คนขับรับผิดชอบ:
+  - ค่าน้ำมันเติมจริงทั้งหมด
+  - ค่าทางด่วน / **M-Flow**
+- แอดมินใส่ช่องหักในสดย่อย
+
+### 4.3 รอบจ่าย
+- ตัดรอบ: **26 → 25** (ของเดือนถัดไป)
+- จ่ายวันที่: **สิ้นเดือน**
+
+---
+
+## 5) สิ่งที่ต้องเพิ่มในฐานข้อมูล
+
+### 5.1 Employee Contract (ต่อคนขับ)
+```
+employee_contract
+  employee_id
+  site_code                    -- AYU / BIGC / LCB
+  pay_mode                     -- trip / mao / bigc_standard
+  base_salary                  -- 0 / 9000 / 9240
+  care_allowance               -- 0 / 3000
+  gross_share_rate             -- 0.55 / 0.60 / NULL
+  has_guarantee                -- bool
+  guarantee_monthly_amount     -- 12000 / 15000 / NULL
+  valid_from, valid_to
+```
+
+### 5.2 Leave Records
+```
+leave_records
+  driver_id
+  date
+  leave_type                   -- sick / personal / company_no_work
+  note
+```
+
+### 5.3 Pay Cycles (ต่อไซต์)
+```
+pay_cycles
+  site_code, cycle_start_day, cycle_end_day, pay_day_offset
+AYU: 26 → 25, pay = end_of_month
+BIGC: 1 → end_of_month, pay = next_month_1
+LCB: 16 → 15, pay = next_month_1
+```
+
+### 5.4 Accident Cases + Installments
+```
+accident_cases
+  id, driver_id, incident_date, total_amount
+
+accident_installments
+  case_id, seq, due_cycle, amount, status (planned / deducted / waived)
+```
+
+### 5.5 BIGC Branch Rate Table (ต้องนำเข้าจากลูกค้า)
+```
+bigc_branches
+  branch_code, branch_name, region (กทม/ตจว), distance_km, customer_rate, driver_trip_fee
+```
+
+### 5.6 Deposit Balance (เงินประกันตน)
+```
+driver_deposits
+  driver_id, total_collected, target (10000), last_deduction_cycle
+```
+
+---
+
+## 6) กฎการคำนวณเงินเดือน (flow pseudo-code)
+
+```
+for each driver in cycle (site, cycle_start, cycle_end):
+    # 1) Base compensation
+    if pay_mode == 'bigc_standard':
+        gross = base_salary * (working_days / 30)
+        gross += sum(trip_fee from daily_jobs) 
+        gross += sum(fuel_saving_bonus per trip)
+    elif pay_mode == 'mao':
+        covered_revenue = sum(daily.revenue) - sum(excluded_fees)
+        gross = covered_revenue * gross_share_rate
+        driver_fuel_expense = sum(fuel_txn.amount)  # ลบออกทีหลัง
+    elif pay_mode == 'trip':  # AYU trip
+        gross = sum(trip_fee)
+        if has_guarantee:
+            working_plus_nowork_days = days_not_absent
+            guarantee = guarantee_monthly_amount * (working_plus_nowork_days / 30)
+            gross = max(gross, guarantee)
+
+    # 2) Deductions
+    minus social_security (5% of 9000 * working_days/30)
+    minus deposit_1000 (if balance < 10000)
+    minus accident_installments (this cycle)
+    minus petty_cash_deductions (เงินเบิก)
+    minus driver_fuel_expense (for mao mode)
+    minus mflow / toll (for AYU mao mode)
+
+    net = gross - deductions
+```
+
+---
+
+## 7) Open Questions (รอผู้ใช้ยืนยัน)
+
+1. LCB Mode A: หักรายวัน `(9240+3000)/30` หรือ `9240/30 + 3000/30` แยก?
+2. LCB Mode B: รายการ "ไม่แบ่ง" ครบทั้งหมดคืออะไร? (ค่าเสียเวลา, ค่าค้างคืน, ...)
+3. AYU Mode B: 2 กลุ่มคนขับ 55% และ 60% — แบ่งตามเกณฑ์ไหน (อายุงาน / contract / ประเภทงาน)?
+4. BIGC: ถ้าเที่ยวนั้น `1Big c` + `1+` 3 สาขา → ค่าขนส่งลูกค้าเก็บจาก "สาขาไกลสุด" อย่างเดียว หรือบวก `400 × 3` ของ 1+ ด้วย?
+5. AYU การันตี: คำนวณต่อเดือนเต็ม หรือ pro-rate ตามวันการันตีที่ประกาศ (ถ้าประกาศแค่บางช่วง)?
+6. ประกันสังคม: ฐาน 9000 ถาวร หรือเปลี่ยนตามเงินเดือนจริง (BIGC 9000, LCB 9240, AYU 0)?
+7. "รับรถ" ใน BIGC — ถือเป็น event เปลี่ยนคนขับ ไม่ใช่งาน billable ใช่ไหม?

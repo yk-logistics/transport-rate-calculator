@@ -1,0 +1,92 @@
+{% extends "driver_base.html" %}
+{% set active = 'home' %}
+{% block title %}เป่าแอลกอฮอล์ · YK Driver{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <div class="text-xl font-bold">🫁 เป่าแอลกอฮอล์</div>
+  <div class="text-sm text-slate-500">{{ today }} · {{ now }}</div>
+</div>
+
+<div class="bg-amber-50 border border-amber-300 rounded-xl p-3 mb-3 text-sm text-amber-900">
+  ⚠️ ต้องเป่าก่อนขึ้นรถทุกวัน · ถ่ายรูปหน้าจอเครื่องเป่าให้เห็นค่าชัดเจน
+</div>
+
+<form method="post" action="/driver/alcohol" enctype="multipart/form-data" class="space-y-3">
+
+  <div class="bg-white rounded-xl p-4 border">
+    <label class="text-sm font-medium">ถ่ายรูปเครื่องเป่าแอลกอฮอล์</label>
+    <input type="file" name="photo" accept="image/*" capture="environment" required
+           class="w-full mt-2" id="photo-input" />
+    <div id="photo-preview" class="mt-2"></div>
+  </div>
+
+  <div class="bg-white rounded-xl p-4 border">
+    <label class="text-sm font-medium">ค่าที่อ่านได้ (mg%)</label>
+    <input type="text" name="reading" inputmode="decimal"
+           class="w-full border rounded-xl px-3 py-2.5 mt-1 text-lg text-center"
+           placeholder="0.00" />
+    <div class="text-xs text-slate-500 mt-1">ใส่ <b>0</b> หรือ <b>0.00</b> ถ้าเป่าแล้วไม่มีแอลกอฮอล์</div>
+  </div>
+
+  <div class="bg-white rounded-xl p-4 border">
+    <label class="text-sm font-medium">หมายเหตุ</label>
+    <textarea name="note" rows="2" class="w-full border rounded-xl px-3 py-2 mt-1"
+              placeholder="อื่น ๆ..."></textarea>
+  </div>
+
+  <input type="hidden" name="gps_lat" id="gps_lat" />
+  <input type="hidden" name="gps_lng" id="gps_lng" />
+  <input type="hidden" name="gps_acc" id="gps_acc" />
+
+  <button type="submit" class="btn-lg bg-blue-600 text-white">✓ ส่งผล</button>
+</form>
+
+<script>
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      document.getElementById('gps_lat').value = pos.coords.latitude;
+      document.getElementById('gps_lng').value = pos.coords.longitude;
+      document.getElementById('gps_acc').value = pos.coords.accuracy;
+    },
+    null, { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+  );
+}
+
+document.getElementById('photo-input').addEventListener('change', async (e) => {
+  const preview = document.getElementById('photo-preview');
+  preview.innerHTML = '';
+  const file = e.target.files[0];
+  if (!file) return;
+  const compressed = await compressImage(file, 1280, 0.75);
+  const dt = new DataTransfer();
+  dt.items.add(compressed);
+  e.target.files = dt.files;
+  const img = document.createElement('img');
+  img.src = URL.createObjectURL(compressed);
+  img.className = 'w-full max-h-60 object-contain rounded-lg';
+  preview.appendChild(img);
+});
+
+async function compressImage(file, maxDim, quality) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > maxDim || h > maxDim) {
+        if (w > h) { h = h * (maxDim / w); w = maxDim; }
+        else { w = w * (maxDim / h); h = maxDim; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob((blob) => {
+        resolve(new File([blob], 'alcohol.jpg', { type: 'image/jpeg' }));
+      }, 'image/jpeg', quality);
+    };
+    img.src = URL.createObjectURL(file);
+  });
+}
+</script>
+{% endblock %}

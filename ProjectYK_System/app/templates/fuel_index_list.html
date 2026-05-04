@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}ราคาน้ำมันรายเดือน{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold">⛽ ราคาน้ำมันดีเซลรายเดือน</h1>
+    <p class="text-xs text-slate-500">ใช้อ้างอิงคิด Fuel Surcharge (ลูกค้าที่มีตาราง surcharge)</p>
+  </div>
+  <div class="flex gap-2 text-sm">
+    <a href="/rates" class="btn bg-slate-200 hover:bg-slate-300">← Rate Book</a>
+    <a href="/fuel-surcharge" class="btn bg-cyan-600 text-white hover:bg-cyan-700">Fuel Surcharge →</a>
+  </div>
+</div>
+
+<div class="mb-4 p-4 bg-white border rounded-lg">
+  <h2 class="font-semibold mb-3">➕ เพิ่ม/แก้ไขราคาประจำเดือน</h2>
+  <form method="post" action="/fuel-index/new" class="grid grid-cols-1 md:grid-cols-6 gap-3 text-sm">
+    <label class="flex flex-col">
+      <span class="text-xs text-slate-500">เดือน (YYYY-MM)</span>
+      <input name="month" required placeholder="2026-03" pattern="\d{4}-\d{2}" class="border rounded px-2 py-1">
+    </label>
+    <label class="flex flex-col">
+      <span class="text-xs text-slate-500">ภูมิภาค</span>
+      <select name="region" class="border rounded px-2 py-1">
+        {% for code, label in regions %}
+        <option value="{{ code }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="flex flex-col">
+      <span class="text-xs text-slate-500">ราคาดีเซล (฿/L)</span>
+      <input name="diesel_price" required type="number" step="0.01" class="border rounded px-2 py-1">
+    </label>
+    <label class="flex flex-col">
+      <span class="text-xs text-slate-500">แหล่งข้อมูล</span>
+      <input name="source" placeholder="PTT, Bangchak, MOU..." class="border rounded px-2 py-1">
+    </label>
+    <label class="flex flex-col md:col-span-1">
+      <span class="text-xs text-slate-500">หมายเหตุ</span>
+      <input name="notes" class="border rounded px-2 py-1">
+    </label>
+    <div class="flex items-end">
+      <button class="btn bg-emerald-600 text-white hover:bg-emerald-700">บันทึก (upsert)</button>
+    </div>
+  </form>
+  <p class="mt-2 text-xs text-slate-400">ถ้า month+region ซ้ำกับที่มีอยู่ จะเขียนทับอัตโนมัติ</p>
+</div>
+
+<form method="get" class="mb-3 flex gap-2 text-sm items-center">
+  <span class="text-xs text-slate-500">กรองภูมิภาค</span>
+  <select name="region" class="border rounded px-2 py-1" onchange="this.form.submit()">
+    <option value="">— ทั้งหมด —</option>
+    {% for code, label in regions %}
+    <option value="{{ code }}" {% if filter_region == code %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+</form>
+
+<div class="bg-white border rounded-lg overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-xs text-slate-500">
+      <tr>
+        <th class="text-left py-2 px-3">เดือน</th>
+        <th class="text-left py-2 px-3">ภูมิภาค</th>
+        <th class="text-right py-2 px-3">ราคาดีเซล (฿/L)</th>
+        <th class="text-left py-2 px-3">แหล่ง</th>
+        <th class="text-left py-2 px-3">หมายเหตุ</th>
+        <th class="text-right py-2 px-3">-</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr class="border-t hover:bg-slate-50">
+        <td class="py-1 px-3 font-mono">{{ r.month }}</td>
+        <td class="py-1 px-3">{{ r.region }}</td>
+        <td class="py-1 px-3 text-right font-mono">{{ '{:,.2f}'.format(r.diesel_price) }}</td>
+        <td class="py-1 px-3 text-slate-500">{{ r.source }}</td>
+        <td class="py-1 px-3 text-slate-500">{{ r.notes }}</td>
+        <td class="py-1 px-3 text-right">
+          <form method="post" action="/fuel-index/{{ r.id }}/delete" onsubmit="return confirm('ลบราคานี้?')" class="inline">
+            <button class="text-red-600 hover:underline text-xs">ลบ</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="py-8 text-center text-slate-400">ยังไม่มีราคาน้ำมัน — กรอกเดือนแรกด้านบน</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

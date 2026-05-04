@@ -1,0 +1,1 @@
+'f c in money_cols and isinstance(cell.value, (int, float)):\n                    cell.number_format = "#,##0"\n        ws.freeze_panes = f"A{hdr_row + 1}"\n        ws.auto_filter.ref = f"A{hdr_row}:{get_column_letter(last_c)}{last_r}"\n\n\ndef write_split_excel_exports(wb_path: Path, report_dir: Path, *, built_at: str) -> No'

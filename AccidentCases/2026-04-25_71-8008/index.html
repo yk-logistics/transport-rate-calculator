@@ -1,0 +1,1385 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>รายงานสอบสวนอุบัติเหตุ</title>
+  <style>
+    :root {
+      --line: #e5e7eb;
+      --ink: #1f2937;
+      --brand: #111111;
+      --bg: #f7fafc;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "TH Sarabun New", "Sarabun", "Segoe UI", Tahoma, sans-serif;
+      color: var(--ink);
+      background: #f5f5f5;
+      font-size: 19px;
+      line-height: 1.3;
+    }
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #ffffff;
+      border-bottom: 1px solid var(--line);
+      padding: 8px 12px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .toolbar .title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #111827;
+      margin-right: 8px;
+    }
+    button, input, select {
+      font: inherit;
+      font-size: 16px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid #9ca3af;
+      background: #fff;
+    }
+    button {
+      cursor: pointer;
+      background: #f3f4f6;
+    }
+    button:hover { background: #e5e7eb; }
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 10mm auto;
+      background: #fff;
+      border: 1px solid #d1d5db;
+      box-shadow: 0 6px 24px rgba(0,0,0,.10);
+      padding: 10mm;
+    }
+    .header {
+      border: 1.5px solid var(--brand);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    .header-top {
+      display: grid;
+      grid-template-columns: 1fr 180px;
+      gap: 10px;
+      padding: 10px 12px;
+      background: #f5f5f5;
+      align-items: center;
+    }
+    .company h1 {
+      margin: 0;
+      color: var(--brand);
+      font-size: 31px;
+      line-height: 1.1;
+    }
+    .company p {
+      margin: 1px 0;
+      font-size: 17px;
+    }
+    .badge {
+      border: 0;
+      border-radius: 8px;
+      text-align: center;
+      padding: 0;
+      line-height: 1;
+      background: transparent;
+      overflow: hidden;
+      height: 88px;
+    }
+    .badge img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+      background: #fff;
+    }
+    .doc-no-line {
+      margin: 6px 0 2px;
+      text-align: right;
+      font-size: 15px;
+      font-weight: 600;
+      color: #111111;
+    }
+    .doc-title {
+      margin: 10px 0 6px;
+      text-align: center;
+      font-size: 32px;
+      font-weight: 800;
+      color: #111111;
+    }
+    .subline {
+      margin: 0 0 10px;
+      text-align: center;
+      color: #4b5563;
+      font-size: 17px;
+    }
+    .meta-strip {
+      margin: 0 0 8px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      padding: 2px 0;
+    }
+    .meta-steps {
+      display: grid;
+      gap: 2px;
+    }
+    .meta-step {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      line-height: 1.2;
+      min-height: 28px;
+    }
+    .meta-step .k {
+      min-width: 118px;
+      font-size: 14px;
+      color: #4b5563;
+      line-height: 1.1;
+      white-space: nowrap;
+    }
+    .meta-step .v {
+      font-weight: 700;
+      font-size: 22px;
+      min-height: 22px;
+      line-height: 1.05;
+      letter-spacing: .1px;
+    }
+    .section {
+      border: 0;
+      border-radius: 0;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .section h2 {
+      margin: 0;
+      color: #111111;
+      font-size: 22px;
+      padding: 6px 10px;
+    }
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: transparent;
+      border-bottom: 0;
+    }
+    .section .body { padding: 8px 10px; }
+    .answer-indent {
+      margin-left: 1.5em;
+    }
+    table.answer-indent {
+      width: calc(100% - 1.5em);
+    }
+    ul.answer-indent {
+      margin-left: 1.5em;
+      padding-left: 1.1em;
+    }
+    ul.answer-indent li {
+      margin: 0;
+    }
+    .narrative {
+      line-height: 1.5;
+      text-align: left;
+      white-space: pre-line;
+      margin: 0;
+      font-size: 17px;
+    }
+    .qa-list {
+      display: grid;
+      gap: 8px;
+    }
+    .qa-item {
+      background: #f9fafb;
+      border-radius: 8px;
+      padding: 4px 6px;
+    }
+    .qa-label {
+      font-weight: 700;
+      color: #111827;
+      margin-bottom: 1px;
+      font-size: 15px;
+      line-height: 1.25;
+    }
+    .qa-answer {
+      line-height: 1.45;
+      white-space: pre-line;
+      font-size: 17px;
+    }
+    .head-actions {
+      display: flex;
+      gap: 6px;
+      padding-right: 8px;
+    }
+    .head-actions button {
+      font-size: 14px;
+      padding: 4px 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin-top: 2px;
+      font-size: 18px;
+    }
+    th, td {
+      border: 0;
+      text-align: left;
+      padding: 4px 6px;
+      vertical-align: top;
+    }
+    th {
+      background: transparent;
+      color: #111827;
+      border-bottom: 0;
+      font-weight: 700;
+    }
+    tbody tr + tr td {
+      border-top: 0;
+    }
+    ul { margin: 0 0 0 20px; }
+    .editable {
+      outline: none;
+      outline-offset: 0;
+      border-radius: 4px;
+      min-height: 24px;
+      padding: 1px 2px;
+    }
+    .editable:focus {
+      outline: 2px solid #111111;
+      background: #f3f4f6;
+    }
+    .uploader {
+      border: 2px dashed #6b7280;
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+      background: #f3f4f6;
+      margin-top: 8px;
+    }
+    .uploader.dragover {
+      border-color: #111111;
+      background: #f3f4f6;
+    }
+    .uploader small {
+      color: #4b5563;
+      display: block;
+      margin-top: 3px;
+      font-size: 15px;
+    }
+    .link-form {
+      display: grid;
+      grid-template-columns: 2fr 2fr 1fr auto;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .upload-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+    }
+    .upload-status {
+      font-size: 14px;
+      color: #4b5563;
+    }
+    .evidence-preview {
+      margin-top: 8px;
+    }
+    .evidence-preview h3 {
+      margin: 0 0 4px;
+      font-size: 17px;
+      color: #111827;
+    }
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .preview-item {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 6px;
+      background: #fff;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .preview-item img {
+      width: 100%;
+      max-height: 170px;
+      object-fit: contain;
+      display: block;
+      border-radius: 4px;
+      background: #f3f4f6;
+    }
+    .preview-caption {
+      margin-top: 4px;
+      font-size: 13px;
+      color: #374151;
+      line-height: 1.2;
+      word-break: break-word;
+    }
+    .pill {
+      display: inline-block;
+      padding: 1px 8px;
+      font-size: 14px;
+      border-radius: 999px;
+      background: #e5e7eb;
+      color: #111827;
+      white-space: nowrap;
+    }
+    .actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .signatures {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .sign-box {
+      border: 1px dashed #6b7280;
+      border-radius: 8px;
+      padding: 8px;
+      min-height: 84px;
+      background: #fcfdff;
+    }
+    .sign-title {
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .sig-row {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .line-input {
+      flex: 1;
+      border-bottom: 1px solid #111111;
+      min-height: 22px;
+      padding: 0 2px 1px;
+      outline: none;
+    }
+    .line-input:focus {
+      border-bottom: 2px solid #111111;
+    }
+    .line-input:empty::before {
+      content: attr(data-placeholder);
+      color: #6b7280;
+    }
+    .footer-note {
+      margin-top: 8px;
+      font-size: 15px;
+      color: #4b5563;
+    }
+    @media print {
+      @page { size: A4; margin: 5mm; }
+      body {
+        background: #fff;
+        font-size: 14px;
+        line-height: 1.12;
+      }
+      .toolbar { display: none; }
+      .editable { outline: none; background: transparent; }
+      .page { padding: 0; }
+      .company h1 { font-size: 24px; }
+      .company p { font-size: 13px; }
+      .header-top { grid-template-columns: 1fr 120px; }
+      .badge {
+        min-height: 48px;
+        height: 52px;
+      }
+      .header-top { padding: 6px 8px; gap: 6px; }
+      .doc-no-line { margin: 3px 0 1px; font-size: 12px; }
+      .doc-title { font-size: 22px; margin: 4px 0 1px; }
+      .subline { font-size: 11px; margin: 0 0 2px; }
+      .meta-strip { margin: 0 0 2px; border-radius: 0; padding: 0; }
+      .meta-steps { gap: 1px; }
+      .meta-step { min-height: 16px; gap: 4px; }
+      .meta-step .k { min-width: 78px; font-size: 9px; }
+      .meta-step .v { font-size: 13px; min-height: 0; line-height: 1.0; }
+      .section { margin-top: 3px; border-radius: 0; }
+      .section h2 { font-size: 14px; padding: 2px 4px; }
+      .section .body { padding: 2px 4px; }
+      table { font-size: 11px; margin-top: 1px; }
+      th, td { padding: 1px 2px; }
+      .narrative,
+      .qa-answer,
+      #timelineBody td,
+      #followUpBody td,
+      .section ul li { font-size: 11px; }
+      .answer-indent { margin-left: 1em; }
+      table.answer-indent { width: calc(100% - 1em); }
+      ul.answer-indent { margin-left: 1em; padding-left: 0.8em; }
+      ul { margin: 0 0 0 14px; }
+      .signatures { gap: 4px; margin-top: 3px; }
+      .sign-box { min-height: 42px; padding: 3px; font-size: 11px; }
+      .sign-title { margin-bottom: 3px; }
+      .sig-row { margin-top: 2px; gap: 4px; }
+      .line-input { min-height: 10px; }
+      .line-input:empty::before { content: ""; }
+      .footer-note { display: none; }
+      .non-print { display: none !important; }
+      #evidenceTable th:last-child,
+      #evidenceTable td:last-child { display: none; }
+      /* ไม่ให้หัวข้อไปอยู่คนละหน้ากับคำตอบ */
+      .section,
+      .meta-strip,
+      .signatures {
+        break-inside: avoid-page;
+        page-break-inside: avoid;
+      }
+      .section-head,
+      .section h2 {
+        break-after: avoid-page;
+        page-break-after: avoid;
+      }
+      .section .body {
+        break-before: avoid-page;
+        page-break-before: avoid;
+      }
+      #timelineBody tr,
+      #followUpBody tr,
+      .qa-item,
+      .preview-item,
+      .sign-box {
+        break-inside: avoid-page;
+        page-break-inside: avoid;
+      }
+      .page {
+        margin: 0;
+        border: 0;
+        box-shadow: none;
+        width: auto;
+        min-height: auto;
+        padding: 0;
+      }
+
+      /* โหมดพิมพ์หน้าเดียวพิเศษ (เปิดผ่านปุ่มด้านบน) */
+      body.one-page-print { font-size: 13px; line-height: 1.05; }
+      body.one-page-print .company h1 { font-size: 20px; }
+      body.one-page-print .company p { font-size: 10px; margin: 0; }
+      body.one-page-print .header-top { padding: 4px 6px; gap: 4px; grid-template-columns: 1fr 100px; }
+      body.one-page-print .badge { height: 44px; min-height: 44px; }
+      body.one-page-print .doc-no-line { margin: 1px 0 0; font-size: 10px; }
+      body.one-page-print .doc-title { font-size: 18px; margin: 2px 0 0; }
+      body.one-page-print .subline { font-size: 9px; margin: 0 0 1px; }
+      body.one-page-print .meta-strip { margin: 0 0 1px; border-radius: 0; padding: 0; }
+      body.one-page-print .meta-steps { gap: 0; }
+      body.one-page-print .meta-step { min-height: 12px; gap: 3px; }
+      body.one-page-print .meta-step .k { min-width: 62px; font-size: 7px; }
+      body.one-page-print .meta-step .v { font-size: 10px; line-height: 1.0; margin-top: 0; }
+      body.one-page-print .section { margin-top: 2px; }
+      body.one-page-print .section h2 { font-size: 11px; padding: 1px 3px; }
+      body.one-page-print .section .body { padding: 1px 3px; }
+      body.one-page-print .narrative,
+      body.one-page-print .qa-answer,
+      body.one-page-print #timelineBody td,
+      body.one-page-print #followUpBody td,
+      body.one-page-print .section ul li { font-size: 9px; line-height: 1.1; }
+      body.one-page-print .qa-list { gap: 3px; }
+      body.one-page-print .qa-item { padding: 2px 3px; border-radius: 4px; }
+      body.one-page-print .qa-label { font-size: 9px; margin-bottom: 0; }
+      body.one-page-print .qa-answer { line-height: 1.15; }
+      body.one-page-print table { font-size: 9px; margin-top: 0; }
+      body.one-page-print th, body.one-page-print td { padding: 0 2px; }
+      body.one-page-print ul { margin: 0 0 0 10px; }
+      body.one-page-print ul.answer-indent { margin-left: 1em; padding-left: 0.7em; }
+      body.one-page-print .signatures { gap: 2px; margin-top: 2px; }
+      body.one-page-print .sign-box { min-height: 30px; padding: 2px; font-size: 9px; }
+      body.one-page-print .sign-title { margin-bottom: 1px; }
+      body.one-page-print .sig-row { margin-top: 1px; gap: 2px; }
+      body.one-page-print .line-input { min-height: 8px; border-bottom-width: 1px; }
+      body.one-page-print .line-input:empty::before { content: ""; }
+      .upload-tools { display: none !important; }
+      .evidence-preview h3 { font-size: 9px; margin-bottom: 2px; }
+      .preview-grid { gap: 4px; }
+      .preview-item { padding: 3px; border-radius: 4px; }
+      .preview-item img { max-height: 82px; }
+      .preview-caption { margin-top: 2px; font-size: 8px; line-height: 1.1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <span class="title">Accident Case Template</span>
+    <button id="printBtn" type="button">พิมพ์ / Save PDF</button>
+    <button id="printModeBtn" type="button">โหมดพิมพ์หน้าเดียว: ปิด</button>
+    <button id="exportHtmlBtn" type="button">Export HTML Snapshot</button>
+    <button id="exportLogBtn" type="button">Export Evidence Log</button>
+    <button id="clearBtn" type="button">ล้างข้อมูลฟอร์ม (หน้านี้)</button>
+    <span style="font-size:14px;color:#4b5563;">
+      ระบบบันทึกอัตโนมัติใน browser เครื่องนี้
+    </span>
+  </div>
+
+  <main class="page">
+    <header class="header">
+      <div class="header-top">
+        <div class="company">
+          <h1>Y.K. LOGISTICS CO., LTD.</h1>
+          <p>บริษัท วาย.เค. ลอจิสติค จำกัด (สำนักงานใหญ่)</p>
+          <p>70 หมู่ 5 ตำบลเชียงรากน้อย อำเภอบางปะอิน จังหวัดพระนครศรีอยุธยา 13180</p>
+          <p>เลขประจำตัวผู้เสียภาษี 0125548009248</p>
+        </div>
+        <div class="badge"><img src="assets/images/yk_logo_mark.svg" alt="YK Logistics logo" /></div>
+      </div>
+    </header>
+    <div class="doc-no-line">
+      <span class="editable" contenteditable="true" data-key="docNo">Doc No. YK-AIR-20260425-71-8008</span>
+    </div>
+
+    <h1 class="doc-title">รายงานสอบสวนอุบัติเหตุ / เหตุการณ์ผิดปกติ</h1>
+    <p class="subline editable" contenteditable="true" data-key="headline">เคสอุบัติเหตุรถหัว 71-8008 ชนท้ายระหว่างวิ่งงาน BigC บางนา</p>
+
+    <section class="meta-strip">
+      <div class="meta-steps">
+        <div class="meta-step"><div class="k">วันที่เกิดเหตุ</div><div class="v editable" contenteditable="true" data-key="date">25/04/2569</div></div>
+        <div class="meta-step"><div class="k">เวลาเกิดเหตุ</div><div class="v editable" contenteditable="true" data-key="time">11:19 น.</div></div>
+        <div class="meta-step"><div class="k">ผู้ขับขี่</div><div class="v editable" contenteditable="true" data-key="driver">นายพรศักดิ์ เด่นดวง</div></div>
+        <div class="meta-step"><div class="k">โทรศัพท์</div><div class="v editable" contenteditable="true" data-key="phone">089-237-5456</div></div>
+        <div class="meta-step"><div class="k">ทะเบียนหัว</div><div class="v editable" contenteditable="true" data-key="headPlate">71-8008</div></div>
+        <div class="meta-step"><div class="k">ทะเบียนหาง</div><div class="v editable" contenteditable="true" data-key="tailPlate">70-6677</div></div>
+        <div class="meta-step"><div class="k">ต้นทาง</div><div class="v editable" contenteditable="true" data-key="origin">BigC บางปะอิน</div></div>
+        <div class="meta-step"><div class="k">ปลายทาง</div><div class="v editable" contenteditable="true" data-key="destination">สาขา 11130 บางนา</div></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>1) ลำดับเหตุการณ์ (Timeline)</h2>
+        <div class="head-actions non-print">
+          <button id="addTimelineRowBtn" type="button">+ เพิ่มแถวเหตุการณ์</button>
+        </div>
+      </div>
+      <div class="body">
+        <div class="answer-indent">
+          <table>
+            <thead><tr><th style="width:22%;">วันที่</th><th style="width:14%;">เวลา</th><th>เหตุการณ์</th></tr></thead>
+            <tbody id="timelineBody" class="persist-block" data-block-key="timelineRows">
+              <tr><td class="editable" contenteditable="true" data-key="d1">25/04/2569</td><td class="editable" contenteditable="true" data-key="t1">09:00</td><td class="editable" contenteditable="true" data-key="te1">เข้าต่อหางทะเบียน 70-6677 เพื่อวิ่งงานบางนา</td></tr>
+              <tr><td class="editable" contenteditable="true" data-key="d2">25/04/2569</td><td class="editable" contenteditable="true" data-key="t2">10:50</td><td class="editable" contenteditable="true" data-key="te2">ออกจากคลัง BigC บางปะอิน มุ่งหน้าสาขา 11130 บางนา</td></tr>
+              <tr><td class="editable" contenteditable="true" data-key="d3">25/04/2569</td><td class="editable" contenteditable="true" data-key="t3">11:19</td><td class="editable" contenteditable="true" data-key="te3">เกิดอุบัติเหตุชนท้ายรถคันหน้า หน้ารถฝั่งคนขับเสียหายหนัก</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>2) รายละเอียดเหตุการณ์ (Situation Outline)</h2>
+      <div class="body">
+        <div class="answer-indent">
+          <div class="editable narrative" contenteditable="true" data-key="statement">
+            ผู้ขับแจ้งว่าเกิดอาการวูบ/ง่วงระหว่างขับ อาจเกี่ยวข้องกับการรับประทานยาคลายกล้ามเนื้อเวลาประมาณ 07:00 น.
+            เมื่อรู้สึกตัวอีกครั้งประเมินว่าเบรกไม่ทัน พยายามหักหลบซ้ายเข้าไหล่ทางแต่ระยะกระชั้นชิด จึงชนท้ายรถคันหน้า
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>3) สรุปความเสียหาย (Damage Result)</h2>
+      <div class="body">
+        <div class="qa-list answer-indent">
+          <div class="qa-item">
+            <div class="qa-label">ความเสียหายต่อบุคคล</div>
+            <div class="editable qa-answer" contenteditable="true" data-key="injury">บาดเจ็บสาหัส เท้าขวาเส้นเลือดและเส้นเอ็นขาด สะโพกเคลื่อน และภายหลังแพทย์จำเป็นต้องตัดขาขวา</div>
+          </div>
+          <div class="qa-item">
+            <div class="qa-label">ความเสียหายต่อทรัพย์สิน</div>
+            <div class="editable qa-answer" contenteditable="true" data-key="damage">รถหัวลาก 71-8008 เสียหายรุนแรงบริเวณหน้าฝั่งคนขับ (รอประเมินค่าซ่อมจากฝ่ายซ่อมบำรุง/ประกัน)</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>4) การวิเคราะห์สาเหตุ</h2>
+      <div class="body">
+        <div class="qa-list answer-indent">
+          <div class="qa-item">
+            <div class="qa-label">สาเหตุใกล้ชิด</div>
+            <div class="editable qa-answer" contenteditable="true" data-key="immediate">ผู้ขับตอบสนองต่อสถานการณ์ไม่ทันและเบรกไม่ทัน ทำให้เกิดการชนท้าย</div>
+          </div>
+          <div class="qa-item">
+            <div class="qa-label">รากสาเหตุ</div>
+            <div class="editable qa-answer" contenteditable="true" data-key="root">กระบวนการคัดกรองความพร้อมก่อนปล่อยรถยังอาศัยการสอบถามด้วยวาจาเป็นหลัก ยังไม่มีหลักฐานบังคับเรื่องเวลาเริ่มพักและเวลาพักครบ 10 ชั่วโมงก่อนปล่อยงาน</div>
+          </div>
+          <div class="qa-item">
+            <div class="qa-label">ข้อสรุป</div>
+            <div class="editable qa-answer" contenteditable="true" data-key="summary">บริษัทไม่มีนโยบายเร่งรอบ แต่จำเป็นต้องยกระดับระบบตรวจความพร้อมก่อนขับ โดยเฉพาะชั่วโมงพักและความเสี่ยงจากยาที่มีผลข้างเคียง เพื่อป้องกันการเกิดเหตุซ้ำ</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>5) การแก้ไข (Corrective Action)</h2>
+        <div class="head-actions non-print">
+          <button id="addCorrectiveBulletBtn" type="button">+ เพิ่ม bullet</button>
+          <button id="removeCorrectiveBulletBtn" type="button">- ลบ bullet</button>
+        </div>
+      </div>
+      <div class="body">
+        <ul id="correctiveList" class="answer-indent persist-block" data-block-key="correctiveBullets">
+          <li class="editable" contenteditable="true">การแก้ไขทันที ณ หน้างาน: ประเมินความปลอดภัยพื้นที่, ประสานหน่วยฉุกเฉิน/ตำรวจ, เคลื่อนย้ายผู้บาดเจ็บ, กันพื้นที่จุดเกิดเหตุ</li>
+          <li class="editable" contenteditable="true">การประสานงาน: แจ้งผู้บริหาร, แจ้งประกันภัย, แจ้งลูกค้า/คลังปลายทางเรื่องอุบัติเหตุและผลกระทบเวลาส่ง</li>
+          <li class="editable" contenteditable="true">ผู้รับผิดชอบหลัก: หัวหน้าจ่ายงาน / ฝ่ายปฏิบัติการ / Safety / แอดมินประกัน</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>6) การป้องกัน (Preventive Action)</h2>
+        <div class="head-actions non-print">
+          <button id="addPreventiveBulletBtn" type="button">+ เพิ่ม bullet</button>
+          <button id="removePreventiveBulletBtn" type="button">- ลบ bullet</button>
+        </div>
+      </div>
+      <div class="body">
+        <ul id="preventiveList" class="answer-indent persist-block" data-block-key="preventiveBullets">
+          <li class="editable" contenteditable="true">แชร์เคสนี้ใน Safety Talk และติดตามผลการปฏิบัติจริง พร้อมสุ่มตรวจหลักฐานชั่วโมงพักรายสัปดาห์</li>
+          <li class="editable" contenteditable="true">กำหนดติดตามผลครั้งแรก: ภายใน 7 วัน</li>
+          <li class="editable" contenteditable="true">ทบทวนประสิทธิผลมาตรการ: ภายใน 30 วัน</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>7) ผลติดตามการปิดมาตรการ</h2>
+        <div class="head-actions non-print">
+          <button id="addFollowRowBtn" type="button">+ เพิ่มแถวติดตามผล</button>
+        </div>
+      </div>
+      <div class="body">
+        <table class="answer-indent">
+          <thead>
+            <tr>
+              <th style="width:36%;">รายการติดตาม</th>
+              <th style="width:14%;">สถานะ</th>
+              <th style="width:16%;">วันที่ปิด</th>
+              <th style="width:16%;">ผู้ยืนยัน</th>
+              <th style="width:18%;">หลักฐานอ้างอิง</th>
+            </tr>
+          </thead>
+          <tbody id="followUpBody" class="persist-block" data-block-key="followRows">
+            <tr>
+              <td class="editable" contenteditable="true">Checklist ก่อนปล่อยรถครบทุกเที่ยวและบันทึกเวลาเริ่มพัก/พักครบ</td>
+              <td class="editable" contenteditable="true">ระหว่างดำเนินการ</td>
+              <td class="editable" contenteditable="true">-</td>
+              <td class="editable" contenteditable="true">-</td>
+              <td class="editable" contenteditable="true">EV-001 (Checklist รายเที่ยว)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>8) หลักฐานแนบ (ไฟล์รูป/GPS/Excel)</h2>
+      <div class="body">
+        <div class="upload-tools non-print">
+          <button id="connectCaseFolderBtn" type="button">เชื่อมโฟลเดอร์เคสเพื่อบันทึกไฟล์จริง</button>
+          <span id="uploadStatus" class="upload-status">ยังไม่เชื่อมโฟลเดอร์เคส (ลากไฟล์จะเก็บใน browser เท่านั้น)</span>
+        </div>
+        <div class="uploader non-print" id="dropZone">
+          ลากไฟล์มาวางตรงนี้ หรือ <input id="fileInput" type="file" multiple />
+          <small>ถ้าเชื่อมโฟลเดอร์เคสแล้ว ไฟล์จะถูกบันทึกจริงลง assets อัตโนมัติ และคลิกเปิดได้</small>
+        </div>
+
+        <div class="link-form non-print">
+          <input id="linkName" placeholder="ชื่อไฟล์แสดงผล เช่น GPS-Route-Apr25" />
+          <input id="linkPath" placeholder="relative path เช่น assets/maps/route.png" />
+          <select id="linkCategory">
+            <option value="image">image</option>
+            <option value="map">map</option>
+            <option value="doc">doc</option>
+            <option value="gps">gps</option>
+          </select>
+          <button id="addLinkBtn" type="button">เพิ่มลิงก์ไฟล์ในโฟลเดอร์</button>
+        </div>
+
+        <table id="evidenceTable">
+          <thead>
+            <tr>
+              <th style="width:14%;">รหัส</th>
+              <th style="width:32%;">ชื่อไฟล์</th>
+              <th style="width:10%;">ประเภท</th>
+              <th style="width:12%;">ขนาด</th>
+              <th style="width:16%;">แหล่งที่มา</th>
+              <th style="width:16%;">การทำงาน</th>
+            </tr>
+          </thead>
+          <tbody id="evidenceBody"></tbody>
+        </table>
+
+        <div class="evidence-preview" id="evidencePreviewWrap">
+          <h3>ภาพหลักฐานแนบ</h3>
+          <div class="preview-grid" id="evidencePreviewGrid"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="signatures">
+      <div class="sign-box">
+        <div class="sign-title">ผู้จัดทำรายงาน</div>
+        <div class="sig-row">
+          <span>ลงชื่อ</span>
+          <div class="line-input editable" contenteditable="true" data-key="sig1_name" data-placeholder="พิมพ์ชื่อผู้จัดทำ"></div>
+        </div>
+        <div class="sig-row">
+          <span>วันที่</span>
+          <div class="line-input editable" contenteditable="true" data-key="sig1_date" data-placeholder="วว/ดด/ปปปป"></div>
+        </div>
+      </div>
+      <div class="sign-box">
+        <div class="sign-title">ผู้ขับขี่รับทราบ</div>
+        <div class="sig-row">
+          <span>ลงชื่อ</span>
+          <div class="line-input editable" contenteditable="true" data-key="sig_driver_name" data-placeholder="พิมพ์ชื่อผู้ขับขี่"></div>
+        </div>
+        <div class="sig-row">
+          <span>วันที่</span>
+          <div class="line-input editable" contenteditable="true" data-key="sig_driver_date" data-placeholder="วว/ดด/ปปปป"></div>
+        </div>
+      </div>
+    </section>
+
+    <p class="footer-note">
+      หมายเหตุ: แนะนำเก็บไฟล์จริงไว้ในโฟลเดอร์เคสนี้ (`assets/images`, `assets/maps`, `assets/docs`) เพื่อการตรวจสอบย้อนหลัง
+    </p>
+  </main>
+
+  <script>
+    (function () {
+      const storagePrefix = "accident-template::";
+      const storageKey = storagePrefix + location.pathname;
+      const state = loadState();
+      let caseDirHandle = null;
+      hydrateEditable();
+      hydrateBlocks();
+      hydrateEvidence();
+      bindEditableAutoSave();
+      bindToolbarActions();
+      bindPrintModeToggle();
+      bindCaseFolderPicker();
+      bindUploaderActions();
+      bindLinkActions();
+      bindDynamicRowActions();
+      bindPersistBlocks();
+      bootstrapEvidenceFromAssets();
+
+      function loadState() {
+        try {
+          const ownRaw = localStorage.getItem(storageKey);
+          if (ownRaw) return normalizeState(JSON.parse(ownRaw));
+
+          // backward compatibility:
+          // older flow served each case from its own folder, so pathname was "/index.html"
+          const legacyKey = storagePrefix + "/index.html";
+          if (storageKey !== legacyKey) {
+            const legacyRaw = localStorage.getItem(legacyKey);
+            if (legacyRaw) {
+              const migrated = normalizeState(JSON.parse(legacyRaw));
+              localStorage.setItem(storageKey, JSON.stringify(migrated));
+              return migrated;
+            }
+          }
+          return { fields: {}, evidence: [], blocks: {} };
+        } catch (_) {
+          return { fields: {}, evidence: [], blocks: {} };
+        }
+      }
+
+      function normalizeState(parsed) {
+        if (!parsed || typeof parsed !== "object") return { fields: {}, evidence: [], blocks: {} };
+        if (!parsed.fields) parsed.fields = {};
+        if (!Array.isArray(parsed.evidence)) parsed.evidence = [];
+        if (!parsed.blocks) parsed.blocks = {};
+        parsed.evidence = parsed.evidence.filter((ev) => !isSystemEvidence(ev));
+        return parsed;
+      }
+
+      function saveState() {
+        localStorage.setItem(storageKey, JSON.stringify(state));
+      }
+
+      function hydrateEditable() {
+        document.querySelectorAll(".editable[data-key]").forEach((el) => {
+          const key = el.dataset.key;
+          if (state.fields[key] !== undefined) {
+            el.innerHTML = state.fields[key];
+          }
+        });
+      }
+
+      function bindEditableAutoSave() {
+        document.querySelectorAll(".editable[data-key]").forEach((el) => {
+          el.addEventListener("input", () => {
+            state.fields[el.dataset.key] = el.innerHTML;
+            saveState();
+          });
+        });
+      }
+
+      function hydrateBlocks() {
+        document.querySelectorAll(".persist-block[data-block-key]").forEach((el) => {
+          const key = el.dataset.blockKey;
+          if (state.blocks[key]) el.innerHTML = state.blocks[key];
+        });
+      }
+
+      function bindPersistBlocks() {
+        document.querySelectorAll(".persist-block[data-block-key]").forEach((el) => {
+          el.addEventListener("input", () => {
+            state.blocks[el.dataset.blockKey] = el.innerHTML;
+            saveState();
+          });
+        });
+      }
+
+      async function bootstrapEvidenceFromAssets() {
+        const files = await listFilesInFolder("assets/images/");
+        if (!files.length) return;
+
+        const existing = new Set(
+          state.evidence
+            .filter((ev) => !isSystemEvidence(ev))
+            .map((ev) =>
+              String(ev.relativePath || ("assets/images/" + (ev.name || ""))).toLowerCase()
+            )
+        );
+        let added = 0;
+        files
+          .filter((name) => /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(name))
+          .filter((name) => !isSystemEvidence({ name: name, relativePath: "assets/images/" + name }))
+          .forEach((name) => {
+            const relativePath = "assets/images/" + name;
+            if (existing.has(relativePath.toLowerCase())) return;
+            state.evidence.push({
+              id: nextEvidenceId(),
+              name: name,
+              category: "image",
+              source: "folder-auto",
+              relativePath: relativePath,
+              sizeLabel: "-",
+            });
+            added += 1;
+          });
+
+        if (added > 0) {
+          saveState();
+          renderEvidence();
+        }
+      }
+
+      async function listFilesInFolder(folderPath) {
+        try {
+          const resp = await fetch(folderPath);
+          if (!resp.ok) return [];
+          const html = await resp.text();
+          const doc = new DOMParser().parseFromString(html, "text/html");
+          const names = [];
+          doc.querySelectorAll("a[href]").forEach((a) => {
+            const href = a.getAttribute("href") || "";
+            if (!href || href === "../" || href.endsWith("/")) return;
+            if (href.startsWith("?")) return;
+            names.push(decodeURIComponent(href));
+          });
+          return names;
+        } catch (_) {
+          return [];
+        }
+      }
+
+      function bindToolbarActions() {
+        document.getElementById("printBtn").addEventListener("click", async () => {
+          await prepareImagesForPrint();
+          window.print();
+        });
+
+        document.getElementById("clearBtn").addEventListener("click", () => {
+          if (!confirm("ล้างข้อมูลที่บันทึกใน browser ของไฟล์นี้?")) return;
+          localStorage.removeItem(storageKey);
+          location.reload();
+        });
+
+        document.getElementById("exportHtmlBtn").addEventListener("click", () => {
+          const cloned = document.documentElement.cloneNode(true);
+          const toolbar = cloned.querySelector(".toolbar");
+          if (toolbar) toolbar.remove();
+          const script = cloned.querySelector("script");
+          if (script) script.remove();
+          cloned.querySelectorAll(".editable").forEach((el) => {
+            el.removeAttribute("contenteditable");
+            el.classList.remove("editable");
+          });
+          const html = "<!doctype html>\n" + cloned.outerHTML;
+          downloadText("report-snapshot.html", html, "text/html;charset=utf-8");
+        });
+
+        document.getElementById("exportLogBtn").addEventListener("click", () => {
+          const lines = [
+            "Evidence Log",
+            "Generated: " + new Date().toLocaleString(),
+            "----------------------------------------",
+          ];
+          state.evidence.forEach((ev) => {
+            lines.push([
+              ev.id,
+              ev.name,
+              ev.category,
+              ev.source,
+              ev.relativePath || "-",
+              ev.sizeLabel || "-",
+            ].join(" | "));
+          });
+          downloadText("evidence-log.txt", lines.join("\n"), "text/plain;charset=utf-8");
+        });
+      }
+
+      function bindPrintModeToggle() {
+        const btn = document.getElementById("printModeBtn");
+        const modeKey = storageKey + "::onePagePrint";
+        const saved = localStorage.getItem(modeKey);
+        let enabled = saved === null ? true : saved === "1";
+        applyMode();
+
+        btn.addEventListener("click", () => {
+          enabled = !enabled;
+          localStorage.setItem(modeKey, enabled ? "1" : "0");
+          applyMode();
+        });
+
+        function applyMode() {
+          document.body.classList.toggle("one-page-print", enabled);
+          btn.textContent = "โหมดพิมพ์หน้าเดียว: " + (enabled ? "เปิด" : "ปิด");
+        }
+      }
+
+      function bindUploaderActions() {
+        const dropZone = document.getElementById("dropZone");
+        const fileInput = document.getElementById("fileInput");
+
+        ["dragenter", "dragover"].forEach((evt) => {
+          dropZone.addEventListener(evt, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add("dragover");
+          });
+        });
+
+        ["dragleave", "drop"].forEach((evt) => {
+          dropZone.addEventListener(evt, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove("dragover");
+          });
+        });
+
+        dropZone.addEventListener("drop", async (e) => {
+          const files = Array.from(e.dataTransfer.files || []);
+          await addUploadedFiles(files);
+        });
+
+        fileInput.addEventListener("change", async () => {
+          const files = Array.from(fileInput.files || []);
+          await addUploadedFiles(files);
+          fileInput.value = "";
+        });
+      }
+
+      function bindCaseFolderPicker() {
+        const btn = document.getElementById("connectCaseFolderBtn");
+        const statusEl = document.getElementById("uploadStatus");
+        const supportsFsApi =
+          typeof window.showDirectoryPicker === "function" && window.isSecureContext;
+
+        if (!supportsFsApi) {
+          statusEl.textContent =
+            "เบราว์เซอร์โหมดนี้ไม่รองรับบันทึกไฟล์จริงอัตโนมัติ (แนะนำเปิดผ่าน http://localhost)";
+          btn.disabled = true;
+          return;
+        }
+
+        btn.addEventListener("click", async () => {
+          try {
+            const picked = await window.showDirectoryPicker({ mode: "readwrite" });
+            caseDirHandle = picked;
+            statusEl.textContent =
+              "เชื่อมโฟลเดอร์แล้ว: " + picked.name + " (จะบันทึกลง assets/images|maps|docs)";
+          } catch (err) {
+            if (err && err.name === "AbortError") return;
+            statusEl.textContent = "เชื่อมโฟลเดอร์ไม่สำเร็จ: " + (err.message || err);
+          }
+        });
+      }
+
+      function bindLinkActions() {
+        document.getElementById("addLinkBtn").addEventListener("click", () => {
+          const name = document.getElementById("linkName").value.trim();
+          const path = document.getElementById("linkPath").value.trim();
+          const category = document.getElementById("linkCategory").value;
+          if (!name || !path) {
+            alert("กรุณาระบุชื่อไฟล์และ path");
+            return;
+          }
+          state.evidence.push({
+            id: nextEvidenceId(),
+            name: name,
+            category: category,
+            source: "folder-link",
+            relativePath: path,
+            sizeLabel: "-",
+          });
+          saveState();
+          renderEvidence();
+          document.getElementById("linkName").value = "";
+          document.getElementById("linkPath").value = "";
+        });
+      }
+
+      function bindDynamicRowActions() {
+        const addTimeline = document.getElementById("addTimelineRowBtn");
+        const addFollow = document.getElementById("addFollowRowBtn");
+        const addCorrective = document.getElementById("addCorrectiveBulletBtn");
+        const removeCorrective = document.getElementById("removeCorrectiveBulletBtn");
+        const addPreventive = document.getElementById("addPreventiveBulletBtn");
+        const removePreventive = document.getElementById("removePreventiveBulletBtn");
+
+        addTimeline.addEventListener("click", () => {
+          const body = document.getElementById("timelineBody");
+          const incidentDate =
+            document.querySelector("[data-key=\"date\"]")?.textContent?.trim() || "--/--/----";
+          const tr = document.createElement("tr");
+          const tdD = document.createElement("td");
+          tdD.className = "editable";
+          tdD.contentEditable = "true";
+          tdD.textContent = incidentDate;
+          const tdT = document.createElement("td");
+          tdT.className = "editable";
+          tdT.contentEditable = "true";
+          tdT.textContent = "--:--";
+          const tdE = document.createElement("td");
+          tdE.className = "editable";
+          tdE.contentEditable = "true";
+          tdE.textContent = "ระบุเหตุการณ์เพิ่มเติม...";
+          tr.append(tdD, tdT, tdE);
+          body.appendChild(tr);
+          state.blocks.timelineRows = body.innerHTML;
+          saveState();
+        });
+
+        addFollow.addEventListener("click", () => {
+          const body = document.getElementById("followUpBody");
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            '<td class="editable" contenteditable="true">รายการติดตามเพิ่มเติม</td>' +
+            '<td class="editable" contenteditable="true">เปิด</td>' +
+            '<td class="editable" contenteditable="true">-</td>' +
+            '<td class="editable" contenteditable="true">-</td>' +
+            '<td class="editable" contenteditable="true">EV-XXX</td>';
+          body.appendChild(tr);
+          state.blocks.followRows = body.innerHTML;
+          saveState();
+        });
+
+        addCorrective.addEventListener("click", () => {
+          const list = document.getElementById("correctiveList");
+          const li = document.createElement("li");
+          li.className = "editable";
+          li.contentEditable = "true";
+          li.textContent = "ระบุการแก้ไขเพิ่มเติม...";
+          list.appendChild(li);
+          state.blocks.correctiveBullets = list.innerHTML;
+          saveState();
+        });
+
+        removeCorrective.addEventListener("click", () => {
+          const list = document.getElementById("correctiveList");
+          if (list.children.length <= 1) return;
+          list.removeChild(list.lastElementChild);
+          state.blocks.correctiveBullets = list.innerHTML;
+          saveState();
+        });
+
+        addPreventive.addEventListener("click", () => {
+          const list = document.getElementById("preventiveList");
+          const li = document.createElement("li");
+          li.className = "editable";
+          li.contentEditable = "true";
+          li.textContent = "ระบุการป้องกันเพิ่มเติม...";
+          list.appendChild(li);
+          state.blocks.preventiveBullets = list.innerHTML;
+          saveState();
+        });
+
+        removePreventive.addEventListener("click", () => {
+          const list = document.getElementById("preventiveList");
+          if (list.children.length <= 1) return;
+          list.removeChild(list.lastElementChild);
+          state.blocks.preventiveBullets = list.innerHTML;
+          saveState();
+        });
+      }
+
+      async function addUploadedFiles(files) {
+        for (const file of files) {
+          const category = detectCategory(file.name);
+
+          if (caseDirHandle) {
+            try {
+              const relativePath = await saveFileToCaseFolder(file, category);
+              state.evidence.push({
+                id: nextEvidenceId(),
+                name: file.name,
+                category: category,
+                source: "folder-auto",
+                relativePath: relativePath,
+                sizeLabel: formatSize(file.size),
+              });
+            } catch (err) {
+              const dataUrl = await fileToDataUrl(file);
+              state.evidence.push({
+                id: nextEvidenceId(),
+                name: file.name,
+                category: category,
+                source: "uploaded-local",
+                dataUrl: dataUrl,
+                mime: file.type || "",
+                sizeLabel: formatSize(file.size),
+              });
+            }
+          } else {
+            const dataUrl = await fileToDataUrl(file);
+            state.evidence.push({
+              id: nextEvidenceId(),
+              name: file.name,
+              category: category,
+              source: "uploaded-local",
+              dataUrl: dataUrl,
+              mime: file.type || "",
+              sizeLabel: formatSize(file.size),
+            });
+          }
+        }
+        saveState();
+        renderEvidence();
+      }
+
+      function categoryToFolder(category) {
+        if (category === "image") return "images";
+        if (category === "map") return "maps";
+        return "docs";
+      }
+
+      async function saveFileToCaseFolder(file, category) {
+        const assetsDir = await caseDirHandle.getDirectoryHandle("assets", { create: true });
+        const subDir = await assetsDir.getDirectoryHandle(categoryToFolder(category), {
+          create: true,
+        });
+        const fileHandle = await subDir.getFileHandle(file.name, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(file);
+        await writable.close();
+        return "assets/" + categoryToFolder(category) + "/" + file.name;
+      }
+
+      function detectCategory(name) {
+        const n = name.toLowerCase();
+        if (/\.(jpg|jpeg|png|gif|webp)$/i.test(n)) return "image";
+        if (/\.(xlsx|xls|csv)$/i.test(n)) return "gps";
+        if (/\.(kml|kmz|gpx)$/i.test(n)) return "map";
+        return "doc";
+      }
+
+      function formatSize(size) {
+        if (size < 1024) return size + " B";
+        if (size < 1024 * 1024) return (size / 1024).toFixed(1) + " KB";
+        return (size / (1024 * 1024)).toFixed(2) + " MB";
+      }
+
+      function fileToDataUrl(file) {
+        return new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(r.result);
+          r.onerror = reject;
+          r.readAsDataURL(file);
+        });
+      }
+
+      function nextEvidenceId() {
+        const n = state.evidence.length + 1;
+        return "EV-" + String(n).padStart(3, "0");
+      }
+
+      function hydrateEvidence() {
+        renderEvidence();
+      }
+
+      function renderEvidence() {
+        const body = document.getElementById("evidenceBody");
+        const previewGrid = document.getElementById("evidencePreviewGrid");
+        body.innerHTML = "";
+        previewGrid.innerHTML = "";
+        state.evidence.forEach((ev, idx) => {
+          if (isSystemEvidence(ev)) return;
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            "<td>" + escapeHtml(ev.id) + "</td>" +
+            "<td>" + escapeHtml(ev.name) + "</td>" +
+            "<td><span class='pill'>" + escapeHtml(ev.category || "-") + "</span></td>" +
+            "<td>" + escapeHtml(ev.sizeLabel || "-") + "</td>" +
+            "<td>" + escapeHtml(ev.source) + "</td>" +
+            "<td class='actions'></td>";
+
+          const actions = tr.querySelector(".actions");
+          const openBtn = document.createElement("button");
+          openBtn.type = "button";
+          openBtn.textContent = "เปิด";
+          openBtn.addEventListener("click", () => openEvidence(ev));
+          actions.appendChild(openBtn);
+
+          if (ev.source === "uploaded-local" && ev.dataUrl) {
+            const dlBtn = document.createElement("button");
+            dlBtn.type = "button";
+            dlBtn.textContent = "ดาวน์โหลด";
+            dlBtn.addEventListener("click", () => downloadDataUrl(ev.dataUrl, ev.name));
+            actions.appendChild(dlBtn);
+          }
+
+          const rmBtn = document.createElement("button");
+          rmBtn.type = "button";
+          rmBtn.textContent = "ลบ";
+          rmBtn.addEventListener("click", () => {
+            state.evidence.splice(idx, 1);
+            saveState();
+            renderEvidence();
+          });
+          actions.appendChild(rmBtn);
+          body.appendChild(tr);
+
+          if (isVisualEvidence(ev)) {
+            const wrap = document.createElement("div");
+            wrap.className = "preview-item";
+
+            const img = document.createElement("img");
+            img.alt = ev.name || "evidence";
+            img.loading = "eager";
+            img.decoding = "sync";
+            img.src = evidenceImageSrc(ev);
+
+            const cap = document.createElement("div");
+            cap.className = "preview-caption";
+            cap.textContent = (ev.id || "") + " - " + (ev.name || "");
+
+            wrap.appendChild(img);
+            wrap.appendChild(cap);
+            previewGrid.appendChild(wrap);
+          }
+        });
+
+        const previewWrap = document.getElementById("evidencePreviewWrap");
+        previewWrap.style.display = previewGrid.children.length ? "block" : "none";
+      }
+
+      function isVisualEvidence(ev) {
+        const byCategory = ev.category === "image" || ev.category === "map";
+        const n = String(ev.name || "").toLowerCase();
+        const byExt = /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(n);
+        return byCategory || byExt;
+      }
+
+      function isSystemEvidence(ev) {
+        const name = String(ev?.name || "").toLowerCase();
+        const rel = String(ev?.relativePath || "").toLowerCase();
+        return name === "yk_logo_mark.svg" || rel.endsWith("/yk_logo_mark.svg");
+      }
+
+      async function prepareImagesForPrint() {
+        const imgs = Array.from(document.querySelectorAll("#evidencePreviewGrid img"));
+        const waits = imgs.map(async (img) => {
+          img.loading = "eager";
+          if (img.complete) return;
+          if (typeof img.decode === "function") {
+            try {
+              await img.decode();
+              return;
+            } catch (_) {}
+          }
+          await new Promise((resolve) => {
+            img.addEventListener("load", resolve, { once: true });
+            img.addEventListener("error", resolve, { once: true });
+          });
+        });
+        await Promise.all(waits);
+      }
+
+      function evidenceImageSrc(ev) {
+        if (ev.source === "uploaded-local" && ev.dataUrl) return ev.dataUrl;
+        if ((ev.source === "folder-link" || ev.source === "folder-auto") && ev.relativePath) {
+          return ev.relativePath;
+        }
+        return "";
+      }
+
+      function openEvidence(ev) {
+        if (ev.source === "uploaded-local" && ev.dataUrl) {
+          window.open(ev.dataUrl, "_blank", "noopener");
+          return;
+        }
+        if ((ev.source === "folder-link" || ev.source === "folder-auto") && ev.relativePath) {
+          window.open(ev.relativePath, "_blank", "noopener");
+        }
+      }
+
+      function downloadDataUrl(dataUrl, filename) {
+        const a = document.createElement("a");
+        a.href = dataUrl;
+        a.download = filename || "download";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+
+      function downloadText(filename, text, mime) {
+        const blob = new Blob([text], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+
+      function escapeHtml(s) {
+        return String(s || "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll("\"", "&quot;");
+      }
+    })();
+  </script>
+</body>
+</html>

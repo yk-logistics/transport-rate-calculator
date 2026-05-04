@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}สร้างรอบเงินเดือน · Payroll{% endblock %}
+{% block content %}
+
+<h1 class="text-2xl font-bold mb-1">สร้างรอบเงินเดือนใหม่</h1>
+<p class="text-sm text-slate-500 mb-4">
+  ระบบจะคำนวณเงินเดือนจาก DailyJob + FuelTxn + PettyCashTxn ที่ลิงก์ไปถึง Employee
+  ของไซต์นั้นๆ ในช่วงวันที่ของรอบ
+</p>
+
+<div class="max-w-2xl bg-white border rounded-lg p-6">
+  <form method="post" action="/payroll/new" class="space-y-4">
+    <div>
+      <label class="block text-sm font-medium mb-1">ไซต์</label>
+      <select name="site_code" class="w-full border rounded px-3 py-2" required>
+        <option value="">-- เลือกไซต์ --</option>
+        <option value="BIGC">BIGC — 1 ถึงสิ้นเดือน</option>
+        <option value="LCB">LCB — 16 ถึง 15 ของเดือนถัดไป</option>
+        <option value="AYU">AYU — 26 ถึง 25 ของเดือนถัดไป</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">
+        Tag รอบ (YYYY-MM)
+        <span class="text-xs text-slate-500 font-normal">= เดือนที่จ่าย/เดือนที่รอบจบ</span>
+      </label>
+      <input name="tag" value="{{ default_tag }}" pattern="\d{4}-\d{2}"
+        class="w-full border rounded px-3 py-2 font-mono" required />
+      <p class="text-xs text-slate-500 mt-1">
+        ตัวอย่าง: <code class="bg-slate-100 px-1">2026-02</code> หมายถึง
+        LCB: 2026-01-16 → 2026-02-15,
+        AYU: 2026-01-26 → 2026-02-25,
+        BIGC: 2026-02-01 → 2026-02-28
+      </p>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium mb-1">บันทึกช่วย (option)</label>
+      <input name="notes" class="w-full border rounded px-3 py-2"
+        placeholder="เช่น ทดลองรันรอบแรก" />
+    </div>
+
+    <div class="pt-2 flex gap-2">
+      <button class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded font-medium">
+        คำนวณ + ดูผล
+      </button>
+      <a href="/payroll" class="px-6 py-2 border rounded hover:bg-slate-50">ยกเลิก</a>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

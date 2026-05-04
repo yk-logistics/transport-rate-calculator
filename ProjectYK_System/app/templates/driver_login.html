@@ -1,0 +1,39 @@
+{% extends "driver_base.html" %}
+{% block title %}เข้าสู่ระบบ · YK Driver{% endblock %}
+{% block header %}{% endblock %}
+
+{% block content %}
+<div class="pt-8">
+  <div class="text-center mb-6">
+    <div class="text-5xl mb-2">🚚</div>
+    <div class="text-2xl font-bold">YK Driver</div>
+    <div class="text-sm text-slate-500">สำหรับพนักงานขับรถ</div>
+  </div>
+
+  {% if err %}
+  <div class="bg-rose-100 text-rose-800 rounded-xl p-3 mb-3 text-sm text-center">
+    {{ err }}
+  </div>
+  {% endif %}
+
+  <form method="post" action="/driver/login" class="bg-white rounded-2xl p-5 shadow-sm border space-y-4">
+    <div>
+      <label class="block text-sm text-slate-600 mb-1">เบอร์โทรศัพท์</label>
+      <input type="tel" name="phone" inputmode="tel" autocomplete="tel"
+             class="w-full border rounded-xl px-4 py-3 text-lg"
+             placeholder="081-234-5678" required />
+    </div>
+    <div>
+      <label class="block text-sm text-slate-600 mb-1">PIN (4-6 หลัก)</label>
+      <input type="password" name="pin" inputmode="numeric" pattern="[0-9]*"
+             maxlength="6" autocomplete="off"
+             class="w-full border rounded-xl px-4 py-3 text-lg tracking-widest text-center"
+             placeholder="• • • •" required />
+    </div>
+    <button class="btn-lg bg-blue-600 text-white">เข้าสู่ระบบ</button>
+    <div class="text-xs text-slate-500 text-center">
+      ลืม PIN? ติดต่อฝ่ายธุรการเพื่อรีเซ็ต
+    </div>
+  </form>
+</div>
+{% endblock %}

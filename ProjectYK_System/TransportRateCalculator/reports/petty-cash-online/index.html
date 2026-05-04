@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Petty Cash Online (MVP)</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #f5f7fb; color: #1f2d3d; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 16px; }
+    .card { background: #fff; border-radius: 10px; padding: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-bottom: 12px; }
+    .title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .sub { color: #4f5d75; margin-bottom: 8px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+    label { font-size: 12px; color: #5c6b80; display: block; margin-bottom: 4px; }
+    input, select { width: 100%; padding: 8px; border: 1px solid #ccd6e0; border-radius: 8px; }
+    .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+    .metric { background: #f0f4ff; border-radius: 8px; padding: 10px; }
+    .metric .k { font-size: 12px; color: #52617a; }
+    .metric .v { font-size: 20px; font-weight: 700; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border-bottom: 1px solid #e7edf3; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #f9fbff; position: sticky; top: 0; z-index: 1; }
+    .tag { display: inline-block; border-radius: 20px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
+    .finance { background: #ffe3e3; color: #9b1c1c; }
+    .advance { background: #e6f7e6; color: #146c2e; }
+    .container { background: #e7f0ff; color: #1f4f99; }
+    .other { background: #eceff4; color: #4b5563; }
+    .table-wrap { max-height: 65vh; overflow: auto; border-radius: 8px; }
+    .hint { font-size: 12px; color: #6d7b90; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="title">สดย่อยออนไลน์ (MVP)</div>
+      <div class="sub">เริ่มจากข้อมูลย้อนหลังทั้งหมดในไฟล์สดย่อย แล้วค่อยต่อยอดฟอร์มกรอก/สิทธิ์ผู้ใช้ในรอบถัดไป</div>
+
+      <div class="grid">
+        <div>
+          <label for="siteFilter">ไซต์</label>
+          <select id="siteFilter">
+            <option value="">ทั้งหมด</option>
+          </select>
+        </div>
+        <div>
+          <label for="categoryFilter">หมวด</label>
+          <select id="categoryFilter">
+            <option value="">ทั้งหมด</option>
+            <option value="finance">Finance</option>
+            <option value="advance">เงินเบิก/สำรอง</option>
+            <option value="container">รับตู้/คืนตู้</option>
+            <option value="other">อื่นๆ</option>
+          </select>
+        </div>
+        <div>
+          <label for="monthFilter">เดือน (YYYY-MM)</label>
+          <input id="monthFilter" type="text" placeholder="เช่น 2026-03" />
+        </div>
+        <div>
+          <label for="searchBox">ค้นหา</label>
+          <input id="searchBox" type="text" placeholder="ชื่อคนขับ, รายการ, หมายเหตุ" />
+        </div>
+      </div>
+
+      <div class="hint">แนะนำกรองเดือนก่อน แล้วค่อยค้นหาคำ เช่น "เบิก", "หัก", "รับตู้", "ผ่อน", "ไฟแนนซ์"</div>
+    </div>
+
+    <div class="card">
+      <div class="metrics">
+        <div class="metric">
+          <div class="k">จำนวนรายการ</div>
+          <div class="v" id="mCount">0</div>
+        </div>
+        <div class="metric">
+          <div class="k">ยอดจ่ายรวม</div>
+          <div class="v" id="mExpense">0</div>
+        </div>
+        <div class="metric">
+          <div class="k">ยอดหักเงินเดือนรวม</div>
+          <div class="v" id="mDeduct">0</div>
+        </div>
+        <div class="metric">
+          <div class="k">จำนวนรายการ Finance</div>
+          <div class="v" id="mFinance">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>วันที่</th>
+              <th>ไซต์</th>
+              <th>ชื่อผู้เบิก</th>
+              <th>รายการ</th>
+              <th>ยอดจ่าย</th>
+              <th>หักเงินเดือน</th>
+              <th>หมวด</th>
+              <th>หมายเหตุ</th>
+              <th>Memo parse</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const formatNumber = (value) => {
+      const num = Number(value || 0);
+      return new Intl.NumberFormat("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(num);
+    };
+
+    let allRows = [];
+
+    function categoryTag(cat) {
+      const cls = ["finance", "advance", "container", "other"].includes(cat) ? cat : "other";
+      return `<span class="tag ${cls}">${cat || "other"}</span>`;
+    }
+
+    function buildSiteOptions(rows) {
+      const siteFilter = document.getElementById("siteFilter");
+      const sites = [...new Set(rows.map((r) => r.site).filter(Boolean))].sort();
+      for (const site of sites) {
+        const op = document.createElement("option");
+        op.value = site;
+        op.textContent = site;
+        siteFilter.appendChild(op);
+      }
+    }
+
+    function getFilteredRows() {
+      const site = document.getElementById("siteFilter").value.trim().toLowerCase();
+      const category = document.getElementById("categoryFilter").value.trim().toLowerCase();
+      const month = document.getElementById("monthFilter").value.trim();
+      const q = document.getElementById("searchBox").value.trim().toLowerCase();
+
+      return allRows.filter((r) => {
+        if (site && String(r.site || "").toLowerCase() !== site) return false;
+        if (category && String(r.category || "").toLowerCase() !== category) return false;
+        if (month && !String(r.date || "").startsWith(month)) return false;
+
+        if (q) {
+          const text = [
+            r.name,
+            r.detail,
+            r.note,
+            r.memo_text,
+            r.sheet_name,
+            r.parsed_person,
+            r.parsed_detail,
+          ].join(" ").toLowerCase();
+          if (!text.includes(q)) return false;
+        }
+        return true;
+      });
+    }
+
+    function render() {
+      const filtered = getFilteredRows();
+      const tbody = document.getElementById("rows");
+
+      const expenseTotal = filtered.reduce((sum, row) => sum + Number(row.expense || 0), 0);
+      const deductTotal = filtered.reduce((sum, row) => sum + Number(row.deduct_salary || 0), 0);
+      const financeCount = filtered.filter((row) => row.category === "finance").length;
+
+      document.getElementById("mCount").textContent = formatNumber(filtered.length);
+      document.getElementById("mExpense").textContent = formatNumber(expenseTotal);
+      document.getElementById("mDeduct").textContent = formatNumber(deductTotal);
+      document.getElementById("mFinance").textContent = formatNumber(financeCount);
+
+      tbody.innerHTML = filtered.slice(0, 2000).map((r) => {
+        return `
+          <tr>
+            <td>${r.date || ""}</td>
+            <td>${r.site || ""}<div class="hint">${r.sheet_name || ""}</div></td>
+            <td>${r.name || ""}</td>
+            <td>${r.detail || ""}</td>
+            <td>${formatNumber(r.expense)}</td>
+            <td>${formatNumber(r.deduct_salary)}</td>
+            <td>${categoryTag(r.category)}</td>
+            <td>${r.note || ""}</td>
+            <td>
+              <div><strong>คน:</strong> ${r.parsed_person || "-"}</div>
+              <div><strong>จำนวน:</strong> ${formatNumber(r.memo_amount_in_text)}</div>
+              <div><strong>หัก:</strong> ${r.memo_has_deduction ? "ใช่" : "ไม่"}</div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    async function init() {
+      const response = await fetch("./petty_cash_records.json");
+      allRows = await response.json();
+      buildSiteOptions(allRows);
+
+      for (const id of ["siteFilter", "categoryFilter", "monthFilter", "searchBox"]) {
+        document.getElementById(id).addEventListener("input", render);
+        document.getElementById(id).addEventListener("change", render);
+      }
+      render();
+    }
+
+    init().catch((err) => {
+      console.error(err);
+      alert("โหลดข้อมูลไม่สำเร็จ: " + err.message);
+    });
+  </script>
+</body>
+</html>

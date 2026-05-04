@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}{% if mode=='new' %}เพิ่มรถ{% else %}แก้ไขรถ {{ row.plate_no }}{% endif %}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">{% if mode=='new' %}เพิ่มรถ{% else %}แก้ไขรถ {{ row.plate_no }}{% endif %}</h1>
+
+<form method="post" action="{% if mode=='new' %}/vehicles/new{% else %}/vehicles/{{ row.id }}/edit{% endif %}" class="bg-white rounded-lg border p-6 grid md:grid-cols-2 gap-4">
+  <div>
+    <label class="block text-sm mb-1">ทะเบียน *</label>
+    <input name="plate_no" value="{{ row.plate_no if row else '' }}" required class="w-full border rounded px-3 py-2" placeholder="71-0556" />
+  </div>
+  <div>
+    <label class="block text-sm mb-1">ชนิดรถ</label>
+    <select name="vehicle_kind" class="w-full border rounded px-3 py-2">
+      {% for code, label in vehicle_kinds %}
+      <option value="{{ code }}" {% if row and row.vehicle_kind==code %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <p class="text-xs text-slate-500 mt-1">BIGC: รถหัวลาก + หางแยกกันคนละรายการ</p>
+  </div>
+  <div>
+    <label class="block text-sm mb-1">ประเภท</label>
+    <select name="truck_type" class="w-full border rounded px-3 py-2">
+      <option value="">—</option>
+      {% for t in truck_types %}
+      <option value="{{ t }}" {% if row and row.truck_type==t %}selected{% endif %}>{{ t }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="block text-sm mb-1">ไซต์หลัก</label>
+    <select name="home_site_code" class="w-full border rounded px-3 py-2">
+      <option value="">—</option>
+      {% for sc in site_codes %}
+      <option value="{{ sc }}" {% if row and row.home_site_code==sc %}selected{% endif %}>{{ sc }}</option>
+      {% endfor %}
+    </select>
+    <p class="text-xs text-slate-500 mt-1">ใช้ filter เท่านั้น — รถข้ามไซต์วิ่งงานไซต์อื่นได้</p>
+  </div>
+  <div>
+    <label class="block text-sm mb-1">สถานะ</label>
+    <select name="status" class="w-full border rounded px-3 py-2">
+      {% for s in vehicle_status %}
+      <option value="{{ s }}" {% if row and row.status==s %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div></div>
+  <div>
+    <label class="block text-sm mb-1">เริ่มใช้</label>
+    <input type="date" name="start_date" value="{{ row.start_date if row and row.start_date else '' }}" class="w-full border rounded px-3 py-2" />
+  </div>
+  <div>
+    <label class="block text-sm mb-1">สิ้นสุด</label>
+    <input type="date" name="end_date" value="{{ row.end_date if row and row.end_date else '' }}" class="w-full border rounded px-3 py-2" />
+  </div>
+  <div class="md:col-span-2">
+    <label class="block text-sm mb-1">หมายเหตุ</label>
+    <textarea name="notes" rows="2" class="w-full border rounded px-3 py-2">{{ row.notes if row else '' }}</textarea>
+  </div>
+  <div class="md:col-span-2 flex gap-2">
+    <button class="bg-slate-900 text-white px-5 py-2 rounded-lg hover:bg-slate-700">บันทึก</button>
+    <a href="/vehicles" class="px-5 py-2 rounded-lg border">ยกเลิก</a>
+  </div>
+</form>
+{% endblock %}

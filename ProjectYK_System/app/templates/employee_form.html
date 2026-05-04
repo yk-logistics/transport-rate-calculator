@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% block title %}{% if mode=='new' %}เพิ่มคนขับ{% else %}แก้ไข {{ row.full_name }}{% endif %}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">{% if mode=='new' %}เพิ่มคนขับ{% else %}แก้ไข {{ row.full_name }}{% endif %}</h1>
+
+<form method="post" action="{% if mode=='new' %}/employees/new{% else %}/employees/{{ row.id }}/edit{% endif %}" class="space-y-6">
+
+<section class="bg-white rounded-lg border p-6">
+  <h2 class="font-semibold mb-3">ข้อมูลพื้นฐาน</h2>
+  <div class="grid md:grid-cols-3 gap-4">
+    <div>
+      <label class="block text-sm mb-1">รหัส</label>
+      <input name="code" value="{{ row.code if row else '' }}" class="w-full border rounded px-3 py-2" placeholder="เว้นว่าง = ระบบสร้างให้ (E0001, E0002, ...)" />
+      <p class="text-xs text-slate-500 mt-1">หรือพิมพ์รหัสเดิมของบริษัทก็ได้</p>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ชื่อ-สกุล *</label>
+      <input name="full_name" value="{{ row.full_name if row else '' }}" required class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ชื่อเล่น</label>
+      <input name="nickname" value="{{ row.nickname if row else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">เบอร์โทร</label>
+      <input name="phone" value="{{ row.phone if row else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">เลขบัตรประชาชน</label>
+      <input name="id_card" value="{{ row.id_card if row else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ไซต์หลัก *</label>
+      <select name="home_site_code" required class="w-full border rounded px-3 py-2">
+        {% for sc in site_codes %}
+        <option value="{{ sc }}" {% if row and row.home_site_code==sc %}selected{% endif %}>{{ sc }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">เริ่มงาน</label>
+      <input type="date" name="start_date" value="{{ row.start_date if row and row.start_date else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">สิ้นสุดงาน</label>
+      <input type="date" name="end_date" value="{{ row.end_date if row and row.end_date else '' }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">สถานะ</label>
+      <select name="status" class="w-full border rounded px-3 py-2">
+        {% for s in employee_status %}
+        <option value="{{ s }}" {% if row and row.status==s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  {% if row %}
+  {% set ct_employ = custom_terms_obj or {} %}
+  {% set _orig_hire = ct_employ.get('original_hire_date') %}
+  {% set _rehire_log = ct_employ.get('rehire_log') or [] %}
+
+  <div class="mt-4 p-3 bg-slate-50 border rounded">
+    <div class="text-sm font-semibold mb-2">⟲ บันทึกการลาออก/กลับมา</div>
+    {% if _orig_hire %}
+      <div class="text-xs text-slate-600">วันเริ่มงานครั้งแรก (original): <span class="font-mono">{{ _orig_hire }}</span></div>
+    {% endif %}
+    {% if _rehire_log %}
+      <ul class="text-xs text-slate-600 mt-1 list-disc pl-5">
+        {% for ev in _rehire_log %}
+        <li>ออก {{ ev.left or '—' }} → กลับมา <span class="font-semibold">{{ ev.back }}</span></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="text-xs text-slate-400">— ยังไม่มี history —</div>
+    {% endif %}
+
+    <div class="mt-3 flex flex-wrap gap-2 items-end">
+      <div>
+        <label class="block text-xs text-slate-500">วันที่ออก</label>
+        <input type="date" id="rehire_left" class="border rounded px-2 py-1 text-sm" />
+      </div>
+      <div>
+        <label class="block text-xs text-slate-500">วันที่กลับมา</label>
+        <input type="date" id="rehire_back" class="border rounded px-2 py-1 text-sm" />
+      </div>
+      <button type="button" id="btn_rehire"
+              class="bg-amber-500 text-white px-3 py-1.5 rounded text-sm hover:bg-amber-600">
+        บันทึก rehire (อัปเดต start_date + log)
+      </button>
+      <p class="text-xs text-slate-500 w-full">
+        จะตั้ง <code>start_date = วันที่กลับมา</code>, เคลียร์ <code>end_date</code>, สถานะ = <code>active</code>,
+        และเพิ่ม entry ใน <code>custom_terms.rehire_log</code> โดยอัตโนมัติ
+      </p>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const btn = document.getElementById('btn_rehire');
+      if (!btn) return;
+      btn.addEventListener('click', async () => {
+        const left = document.getElementById('rehire_left').value;
+        const back = document.getElementById('rehire_back').value;
+        if (!back) { alert('ใส่วันที่กลับมาก่อน'); return; }
+        if (!confirm('ยืนยันบันทึก rehire?\nออก: ' + (left||'—') + '\nกลับมา: ' + back)) return;
+        const fd = new FormData();
+        fd.append('left', left);
+        fd.append('back', back);
+        const res = await fetch('/employees/{{ row.id }}/rehire', {method:'POST', body: fd});
+        if (res.ok) location.reload();
+        else alert('error: ' + res.status);
+      });
+    })();
+  </script>
+  {% endif %}
+</section>
+
+<section class="bg-white rounded-lg border p-6">
+  <h2 class="font-semibold mb-3">รูปแบบการจ้าง (Pay Contract)</h2>
+  <div class="grid md:grid-cols-3 gap-4">
+    <div class="md:col-span-3">
+      <label class="block text-sm mb-1">รูปแบบ</label>
+      <select name="pay_mode" class="w-full border rounded px-3 py-2">
+        {% for code, label in pay_modes %}
+        <option value="{{ code }}" {% if row and row.pay_mode==code %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <p class="text-xs text-slate-500 mt-1">BIGC ใช้ 9000 + ค่าเที่ยว, LCB รายเที่ยว 9240+3000, LCB/AYU เหมาน้ำมัน ใส่ % ด้านล่าง</p>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ฐานเงินเดือน</label>
+      <input type="number" step="0.01" name="base_salary" value="{{ '%g'|format(row.base_salary) if row else 0 }}" class="w-full border rounded px-3 py-2" />
+      <p class="text-xs text-slate-500">BIGC=9000, LCB รายเที่ยว=9240, อื่นๆ=0</p>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ค่าดูแลรถ</label>
+      <input type="number" step="0.01" name="care_allowance" value="{{ '%g'|format(row.care_allowance) if row else 0 }}" class="w-full border rounded px-3 py-2" />
+      <p class="text-xs text-slate-500">LCB รายเที่ยว=3000</p>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">% แบ่งเหมาน้ำมัน (0.55 = 55%)</label>
+      <input type="number" step="0.01" min="0" max="1" name="gross_share_rate" value="{{ '%g'|format(row.gross_share_rate) if row and row.gross_share_rate else '' }}" class="w-full border rounded px-3 py-2" />
+      <p class="text-xs text-slate-500">LCB=0.60, AYU=0.55-0.60 แล้วแต่ตกลง</p>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">การันตีขั้นต่ำ</label>
+      <div class="flex gap-2 items-center">
+        <label class="inline-flex items-center gap-1 text-sm">
+          <input type="checkbox" name="has_guarantee" value="on" {% if row and row.has_guarantee %}checked{% endif %} />
+          เปิด
+        </label>
+        <input type="number" step="0.01" name="guarantee_monthly_amount" value="{{ '%g'|format(row.guarantee_monthly_amount) if row else 0 }}" class="flex-grow border rounded px-3 py-2" placeholder="12000 / 15000" />
+      </div>
+      <p class="text-xs text-slate-500">AYU: 6ล้อ=12000, 10ล้อ=15000 (เต็มเดือน หักรายวันเมื่อลา)</p>
+    </div>
+    <div></div>
+    <div>
+      <label class="block text-sm mb-1">เงินประกันตน เพดาน</label>
+      <input type="number" step="0.01" name="deposit_target" value="{{ '%g'|format(row.deposit_target) if row else 10000 }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">เงินประกันตน สะสมแล้ว</label>
+      <input type="number" step="0.01" name="deposit_balance" value="{{ '%g'|format(row.deposit_balance) if row else 0 }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div></div>
+    <div>
+      <label class="block text-sm mb-1">ฐานประกันสังคม</label>
+      <input type="number" step="0.01" name="social_security_base" value="{{ '%g'|format(row.social_security_base) if row else 9000 }}" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">อัตราประกันสังคม (0.05 = 5%)</label>
+      <input type="number" step="0.001" name="social_security_rate" value="{{ '%g'|format(row.social_security_rate) if row else 0.05 }}" class="w-full border rounded px-3 py-2" />
+    </div>
+  </div>
+</section>
+
+{% set ct_obj = custom_terms_obj or {} %}
+{% set tx_mode = ct_obj.get('tax_mode', 'catch_up') %}
+{% set tx_cap = ct_obj.get('tax_monthly_cap_rate', 0.15) %}
+{% set tx_exempt = ct_obj.get('tax_exempt', false) %}
+{% set tx_extra = ct_obj.get('tax_extra_allowance_annual', 0) %}
+
+<section class="bg-white rounded-lg border p-6">
+  <h2 class="font-semibold mb-3">ภาษีเงินได้ (หัก ณ ที่จ่าย)</h2>
+  <div class="grid md:grid-cols-3 gap-4">
+    <div>
+      <label class="block text-sm mb-1">โหมดคำนวณภาษี</label>
+      <select name="tax_mode" class="w-full border rounded px-3 py-2">
+        <option value="catch_up" {% if tx_mode=='catch_up' %}selected{% endif %}>catch_up (default — เฉลี่ยเดือนที่เหลือ)</option>
+        <option value="safe" {% if tx_mode=='safe' %}selected{% endif %}>safe (เริ่มหักเมื่อเข้าเกณฑ์, ไม่ตามเก็บย้อน)</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">เพดานหักรายเดือน (%)</label>
+      <input type="number" step="0.01" min="0" max="1" name="tax_monthly_cap_rate"
+             value="{{ '%g'|format(tx_cap) }}" class="w-full border rounded px-3 py-2" />
+      <p class="text-xs text-slate-500">0.15 = 15% (default), 0.12 = 12%</p>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">ลดหย่อนเพิ่มเติมต่อปี (บาท)</label>
+      <input type="number" step="0.01" min="0" name="tax_extra_allowance_annual"
+             value="{{ '%g'|format(tx_extra) }}" class="w-full border rounded px-3 py-2" />
+      <p class="text-xs text-slate-500">เช่น ประกันชีวิต, ลดหย่อนพิเศษ</p>
+    </div>
+    <div class="md:col-span-3">
+      <label class="inline-flex items-center gap-2 text-sm">
+        <input type="checkbox" name="tax_exempt" value="on" {% if tx_exempt %}checked{% endif %} />
+        <span>ยกเว้นภาษี (ไม่ต้องหักภาษีรายเดือน)</span>
+      </label>
+    </div>
+  </div>
+</section>
+
+<section class="bg-white rounded-lg border p-6">
+  <h2 class="font-semibold mb-3">ข้อตกลงพิเศษ / หมายเหตุ</h2>
+  <div class="space-y-4">
+    <div>
+      <label class="block text-sm mb-1">ข้อตกลงพิเศษ (LCB "ไม่แบ่ง", AYU special terms)</label>
+      <textarea name="custom_terms" rows="3" class="w-full border rounded px-3 py-2">{{ row.custom_terms if row else '' }}</textarea>
+      <p class="text-xs text-slate-500">JSON ก็ได้ (เช่น <code>{"tax_mode": "safe"}</code>) ฟิลด์ภาษีด้านบนจะ merge เข้า JSON นี้อัตโนมัติ · <strong>โอนเงิน PDF:</strong> <code>bank_name</code>, <code>bank_account</code> (เลขบัญชี) หรือ <code>payment_note</code> (เช่น กดเงินสด)</p>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">หมายเหตุ</label>
+      <textarea name="notes" rows="2" class="w-full border rounded px-3 py-2">{{ row.notes if row else '' }}</textarea>
+    </div>
+  </div>
+</section>
+
+<div class="flex gap-2">
+  <button class="bg-slate-900 text-white px-5 py-2 rounded-lg hover:bg-slate-700">{% if mode=='new' %}บันทึก{% else %}บันทึกการแก้ไข{% endif %}</button>
+  <a href="/employees" class="px-5 py-2 rounded-lg border">ยกเลิก</a>
+</div>
+</form>
+{% endblock %}

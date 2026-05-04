@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}รถ{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-2xl font-bold">รถ · {{ rows|length }} คัน</h1>
+  <a href="/vehicles/new" class="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-700">+ เพิ่มรถ</a>
+</div>
+
+<form method="get" class="bg-white rounded-lg border p-4 mb-4 flex flex-wrap gap-3 items-end">
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">ไซต์หลัก</label>
+    <select name="site" class="border rounded px-3 py-2">
+      <option value="" {% if not site %}selected{% endif %}>ทั้งหมด</option>
+      {% for sc in site_codes %}
+      <option value="{{ sc }}" {% if site==sc %}selected{% endif %}>{{ sc }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="flex-grow">
+    <label class="block text-xs text-slate-500 mb-1">ค้นหาทะเบียน</label>
+    <input name="q" value="{{ q }}" class="w-full border rounded px-3 py-2" />
+  </div>
+  <button class="bg-slate-200 px-4 py-2 rounded">ค้นหา</button>
+  <a href="/vehicles" class="text-sm text-slate-500 underline">ล้าง</a>
+</form>
+
+<div class="bg-white rounded-lg border overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-100 text-left">
+      <tr>
+        <th class="px-3 py-2">ทะเบียน</th>
+        <th class="px-3 py-2">ชนิด</th>
+        <th class="px-3 py-2">ประเภท</th>
+        <th class="px-3 py-2">ไซต์หลัก</th>
+        <th class="px-3 py-2">เริ่มใช้</th>
+        <th class="px-3 py-2">สถานะ</th>
+        <th class="px-3 py-2">หมายเหตุ</th>
+        <th class="px-3 py-2"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr class="border-t hover:bg-slate-50">
+        <td class="px-3 py-2 font-mono"><a href="/vehicles/{{ r.id }}/edit" class="text-blue-600 hover:underline">{{ r.plate_no }}</a></td>
+        <td class="px-3 py-2">{{ r.vehicle_kind }}</td>
+        <td class="px-3 py-2">{{ r.truck_type }}</td>
+        <td class="px-3 py-2">{{ r.home_site_code }}</td>
+        <td class="px-3 py-2">{{ r.start_date | dmy if r.start_date else '' }}</td>
+        <td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-xs {% if r.status=='active' %}bg-green-100 text-green-700{% elif r.status=='parked' %}bg-yellow-100 text-yellow-700{% else %}bg-slate-200{% endif %}">{{ r.status }}</span></td>
+        <td class="px-3 py-2 text-xs text-slate-600">{{ r.notes }}</td>
+        <td class="px-3 py-2">
+          <form method="post" action="/vehicles/{{ r.id }}/delete" onsubmit="return confirm('ลบ {{ r.plate_no }}?');" class="inline">
+            <button class="text-red-500 hover:underline text-xs">ลบ</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="px-3 py-8 text-center text-slate-400">ยังไม่มีข้อมูล — กด "+ เพิ่มรถ" เพื่อเริ่ม</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

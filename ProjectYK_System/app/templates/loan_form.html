@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}{% if loan %}{{ loan.code }} · {{ loan.lender }}{% else %}เพิ่มหนี้ใหม่{% endif %}{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <a href="/finance/loans" class="text-sm text-blue-600 hover:underline">← กลับรายการหนี้</a>
+</div>
+
+<h1 class="text-2xl font-bold mb-4">
+  {% if loan %}✏️ {{ loan.code }} — {{ loan.lender }}{% else %}➕ เพิ่มหนี้ใหม่{% endif %}
+</h1>
+
+<form method="post" action="{% if loan %}/finance/loans/{{ loan.id }}{% else %}/finance/loans/new{% endif %}" class="bg-white border rounded-lg p-4 mb-4">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-0.5">เจ้าหนี้ *</label>
+      <input name="lender" required value="{{ loan.lender if loan else '' }}" placeholder="เช่น SCB, KBANK, พ่อ, นายทุน" class="w-full border rounded px-2 py-1" />
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-0.5">ประเภท</label>
+      <select name="loan_kind" class="w-full border rounded px-2 py-1">
+        {% for k, label in loan_kinds %}
+        <option value="{{ k }}" {% if loan and loan.loan_kind==k %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="md:col-span-2">
+      <label class="block text-xs font-medium text-slate-600 mb-0.5">วัตถุประสงค์</label>
+      <input name="purpose" value="{{ loan.purpose if loan else '' }}" placeholder="เช่น ซื้อรถ 71-0567, หมุนเวียน, ค่างวด" class="w-full border rounded px-2 py-1" />
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-0.5">ยอดกู้ (บาท)</label>
+      <input name="principal" type="number" step="0.01" value="{{ loan.principal if loan else 0 }}" class="w-full border rounded px-2 py-1 font-mono" />
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-0.5">อัตราดอกเบี้ยต่อปี (%)</label>
+      <input name="annual_rate_pct" type="number" step="0.01" value="{{ loan.annual_rate_pct if loan else 0 }}" class="w-full border rounded px-2 py-1 font-mono" />
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-0.5">จำนวนงวด (เดือน)</label>
+      <input name="term_months" type="number" value="{{ loan.term_months if loan else 0 }}" class="w-full border rounded px-2 py-1" placeholder="0 = วงเงินหมุนเวียน (ไม่มีระยะกำหนด)" />
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-0.5">งวดคงที่ต่อเดือน (ถ้าระบุ จะใช้ยอดนี้แทนสูตร)</label>
+      <input name="monthly_payment" type="number" step="0.01" value="{{ loan.monthly_payment if loan else 0 }}" class="w-full border rounded px-2 py-1 font-mono" />
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-0.5">วันที่เริ่ม</label>
+      <input name="start_date" type="date" value="{{ loan.start_date.isoformat() if loan and loan.start_date else '' }}" class="w-full border rounded px-2 py-1" />
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-0.5">งวดแรกจ่าย</label>
+      <input name="first_payment_date" type="date" value="{{ loan.first_payment_date.isoformat() if loan and loan.first_payment_date else '' }}" class="w-full border rounded px-2 py-1" />
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-0.5">วันจ่ายประจำเดือน (1-28)</label>
+      <input name="pay_day_of_month" type="number" min="1" max="28" value="{{ loan.pay_day_of_month if loan else 5 }}" class="w-full border rounded px-2 py-1" />
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-0.5">ยอดคงเหลือปัจจุบัน</label>
+      <input name="current_balance" type="number" step="0.01" value="{{ loan.current_balance if loan else 0 }}" class="w-full border rounded px-2 py-1 font-mono" />
+      <p class="text-xs text-slate-400">ถ้าเว้นว่าง ระบบจะใช้ยอดกู้ทั้งหมดเป็นเริ่มต้น</p>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-0.5">หลักประกัน</label>
+      <input name="collateral" value="{{ loan.collateral if loan else '' }}" placeholder="เช่น รถ 71-0567, โฉนดที่ดิน" class="w-full border rounded px-2 py-1" />
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-0.5">ผูกกับรถ (ถ้าเป็นไฟแนนซ์)</label>
+      <select name="linked_vehicle_id" class="w-full border rounded px-2 py-1">
+        <option value="">—</option>
+        {% for v in vehicles %}
+        <option value="{{ v.id }}" {% if loan and loan.linked_vehicle_id==v.id %}selected{% endif %}>{{ v.plate_no }} {{ v.nickname }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-0.5">สถานะ</label>
+      <select name="status" class="w-full border rounded px-2 py-1">
+        {% for s in loan_status_opts %}
+        <option value="{{ s }}" {% if loan and loan.status==s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="md:col-span-2">
+      <label class="block text-xs font-medium text-slate-600 mb-0.5">โน้ต</label>
+      <textarea name="notes" rows="2" class="w-full border rounded px-2 py-1">{{ loan.notes if loan else '' }}</textarea>
+    </div>
+  </div>
+
+  <div class="flex gap-2 mt-4">
+    <button class="bg-rose-600 text-white px-4 py-1.5 rounded text-sm">{% if loan %}บันทึก{% else %}สร้าง{% endif %}</button>
+    {% if loan %}
+      <form method="post" action="/finance/loans/{{ loan.id }}/delete" onsubmit="return confirm('ลบหนี้นี้? (จะลบประวัติการชำระด้วย)')" class="inline">
+        <button class="bg-slate-200 text-rose-700 px-4 py-1.5 rounded text-sm">ลบ</button>
+      </form>
+    {% endif %}
+    <a href="/finance/loans" class="bg-slate-100 px-4 py-1.5 rounded text-sm">ยกเลิก</a>
+  </div>
+</form>
+
+{% if loan %}
+<!-- Payment logger -->
+<div class="bg-white border rounded-lg p-4 mb-4">
+  <h3 class="font-semibold mb-3">💸 บันทึกการชำระ</h3>
+  <form method="post" action="/finance/loans/{{ loan.id }}/payment" class="flex gap-2 items-end text-sm flex-wrap mb-3">
+    <div>
+      <label class="block text-xs text-slate-500">วันที่จ่าย</label>
+      <input name="pay_date" type="date" class="border rounded px-2 py-1" />
+    </div>
+    <div>
+      <label class="block text-xs text-slate-500">ยอดรวม</label>
+      <input name="amount" type="number" step="0.01" required class="border rounded px-2 py-1 font-mono w-32" />
+    </div>
+    <div>
+      <label class="block text-xs text-slate-500">ส่วนดอก (ถ้าทราบ)</label>
+      <input name="interest_portion" type="number" step="0.01" value="0" class="border rounded px-2 py-1 font-mono w-32" />
+    </div>
+    <div class="flex-1 min-w-[180px]">
+      <label class="block text-xs text-slate-500">โน้ต</label>
+      <input name="notes" class="border rounded px-2 py-1 w-full" />
+    </div>
+    <button class="bg-emerald-600 text-white px-4 py-1 rounded">+ บันทึก</button>
+  </form>
+
+  <table class="w-full text-xs">
+    <thead class="bg-slate-50 text-slate-600">
+      <tr>
+        <th class="px-2 py-1 text-left">วันที่</th>
+        <th class="px-2 py-1 text-right">ยอดรวม</th>
+        <th class="px-2 py-1 text-right">เงินต้น</th>
+        <th class="px-2 py-1 text-right">ดอก</th>
+        <th class="px-2 py-1 text-left">โน้ต</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in payments %}
+      <tr class="border-t">
+        <td class="px-2 py-1">{{ p.pay_date }}</td>
+        <td class="px-2 py-1 text-right font-mono font-semibold">{{ "{:,.2f}".format(p.amount) }}</td>
+        <td class="px-2 py-1 text-right font-mono text-emerald-700">{{ "{:,.2f}".format(p.principal_portion) }}</td>
+        <td class="px-2 py-1 text-right font-mono text-rose-600">{{ "{:,.2f}".format(p.interest_portion) }}</td>
+        <td class="px-2 py-1">{{ p.notes }}</td>
+        <td class="px-2 py-1">
+          <form method="post" action="/finance/loans/{{ loan.id }}/payment/{{ p.id }}/delete" class="inline" onsubmit="return confirm('ลบ?')">
+            <button class="text-rose-600 text-xs">ลบ</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="px-2 py-3 text-center text-slate-500">ยังไม่มีประวัติการชำระ</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Amortization schedule -->
+<div class="bg-white border rounded-lg p-4">
+  <h3 class="font-semibold mb-3">📅 ตารางผ่อน (คำนวณอัตโนมัติ)</h3>
+  <table class="w-full text-xs">
+    <thead class="bg-slate-50 text-slate-600">
+      <tr>
+        <th class="px-2 py-1 text-center">#</th>
+        <th class="px-2 py-1 text-left">วันครบกำหนด</th>
+        <th class="px-2 py-1 text-right">ยอดต้นงวด</th>
+        <th class="px-2 py-1 text-right">ชำระ</th>
+        <th class="px-2 py-1 text-right">เงินต้น</th>
+        <th class="px-2 py-1 text-right">ดอก</th>
+        <th class="px-2 py-1 text-right">ยอดปลายงวด</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in schedule %}
+      <tr class="border-t {% if loop.index<=3 %}bg-amber-50{% endif %}">
+        <td class="px-2 py-1 text-center text-slate-400">{{ row.idx }}</td>
+        <td class="px-2 py-1">{{ row.due_date }}</td>
+        <td class="px-2 py-1 text-right font-mono text-slate-500">{{ "{:,.2f}".format(row.beginning_balance) }}</td>
+        <td class="px-2 py-1 text-right font-mono font-semibold">{{ "{:,.2f}".format(row.payment) }}</td>
+        <td class="px-2 py-1 text-right font-mono text-emerald-700">{{ "{:,.2f}".format(row.principal) }}</td>
+        <td class="px-2 py-1 text-right font-mono text-rose-600">{{ "{:,.2f}".format(row.interest) }}</td>
+        <td class="px-2 py-1 text-right font-mono">{{ "{:,.2f}".format(row.ending_balance) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="text-xs text-slate-400 mt-2">* ใช้สูตร amortization (ลดต้นลดดอก) หรือ งวดคงที่ที่ระบุ</p>
+</div>
+{% endif %}
+{% endblock %}

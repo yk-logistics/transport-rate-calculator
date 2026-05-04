@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}เปรียบเทียบราคาร้าน{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">📊 เปรียบเทียบราคาร้าน</h1>
+  <div class="flex gap-2">
+    <a href="/maint/parts" class="btn bg-slate-200 hover:bg-slate-300">← อะไหล่</a>
+    <a href="/maint/vendors" class="btn bg-slate-200 hover:bg-slate-300">ร้านค้า</a>
+  </div>
+</div>
+
+<form method="get" action="/maint/vendor-prices" class="p-3 bg-white border rounded-lg mb-4 flex gap-2 items-center">
+  <input type="text" name="q" placeholder="ค้นหาอะไหล่..." value="{{ q }}" class="border rounded px-2 py-1 text-sm flex-1">
+  <button class="btn bg-slate-200 hover:bg-slate-300 text-sm">ค้นหา</button>
+  {% if q %}<a href="/maint/vendor-prices" class="text-xs text-slate-500 underline">ล้าง</a>{% endif %}
+</form>
+
+<div class="space-y-3">
+  {% for p in parts %}
+  {% set vps = vp_by_part.get(p.id, []) %}
+  {% if vps %}
+  <div class="p-3 bg-white border rounded-lg">
+    <div class="flex items-center justify-between mb-2">
+      <div>
+        <a href="/maint/parts/{{ p.id }}" class="font-semibold text-sky-600 hover:underline">{{ p.name }}</a>
+        <span class="text-xs text-slate-500 ml-2">{{ cat_map.get(p.category, p.category) }} · {{ p.unit }}</span>
+      </div>
+      <div class="text-xs text-slate-500">{{ vps|length }} ร้าน · ราคาอ้างอิง <span class="font-mono text-emerald-600">{{ '{:,.2f}'.format(p.default_price) }}</span></div>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+      {% for vp in vps %}
+      {% set is_cheapest = (loop.index0 == 0) %}
+      <div class="p-2 rounded border text-sm {% if vp.is_preferred %}bg-yellow-50 border-yellow-300{% elif is_cheapest %}bg-emerald-50 border-emerald-300{% else %}bg-slate-50 border-slate-200{% endif %}">
+        <div class="flex items-center gap-1 text-xs">
+          {% if vp.is_preferred %}⭐{% endif %}
+          {% if is_cheapest and not vp.is_preferred %}💚{% endif %}
+          <strong class="truncate">{{ vendor_map[vp.vendor_id].name if vendor_map.get(vp.vendor_id) else '—' }}</strong>
+        </div>
+        <div class="font-mono text-lg font-bold">{{ '{:,.2f}'.format(vp.unit_price) }}</div>
+        <div class="text-xs text-slate-500">
+          {% if vp.quoted_on %}{{ vp.quoted_on }}{% endif %}
+          {% if vp.lead_time_days %} · {{ vp.lead_time_days }}d{% endif %}
+          {% if vp.use_count %} · ซื้อ {{ vp.use_count }}×{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% else %}
+  <div class="p-6 bg-white border rounded-lg text-center text-slate-400">ยังไม่มีข้อมูลราคาร้าน</div>
+  {% endfor %}
+</div>
+
+{% endblock %}
