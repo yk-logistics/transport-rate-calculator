@@ -14,6 +14,12 @@
 - [next] ใช้ prompt pack นี้กับงานตรวจความถูกต้องรอบแรกของระบบเงินเดือน/นำเข้า (เริ่ม BigC ก่อน) และเก็บ baseline ตัวเลข before/after
 - [next] เพิ่มเอกสาร baseline verification ต่อไซต์ (query/checklist ที่รันซ้ำรายเดือน) เพื่อปิดความเสี่ยง “คำนวณผิดเงียบๆ”
 
+## ⭐ Quick Status (2026-05-06 | CC Auto Two-Agent Loop)
+
+- [done] เพิ่ม runbook **`ProjectYK_System/TransportRateCalculator/docs/CC_AUTO_TWO_AGENT_RUNBOOK.md`** สำหรับรัน Claude Code แบบ 2 บทบาท (Coordinator/Executor) ด้วย 2 terminal ใน Cursor
+- [done] ล็อกมาตรฐาน Task Card + Handoff Snapshot เพื่อสลับ session ถี่ๆ ตามข้อจำกัด token/hour ได้โดยไม่หลุดบริบท
+- [next] ทดลองจริง 1 cycle ที่ BigC (`read-only preflight -> single-scope fix -> recompute -> quality gate`) แล้วบันทึก prompt ที่เวิร์คใน section `Working Prompts`
+
 ## ⭐ Quick Status (2026-05-02 | One Platform — หน้า pitch สำหรับ Pages)
 
 - [done] **`reports/one-platform-status/`** บน **`yk-logistics/transport-rate-calculator`** — `index.html` + **`public-stats.json`** (สถิติรวมจริงจาก `app.db`) + `build_public_stats.py` + README — push แล้ว (ลิงก์ด้านล่าง CONTEXT_LOG)

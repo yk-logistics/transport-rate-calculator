@@ -11,6 +11,10 @@
 - เพิ่มเอกสาร **`ProjectYK_System/TransportRateCalculator/docs/CLAUDE_CODE_VIBECODING_PLAYBOOK.md`**: working contract, DoD, preflight บังคับ 4 checks, จุดโฟกัสรายไซต์ (BigC/LCB/AYU), token-saving rules, และ prompt อังกฤษพร้อมใช้
 - อัปเดต **`ProjectYK_System/AI_CURSOR_CLAUDE_WORKFLOW.md`** เพิ่ม “Prompt mode สำหรับโอ (Vibecoding)” เพื่อให้ Cursor สรุป prompt อังกฤษที่คุมความเสี่ยงข้อมูลเงินและบังคับ recompute before/after
 
+## 2026-05-06 (Claude Code 2-Agent auto loop runbook)
+
+- เพิ่มเอกสาร **`ProjectYK_System/TransportRateCalculator/docs/CC_AUTO_TWO_AGENT_RUNBOOK.md`**: ขั้นตอนใช้งานจริงแบบ 2 terminal (`Coordinator` + `Executor`), มาตรฐาน Task Card, วนลูป quality gate, token-saving tactics, และ handoff snapshot กัน context หลุด
+
 ## 2026-05-05 (Oatside Excel — `Trip_Detail` เติมคอลัมน์ราคา)
 
 - **`Oatside/build_oatside_reports.py`**: ชีต `Trip_Detail` เพิ่ม `Trip_rate_baht`, `Downtime_50_baht`, `Downtime_100_baht` (คง `Nw_outbound50_baht`, `Return_manual_baht`) โดยคำนวณตามกติกาเดียวกับหน้า `trips.html` (split +50/+100 เฉพาะเที่ยวแรกของทะเบียนในวัน `Dest_In`)

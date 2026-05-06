@@ -3446,3 +3446,32 @@ o_work_outbound_rows ใช้เรทตาม **วัน anchor R** ไม�
 ### Action ถัดไป
 - ใช้ prompt pack นี้เริ่มรอบตรวจจริงที่ **BigC** ก่อน แล้วค่อยไล่ LCB และ AYU
 - ทำ baseline verification ต่อไซต์ (query/checklist เดิมซ้ำได้ทุกเดือน) เพื่อปิดช่อง “คำนวณผิดเงียบๆ”
+
+---
+
+## 2026-05-06 (Session Summary #116 - วิธีรัน Claude Code แบบ 2 Agent อัตโนมัติใน Cursor)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้ต้องการทำงานแบบ 2 Agent ใน Claude Code (คนนึงคุมงานเหมือนผู้ช่วย, อีกคนลงมือทำ) และขอขั้นตอนทีละขั้นตอน
+- ต้องการลด copy-paste และต้องการวิธีบันทึกใช้ซ้ำเมื่อติด quota token ต่อชั่วโมง
+
+### การตัดสินใจรอบนี้
+- ใช้รูปแบบ **2 terminal 2 session** ใน Cursor:
+  - Terminal A = `Coordinator` (read-only quality gate)
+  - Terminal B = `Executor` (implementation)
+- บังคับวนลูปด้วย **Task Card มาตรฐาน** (single scope) + **Handoff Snapshot** กัน context หลุดตอนตัด session
+
+### สิ่งที่ทำแล้ว
+- สร้างไฟล์ใหม่:
+  - `ProjectYK_System/TransportRateCalculator/docs/CC_AUTO_TWO_AGENT_RUNBOOK.md`
+    - ขั้นตอนเริ่มใช้งานทีละขั้น
+    - Prompt ตั้งต้นของ A/B
+    - กติกากันพัง, วิธีประหยัด token, รูปแบบ Task Card, Handoff Snapshot
+    - แนวทางบันทึกกลับเข้า context docs ของโปรเจกต์
+
+### Action ถัดไป
+- ลองรันจริง 1 รอบที่ BigC โดยใช้ runbook:
+  1) A ออก Task Card #1
+  2) B ลงมือทำแบบ single scope
+  3) A quality gate และออก Task Card #2
+- เก็บ prompt ที่เวิร์คจริงลง section `Working Prompts` ใน runbook เพื่อใช้ซ้ำรอบถัดไป
