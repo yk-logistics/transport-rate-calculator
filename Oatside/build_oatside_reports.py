@@ -1766,6 +1766,7 @@ OATSIDE_EXPORT_TABLES: list[tuple[str, str, str]] = [
     ("NoWork_Outbound_50pct", "12_NoWork_Outbound_50pct.xlsx", "No-work recovery outbound 50%"),
     ("Phantom_Trip_Candidates", "13_Phantom_Trip_Candidates.xlsx", "Phantom trip candidates"),
     ("Hints_DoubleOrigin", "14_Hints_DoubleOrigin.xlsx", "Hints double-origin (UM)"),
+    ("Trips_Pricing_All", "15_Trips_Pricing_All.xlsx", "???????????????????????"),
 ]
 
 
@@ -2074,10 +2075,17 @@ def write_excel(
         "Dest_In", "Dest_Out",
         "Travel_h(OriginOut->DestIn)", "Dest_Wait_h", "Dest_Wait_customer_h", "Customer_idle_clip_h",
         "Total_Cycle_h", "Total_Cycle_customer_h",
-        "Travel_Flag", "Billable_Trip", "Nw_outbound50_baht", "Return_manual_baht",
+        "Travel_Flag", "Billable_Trip",
+        "Trip_rate_baht", "Downtime_50_baht", "Downtime_100_baht",
+        "Nw_outbound50_baht", "Return_manual_baht",
     ])
     firsts = first_matched_trip_by_plate_dest(trips)
     first_no_work = first_no_work_trip_by_plate_recovery_day(trips, cfg)
+    fifty_by_lists: dict[tuple[str, date], list[dict]] = defaultdict(list)
+    for r in fifty_rows:
+        k = (str(r.get("plate") or ""), r.get("dest_date"))
+        if k[0] and k[1]:
+            fifty_by_lists[k].append(r)
     ret_by_pd: dict[tuple[str, date], int] = {}
     for m in cfg.manual_return_trips:
         k = (str(m.plate), m.dest_date)
@@ -2086,6 +2094,18 @@ def write_excel(
         dw_c = customer_idle_clip_dest_wait_h(t, cfg)
         clip = max(0.0, t.dest_wait_h - dw_c)
         cyc_c = max(0.0, t.total_cycle_h - clip)
+        rate = trip_rate_baht(t.dest_date, cfg)
+        ft = firsts.get((t.plate, t.dest_date))
+        frs = fifty_by_lists.get((str(t.plate), t.dest_date), [])
+        dw50 = dw100 = 0
+        if ft is not None and id(ft) == id(t):
+            dw50, dw100 = _split_fifty_surcharge_50_100(frs)
+        nw50 = trip_no_work_outbound_baht(t, first_no_work, cfg)
+        ret_manual = (
+            int(ret_by_pd.get((str(t.plate), t.dest_date), 0))
+            if ft is not None and id(ft) == id(t)
+            else 0
+        )
         td.append([
             t.trip_date, t.origin_date, t.dest_date,
             t.site, t.plate, t.device, t.o_row, t.d_row,
@@ -2093,13 +2113,34 @@ def write_excel(
             t.d_in, t.d_out,
             round(t.travel_h, 2), round(t.dest_wait_h, 2), round(dw_c, 2), round(clip, 2),
             round(t.total_cycle_h, 2), round(cyc_c, 2),
-            t.travel_flag, 1, trip_no_work_outbound_baht(t, first_no_work, cfg),
-            (
-                int(ret_by_pd.get((str(t.plate), t.dest_date), 0))
-                if firsts.get((t.plate, t.dest_date)) is not None
-                and id(firsts.get((t.plate, t.dest_date))) == id(t)
-                else 0
-            ),
+            t.travel_flag, 1,
+            rate, dw50, dw100, nw50, ret_manual,
+        ])
+
+    # --- Trips Pricing (all rows) ---
+    tp = wb.create_sheet("Trips_Pricing_All")
+    tp.append([
+        "Dest_In_date", "Plate",
+        "Trip_rate_baht", "Downtime_0_trip_baht", "Downtime_1_trip_baht",
+        "Blank_run_baht", "Return_job_baht",
+    ])
+    for t in sorted(trips, key=lambda x: (x.dest_date, x.plate, x.d_in)):
+        rate = trip_rate_baht(t.dest_date, cfg)
+        ft = firsts.get((t.plate, t.dest_date))
+        frs = fifty_by_lists.get((str(t.plate), t.dest_date), [])
+        dw50 = dw100 = 0
+        if ft is not None and id(ft) == id(t):
+            dw50, dw100 = _split_fifty_surcharge_50_100(frs)
+        nw50 = trip_no_work_outbound_baht(t, first_no_work, cfg)
+        ret_manual = (
+            int(ret_by_pd.get((str(t.plate), t.dest_date), 0))
+            if ft is not None and id(ft) == id(t)
+            else 0
+        )
+        tp.append([
+            t.dest_date, t.plate,
+            rate, dw50, dw100,
+            nw50, ret_manual,
         ])
 
     # --- Unmatched Log ---

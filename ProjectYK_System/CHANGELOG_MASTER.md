@@ -2,6 +2,23 @@
 
 สรุปการตัดสินใจสำคัญระดับภาพรวมข้ามทุกโมดูล
 
+## 2026-05-05 (Claude Code — `CLAUDE.md` ที่ราก repo)
+
+- เพิ่ม **`CLAUDE.md`** ที่ราก `Project YK`: บริบทโปรเจกต์, ลำดับอ่านบังคับ, กฎเงิน/ข้อมูล, การทำงานคู่กับ Cursor, ท่าประหยัดโทเค็น, และ **แผนแบบ milestone (ไม่บังคับ Gantt SaaS 33 สัปดาห์)** — อ้าง `NEXT_ACTION_PLAN.md` เป็นของจริง
+
+## 2026-05-06 (Vibecoding playbook — Cursor -> Claude Code, ครบ 3 ไซท์)
+
+- เพิ่มเอกสาร **`ProjectYK_System/TransportRateCalculator/docs/CLAUDE_CODE_VIBECODING_PLAYBOOK.md`**: working contract, DoD, preflight บังคับ 4 checks, จุดโฟกัสรายไซต์ (BigC/LCB/AYU), token-saving rules, และ prompt อังกฤษพร้อมใช้
+- อัปเดต **`ProjectYK_System/AI_CURSOR_CLAUDE_WORKFLOW.md`** เพิ่ม “Prompt mode สำหรับโอ (Vibecoding)” เพื่อให้ Cursor สรุป prompt อังกฤษที่คุมความเสี่ยงข้อมูลเงินและบังคับ recompute before/after
+
+## 2026-05-05 (Oatside Excel — `Trip_Detail` เติมคอลัมน์ราคา)
+
+- **`Oatside/build_oatside_reports.py`**: ชีต `Trip_Detail` เพิ่ม `Trip_rate_baht`, `Downtime_50_baht`, `Downtime_100_baht` (คง `Nw_outbound50_baht`, `Return_manual_baht`) โดยคำนวณตามกติกาเดียวกับหน้า `trips.html` (split +50/+100 เฉพาะเที่ยวแรกของทะเบียนในวัน `Dest_In`)
+
+## 2026-05-05 (Oatside Excel — เพิ่มไฟล์ `15_Trips_Pricing_All.xlsx`)
+
+- **`Oatside/build_oatside_reports.py`**: เพิ่มชีต/ไฟล์ส่งออก `Trips_Pricing_All` สำหรับ “รายการราคาเที่ยวทั้งหมด” คอลัมน์ `Dest_In_date`, `Plate`, `Trip_rate_baht`, `Downtime_0_trip_baht`, `Downtime_1_trip_baht`, `Blank_run_baht`, `Return_job_baht`
+
 ## 2026-05-01 (Oatside — ซ่อน/แสดงคอลัมน์บน `trips.html` + หน้า plate)
 
 - **`Oatside/build_oatside_reports.py`**: แผง **แสดง/ซ่อนคอลัมน์** (checkbox + `localStorage` ต่อ path + ตาราง) สำหรับ `#tripsAllTable` / `#plateTripsTable` — สคริปต์ `_COL_TOGGLE_JS`

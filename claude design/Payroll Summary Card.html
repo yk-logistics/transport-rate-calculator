@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payroll Summary Card</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; background: #0f1117; }
+    body { font-family: 'IBM Plex Sans Thai', sans-serif; }
+    #root { width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+
+<script type="text/babel">
+/* ─── TOKENS ─────────────────────────────────────────── */
+const T = {
+  // Backgrounds
+  bgDeep:    '#0b0e16',
+  bgCard:    '#13172a',
+  bgCardAlt: '#0e1220',
+  bgSurface: '#1a1f35',
+  bgLight:   '#f5f4f0',
+  bgLightSurface: '#eceae3',
+
+  // Text
+  textPrimary:   '#e8e6de',
+  textSecondary: '#8b8fa8',
+  textMuted:     '#555970',
+  textDark:      '#1a1f35',
+  textDarkSub:   '#4a4f6a',
+
+  // Accent — same chroma/lightness, different hues
+  accentIndigo:  'oklch(0.62 0.18 260)',
+  accentTeal:    'oklch(0.62 0.18 185)',
+  accentAmber:   'oklch(0.62 0.18 75)',
+
+  // Status
+  statusDraft:   { bg: 'oklch(0.30 0.06 260)', text: 'oklch(0.72 0.12 260)', dot: 'oklch(0.62 0.18 260)' },
+  statusPending: { bg: 'oklch(0.30 0.08 75)',  text: 'oklch(0.78 0.14 75)',  dot: 'oklch(0.70 0.18 75)'  },
+  statusApproved:{ bg: 'oklch(0.28 0.07 145)', text: 'oklch(0.72 0.12 145)', dot: 'oklch(0.62 0.18 145)' },
+
+  // Type scale
+  fs10: '10px', fs11: '11px', fs12: '12px', fs13: '13px',
+  fs14: '14px', fs16: '16px', fs18: '18px', fs22: '22px',
+  fs28: '28px', fs36: '36px',
+};
+
+/* ─── SHARED MICRO-COMPONENTS ───────────────────────── */
+function StatusBadge({ status }) {
+  const map = {
+    draft:    { label: 'ฉบับร่าง',   ...T.statusDraft },
+    pending:  { label: 'รอการอนุมัติ', ...T.statusPending },
+    approved: { label: 'อนุมัติแล้ว', ...T.statusApproved },
+  };
+  const s = map[status];
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      padding: '3px 9px', borderRadius: 4,
+      background: s.bg, color: s.text,
+      fontSize: T.fs11, fontWeight: 500, letterSpacing: '0.02em',
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.dot, flexShrink: 0 }}></span>
+      {s.label}
+    </span>
+  );
+}
+
+function Divider({ light }) {
+  return <div style={{ height: 1, background: light ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.07)', margin: '14px 0' }}></div>;
+}
+
+function BreakdownRow({ label, value, accent, light }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+      <span style={{ fontSize: T.fs13, color: light ? T.textDarkSub : T.textSecondary }}>{label}</span>
+      <span style={{
+        fontSize: T.fs13, fontFamily: 'IBM Plex Mono, monospace',
+        fontWeight: 500,
+        color: accent ? T.accentTeal : (light ? T.textDark : T.textPrimary),
+      }}>{value}</span>
+    </div>
+  );
+}
+
+function ActionBtn({ label, variant = 'ghost', light, onClick }) {
+  const base = {
+    padding: '7px 16px', borderRadius: 5, fontSize: T.fs13,
+    fontFamily: 'IBM Plex Sans Thai, sans-serif',
+    fontWeight: 500, cursor: 'pointer', border: 'none',
+    transition: 'opacity 0.15s, background 0.15s',
+    letterSpacing: '0.01em',
+  };
+  const styles = {
+    primary: { background: T.accentIndigo, color: '#fff' },
+    danger:  { background: 'oklch(0.42 0.18 20)', color: '#fff' },
+    ghost:   light
+      ? { background: 'transparent', border: '1px solid rgba(26,31,53,0.18)', color: T.textDark }
+      : { background: 'transparent', border: '1px solid rgba(255,255,255,0.14)', color: T.textPrimary },
+  };
+  return (
+    <button style={{ ...base, ...styles[variant] }}
+      onMouseEnter={e => e.currentTarget.style.opacity = '0.75'}
+      onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+    >{label}</button>
+  );
+}
+
+/* ─────────────────────────────────────────────────────── */
+/* CARD A — Minimal Data-Forward (dark)                   */
+/* ─────────────────────────────────────────────────────── */
+function CardA() {
+  const [clicked, setClicked] = React.useState(null);
+  return (
+    <div style={{
+      width: 420, background: T.bgCard,
+      borderRadius: 10, overflow: 'hidden',
+      boxShadow: '0 8px 40px rgba(0,0,0,0.55)',
+      border: '1px solid rgba(255,255,255,0.06)',
+    }}>
+      {/* Header strip */}
+      <div style={{
+        padding: '12px 22px',
+        background: T.bgCardAlt,
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <div>
+          <div style={{ fontSize: T.fs11, color: T.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 2 }}>รอบเงินเดือน</div>
+          <div style={{ fontSize: T.fs14, color: T.textPrimary, fontWeight: 600 }}>เมษายน 2568</div>
+        </div>
+        <StatusBadge status="draft" />
+      </div>
+
+      {/* Net pay hero */}
+      <div style={{ padding: '24px 22px 18px' }}>
+        <div style={{ fontSize: T.fs12, color: T.textMuted, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>ยอดสุทธิ</div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <span style={{ fontSize: T.fs36, fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600, color: T.textPrimary, letterSpacing: '-0.02em' }}>2,847,500</span>
+          <span style={{ fontSize: T.fs16, color: T.textSecondary, fontWeight: 400 }}>บาท</span>
+        </div>
+        <div style={{ fontSize: T.fs12, color: T.textMuted, marginTop: 4 }}>พนักงาน 134 ราย</div>
+      </div>
+
+      <Divider />
+
+      {/* Breakdown */}
+      <div style={{ padding: '0 22px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+        <BreakdownRow label="เงินเดือนพื้นฐาน" value="2,450,000" />
+        <BreakdownRow label="ค่าล่วงเวลา" value="210,000" />
+        <BreakdownRow label="โบนัสพิเศษ" value="325,000" />
+        <BreakdownRow label="หัก ณ ที่จ่าย" value="−137,500" accent />
+      </div>
+
+      <Divider />
+
+      {/* Actions */}
+      <div style={{ padding: '0 22px 20px', display: 'flex', gap: 8 }}>
+        <ActionBtn label="สดย่อย" variant="ghost" />
+        <ActionBtn label="คำนวณใหม่" variant="ghost" />
+        <ActionBtn label="ปิดรอบ" variant="primary" />
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────── */
+/* CARD B — Status-Rich with Progress (dark)              */
+/* ─────────────────────────────────────────────────────── */
+function CardB() {
+  const steps = ['จัดทำข้อมูล', 'ตรวจสอบ', 'อนุมัติ', 'จ่ายเงิน'];
+  const current = 1;
+
+  return (
+    <div style={{
+      width: 460, background: T.bgCard,
+      borderRadius: 10, overflow: 'hidden',
+      boxShadow: '0 8px 40px rgba(0,0,0,0.55)',
+      border: '1px solid rgba(255,255,255,0.06)',
+    }}>
+      {/* Top bar with accent line */}
+      <div style={{ height: 3, background: `linear-gradient(90deg, ${T.accentIndigo} 0%, ${T.accentTeal} 100%)` }}></div>
+
+      {/* Header */}
+      <div style={{ padding: '18px 24px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontSize: T.fs11, color: T.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>สรุปเงินเดือน</div>
+          <div style={{ fontSize: T.fs18, color: T.textPrimary, fontWeight: 600 }}>เมษายน 2568</div>
+        </div>
+        <StatusBadge status="pending" />
+      </div>
+
+      {/* Step progress */}
+      <div style={{ padding: '0 24px 18px', display: 'flex', alignItems: 'center', gap: 0 }}>
+        {steps.map((s, i) => (
+          <React.Fragment key={i}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flex: 1 }}>
+              <div style={{
+                width: 24, height: 24, borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: T.fs11, fontWeight: 600,
+                background: i < current ? T.accentIndigo : i === current ? T.accentAmber : T.bgSurface,
+                color: i <= current ? '#fff' : T.textMuted,
+                border: i === current ? `2px solid ${T.accentAmber}` : '2px solid transparent',
+                boxShadow: i === current ? `0 0 0 3px oklch(0.30 0.08 75)` : 'none',
+                transition: 'all 0.2s',
+              }}>
+                {i < current ? '✓' : i + 1}
+              </div>
+              <span style={{ fontSize: T.fs10, color: i <= current ? T.textSecondary : T.textMuted, textAlign: 'center', whiteSpace: 'nowrap' }}>{s}</span>
+            </div>
+            {i < steps.length - 1 && (
+              <div style={{ flex: 1, height: 1, background: i < current ? T.accentIndigo : 'rgba(255,255,255,0.1)', marginBottom: 14 }}></div>
+            )}
+          </React.Fragment>
+        ))}
+      </div>
+
+      {/* 3-column stat row */}
+      <div style={{
+        margin: '0 24px', padding: '14px 0',
+        borderTop: '1px solid rgba(255,255,255,0.07)',
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+        display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
+      }}>
+        {[
+          { label: 'ยอดสุทธิ',  value: '2,847,500', unit: 'บาท' },
+          { label: 'พนักงาน',   value: '134',        unit: 'ราย' },
+          { label: 'หัก ณ ที่จ่าย', value: '137,500', unit: 'บาท' },
+        ].map((item, i) => (
+          <div key={i} style={{
+            padding: '0 16px',
+            borderRight: i < 2 ? '1px solid rgba(255,255,255,0.07)' : 'none',
+          }}>
+            <div style={{ fontSize: T.fs10, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>{item.label}</div>
+            <div style={{ fontSize: T.fs22, fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600, color: T.textPrimary, lineHeight: 1 }}>{item.value}</div>
+            <div style={{ fontSize: T.fs11, color: T.textSecondary, marginTop: 2 }}>{item.unit}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Actions */}
+      <div style={{ padding: '14px 24px 20px', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <ActionBtn label="สดย่อย" variant="ghost" />
+        <ActionBtn label="คำนวณใหม่" variant="ghost" />
+        <ActionBtn label="ปิดรอบ" variant="primary" />
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────── */
+/* CARD C — Light / Compact (for dashboard sidebar)       */
+/* ─────────────────────────────────────────────────────── */
+function CardC() {
+  return (
+    <div style={{
+      width: 380, background: T.bgLight,
+      borderRadius: 10, overflow: 'hidden',
+      boxShadow: '0 4px 24px rgba(0,0,0,0.10)',
+      border: '1px solid rgba(26,31,53,0.10)',
+    }}>
+      {/* Header */}
+      <div style={{
+        padding: '14px 20px',
+        background: T.bgLightSurface,
+        borderBottom: '1px solid rgba(26,31,53,0.08)',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      }}>
+        <div>
+          <div style={{ fontSize: T.fs11, color: '#8b8888', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 1 }}>รอบเงินเดือน</div>
+          <div style={{ fontSize: T.fs14, color: T.textDark, fontWeight: 600 }}>เมษายน 2568</div>
+        </div>
+        {/* Light-mode status badge */}
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          padding: '3px 9px', borderRadius: 4,
+          background: 'oklch(0.88 0.06 145)',
+          color: 'oklch(0.38 0.12 145)',
+          fontSize: T.fs11, fontWeight: 500,
+        }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'oklch(0.55 0.18 145)', flexShrink: 0 }}></span>
+          อนุมัติแล้ว
+        </span>
+      </div>
+
+      {/* Net pay */}
+      <div style={{ padding: '20px 20px 14px' }}>
+        <div style={{ fontSize: T.fs11, color: '#9a9898', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 5 }}>ยอดสุทธิ</div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
+          <span style={{ fontSize: T.fs28, fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600, color: T.textDark, letterSpacing: '-0.02em' }}>2,847,500</span>
+          <span style={{ fontSize: T.fs14, color: T.textDarkSub }}>บาท</span>
+        </div>
+        <div style={{ fontSize: T.fs12, color: '#9a9898', marginTop: 3 }}>พนักงาน 134 ราย</div>
+      </div>
+
+      <Divider light />
+
+      {/* Breakdown rows */}
+      <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <BreakdownRow label="เงินเดือนพื้นฐาน" value="2,450,000" light />
+        <BreakdownRow label="ค่าล่วงเวลา" value="210,000" light />
+        <BreakdownRow label="หัก ณ ที่จ่าย" value="−137,500" accent light />
+      </div>
+
+      <Divider light />
+
+      {/* Footer: last updated + actions */}
+      <div style={{ padding: '0 20px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: T.fs11, color: '#aba9a4' }}>อัปเดต 04 พ.ค. 2568</span>
+        <div style={{ display: 'flex', gap: 7 }}>
+          <ActionBtn label="สดย่อย" variant="ghost" light />
+          <ActionBtn label="คำนวณใหม่" variant="ghost" light />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────── */
+/* DESIGN SYSTEM REFERENCE CARD                           */
+/* ─────────────────────────────────────────────────────── */
+function TokenRef() {
+  const tokens = [
+    { name: '--bg-card', value: T.bgCard, hex: '#13172a', label: 'Card background' },
+    { name: '--accent-indigo', value: T.accentIndigo, hex: 'oklch(.62 .18 260)', label: 'Primary action' },
+    { name: '--accent-teal', value: T.accentTeal, hex: 'oklch(.62 .18 185)', label: 'Gradient end / positive' },
+    { name: '--accent-amber', value: T.accentAmber, hex: 'oklch(.62 .18 75)', label: 'Active step / warning' },
+    { name: '--text-primary', value: T.textPrimary, hex: '#e8e6de', label: 'Body text (dark)' },
+    { name: '--bg-light', value: T.bgLight, hex: '#f5f4f0', label: 'Card background (light)' },
+  ];
+  const sizes = [
+    { label: 'Hero number', size: '36px / 600', use: 'ยอดสุทธิ value' },
+    { label: 'Sub-hero',    size: '28px / 600', use: 'Light card net pay' },
+    { label: 'Section num', size: '22px / 600', use: 'Stat columns' },
+    { label: 'Card title',  size: '18px / 600', use: 'Period label' },
+    { label: 'Label',       size: '14px / 600', use: 'Period label small' },
+    { label: 'Body',        size: '13px / 400', use: 'Breakdown rows' },
+    { label: 'Caption',     size: '11px / 500', use: 'Badges, meta' },
+    { label: 'Micro',       size: '10px / 400', use: 'Step labels, upcase' },
+  ];
+
+  return (
+    <div style={{ width: 520, background: T.bgCard, borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+      <div style={{ padding: '16px 22px 10px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <div style={{ fontSize: T.fs11, color: T.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Color Tokens</div>
+      </div>
+      <div style={{ padding: '14px 22px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {tokens.map(t => (
+          <div key={t.name} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 32, height: 22, borderRadius: 4, background: t.value, border: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}></div>
+            <code style={{ fontSize: T.fs11, color: T.accentIndigo, fontFamily: 'IBM Plex Mono, monospace', width: 140 }}>{t.name}</code>
+            <span style={{ fontSize: T.fs11, color: T.textMuted, width: 160, fontFamily: 'IBM Plex Mono, monospace' }}>{t.hex}</span>
+            <span style={{ fontSize: T.fs11, color: T.textSecondary }}>{t.label}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ padding: '12px 22px 10px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+        <div style={{ fontSize: T.fs11, color: T.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>Type Scale — IBM Plex Sans Thai</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {sizes.map(s => (
+            <div key={s.label} style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
+              <span style={{ fontSize: T.fs11, color: T.textMuted, width: 100 }}>{s.label}</span>
+              <code style={{ fontSize: T.fs11, color: T.accentTeal, fontFamily: 'IBM Plex Mono, monospace', width: 100 }}>{s.size}</code>
+              <span style={{ fontSize: T.fs11, color: T.textSecondary }}>{s.use}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Accessibility notes */}
+      <div style={{ padding: '12px 22px 16px', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ fontSize: T.fs11, color: T.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 2 }}>Accessibility Notes</div>
+        {[
+          ['1', 'Color contrast', 'All body text (#e8e6de on #13172a) meets WCAG AA ≥ 4.5:1. Muted text (#8b8fa8) passes 3:1 for large/bold.'],
+          ['2', 'Action labels', '"ปิดรอบ" is a destructive irreversible action — consider adding a confirmation dialog or aria-describedby warning before commit.'],
+          ['3', 'Status badges', 'Color alone does not convey status — each badge pairs color with a Thai label and a dot, so it works for color-blind users. Ensure badges have role="status" or aria-label.'],
+        ].map(([n, t, d]) => (
+          <div key={n} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <div style={{ width: 18, height: 18, borderRadius: '50%', background: T.accentIndigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: T.fs10, color: '#fff', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{n}</div>
+            <div>
+              <div style={{ fontSize: T.fs12, color: T.textPrimary, fontWeight: 600, marginBottom: 2 }}>{t}</div>
+              <div style={{ fontSize: T.fs11, color: T.textSecondary, lineHeight: 1.55 }}>{d}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────── */
+/* WIREFRAME LAYOUT CARD                                  */
+/* ─────────────────────────────────────────────────────── */
+function WireframeCard() {
+  const lines = [
+`┌─────────────────────────────────────┐
+│ รอบเงินเดือน: เมษายน 2568  [สถานะ] │
+├─────────────────────────────────────┤
+│  ยอดสุทธิ                           │
+│  2,847,500  บาท                     │
+│  พนักงาน 134 ราย                    │
+├─────────────────────────────────────┤
+│  เงินเดือนพื้นฐาน  ............. X  │
+│  ค่าล่วงเวลา  .................. X  │
+│  โบนัสพิเศษ  ................... X  │
+│  หัก ณ ที่จ่าย  .............. −X  │
+├─────────────────────────────────────┤
+│  [สดย่อย]  [คำนวณใหม่]  [ปิดรอบ]  │
+└─────────────────────────────────────┘`,
+  ];
+
+  return (
+    <div style={{ width: 460, background: T.bgCard, borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+      <div style={{ padding: '14px 22px 10px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <div style={{ fontSize: T.fs11, color: T.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Wireframe Layout</div>
+      </div>
+      <div style={{ padding: '16px 22px' }}>
+        <pre style={{
+          fontFamily: 'IBM Plex Mono, monospace',
+          fontSize: T.fs12,
+          color: T.textSecondary,
+          lineHeight: 1.7,
+          whiteSpace: 'pre',
+          overflowX: 'auto',
+        }}>{lines[0]}</pre>
+        <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 5 }}>
+          {[
+            '• Header strip: period label left · status badge right',
+            '• Hero block: ยอดสุทธิ (36px mono) + unit + employee count',
+            '• Breakdown rows: label ←→ value (right-aligned mono)',
+            '• Footer: ghost × 2 + filled primary (ปิดรอบ, right-side)',
+          ].map((b, i) => (
+            <div key={i} style={{ fontSize: T.fs11, color: T.textSecondary }}>{b}</div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────── */
+/* APP                                                    */
+/* ─────────────────────────────────────────────────────── */
+function App() {
+  return (
+    <DesignCanvas title="Payroll Summary Card" subtitle="3 Variations · IBM Plex Sans Thai · Dark & Light">
+      <DCSection id="cards" title="Card Variations">
+        <DCArtboard id="a" label="A — Minimal Dark" width={420} height={340}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', background: T.bgDeep, padding: 28 }}>
+            <CardA />
+          </div>
+        </DCArtboard>
+        <DCArtboard id="b" label="B — Status + Progress" width={460} height={380}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', background: T.bgDeep, padding: 28 }}>
+            <CardB />
+          </div>
+        </DCArtboard>
+        <DCArtboard id="c" label="C — Light / Sidebar" width={380} height={320}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', background: '#e8e6df', padding: 28 }}>
+            <CardC />
+          </div>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="spec" title="Spec & Tokens">
+        <DCArtboard id="wireframe" label="Wireframe" width={460} height={360}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', background: T.bgDeep, padding: 28 }}>
+            <WireframeCard />
+          </div>
+        </DCArtboard>
+        <DCArtboard id="tokens" label="Color Tokens + Type Scale + A11y" width={520} height={600}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', background: T.bgDeep, padding: 28 }}>
+            <TokenRef />
+          </div>
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>

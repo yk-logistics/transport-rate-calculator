@@ -2,6 +2,18 @@
 
 แผนงานลำดับถัดไป (เรียงตามความสำคัญ)
 
+## ⭐ Quick Status (2026-05-05 | Claude Code onboarding)
+
+- [done] **`CLAUDE.md`** ที่ราก repo — คู่มือ CC: บริบท YK, อ่านก่อนลงมือ, กฎเงิน, HANDOFF ↔ `AI_CURSOR_CLAUDE_WORKFLOW.md`, ประหยัดโทเค็น, เฟสอ้างอิง (ไม่ต้องทำ Gantt Accounting SaaS แบบในเน็ตทั้งก้อน)
+- [next] เปิด Claude Code จากราก `Project YK` → ทดลองเซสชันสั้น 1 scope → วางบล็อก HANDOFF จาก Cursor เมื่อต้องส่งต่อ
+
+## ⭐ Quick Status (2026-05-06 | Vibecoding Prompt Pack ครบ 3 ไซท์)
+
+- [done] เพิ่ม **`ProjectYK_System/TransportRateCalculator/docs/CLAUDE_CODE_VIBECODING_PLAYBOOK.md`**: playbook ใช้งานจริงสำหรับ `BigC -> LCB -> AYU` พร้อม preflight 4 checks, DoD, token-saving rules, และ prompt อังกฤษ copy-ready
+- [done] อัปเดต **`ProjectYK_System/AI_CURSOR_CLAUDE_WORKFLOW.md`**: เพิ่ม “Prompt mode สำหรับโอ (Vibecoding)” ให้ Cursor สรุป prompt อังกฤษแบบคุมความเสี่ยงข้อมูลเงิน + บังคับ recompute before/after
+- [next] ใช้ prompt pack นี้กับงานตรวจความถูกต้องรอบแรกของระบบเงินเดือน/นำเข้า (เริ่ม BigC ก่อน) และเก็บ baseline ตัวเลข before/after
+- [next] เพิ่มเอกสาร baseline verification ต่อไซต์ (query/checklist ที่รันซ้ำรายเดือน) เพื่อปิดความเสี่ยง “คำนวณผิดเงียบๆ”
+
 ## ⭐ Quick Status (2026-05-02 | One Platform — หน้า pitch สำหรับ Pages)
 
 - [done] **`reports/one-platform-status/`** บน **`yk-logistics/transport-rate-calculator`** — `index.html` + **`public-stats.json`** (สถิติรวมจริงจาก `app.db`) + `build_public_stats.py` + README — push แล้ว (ลิงก์ด้านล่าง CONTEXT_LOG)
@@ -16,6 +28,8 @@
 - [done] **`manual_return_trips`** (ค่าขนส่งขากลับ flat +7,500 — ไม่เพิ่ม matched; คอลัมน์ **ขากลับ(฿)** + ชีต `Manual_Return_Trips`) — Session #104
 - [done] **`trips.html` กรอง/ค้นหาทะเบียน** + **`index.html` พับหัวข้อสรุป** (`section-fold`, Audit/รายทะเบียน style เดียวกัน) — `apply_oatside_ui_trips_filter_index_fold.py` — Session #105
 - [done] **Excel ลูกค้า**: ไฟล์แยกต่อตารางใน **`exports/*.xlsx`** + จัดรูปหัวตาราง/สีแถว + ลิงก์จาก **`index.html`** — `patch_oatside_excel_exports.py` — Session #106
+- [done] **Excel `Trip_Detail`**: เติมคอลัมน์ราคา (`Trip_rate_baht`, `Downtime_50_baht`, `Downtime_100_baht`, พร้อม `Nw_outbound50_baht`/`Return_manual_baht`) ให้ตรง logic หน้าเที่ยวทั้งหมด — Session #113
+- [done] **ไฟล์ราคาแยกทั้งชุด**: `exports/15_Trips_Pricing_All.xlsx` (วันที่, ทะเบียน, ค่าขนส่ง, ค่าเสียเวลา 0/1 เที่ยว, ค่าตีเปล่า, ค่างานขากลับ) — Session #114
 - [done] **UX ลูกค้า**: hero ชี้ `trips.html` + Excel ขวาหัวแต่ละ `<details>` + ตัดบล็อกคำอธิบายสี — `patch_oatside_hero_xlsx_inline.py` — Session #107
 - [done] **`trips.html` + หน้า plate**: แถบ **แสดง/ซ่อนคอลัมน์** (checkbox + `localStorage`) สำหรับจอแคบ — `build_oatside_reports.py` + `apply_oatside_col_toggle.py` — Session #111
 - [done] **HTML Oatside — หลายป้าย/เซลล์ + ตีเปล่า (No-work recovery)**: รวม `nw_rows` ในคอลัมน์ส่วนเพิ่มตาราง (2); หน้า plate รองรับหลาย fifty ต่อวัน — `patch_oatside_multi_badge_nw.py`

@@ -96,6 +96,23 @@ Graphify: ถ้ายังไม่อินเด็กซ์ล่าสุ�
 3. **ไม่สัญญา** ว่าจะควบคุม `claude` แทนผู้ใช้ — ให้ผู้ใช้วางบล็อกเองหนึ่งครั้ง
 4. ใส่หัวข้อ **ท่าประหยัดโทเค็นที่ใช้ในรอบนี้** ตามข้อ **ก)** ด้วย
 
+## Prompt mode สำหรับโอ (Vibecoding)
+
+ถ้าโอสั่งว่า “ช่วยเขียน prompt อังกฤษให้ส่ง Claude Code” ให้ Cursor ใช้โหมดนี้ทันที:
+
+1. สรุปโจทย์ภาษาไทยของโอเป็นอังกฤษแบบสั้น (ไม่เกิน 12 บรรทัด)
+2. ใส่บล็อกข้อบังคับ 4 checks:
+   - unlinked records
+   - cycle tag integrity
+   - cross-site name collision
+   - source mismatch (daily/fuel/petty/payroll)
+3. บังคับ Claude Code รายงานผลเป็นตัวเลข (`count + amount`) เมื่อมีความเสี่ยงข้อมูลเงินตกหล่น
+4. บังคับให้ Claude Code recompute และสรุป before/after
+5. ถ้ามีจุดกำกวมที่กระทบเงิน ให้ถามกลับไม่เกิน 3 ข้อก่อนลงมือ
+
+เอกสารอ้างอิง prompt pack:
+- `ProjectYK_System/TransportRateCalculator/docs/CLAUDE_CODE_VIBECODING_PLAYBOOK.md`
+
 ## อ้างอิงภายนอก
 
 - rtk: https://github.com/rtk-ai/rtk  

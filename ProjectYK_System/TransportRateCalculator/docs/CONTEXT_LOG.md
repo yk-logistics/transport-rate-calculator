@@ -3345,3 +3345,104 @@ o_work_outbound_rows ใช้เรทตาม **วัน anchor R** ไม�
 
 ### Action ถัดไป
 - เปิด **`trips.html`** → คลิก **แสดง / ซ่อนคอลัมน์** → ยกเลิกบางคอลัมน์แล้วเลื่อนตาราง — ยืนยันบนมือถือ; ถ้า deploy GitHub Pages ให้ build + copy ชุดเดิม
+
+---
+
+## 2026-05-05 (Session Summary #112 - Claude Code: จำ workflow + เริ่มใช้ `CLAUDE.md`; แผนแบบ Gantt)
+
+### บริบทจากผู้ใช้
+- ต้องการ **จำและเริ่มใช้** แนวทางคุยกับ Claude Code (ประหยัดโทเค็น, HANDOFF, Cursor vs CC)
+- ถามว่าต้องวางแผนแบบ **Gantt Accounting SaaS** (หลายสัปดาห์) เหมือนในรูปจากเน็ตหรือไม่
+- ต้องการคุยไทยกับ Cursor ได้ และส่งต่อ CC เป็นบล็อกสั้น
+
+### การตัดสินใจรอบนี้
+- **ไม่บังคับ Gantt ยาวแบบ SaaS บัญชีทั้งก้อน** — ใช้หลักการ “แตกเฟส + ทีละกล่อง” เทียบกับ **`NEXT_ACTION_PLAN.md`** และ milestone จริงของ YK (daily/billing/petty/payroll/finance/driver/อนาคต Line OA/Open-Book)
+- เพิ่ม **`CLAUDE.md` ที่ราก repo** ให้ CC อ่านบริบทคงที่: สแต็กล็อก, ลำดับอ่าน, กฎเงิน, ประหยัดโทเค็น, ขอบเขต Cursor vs `claude`, ตารางเฟสอ้างอิจสั้น
+- ย้ำ: Agent ใน Cursor **ไม่ได้ควบคุมเซสชัน Claude Code แทนผู้ใช้** — โอรัน `claude` แล้ววาง HANDOFF / prompt เอง
+
+### สิ่งที่ทำแล้ว
+- สร้าง `CLAUDE.md` ที่ราก `Project YK`
+- อัปเดต `CHANGELOG_MASTER.md`, `NEXT_ACTION_PLAN.md`, `CONTEXT_LOG.md` (เซสชันนี้)
+
+### Action ถัดไป
+- โอ `cd` ไปรากโปรเจกต์ → รัน `claude` → ทดลอง 1 งานเล็ก + วางบล็อก HANDOFF จาก `AI_CURSOR_CLAUDE_WORKFLOW.md` เมื่อส่งต่อจาก Cursor
+
+---
+
+## 2026-05-05 (Session Summary #113 - Oatside Excel: หน้ารวมเที่ยวเติมคอลัมน์ราคา)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้แจ้งว่าไฟล์ **Excel หน้าเที่ยวรวม** ไม่มีข้อมูลราคาในแถวเที่ยว
+
+### การตัดสินใจรอบนี้
+- เพิ่มคอลัมน์ราคาบนชีต **`Trip_Detail`** ให้ตรงกับหน้า `trips.html`: `Trip_rate_baht`, `Downtime_50_baht`, `Downtime_100_baht`, `Nw_outbound50_baht`, `Return_manual_baht`
+- หลักคิดราคาใช้ logic เดิม: `Trip_rate_baht` แสดงทุกแถวเที่ยว, ส่วน +50/+100 และค่าขากลับ manual แสดงเฉพาะเที่ยวแรกของ `(plate, dest_date)` ตามกติกาปัจจุบัน
+
+### สิ่งที่ทำแล้ว
+- แก้ `Oatside/build_oatside_reports.py` ในบล็อกเขียนชีต `Trip_Detail` (เพิ่ม header + คำนวณ `dw50/dw100` จาก `fifty_rows`)
+- รัน `python -m py_compile Oatside/build_oatside_reports.py` ผ่าน
+- รัน `python Oatside/build_oatside_reports.py` สร้างรายงานใหม่แล้ว
+- ตรวจ `exports/05_Trip_Detail.xlsx` แล้วพบหัวคอลัมน์ราคาและค่าจริงในแถวข้อมูล
+
+### Action ถัดไป
+- ให้โอเปิด `exports/05_Trip_Detail.xlsx` ตรวจหัวคอลัมน์ท้ายชีตว่ามี 7 ช่องราคา/ธงครบ; ถ้าต้องการคอลัมน์ **ยอดรวมต่อเที่ยว (row total)** เพิ่มอีก 1 ช่อง แจ้งได้เลย
+
+---
+
+## 2026-05-05 (Session Summary #114 - Oatside Excel: เพิ่มไฟล์ราคาเที่ยวทั้งหมด)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้ขอไฟล์ Excel แยกอีกไฟล์หนึ่ง โดยต้องมีคอลัมน์: วันที่, ทะเบียน, ค่าขนส่ง, ค่าเสียเวลา(0 เที่ยว), ค่าเสียเวลา(1เที่ยว), ค่าตีเปล่า, ค่างานขากลับ และขอ “ทั้งหมด”
+
+### การตัดสินใจรอบนี้
+- เพิ่มชีตใหม่ `Trips_Pricing_All` และ export เป็นไฟล์ `exports/15_Trips_Pricing_All.xlsx`
+- ฟอร์แมตคอลัมน์ตามที่ผู้ใช้ขอ โดย map เป็นชื่อคอลัมน์ระบบ:
+  - `Dest_In_date`, `Plate`, `Trip_rate_baht`, `Downtime_0_trip_baht`, `Downtime_1_trip_baht`, `Blank_run_baht`, `Return_job_baht`
+- ใช้กติกาเดียวกับ `trips.html`/`Trip_Detail`:
+  - `Trip_rate_baht` ทุกเที่ยว
+  - ค่าเสียเวลา +50/+100 และค่างานขากลับ โผล่เฉพาะเที่ยวแรกของ `(plate, dest_date)`
+  - ค่าตีเปล่า (`Blank_run_baht`) จาก no-work outbound 50%
+
+### สิ่งที่ทำแล้ว
+- แก้ `Oatside/build_oatside_reports.py`:
+  - เพิ่มรายการใน `OATSIDE_EXPORT_TABLES` เป็นไฟล์ลำดับ `15_Trips_Pricing_All.xlsx`
+  - เพิ่มบล็อกเขียนชีต `Trips_Pricing_All` ใน `write_excel`
+- รัน `python -m py_compile Oatside/build_oatside_reports.py` ผ่าน
+- รัน `python Oatside/build_oatside_reports.py` ผ่าน และตรวจไฟล์ใหม่:
+  - ชีต `Trips_Pricing_All`, `rows=109`, `cols=7`, หัวคอลัมน์ครบ
+
+### Action ถัดไป
+- ให้โอเปิด `exports/15_Trips_Pricing_All.xlsx` ตรวจคอลัมน์ตรงตามที่สั่ง; ถ้าต้องการเปลี่ยนหัวคอลัมน์เป็นภาษาไทย 100% เดี๋ยวจัดให้ได้ทันที
+
+---
+
+## 2026-05-06 (Session Summary #115 - Claude Code Vibecoding: prompt อังกฤษ + guardrail ตรวจเงินครบ 3 ไซท์)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้สั่งให้ “ลงมือเลย” ทำเอกสาร `.md` สำหรับใช้งานจริงกับ Claude Code
+- ต้องการให้ Cursor คุยไทยแล้วสรุปเป็น prompt อังกฤษเพื่อส่ง Claude Code แบบประหยัดโทเค็น
+- ต้องครอบคลุมทุกไซต์ และย้ำว่าระบบยังต้องตรวจความถูกต้องด้านการคำนวณอีกมาก
+
+### การตัดสินใจรอบนี้
+- เพิ่ม playbook กลางสำหรับงาน Vibecoding ที่ล็อกเงื่อนไขด้านข้อมูลเงิน:
+  - Preflight 4 checks บังคับ: `unlinked`, `cycle tag`, `cross-site collision`, `source mismatch`
+  - บังคับ recompute + รายงาน before/after ทุกงานที่แตะ logic
+  - บังคับรายงานความเสี่ยงข้อมูลตกหล่นเป็น **จำนวนรายการ + ยอดเงิน**
+- ล็อกลำดับไซต์เริ่มต้นตามงานรายเดือน: **BigC -> LCB -> AYU**
+- อัปเดต workflow เดิมให้ Cursor มี “Prompt mode สำหรับโอ” โดยตรง
+
+### สิ่งที่ทำแล้ว
+- เพิ่มไฟล์ใหม่:
+  - `ProjectYK_System/TransportRateCalculator/docs/CLAUDE_CODE_VIBECODING_PLAYBOOK.md`
+    - Working contract, Definition of Done, preflight/recompute, focus รายไซต์, token-saving rules
+    - English prompt template + quick prompt pack (Payroll / Import / Billing Validation)
+- แก้ไฟล์:
+  - `ProjectYK_System/AI_CURSOR_CLAUDE_WORKFLOW.md`
+    - เพิ่มหัวข้อ “Prompt mode สำหรับโอ (Vibecoding)” เพื่อให้ Cursor สรุป prompt อังกฤษแบบสั้น-คุมความเสี่ยงเงิน
+- อัปเดต:
+  - `ProjectYK_System/CHANGELOG_MASTER.md`
+  - `ProjectYK_System/TransportRateCalculator/docs/NEXT_ACTION_PLAN.md`
+
+### Action ถัดไป
+- ใช้ prompt pack นี้เริ่มรอบตรวจจริงที่ **BigC** ก่อน แล้วค่อยไล่ LCB และ AYU
+- ทำ baseline verification ต่อไซต์ (query/checklist เดิมซ้ำได้ทุกเดือน) เพื่อปิดช่อง “คำนวณผิดเงียบๆ”
