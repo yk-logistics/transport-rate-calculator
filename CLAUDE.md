@@ -43,6 +43,20 @@
 4. **Graphify** — หลังโครงสร้างใหญ่เปลี่ยน: จากราก repo `cd` แล้ว `/graphify .` (ดูรายละเอียดใน workflow doc)
 5. **ความจำระยะยาวใน CC** — ใช้ปลั๊กอิน **claude-mem** ตาม `AI_CURSOR_CLAUDE_WORKFLOW.md`
 
+### Lean read policy (สำหรับงานเล็ก/ขอบเขตชัด)
+
+- ถ้าเป็นงาน scope เล็ก ให้เริ่มอ่านแค่:
+  1) `ProjectYK_System/AGENT_BOOTSTRAP.md`
+  2) `ProjectYK_System/MODULE_REGISTRY.md`
+- จากนั้นเข้าโค้ดเป้าหมายทันที (`ProjectYK_System/app/` และ template ที่เกี่ยว)
+- `CHANGELOG_MASTER.md` / `CONTEXT_LOG.md` / `NEXT_ACTION_PLAN.md` ให้อ่านเฉพาะตอนจำเป็น และอ่านเฉพาะช่วงท้ายล่าสุด
+- ถ้างานกระทบเงิน/import/payroll ให้กลับไปใช้โหมดรอบคอบเต็มรูปแบบ (ไม่ใช้ lean)
+- ใช้ snippet พร้อมวางได้ทันทีจาก:
+  - `ProjectYK_System/tools/CC_LEAN_START.txt`
+  - `ProjectYK_System/tools/CC_ULTRA_LEAN_5LINES.txt`
+  - `ProjectYK_System/tools/CC_BENCHMARK_LOG.md`
+- Team default: งานเล็กเริ่มจาก `CC_ULTRA_LEAN_5LINES.txt` ก่อน แล้วค่อย fallback ไป `CC_LEAN_START.txt` ถ้าเริ่มช้าหรือถามกลับเยอะ
+
 ## แผนแบบ “Gantt ในเน็ต” — ต้องทำเหมือนรูปไหม?
 
 **ไม่จำเป็นต้องมี Gantt 33 สัปดาห์แบบ Accounting SaaS ทั้งก้อน**

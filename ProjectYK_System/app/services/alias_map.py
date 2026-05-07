@@ -68,6 +68,36 @@ PERSON_ALIASES_BY_SITE: dict[str, dict[str, str]] = {
 }
 
 
+# Site-hint token table — ordered BigC → AYU → LCB (site priority per playbook).
+# Each entry: (tuple-of-substrings-to-check, canonical_site_code)
+_SITE_HINT_TOKENS: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("big c", "big-c", "bigc", "บิ๊กซี"), "BIGC"),
+    (("อยุธยา", "ayu"),                     "AYU"),
+    (("แหลม", "lcb", "แหลมฉบัง"),           "LCB"),
+)
+
+
+def site_from_requester(raw: str) -> str:
+    """Detect canonical site_code from a requester name that carries a site suffix.
+
+    Examples (old_value → canonical):
+      'สมัย BIG C'   → 'BIGC'
+      'สมพร BIG-C'   → 'BIGC'
+      'สมัย อยุธยา'  → 'AYU'
+      'สมพร แหลม'   → 'LCB'
+      'พ่อ'           → ''  (no hint — do not guess)
+
+    Returns '' when no recognisable site suffix is found.
+    """
+    if not raw:
+        return ""
+    low = raw.lower()
+    for tokens, site in _SITE_HINT_TOKENS:
+        if any(t in low for t in tokens):
+            return site
+    return ""
+
+
 def canonical_person_name(raw: str, site_code: str = "") -> str:
     site = normalize_site_code(site_code)
     key = normalize_person_name(raw)

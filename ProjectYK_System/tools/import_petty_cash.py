@@ -36,7 +36,7 @@ from sqlmodel import Session, SQLModel, create_engine, delete, select  # noqa: E
 
 import models  # noqa: E402
 from models import Employee, PettyCashTxn, SchemaInfo  # noqa: E402
-from services.alias_map import canonical_person_name, normalize_person_name, normalize_site_code  # noqa: E402
+from services.alias_map import canonical_person_name, normalize_person_name, normalize_site_code, site_from_requester  # noqa: E402
 
 DB_PATH = APP_DIR / "app.db"
 engine = create_engine(f"sqlite:///{DB_PATH}", echo=False, connect_args={"check_same_thread": False})
@@ -326,7 +326,8 @@ def import_file(
 ) -> dict:
     stats = {"sheets": 0, "rows_scanned": 0, "rows_imported": 0, "rows_skipped_empty": 0,
             "rows_skipped_no_date": 0, "with_deduction": 0, "with_pending": 0,
-            "with_settled_offline": 0}
+            "with_settled_offline": 0, "site_inferred_bigc": 0, "site_inferred_ayu": 0,
+            "site_inferred_lcb": 0}
     if not path.exists():
         print(f"  [SKIP] missing: {path}")
         return stats
@@ -432,9 +433,19 @@ def import_file(
             note_txt = _clean_header(col("remark") or "")
             ded_status = detect_deduction_status(memo, note_txt, deduct_amt)
 
+            # Guardrail #1: pre-assign site_code from requester suffix so cross-site
+            # contamination is caught at insert time, not only during backfill.
+            effective_site = site
+            if not effective_site and requester:
+                effective_site = site_from_requester(requester)
+                if effective_site:
+                    stats[f"site_inferred_{effective_site.lower()}"] = (
+                        stats.get(f"site_inferred_{effective_site.lower()}", 0) + 1
+                    )
+
             txn = PettyCashTxn(
                 txn_date=d,
-                site_code=site,
+                site_code=effective_site,
                 direction=direction,
                 amount=round(amount, 2),
                 requester_raw=requester,
@@ -464,7 +475,7 @@ def import_file(
                 stats["with_sheet_cycle"] += 1
             else:
                 from main import _cycle_tag_for_site  # lazy import (reuses existing helper)
-                txn.pay_cycle_tag = _cycle_tag_for_site(site or "", d)
+                txn.pay_cycle_tag = _cycle_tag_for_site(effective_site or "", d)
 
             batch.append(txn)
             stats["rows_imported"] += 1
@@ -524,14 +535,7 @@ def link_drivers_safe(session: Session, source_tag: str) -> dict:
         # If requester text carries site hint (e.g. "สมัย BIG C", "สมัย อยุธยา"),
         # optionally narrow by stripping hint — but stripping "BIG-C" กลายเป็นแค่ "สมพร"
         # แล้วคีย์ไม่ชน Employee เต็มชื่อ → ต้องเก็บ cands เดิมถ้าคัดแล้วว่าง
-        site_hint = ""
-        req_l = raw_req.lower()
-        if any(t in req_l for t in ("big c", "big-c", "bigc")):
-            site_hint = normalize_site_code("big c")
-        elif any(t in req_l for t in ("อยุธยา", "ayu")):
-            site_hint = normalize_site_code("อยุธยา")
-        elif any(t in req_l for t in ("แหลม", "lcb")):
-            site_hint = normalize_site_code("lcb")
+        site_hint = site_from_requester(raw_req)
         if site_hint:
             base_key = _normalize_name(
                 raw_req.replace("BIG C", "").replace("BIG-C", "").replace("big c", "")
@@ -630,6 +634,12 @@ def main():
                   f"skipped_nodate={stats['rows_skipped_no_date']}")
             print(f"  with_deduction={stats['with_deduction']}  with_pending={stats['with_pending']}  "
                   f"settled_offline={stats.get('with_settled_offline', 0)}")
+            bigc_i = stats.get("site_inferred_bigc", 0)
+            ayu_i  = stats.get("site_inferred_ayu", 0)
+            lcb_i  = stats.get("site_inferred_lcb", 0)
+            if bigc_i or ayu_i or lcb_i:
+                print(f"  [Guardrail#1] site pre-assigned from requester suffix: "
+                      f"BIGC={bigc_i}  AYU={ayu_i}  LCB={lcb_i}")
 
         print("\n" + "=" * 60)
         print("GRAND TOTAL:")

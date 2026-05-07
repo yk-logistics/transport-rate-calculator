@@ -3841,3 +3841,80 @@ o_work_outbound_rows ใช้เรทตาม **วัน anchor R** ไม�
 ### Action ถัดไป
 - สรุป benchmark insights จาก Forward Insight เป็น guardrail implementation backlog สำหรับระบบเรา (เริ่ม BigC -> LCB -> AYU)
 - แปลงสิ่งที่เห็นเป็นงานลงระบบจริงรอบแรก: status มาตรฐานเดียว, preset filter, action bar, drill-down link ข้าม Daily/Petty/Payroll
+
+---
+
+## 2026-05-07 (Session Summary #131 - วาง Lean Mode ให้ Claude Code ประหยัดโทเค็น)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้ถามว่าควรให้ CC อ่าน `.md` มากแค่ไหน และขอแนวทางที่ประหยัด token และมีประสิทธิภาพสูงสุด พร้อมอนุญาตให้แก้ไฟล์ได้เลย
+
+### การตัดสินใจรอบนี้
+- วางนโยบาย `Lean Mode` เป็นค่าเริ่มต้นสำหรับงาน scope เล็ก โดยลดการอ่านเอกสารนำทางยาวก่อนแตะโค้ด
+- คงโหมดรอบคอบเต็มรูปแบบไว้สำหรับงานที่กระทบเงิน/import/payroll เพื่อไม่เสียความปลอดภัยข้อมูล
+
+### สิ่งที่ทำแล้ว
+- อัปเดต `ProjectYK_System/AI_CURSOR_CLAUDE_WORKFLOW.md` เพิ่ม section:
+  - กติกา Lean (read 2 ไฟล์แรก + เข้า code ทันที)
+  - Prompt copy-paste สำหรับ Claude Code
+  - เกณฑ์เมื่อไร “ไม่ควรใช้ Lean”
+- อัปเดต `CLAUDE.md` เพิ่ม `Lean read policy` เพื่อให้เอกสารหลักอธิบายทางลัดประหยัด token ชัดเจน
+- เพิ่มไฟล์เทมเพลตใหม่ `ProjectYK_System/TransportRateCalculator/docs/CLAUDE_CODE_LEAN_PROMPT_TEMPLATE.md` พร้อม prompt และ variant ใช้งานเร็ว
+
+### Action ถัดไป
+- ให้ผู้ใช้ทดลอง Lean template กับงานย่อย 2-3 งาน แล้ววัด token/time เทียบก่อน-หลัง
+- ถ้างานเริ่มแตะเงิน/import/payroll ให้สลับกลับโหมดรอบคอบทันที
+
+---
+
+## 2026-05-07 (Session Summary #132 - เพิ่ม Ultra-Lean + start snippets + แนวทางลอง skills ภายนอก)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้อนุมัติให้ลงมือทันที และขอให้เพิ่มวิธีใช้งาน CC ที่ฉลาด/ประหยัด token มากขึ้น
+- ผู้ใช้แชร์ `arra-oracle-skills-cli` เป็นทางเลือก และต้องการคำแนะนำว่าเหมาะกับโปรเจกต์นี้อย่างไร
+
+### การตัดสินใจรอบนี้
+- เพิ่มโหมด `Ultra-Lean` สำหรับงานจิ๋วที่สุด (5 บรรทัด copy ใช้ได้ทันที)
+- เพิ่ม snippet ไฟล์ใน `tools/` เพื่อเริ่มงานจากเทอร์มินัลได้เร็วโดยไม่ต้องเขียน prompt ใหม่ทุกครั้ง
+- สำหรับ skills ภายนอก เลือกแนวทาง conservative: ไม่เปิด profile ใหญ่เป็นค่าเริ่มต้นจนกว่าจะมี benchmark เทียบ Lean baseline
+
+### สิ่งที่ทำแล้ว
+- อัปเดต `AI_CURSOR_CLAUDE_WORKFLOW.md` เพิ่ม:
+  - `Ultra-Lean (5 บรรทัด)`
+  - `Start Snippets`
+  - แนวทางทดลอง skills ภายนอกแบบคุม token
+- เพิ่มไฟล์ใหม่:
+  - `ProjectYK_System/tools/CC_LEAN_START.txt`
+  - `ProjectYK_System/tools/CC_ULTRA_LEAN_5LINES.txt`
+- อัปเดต `CLAUDE.md` ให้ชี้ไปยัง snippet ทั้งสองไฟล์
+
+### Action ถัดไป
+- ทดลองใช้งานจริง 3 งาน (tiny UI fix / route tweak / small backend logic) แล้วเก็บ metric:
+  - เวลาเริ่มลงมือ
+  - token ที่ใช้
+  - จำนวนรอบถามกลับ
+- ถ้า skills ภายนอกจะลอง ให้เริ่มจาก profile ต่ำสุดและงาน non-critical เท่านั้น
+
+---
+
+## 2026-05-07 (Session Summary #133 - เพิ่ม benchmark log และล็อก default ทีม)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้ยืนยันให้ทำต่อทันที และถามเรื่องผลกระทบโทเค็นว่าไฟล์ benchmark จะเปลืองโทเค็นฝั่ง Cursor หรือ CC
+- ผู้ใช้ต้องการล็อกกติกาทีมว่าเริ่มจาก Ultra-Lean ได้เลย
+
+### การตัดสินใจรอบนี้
+- สร้างไฟล์ benchmark แยกเพื่อวัดเชิงตัวเลข ไม่พึ่งความรู้สึก
+- ล็อกค่าเริ่มต้นทีมสำหรับงานเล็ก: Ultra-Lean ก่อน แล้ว fallback เป็น Lean ตาม trigger ที่ชัดเจน
+
+### สิ่งที่ทำแล้ว
+- เพิ่มไฟล์ `ProjectYK_System/tools/CC_BENCHMARK_LOG.md` พร้อม:
+  - metric 3 ตัว (เวลาเริ่มลงมือ, token, รอบถามกลับ)
+  - template บันทึกผลต่อ run
+  - กติกาตัดสินใจหลังทดลอง 3-5 run
+- อัปเดต `AI_CURSOR_CLAUDE_WORKFLOW.md` ใส่ Team default และเชื่อมไฟล์ benchmark
+- อัปเดต `CLAUDE.md` ให้ประกาศ default ทีมและไฟล์ snippet/benchmark
+
+### Action ถัดไป
+- เริ่มเก็บ benchmark จริง 3 งานแรกลง `CC_BENCHMARK_LOG.md`
+- ถ้า run ใดเป็นงานเงิน/import/payroll ให้ข้าม Ultra-Lean และใช้โหมดรอบคอบทันที

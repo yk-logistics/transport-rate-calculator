@@ -2,6 +2,13 @@
 
 สรุปการตัดสินใจสำคัญระดับภาพรวมข้ามทุกโมดูล
 
+## 2026-05-07 (Wave 1 UX Guardrail #1 — Site pre-assignment in petty cash import)
+
+- **Guardrail #1 implemented**: `services/alias_map.py` เพิ่ม `site_from_requester()` — ฟังก์ชันกลางตรวจ suffix ชื่อผู้เบิก (`BIG C/BIG-C/BIGC` → BIGC, `อยุธยา/AYU` → AYU, `แหลม/LCB/แหลมฉบัง` → LCB) สำหรับทุก tool ที่ต้องการ
+- **`tools/import_petty_cash.py`**: เรียก `site_from_requester()` ตอน insert ทันที (ไม่รอ backfill) — กัน cross-site contamination ตั้งแต่แถวแรก; ย้าย duplicate site-hint logic ใน `link_drivers_safe()` มาใช้ฟังก์ชันเดิม (DRY)
+- **Impact (existing DB)**: 299 blank-site rows ที่มี suffix ชัดเจน (BIGC 205 rows ฿505k, AYU 71 rows ฿32k, LCB 23 rows ฿72k) จะถูก pre-assign ในการ re-import ครั้งถัดไป; 38,928 rows ไม่มี suffix (พ่อ/โอ/ออฟฟิส) ยังคงว่างตามปกติ
+- **Next (Guardrail #2)**: saved filter preset ต่อหน้าใน petty-cash/daily/payroll (`BigC เดือนนี้`, `รออนุมัติ`, `ยังไม่ผูก`) — link ผ่าน URL query string + คลิกเดียว
+
 ## 2026-05-07 (Forward Insight benchmark — เมนูเชิงระบบและ UX ที่ควรยืมใช้)
 
 - สำรวจระบบตัวอย่างจริง (session login ผู้ใช้) แล้วได้ pattern ที่ใช้กับ One Platform ได้ทันที: โครงเมนูแบบ domain-first (`ขนส่ง/จัดซื้อ/บัญชี/บุคคล/ตั้งค่า`) + mega-menu รวมเมนูย่อยในจอเดียว ลดการคลิกหาเมนู
@@ -740,3 +747,6 @@
 - **2026-05-07 (Forward Insight settings complete):** ปิดหมวด `ตั้งค่า` ที่เหลือครบ (`uom`, `core/vehicle`, `core/vehicle-model`, `core/vehicle-type`, `core/vehicle-brand`, `core/vehicle-energy`) ด้วย flow `click -> wait overlay gone -> snapshot`
 - **2026-05-07 (Forward Insight transport progress):** ปิดหมวด `ขนส่ง` เพิ่ม 4 หน้า (`tms/report/amount_trip`, `tms/product`, `tms/product-type`, `tms/place`) และคงเหลือ 4 หน้าสุดท้าย (`vehicle/work vehicle type/carrier payment/special expense`)
 - **2026-05-07 (Forward Insight transport complete):** ปิด 4 หน้าสุดท้ายของหมวด `ขนส่ง` ครบ (`tms/vehicle`, `tms/run-type`, `tms/pay-type`, `tms/extra`) ทำให้ checklist demo ครบ 100% (todo = 0)
+- **2026-05-07 (Claude Code token optimization):** เพิ่มแนวทาง `Lean Mode` สำหรับงาน scope เล็กใน `AI_CURSOR_CLAUDE_WORKFLOW.md` + `CLAUDE.md` และเพิ่มเทมเพลตพร้อมใช้ `docs/CLAUDE_CODE_LEAN_PROMPT_TEMPLATE.md` เพื่อลดการอ่าน `.md` เกินจำเป็นก่อนแตะโค้ด
+- **2026-05-07 (Claude Code ultra-lean ops):** เพิ่ม `Ultra-Lean 5 lines` + start snippets (`tools/CC_LEAN_START.txt`, `tools/CC_ULTRA_LEAN_5LINES.txt`) และแนวทางทดสอบ skills ภายนอกแบบคุมความเสี่ยง token (หลีกเลี่ยง profile ใหญ่เป็นค่าเริ่มต้น)
+- **2026-05-07 (CC benchmark + team default):** เพิ่ม `tools/CC_BENCHMARK_LOG.md` สำหรับวัด 3 ตัวชี้วัด (เวลาเริ่มลงมือ/โทเค็น/รอบถามกลับ) และล็อกค่าเริ่มต้นทีมให้งานเล็กเริ่มจาก `CC_ULTRA_LEAN_5LINES.txt` ก่อน

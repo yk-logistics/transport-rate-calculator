@@ -17,9 +17,16 @@
 - [done] ปิดหมวด `ตั้งค่า` ที่เหลือครบแล้ว (`uom`, `core/vehicle`, `core/vehicle-model`, `core/vehicle-type`, `core/vehicle-brand`, `core/vehicle-energy`)
 - [done] ปิดหมวด `ขนส่ง` เพิ่มอีก 4 หน้า (`tms/report/amount_trip`, `tms/product`, `tms/product-type`, `tms/place`)
 - [done] ปิดหมวด `ขนส่ง` ที่เหลือครบแล้ว (`tms/vehicle`, `tms/run-type`, `tms/pay-type`, `tms/extra`) ทำให้ checklist demo ครบ 100%
-- [next] ทำ UI guardrail ชุดแรกในระบบเรา (เรียง `BigC -> LCB -> AYU`): 
+- [done] **Wave 1 Guardrail #1** — `site_from_requester()` ใน `alias_map.py` + `import_petty_cash.py` pre-assign `site_code` จาก requester suffix ตอน insert (BigC 205 rows, AYU 71, LCB 23 ที่จะ fix ในรอบ re-import ถัดไป)
+- [done] เพิ่มแนวทาง **Claude Code Lean Mode** ลด token: อัปเดต `AI_CURSOR_CLAUDE_WORKFLOW.md` + `CLAUDE.md` และเพิ่ม `docs/CLAUDE_CODE_LEAN_PROMPT_TEMPLATE.md`
+- [done] เพิ่ม **Ultra-Lean 5 lines** + snippet ไฟล์พร้อม copy จากเทอร์มินัล (`tools/CC_LEAN_START.txt`, `tools/CC_ULTRA_LEAN_5LINES.txt`)
+- [done] เพิ่ม `tools/CC_BENCHMARK_LOG.md` สำหรับจดผล 3 ตัวชี้วัด และล็อก default ทีม: งานเล็กเริ่ม Ultra-Lean ก่อน
+- [next] **Wave 1 Guardrail #2** — saved filter preset ต่อหน้า: `BigC เดือนนี้`, `รออนุมัติ`, `ยังไม่ผูก` — implement เป็น link row ใต้ filter form ใน `petty_list.html` / `daily_list.html` / `payroll_list.html` (URL query string, ไม่ต้องเพิ่ม DB)
+- [next] ทดลองใช้งาน Lean template จริง 3 งานติด แล้วเทียบ token/time ก่อน-หลัง (ถ้าเสี่ยงตกหล่นค่อยสลับโหมดรอบคอบ)
+- [next] บันทึก benchmark ลง `tools/CC_BENCHMARK_LOG.md` อย่างน้อย 3 run แล้วตัดสินใจยืนยัน default mode จากข้อมูลจริง
+- [next] ทดสอบ skills ภายนอกแบบจำกัด (เริ่ม profile ต่ำสุดเท่านั้น) กับงาน non-critical 1 งาน แล้ววัดผลเทียบ Lean baseline ก่อนตัดสินใจใช้งานถาวร
+- [next] ทำ UI guardrail ชุดที่เหลือ (เรียง `BigC -> LCB -> AYU`): 
   1) สถานะมาตรฐานเดียว `ร่าง/กำลังดำเนินการ/รอชำระ/ชำระแล้ว`
-  2) saved filter preset ต่อหน้า (`BigC เดือนนี้`, `รออนุมัติ`, `ยังไม่ผูก`)
   3) action bar ในหน้า detail ที่รวมปุ่มสำคัญไว้จุดเดียว
 - [next] ออกแบบ key-link ระหว่าง `DailyJob/PettyCashTxn/PayRunItem` ให้ drill-down ข้ามหน้าได้แบบคลิกเดียว
 
@@ -105,7 +112,7 @@
 - [done] ตั้งเพดานหักภาษีรายเดือน default 15% (`tax_monthly_cap_rate`)
 - [done] เพิ่ม alias `AYU: สมัย -> สมัย อยุธยา` + dedup สดย่อย legacy 485 แถว + reassign site=AYU 565 แถว
 - [done] **PDF bundle**: ปุ่มส่งออก `/payroll/{id}/export-pdfs` → `data/Salary/{SITE}/{cycle}/Driver/` (สรุปรวม / โอนเงินบัญชี / ชุดครบ / สลิปรายคนใน `รายคน/`) — `fpdf2` + Tahoma — BIGC โฟลเดอร์ตามเดือนจ่าย + เติมเลขบัญชีจาก seed + สลิปแนวนอนหนึ่งหน้า (เมษายน 2026)
-- [next] ปรับ `ProjectYK_System/tools/import_petty_cash.py`: pre-assign site จาก suffix `อยุธยา/BIG C/แหลม` ตอน insert (กันรอบ import ใหม่)
+- [done] ปรับ `ProjectYK_System/tools/import_petty_cash.py`: pre-assign site จาก suffix `อยุธยา/BIG C/แหลม` ตอน insert — ผ่าน `site_from_requester()` ใน `alias_map.py`
 - [next] UI ใหญ่ (cross-page): date format ไทย / multi-select filter / pagination jump-to-page
 - [next] เคลียร์ชื่อซ้ำ `สมัย` (BIG C vs อยุธยา) โดยเพิ่ม master AYU หรือกำหนด mapping manual เฉพาะเคส
 - [next] เทียบสลิป manual BIGC รอบ `2026-03` แล้ว finalize

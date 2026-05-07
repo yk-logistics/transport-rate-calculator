@@ -1,0 +1,5 @@
+Token mode: ULTRA-LEAN.
+Read only AGENT_BOOTSTRAP.md + MODULE_REGISTRY.md, then jump straight to target code.
+Do not read long docs unless blocked; if blocked, read only latest tail section.
+Keep scope to exactly one small task; avoid unrelated scans.
+Output changed files + verify commands + 1 next step.

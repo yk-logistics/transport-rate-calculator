@@ -113,6 +113,86 @@ Graphify: ถ้ายังไม่อินเด็กซ์ล่าสุ�
 เอกสารอ้างอิง prompt pack:
 - `ProjectYK_System/TransportRateCalculator/docs/CLAUDE_CODE_VIBECODING_PLAYBOOK.md`
 
+## Lean Mode (ประหยัดโทเค็นสูงสุดสำหรับงาน scope เล็ก)
+
+ใช้โหมดนี้เป็นค่าเริ่มต้นเมื่อเป็นงานที่มีขอบเขตชัด (เช่น แก้ 1 ฟีเจอร์, 1 bug, 1 guardrail) และยังไม่แตะ import/payroll logic ลึก
+
+### กติกา Lean ที่ต้องระบุใน prompt
+
+1. **ห้ามอ่านเอกสารยาวทั้งหมดตั้งแต่ต้น**  
+   ให้เริ่มจากไฟล์โค้ดเป้าหมายก่อน แล้วค่อยอ่านเอกสารเพิ่มเฉพาะตอนติด blocker
+2. **จำกัด doc read ชุดแรกไม่เกิน 2 ไฟล์**
+   - `ProjectYK_System/AGENT_BOOTSTRAP.md`
+   - `ProjectYK_System/MODULE_REGISTRY.md`
+3. **ห้ามอ่าน `CONTEXT_LOG.md` / `CHANGELOG_MASTER.md` ทั้งไฟล์**
+   - ถ้าจำเป็น ให้ดูเฉพาะท้ายไฟล์ช่วงสั้น (latest section)
+4. **เริ่มจาก app code ก่อนเสมอ**
+   - `ProjectYK_System/app/` + template ที่เกี่ยวข้อง
+5. **ถ้าไม่แตะเงิน/import/payroll** ให้ข้าม preflight หนัก และทำเฉพาะ verify ที่เกี่ยวกับ scope
+
+### Lean Prompt (คัดลอกวางใน Claude Code ได้เลย)
+
+```text
+Token mode: LEAN (strict).
+
+Rules:
+- Do NOT start by reading long markdown docs.
+- Initial reads allowed only:
+  1) ProjectYK_System/AGENT_BOOTSTRAP.md
+  2) ProjectYK_System/MODULE_REGISTRY.md
+- Then go directly to relevant app code under ProjectYK_System/app/.
+- Read CHANGELOG/CONTEXT/NEXT_ACTION only if blocked, and only latest tail section.
+- Keep exploration tight; do not scan unrelated modules.
+
+Deliverables:
+1) changed files + why
+2) verification commands + outcomes
+3) risks/open questions (max 3)
+4) next smallest step
+```
+
+### เมื่อไรไม่ควรใช้ Lean
+
+- งานที่กระทบตัวเงินโดยตรง (import/payroll/finalize/recompute)
+- งานที่มีเงื่อนไขข้ามหลายโมดูลและมี policy เดิมซับซ้อน
+- งานที่ผู้ใช้สั่งให้ “ทบทวนภาพรวมทั้งหมด” โดยตั้งใจ
+
+## Ultra-Lean (5 บรรทัด) — งานจิ๋วที่สุด
+
+ใช้เฉพาะงานเล็กมาก เช่น แก้ข้อความ, แก้ UI จุดเดียว, ปรับ route เดียว, แก้ typo logic ไม่กระทบเงิน
+
+```text
+Token mode: ULTRA-LEAN.
+Read only AGENT_BOOTSTRAP.md + MODULE_REGISTRY.md, then jump straight to target code.
+Do not read long docs unless blocked; if blocked, read only latest tail section.
+Keep scope to exactly one small task; avoid unrelated scans.
+Output changed files + verify commands + 1 next step.
+```
+
+**Team default (มีผลทันที):**
+- งานเล็กทุกงาน ให้เริ่มจาก `CC_ULTRA_LEAN_5LINES.txt` ก่อน
+- ถ้าเกิน 1 clarification round หรือเริ่มแก้ช้าเกิน 10 นาที ให้สลับไป `CC_LEAN_START.txt` ในรอบเดียวกัน
+- งานเงิน/import/payroll/recompute ห้ามใช้ Ultra-Lean
+
+## Start Snippets (copy เร็วในเทอร์มินัล)
+
+- `ProjectYK_System/tools/CC_LEAN_START.txt`
+- `ProjectYK_System/tools/CC_ULTRA_LEAN_5LINES.txt`
+- `ProjectYK_System/tools/CC_BENCHMARK_LOG.md` (บันทึกผลวัด 3 ตัวชี้วัด)
+
+## การใช้ skills ภายนอก (เช่น arra-oracle-skills-cli) แบบประหยัด
+
+แนวทางแนะนำสำหรับโปรเจกต์นี้:
+
+1. **ยังไม่ติดตั้ง profile ใหญ่ (`full`/`lab`)** เป็นค่าเริ่มต้น  
+   เพราะจำนวน skill สูงและเพิ่ม overhead ต่อ session โดยไม่จำเป็นกับงานประจำของ YK
+2. ถ้าจะลอง ให้เริ่มจาก profile เล็กสุดก่อน (minimal/standard) และทดลองกับงาน 1-2 งาน
+3. วัดผลก่อนใช้จริงเสมอ:
+   - เวลาเริ่มลงมือ
+   - token ต่องาน
+   - จำนวนรอบถามกลับ
+4. ถ้าไม่ดีขึ้นอย่างชัดเจน ให้ rollback กลับ Lean/Ultra-Lean template ของไฟล์นี้ทันที
+
 ## อ้างอิงภายนอก
 
 - rtk: https://github.com/rtk-ai/rtk  

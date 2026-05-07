@@ -1,0 +1,14 @@
+You are working in Project YK. Use LEAN token mode.
+Task scope: [replace with 1-3 lines]
+
+Rules:
+- Initial reads only: ProjectYK_System/AGENT_BOOTSTRAP.md, ProjectYK_System/MODULE_REGISTRY.md
+- Then go directly to relevant code in ProjectYK_System/app/
+- Read CHANGELOG/CONTEXT/NEXT_ACTION only if blocked, latest tail only
+- Do not scan unrelated modules
+
+Output:
+1) changed files + purpose
+2) verification commands + outcomes
+3) risks/open questions (max 3)
+4) next smallest step
