@@ -2,6 +2,17 @@
 
 สรุปการตัดสินใจสำคัญระดับภาพรวมข้ามทุกโมดูล
 
+## 2026-05-07 (Forward Insight benchmark — เมนูเชิงระบบและ UX ที่ควรยืมใช้)
+
+- สำรวจระบบตัวอย่างจริง (session login ผู้ใช้) แล้วได้ pattern ที่ใช้กับ One Platform ได้ทันที: โครงเมนูแบบ domain-first (`ขนส่ง/จัดซื้อ/บัญชี/บุคคล/ตั้งค่า`) + mega-menu รวมเมนูย่อยในจอเดียว ลดการคลิกหาเมนู
+- ยืนยันคุณค่าของ flow เชื่อมงาน: `Trip -> Expense/Fuel -> Payroll` โดยมีคีย์อ้างอิงร่วม (`trip_no`/ทะเบียน/ผู้รับเหมา/พนักงาน) และสถานะงานแบบ workflow ชุดเดียว (ร่าง/กำลังดำเนินการ/รอชำระ/ชำระแล้ว)
+- ตกลงเพิ่มงานปรับ UX/guardrail ฝั่ง YK: (1) action bar ระดับรายการ, (2) saved filter preset สำหรับงานซ้ำรายเดือน, (3) ป้ายสถานะมาตรฐานข้ามหน้า, (4) ปุ่ม export/report ที่ผูกกับ context filter ปัจจุบัน
+- เพิ่มเอกสาร checklist ความครบของเมนู demo: `TransportRateCalculator/docs/FORWARD_INSIGHT_MENU_CHECKLIST.md` เพื่อปิดงานแบบติ๊กหน้า `[done]/[partial]/[todo]` ให้ตรวจสอบความครบได้ชัดเจน
+
+## 2026-05-07 (BDT communication framing — DHL support vs distance-limited economics)
+
+- บันทึกบริบทหน้างานการสื่อสารกับลูกค้า: เดิมช่วงวิ่งกับ DHL มีการซัพพอร์ตงานทดแทนเมื่อโหลดต่ำ แต่บริบทปัจจุบันกับ BDT ไม่มีกลไกทดแทนเทียบเท่า และโครงสร้างราคาไม่ผันตามกม. ทำให้รับงานได้เฉพาะช่วงระยะที่ไม่ขาดทุน (200–600 กม.) เพื่อคุม cash burn
+
 ## 2026-05-05 (Claude Code — `CLAUDE.md` ที่ราก repo)
 
 - เพิ่ม **`CLAUDE.md`** ที่ราก `Project YK`: บริบทโปรเจกต์, ลำดับอ่านบังคับ, กฎเงิน/ข้อมูล, การทำงานคู่กับ Cursor, ท่าประหยัดโทเค็น, และ **แผนแบบ milestone (ไม่บังคับ Gantt SaaS 33 สัปดาห์)** — อ้าง `NEXT_ACTION_PLAN.md` เป็นของจริง
@@ -14,6 +25,13 @@
 ## 2026-05-06 (Claude Code 2-Agent auto loop runbook)
 
 - เพิ่มเอกสาร **`ProjectYK_System/TransportRateCalculator/docs/CC_AUTO_TWO_AGENT_RUNBOOK.md`**: ขั้นตอนใช้งานจริงแบบ 2 terminal (`Coordinator` + `Executor`), มาตรฐาน Task Card, วนลูป quality gate, token-saving tactics, และ handoff snapshot กัน context หลุด
+
+## 2026-05-06 (BigC audit baseline script — manual Excel vs system)
+
+- เพิ่มสคริปต์ **`ProjectYK_System/tools/audit_bigc_manual_vs_system.py`** สำหรับเทียบ baseline manual (Daily/Petty/Payroll/Fuel) กับผลระบบรอบ BIGC `2026-03`
+- output เป็น **JSON + console summary** (`reports/audit_bigc_2026-03/summary.json`) และใช้ policy จับชื่อคนขับแบบ **nickname-first, fallback full_name**
+- รันจริงแล้วได้ diff สรุปตัวอย่าง: `system_drivers=9`, `manual_sheets=22`, `matched=8`, `value_mismatch_drivers=8`, และ `net_diff_total=107,749.01`
+- อัปเดตสคริปต์รอบสอง: ตัดชีท non-driver อัตโนมัติ + จำกัดชีทให้ตรงคนขับในระบบ, ปรับการอ่านตัวเลขจาก label ให้หยิบค่าถัดจาก label ก่อน (ลด false read), และเพิ่มไฟล์ CSV review (`matched_compare.csv`, `value_mismatch.csv`, `missing_in_manual.csv`, `extra_in_manual.csv`)
 
 ## 2026-05-05 (Oatside Excel — `Trip_Detail` เติมคอลัมน์ราคา)
 
@@ -712,3 +730,13 @@
 - เปลี่ยนเงื่อนไขเจรจาน้ำมันเป็น `1.5% ต่อ 1 บาท` และ reprice ในไฟล์ทำงาน (`_v3_adjusted_only`) ให้ margin ที่ fuel target 50 ยังอยู่ราว 10%
 - อัปเดตเงื่อนไขราคาดีล Direct-to-store เพิ่มเติม: 6W consumption = `5.0`, ค่าเที่ยวแบบ distance ladder (`0-200 = 500/600`, แล้ว +100 ต่อทุก 100 กม.), และโซนเชิงกลยุทธ์ `สมุทรปราการ/ฉะเชิงเทรา/ชลบุรี` ใช้ target margin `5%`
 - **2026-05-01 (Oatside reports):** 	rips.html/รายเที่ยวต่อทะเบียน — คอลัมน์ ค่าขนส่ง / เสียเวลา+50% / เสียเวลา+100% / ตีเปล่า+50%; No-work recovery รองรับข้ามคืน (irst_no_work_trip_by_plate_recovery_day + synthetic plate_dest_day_rows)
+- **2026-05-07 (Forward Insight checklist progress):** เดินเมนู demo แบบรอ loading overlay ทุกคลิกและปิดหมวด `การจัดซื้อ` ครบ 100% (`expense/expense-item/stock/refuel/fuel-card/fuel-station`) เพื่อให้ checklist เข้าใกล้ gap=0 แบบตรวจสอบย้อนกลับได้
+- **2026-05-07 (Forward Insight accounting progress):** ปิดเพิ่มฝั่งบัญชีอีก 4 หน้า (`tms-document`, `bill_income`, `invoice_income`, `payment_income`) ด้วย flow `click -> wait overlay gone -> snapshot` เพื่อลดคลิกพลาดและรักษาความน่าเชื่อถือของ checklist
+- **2026-05-07 (Forward Insight long-run progress):** เดินต่อเนื่องแบบไม่หยุดหมวดและปิดเพิ่ม `บัญชี` 3 หน้า (`bill_pay`, `invoice_pay`, `payment_pay`) + `บุคคล` 3 หน้า (`saving`, `income-type`, `income-package`) ทำให้ todo ใน checklist ลดเหลือ 41 หน้า
+- **2026-05-07 (Forward Insight HR complete):** ปิดหมวด `บุคคล` ครบทั้ง 12 หน้าแล้ว (รวม `sso`, `เอกสารรถ`, `รายการครบกำหนด`, และ master data `employee/site/department/title`) ทำให้ checklist คงเหลือ todo 34 หน้า
+- **2026-05-07 (Forward Insight accounting continued):** ปิดเพิ่มในหมวด `บัญชี` อีก 3 หน้า (`account/carrier/invoice`, `account/carrier/bill`, `account/carrier/finance`) โดยรักษากติกา `click -> wait overlay gone -> snapshot` ทุกคลิกเพื่อลดพลาดจาก ref เปลี่ยนระหว่างโหลด
+- **2026-05-07 (Forward Insight accounting complete):** ปิดหน้า `[todo]` ที่เหลือของหมวด `บัญชี` ครบทั้งชุด (`expense`, `adjusting_entries`, `monthly_wht`, `vat/monthly_vat`, `vat/tax_sale`, `vat/tax_purchase`, `tax`, `journal`, `new_account`, `report/gl`, `report/trial-balance`, `report/pnl`)
+- **2026-05-07 (Forward Insight settings progress):** เริ่มปิดหมวด `ตั้งค่า` ต่อเนื่องแล้ว 5 หน้า (`partner`, `settinginvoice`, `excel`, `core/product`, `core/product-category`) ก่อนเดินต่อ `unit/vehicle` และ master รถที่เหลือ
+- **2026-05-07 (Forward Insight settings complete):** ปิดหมวด `ตั้งค่า` ที่เหลือครบ (`uom`, `core/vehicle`, `core/vehicle-model`, `core/vehicle-type`, `core/vehicle-brand`, `core/vehicle-energy`) ด้วย flow `click -> wait overlay gone -> snapshot`
+- **2026-05-07 (Forward Insight transport progress):** ปิดหมวด `ขนส่ง` เพิ่ม 4 หน้า (`tms/report/amount_trip`, `tms/product`, `tms/product-type`, `tms/place`) และคงเหลือ 4 หน้าสุดท้าย (`vehicle/work vehicle type/carrier payment/special expense`)
+- **2026-05-07 (Forward Insight transport complete):** ปิด 4 หน้าสุดท้ายของหมวด `ขนส่ง` ครบ (`tms/vehicle`, `tms/run-type`, `tms/pay-type`, `tms/extra`) ทำให้ checklist demo ครบ 100% (todo = 0)

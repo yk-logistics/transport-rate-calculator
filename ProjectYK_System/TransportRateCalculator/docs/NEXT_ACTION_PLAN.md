@@ -2,6 +2,32 @@
 
 แผนงานลำดับถัดไป (เรียงตามความสำคัญ)
 
+## ⭐ Quick Status (2026-05-07 | Forward Insight benchmark -> One Platform UX uplift)
+
+- [done] สำรวจระบบตัวอย่างแบบลงหน้าใช้งานจริง: เมนูหลักครบ (`ขนส่ง/จัดซื้อ/บัญชี/บุคคล/ตั้งค่า`) + หน้ารายการ `Trip`, `Expense`, `Payroll` และหน้า detail เที่ยว
+- [done] สกัด pattern ที่นำกลับมาใช้ได้ทันที: mega-menu รวมเมนูย่อย, action bar ระดับรายการ, workflow status เดียวข้ามโมดูล, table + filter หนาแน่นพร้อม export/report
+- [done] สร้าง checklist ปิดงานเมนู demo: `TransportRateCalculator/docs/FORWARD_INSIGHT_MENU_CHECKLIST.md` (สถานะ `[done]/[partial]/[todo]`)
+- [done] ปิดหมวด `การจัดซื้อ` ใน checklist ครบทุกหน้า (รอ loading overlay ก่อนคลิกทุกครั้ง): `expense`, `expense-item`, `stock`, `refuel`, `fuel-card`, `fuel-station`
+- [done] ปิดหมวดย่อยบัญชีเพิ่ม 4 หน้า: `tms-document`, `bill_income`, `invoice_income`, `payment_income` (ยืนยันด้วยกติกา wait overlay ทุกคลิก)
+- [done] ปิดเพิ่มฝั่งบัญชีอีก 3 หน้า (`bill_pay`, `invoice_pay`, `payment_pay`) และฝั่งบุคคลอีก 3 หน้า (`saving`, `income-type`, `income-package`)
+- [done] ปิดหมวดบุคคลครบทั้งหมวดแล้ว (เพิ่ม `sso`, `taxandInsurance`, `dashboard/document`, `hr/employee`, `tms/site`, `hr/department`, `hr/title`)
+- [done] ปิดเพิ่มฝั่งบัญชีอีก 3 หน้า (`รายการเที่ยววิ่ง`, `สรุปรายการค่าขนส่ง`, `แบ่งชำระ`) ด้วย URL `account/carrier/invoice`, `account/carrier/bill`, `account/carrier/finance`
+- [done] ปิดหมวด `บัญชี` ที่เหลือครบแล้ว (เพิ่ม `expense`, `adjusting_entries`, กลุ่ม `monthly_wht/vat/tax/journal/chart/gl/tb/pnl`)
+- [done] ปิดหมวด `ตั้งค่า` เพิ่มอีก 5 หน้า (`partner`, `settinginvoice`, `excel`, `core/product`, `core/product-category`)
+- [done] ปิดหมวด `ตั้งค่า` ที่เหลือครบแล้ว (`uom`, `core/vehicle`, `core/vehicle-model`, `core/vehicle-type`, `core/vehicle-brand`, `core/vehicle-energy`)
+- [done] ปิดหมวด `ขนส่ง` เพิ่มอีก 4 หน้า (`tms/report/amount_trip`, `tms/product`, `tms/product-type`, `tms/place`)
+- [done] ปิดหมวด `ขนส่ง` ที่เหลือครบแล้ว (`tms/vehicle`, `tms/run-type`, `tms/pay-type`, `tms/extra`) ทำให้ checklist demo ครบ 100%
+- [next] ทำ UI guardrail ชุดแรกในระบบเรา (เรียง `BigC -> LCB -> AYU`): 
+  1) สถานะมาตรฐานเดียว `ร่าง/กำลังดำเนินการ/รอชำระ/ชำระแล้ว`
+  2) saved filter preset ต่อหน้า (`BigC เดือนนี้`, `รออนุมัติ`, `ยังไม่ผูก`)
+  3) action bar ในหน้า detail ที่รวมปุ่มสำคัญไว้จุดเดียว
+- [next] ออกแบบ key-link ระหว่าง `DailyJob/PettyCashTxn/PayRunItem` ให้ drill-down ข้ามหน้าได้แบบคลิกเดียว
+
+## ⭐ Quick Status (2026-05-07 | BDT customer communication on service scope)
+
+- [done] สรุป wording ฝั่งธุรกิจสำหรับสื่อสารลูกค้า: เหตุผลข้อจำกัดช่วงระยะ **200-600 กม.** (ต้นทุนต่อกม.เพิ่ม แต่ราคาไม่ปรับตามระยะ)
+- [next] ทำ template อีเมลมาตรฐาน 2 ทางเลือก (ลดเหลือ 2 คันหลัก + รถเสริม / ยกเลิกทั้งหมด) สำหรับใช้ซ้ำเวลาเจรจา SLA กับลูกค้าประเภท BDT
+
 ## ⭐ Quick Status (2026-05-05 | Claude Code onboarding)
 
 - [done] **`CLAUDE.md`** ที่ราก repo — คู่มือ CC: บริบท YK, อ่านก่อนลงมือ, กฎเงิน, HANDOFF ↔ `AI_CURSOR_CLAUDE_WORKFLOW.md`, ประหยัดโทเค็น, เฟสอ้างอิง (ไม่ต้องทำ Gantt Accounting SaaS แบบในเน็ตทั้งก้อน)
@@ -19,6 +45,14 @@
 - [done] เพิ่ม runbook **`ProjectYK_System/TransportRateCalculator/docs/CC_AUTO_TWO_AGENT_RUNBOOK.md`** สำหรับรัน Claude Code แบบ 2 บทบาท (Coordinator/Executor) ด้วย 2 terminal ใน Cursor
 - [done] ล็อกมาตรฐาน Task Card + Handoff Snapshot เพื่อสลับ session ถี่ๆ ตามข้อจำกัด token/hour ได้โดยไม่หลุดบริบท
 - [next] ทดลองจริง 1 cycle ที่ BigC (`read-only preflight -> single-scope fix -> recompute -> quality gate`) แล้วบันทึก prompt ที่เวิร์คใน section `Working Prompts`
+
+## ⭐ Quick Status (2026-05-06 | BigC Manual-vs-System Audit Script)
+
+- [done] สร้าง `ProjectYK_System/tools/audit_bigc_manual_vs_system.py` เทียบไฟล์ manual baseline กับ DB (`PayRunItem`) สำหรับ BIGC รอบ `2026-03`
+- [done] output หลักเป็น `JSON` + สรุปบนจอ (`reports/audit_bigc_2026-03/summary.json`)
+- [done] เพิ่ม output แยกเป็น CSV (`matched_compare.csv`, `value_mismatch.csv`, `missing_in_manual.csv`, `extra_in_manual.csv`) สำหรับ review ทีละรายการ
+- [done] เพิ่ม sheet filter อัตโนมัติ: ตัดชีทสรุป/non-driver และเหลือเฉพาะชีทที่ map กับคนขับในระบบ
+- [next] ปรับ extraction `manual_net` ให้เชื่อถือได้ (ปัจจุบันหลายชีทยังได้ 0 จากสูตร/โครงชีท) หรือกำหนดให้เทียบเฉพาะ `trip_fee/petty/fuel_rate` เป็นหลักก่อน
 
 ## ⭐ Quick Status (2026-05-02 | One Platform — หน้า pitch สำหรับ Pages)
 
