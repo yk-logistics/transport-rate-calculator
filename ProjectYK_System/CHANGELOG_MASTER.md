@@ -2,6 +2,12 @@
 
 สรุปการตัดสินใจสำคัญระดับภาพรวมข้ามทุกโมดูล
 
+## 2026-05-08 (Transport Rate Calculator — export fuel history CSV)
+
+- เพิ่มปุ่ม `Export CSV ตารางย้อนหลัง` ใน `TransportRateCalculator/transport_rate_calculator.html` (Step 1 historical panel) เพื่อให้ผู้ใช้ดาวน์โหลดตารางราคาน้ำมันย้อนหลังจากข้อมูลที่โหลด/วางได้ทันที
+- ใช้ safe default export เป็น CSV แบบ `UTF-8 BOM` รองรับภาษาไทย พร้อมคอลัมน์ `date/fuel_type/price_baht_per_liter/imputed/selected`
+- ชื่อไฟล์แนบช่วงวันที่ข้อมูลอัตโนมัติ (`historical_oil_price_<fuel_type>_YYYYMMDD-YYYYMMDD.csv`) เพื่อ trace ย้อนกลับช่วงข้อมูลที่ใช้คำนวณ
+
 ## 2026-05-08 (Claude Code review log: Email Inbox/OAuth/Draft Daily/Grid)
 
 - ปรับ `Oatside/build_oatside_reports.py` ให้คำนวณ `trip_rate_baht` ตาม **วันที่วิ่งงาน (trip_date)** + รองรับ `diesel_price_history` รายวันจาก config, ปรับกติกาฐานราคา Apr/May (Apr floor 6,500, May base 6,500 @ 31.xx, step 1.5%/บาท), และเพิ่ม `manual_return_trips` แบบ `percent_of_trip_rate` (งานขากลับ 50%)

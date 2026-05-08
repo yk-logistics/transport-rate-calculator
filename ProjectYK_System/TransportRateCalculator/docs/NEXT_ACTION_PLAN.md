@@ -170,8 +170,10 @@
 - [done] เติมวันที่ที่หายใน series รายวันอัตโนมัติ (carry-forward ราคาวันก่อน) + แสดง badge `เติมวันหาย`
 - [done] เพิ่มเลือกช่วงวันที่ `ตั้งแต่-ถึง` แล้ว select แถวเพื่อเฉลี่ยอัตโนมัติ
 - [done] เปลี่ยน workflow วันที่/ปีใน panel ย้อนหลังเป็นค.ศ.ทั้งหมด (input/filter/display)
+- [done] เพิ่มปุ่ม `Export CSV ตารางย้อนหลัง` บน historical panel และส่งออกไฟล์ `UTF-8 BOM` พร้อมคอลัมน์ trace (`date/fuel_type/price_baht_per_liter/imputed/selected`) และชื่อไฟล์มีช่วงวันที่ข้อมูล
 - [next] ทำ template prompt สำหรับลูกค้า ad-hoc รายใหม่ (ไฟล์ไม่มาตรฐาน) ให้ใส่ข้อมูลขั้นต่ำ 8 จุดแล้วคำนวณได้ทันที
 - [next] เพิ่มตาราง stress test น้ำมันเพื่อหา break-even/base rate ขั้นต่ำแบบเร็ว
+- [next] ทดสอบ UAT หน้าเครื่องคิดเรท: ดึงย้อนหลัง -> คลุมช่วง -> Export CSV แล้วเปิดใน Excel ว่าฟอนต์ไทยและช่วงวันที่ในชื่อไฟล์ตรงข้อมูลจริง
 
 ## ⭐ Quick Status (2026-04-28 | YK shared-yard leasing risk)
 

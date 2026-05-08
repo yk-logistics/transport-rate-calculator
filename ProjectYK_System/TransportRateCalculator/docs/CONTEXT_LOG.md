@@ -4742,3 +4742,30 @@ o_work_outbound_rows ใช้เรทตาม **วัน anchor R** ไม�
 ### Action ถัดไป
 - เติม `diesel_price_history` รายวันอย่างน้อย 1 วันเริ่มต้นก่อนวันวิ่งแรกใน `Oatside/oatside_config.json` เพื่อให้ carry-forward ทำงานจริง
 - rerun `python Oatside/build_oatside_reports.py` และตรวจให้ `carry_forward > 0` พร้อมทวนยอดลูกค้า Apr/May เทียบไฟล์เดิม
+
+---
+
+## 2026-05-08 (Session Summary #158 - เพิ่ม Export CSV ตารางราคาน้ำมันย้อนหลัง)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้สั่งเพิ่มความสามารถ Export ตารางราคาน้ำมันย้อนหลังในหน้าแปลงข้อมูล/ดูย้อนหลังน้ำมันของ `TransportRateCalculator`
+- ต้องทำแบบ end-to-end โดยคง flow เดิม, ใช้ safe default เป็น CSV, และถ้าไม่แน่ใจ encoding ให้ใช้ UTF-8 BOM รองรับภาษาไทย
+
+### การตัดสินใจรอบนี้
+- เลือกเพิ่มปุ่ม export ใน historical panel เดิมของ Step 1 (ไม่เปลี่ยนเส้นทางหน้า) เพื่อไม่กระทบพฤติกรรมการคำนวณเดิม
+- กำหนดรูปแบบไฟล์เป็น CSV UTF-8 BOM พร้อมชื่อไฟล์ที่มีช่วงวันที่ข้อมูลเพื่อให้ตรวจสอบย้อนกลับได้ง่าย
+
+### สิ่งที่ทำแล้ว
+- แก้ `ProjectYK_System/TransportRateCalculator/transport_rate_calculator.html`:
+  - เพิ่มปุ่ม `Export CSV ตารางย้อนหลัง` ในกลุ่ม mini-actions ของ historical panel
+  - เพิ่มฟังก์ชัน `exportHistoricalCsv()` สร้างไฟล์ CSV จาก `historicalRows` พร้อมคอลัมน์ `date/fuel_type/price_baht_per_liter/imputed/selected`
+  - เพิ่ม helper `csvEscape()` และ `historyRangeForFilename()` สำหรับรองรับข้อมูลพิเศษและตั้งชื่อไฟล์แบบมีช่วงวันที่ (`YYYYMMDD-YYYYMMDD`)
+  - ผูกสถานะ enable/disable ปุ่ม export ตามการมีข้อมูลในตารางย้อนหลัง
+- Verify:
+  - `python -m py_compile ProjectYK_System/app/main.py` ผ่าน
+  - `python ProjectYK_System/tools/run_payroll_test.py` ผ่าน (smoke ยืนยันแอปยังทำงาน)
+  - `ReadLints` ที่ `transport_rate_calculator.html` ไม่พบ error
+
+### Action ถัดไป
+- ให้ผู้ใช้ทดสอบหน้าเครื่องคิดเรทจริง: ดึงย้อนหลัง -> คลุมช่วง -> กด Export CSV แล้วเปิดใน Excel เพื่อยืนยัน encoding ไทยและช่วงวันที่ในชื่อไฟล์
+- หากต้องใช้ส่งต่อทีมบัญชี ให้พิจารณาเพิ่มปุ่ม export เฉพาะ “ช่วงที่คลุม” เป็นไฟล์แยกในรอบถัดไป (ยังไม่ทำรอบนี้เพื่อคง behavior เดิม)
