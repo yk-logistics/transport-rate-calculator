@@ -64,6 +64,8 @@ class OatsideConfig:
     highlight_dest_wait_h: float
     manual_extra_trips: tuple[ManualExtraTrip, ...]
     manual_return_trips: tuple[ManualExtraTrip, ...]
+    report_start_date: date | None
+    report_end_date: date | None
 
 @dataclass
 class CustomerIdleWindow:
@@ -169,6 +171,8 @@ _DEFAULT_CONFIG = OatsideConfig(
     highlight_dest_wait_h=8.0,
     manual_extra_trips=(),
     manual_return_trips=(),
+    report_start_date=None,
+    report_end_date=None,
 )
 
 
@@ -244,6 +248,9 @@ _DEFAULT_CONFIG_JSON = {
     "_note_manual_extra_trips": "เที่ยวเพิ่มที่ไม่มีใน GPS — ตัวอย่าง: {\"dest_date\": \"2026-04-22\", \"plate\": \"72-1217\", \"amount_baht\": 7500, \"note\": \"P&G->Oatside\"}",
     "_note_long_dest_wait_midnight": "If Dest_In and Dest_Out cross midnight and dwell >= min_h, add surcharge by dest_date when no fifty row yet (origin_day mode gap)",
     "_note_outbound_half": "If outbound_half_dest_dates omitted, recovery = day after each no-work block end; surcharge 50pct on first matched trip that Dest_In day",
+    "report_start_date": None,
+    "report_end_date": None,
+    "_note_report_date_range": "กรองช่วงรายงานตามวันวิ่ง (trip_date): null = ไม่กรอง, เช่น report_end_date='2026-04-30' เพื่อตัดเดือน พ.ค. ออก",
     "charge_min_trip_shortfall": False,
     "_note_charge_min_trip_shortfall": "ถ้า false = ไม่เก็บเงินค่าชดเชยเที่ยวขาด (min trips) ในรายงานลูกค้า — ใช้ชาร์จ % วันละ 1 เที่ยวแทน | true = เก็บทั้งค่าชดเชย + % ตามเดิม",
 }
@@ -357,6 +364,8 @@ def load_oatside_config() -> OatsideConfig:
             item = _load_manual_return_entry(e)
             if item:
                 return_list.append(item)
+    report_start_date = _parse_optional_iso_date(raw.get("report_start_date"))
+    report_end_date = _parse_optional_iso_date(raw.get("report_end_date"))
 
     return OatsideConfig(
         trip_rates=trip_rates,
@@ -389,7 +398,27 @@ def load_oatside_config() -> OatsideConfig:
         ),
         manual_extra_trips=tuple(manual_list),
         manual_return_trips=tuple(return_list),
+        report_start_date=report_start_date,
+        report_end_date=report_end_date,
     )
+
+
+def _parse_optional_iso_date(raw_date: Any) -> date | None:
+    ds = str(raw_date or "").strip()
+    if not ds:
+        return None
+    try:
+        return datetime.strptime(ds[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def _date_in_report_window(d: date, cfg: OatsideConfig) -> bool:
+    if cfg.report_start_date and d < cfg.report_start_date:
+        return False
+    if cfg.report_end_date and d > cfg.report_end_date:
+        return False
+    return True
 
 
 def _parse_diesel_price_history(raw_prices: Any) -> dict[date, float]:
@@ -1108,6 +1137,9 @@ def build_trips(
         pairs_final = merged_pairs + rematch_pairs
         for ol, dl in pairs_final:
             segs = constituent_origin_legs(ol, by_row)
+            trip_day = segs[0].t_in.date()
+            if not _date_in_report_window(trip_day, cfg):
+                continue
             ow = sum(hours(x.t_in, x.t_out) for x in segs) if len(segs) > 1 else hours(ol.t_in, ol.t_out)
             tr = hours(ol.t_out, dl.t_in)
             dw = hours(dl.t_in, dl.t_out)
@@ -1127,15 +1159,19 @@ def build_trips(
                     travel_h=tr,
                     dest_wait_h=dw,
                     total_cycle_h=tc,
-                    origin_date=segs[0].t_in.date(),
+                    origin_date=trip_day,
                     dest_date=dl.t_in.date(),
-                    trip_date=segs[0].t_in.date(),
+                    trip_date=trip_day,
                     travel_flag=None,
                 )
             )
         for ol in (o for o in all_o if id(o) not in used_o):
+            if not _date_in_report_window(ol.t_in.date(), cfg):
+                continue
             unmatched_rows.append(("Origin", ol, p))
         for dl in ud + still_orphan:
+            if not _date_in_report_window(dl.t_in.date(), cfg):
+                continue
             unmatched_rows.append(("Destination", dl, p))
     demote_chronology_violations(trips, unmatched_rows, origin_by_row_by_plate)
     travels = [t.travel_h for t in trips]

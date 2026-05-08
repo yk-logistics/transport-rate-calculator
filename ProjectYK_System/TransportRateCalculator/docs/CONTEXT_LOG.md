@@ -4948,3 +4948,35 @@ o_work_outbound_rows ใช้เรทตาม **วัน anchor R** ไม�
 ### Action ถัดไป
 - ให้ผู้ใช้ตรวจหน้า live พร้อม cache-bypass ที่ `reports/oatside-pg-2026/index.html` และสุ่มเปิด `trips.html`/หน้า plate เพื่อ confirm 2dp ฝั่ง UI จริง
 - ถ้าจะบังคับ 2dp ต่อ reconciliation CSV ด้วย policy เดียวกัน ให้แยก task ปรับตัว generator ของ `reconciliation_*` เพิ่มในรอบถัดไป
+
+---
+
+## 2026-05-08 (Session Summary #165 - ตัดเดือน พ.ค. ออกจากรายงาน Oatside + push)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้สั่งชัดเจนให้ “ตัดเดือน พ.ค. ออก” จากรายงาน Oatside และต้อง push ขึ้นทันที
+- ต้องทำแบบ end-to-end: แก้ logic กรองช่วง, rerun รายงาน, deploy หน้าเว็บ, และ push
+
+### การตัดสินใจรอบนี้
+- เพิ่ม report date window ระดับ config (`report_start_date`/`report_end_date`) แทน hardcode เพื่อให้เดือนถัดไปเปลี่ยนได้โดยไม่แตะโค้ดอีก
+- ใช้ safe-default กรองทั้ง `matched trips` และ `unmatched legs` ตามวันข้อมูลจริง เพื่อไม่ให้รายการ พ.ค. หลุดเข้า report เงียบๆ
+
+### สิ่งที่ทำแล้ว
+- แก้ `Oatside/build_oatside_reports.py`:
+  - เพิ่ม field ใน config model: `report_start_date`, `report_end_date`
+  - parse ค่า ISO date จาก `oatside_config.json`
+  - เพิ่ม helper `_date_in_report_window(...)`
+  - apply filter ใน `build_trips(...)` ทั้งตอนสร้าง trip และตอนเก็บ unmatched
+- แก้ `Oatside/oatside_config.json`:
+  - ตั้ง `report_end_date = \"2026-04-30\"` (ตัดเดือน พ.ค. ออก)
+- Verify:
+  - `python -m py_compile Oatside/build_oatside_reports.py` ผ่าน
+  - `python Oatside/build_oatside_reports.py` ผ่าน
+  - ผลลัพธ์: `Trips 103` (เดิม 105), `Unmatched 15`, Diesel usage `exact=103, carry_forward=0, base_fallback=0`
+- Deploy publish:
+  - รัน `deploy_oatside_report.ps1 -Push` สำเร็จ
+  - push ไป repo publish สำเร็จที่ commit `b944925`
+
+### Action ถัดไป
+- ให้ผู้ใช้เปิดหน้า live แล้ว hard refresh 1 รอบเพื่อตรวจว่าไม่มีรายการเดือน พ.ค. ใน `index/trips/exports`
+- ถ้าต้องกลับมาใส่ พ.ค. ภายหลัง ให้ตั้ง `report_end_date` เป็น `null` หรือเปลี่ยนเป็นวันที่สิ้นเดือนที่ต้องการ แล้ว rerun/deploy ซ้ำ

@@ -110,6 +110,7 @@
 - [done] **Oatside diesel fallback carry-forward**: ถ้าวันวิ่งไม่มีราคาน้ำมัน เปลี่ยนเป็นดึงราคาล่าสุดย้อนหลัง (`latest <= trip_date`) ก่อน; ถ้าไม่มีข้อมูลก่อนหน้าเลยค่อยใช้ base rate พร้อม warning traceable ระบุวัน/ราคา source และพิมพ์สรุปจำนวน `exact/carry_forward/base_fallback` ตอนจบ build
 - [done] **Oatside diesel history applied**: เติม `diesel_price_history` จาก user-provided historical table (Bangchak ไฮดีเซล S ปี 2569) จำนวน 19 anchor dates แล้ว rerun รายงานได้ `exact=22, carry_forward=83, base_fallback=0`
 - [done] **Oatside diesel typo fix Apr17-20**: ผู้ใช้แจ้ง typo `429 -> 42.90` ในช่วง `2026-04-17..2026-04-20` แก้ค่าใน `diesel_price_history` แล้ว rerun ได้ `exact=37, carry_forward=68, base_fallback=0`
+- [done] **ตัดเดือน พ.ค. ออกจากรายงาน Oatside**: เพิ่ม config filter `report_end_date=2026-04-30` + โค้ดกรองช่วงรายงานใน `build_oatside_reports.py` (กรองทั้ง trips/unmatched) แล้ว rerun ได้ `Trips 103` (`105 -> 103`) และ deploy publish สำเร็จ (`b944925`)
 - [done] **UX ลูกค้า**: hero ชี้ `trips.html` + Excel ขวาหัวแต่ละ `<details>` + ตัดบล็อกคำอธิบายสี — `patch_oatside_hero_xlsx_inline.py` — Session #107
 - [done] **`trips.html` + หน้า plate**: แถบ **แสดง/ซ่อนคอลัมน์** (checkbox + `localStorage`) สำหรับจอแคบ — `build_oatside_reports.py` + `apply_oatside_col_toggle.py` — Session #111
 - [done] **HTML Oatside — หลายป้าย/เซลล์ + ตีเปล่า (No-work recovery)**: รวม `nw_rows` ในคอลัมน์ส่วนเพิ่มตาราง (2); หน้า plate รองรับหลาย fifty ต่อวัน — `patch_oatside_multi_badge_nw.py`

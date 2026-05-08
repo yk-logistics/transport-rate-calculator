@@ -4,6 +4,12 @@
 
 ## 2026-05-08 (Oatside money 2dp standard + CSV exports + publish)
 
+## 2026-05-08 (Oatside report cutoff — remove May from report window)
+
+- เพิ่ม config ช่วงรายงานใน `Oatside/build_oatside_reports.py` (`report_start_date` / `report_end_date`) และใช้กรองทั้ง matched trips + unmatched legs ตาม `trip_date`/วันของ leg เพื่อกันข้อมูลนอกช่วงไหลเข้ารายงาน
+- ตั้งค่า `Oatside/oatside_config.json` เป็น `report_end_date=2026-04-30` ตามคำขอผู้ใช้ "ตัดเดือน พ.ค. ออก" แล้ว rerun build ได้ผล `Trips 103` (จากเดิม 105), `exact=103, carry_forward=0, base_fallback=0`
+- publish รายงานขึ้น GitHub Pages ด้วย `deploy_oatside_report.ps1 -Push` สำเร็จที่ commit `b944925` (repo publish)
+
 - ปรับ `Oatside/build_oatside_reports.py` ให้ monetary presentation เป็น 2dp ทั้ง HTML และ Excel (`#,##0.00`) โดยคง logic คำนวณเดิมไม่ round ซ้ำหลายชั้น
 - เพิ่มการส่งออก `exports/*.csv` คู่กับ split Excel tables โดย format monetary columns เป็น 2dp (UTF-8 BOM) ครอบคลุมชุดคอลัมน์เงินหลัก (`Trip_rate_baht`, `Downtime_50_baht`, `Downtime_100_baht`, `Blank_run_50_baht`, `Return_job_baht`)
 - rerun `python Oatside/build_oatside_reports.py` แล้ว deploy publish ด้วย `deploy_oatside_report.ps1 -RepoPath transport-rate-calculator-repo -Push` สำเร็จที่ commit `4d203ab`
