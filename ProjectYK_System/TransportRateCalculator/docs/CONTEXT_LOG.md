@@ -3918,3 +3918,768 @@ o_work_outbound_rows ใช้เรทตาม **วัน anchor R** ไม�
 ### Action ถัดไป
 - เริ่มเก็บ benchmark จริง 3 งานแรกลง `CC_BENCHMARK_LOG.md`
 - ถ้า run ใดเป็นงานเงิน/import/payroll ให้ข้าม Ultra-Lean และใช้โหมดรอบคอบทันที
+
+---
+
+## 2026-05-07 (Session Summary #134 - จัด Operational Pack พร้อมใช้ทันที)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้สั่ง "ลุยเลย" ให้ทำ end-to-end ตามแผนที่ตกลง: (1) guardrails/rules ที่ต้องใช้ก่อน (2) performance checklist รอบแรก (3) template backup ความรู้จากแชต
+- ผู้ใช้ต้องการเอกสารภาษาไทยที่อ่านสั้น ใช้งานได้ทันที และไม่ขัดกติกาเดิมของ Project YK
+
+### การตัดสินใจรอบนี้
+- ทำเป็นเอกสารปฏิบัติการชุดสั้น (Operational Pack v1) แยกชัดตามหน้าที่ เพื่อให้หยิบใช้ได้ทันทีโดยไม่ต้องตีความเยอะ
+- ผูกเอกสารใหม่เข้ากับ `AI_CURSOR_CLAUDE_WORKFLOW.md` เพื่อให้จุดเริ่มใช้งานอยู่ที่เดิม
+
+### สิ่งที่ทำแล้ว
+- สำรวจไฟล์ workflow ที่มีอยู่แล้วใน repo (`AI_CURSOR_CLAUDE_WORKFLOW.md`, `CLAUDE.md`, `tools/CC_*`, playbooks ต่าง ๆ) เพื่อเลี่ยงซ้ำซ้อน
+- เพิ่มไฟล์ใหม่:
+  - `ProjectYK_System/docs/CURSOR_CLAUDE_DAILY_GUARDRAILS_CHECKLIST_TH.md`
+  - `ProjectYK_System/docs/PERFORMANCE_FIRST_PASS_CHECKLIST_TH.md`
+  - `ProjectYK_System/tools/CHAT_KNOWLEDGE_BACKUP_TEMPLATE_TH.md`
+- อัปเดต `ProjectYK_System/AI_CURSOR_CLAUDE_WORKFLOW.md` ให้ชี้ Daily Operation Pack และ backup template
+- อัปเดต context docs ตามกฎโปรเจกต์:
+  - `ProjectYK_System/CHANGELOG_MASTER.md`
+  - `ProjectYK_System/TransportRateCalculator/docs/NEXT_ACTION_PLAN.md`
+  - `ProjectYK_System/TransportRateCalculator/docs/CONTEXT_LOG.md` (รายการนี้)
+
+### Action ถัดไป
+- ให้ผู้ใช้ทดลองใช้ Daily Guardrails + Performance checklist กับงานจริง 1 วัน
+- บันทึกผล run ลง `ProjectYK_System/tools/CC_BENCHMARK_LOG.md`
+- ใช้ `ProjectYK_System/tools/CHAT_KNOWLEDGE_BACKUP_TEMPLATE_TH.md` ปิดท้ายทุกรอบเพื่อกันความรู้ตกหล่น
+
+---
+
+## 2026-05-07 (Session Summary #135 - ล็อกกติกา BigC รายเดือนเรื่องเดือนจ่ายเทียบเดือนวิ่ง/สดย่อย)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้ยืนยัน domain fact ใหม่ของ BigC ว่าใช้กติกาเดียวกันทุกเดือน:
+  - เดือนจ่าย `M` ต้องอิงงานวิ่งเดือน `M-1`
+  - สดย่อยที่ใช้คำนวณเดือนจ่าย `M` ต้องใช้สดย่อยเดือน `M-1`
+
+### การตัดสินใจรอบนี้
+- ล็อกเป็นกติกากลางของระบบ BigC ทันที: `pay_month M -> run_month M-1 + petty_month M-1`
+- กำหนดให้เอกสารแผนงานถัดไปต้องมี action ชัดเจนสำหรับ audit/tool เพื่อ map cycle นี้แบบอัตโนมัติ
+
+### สิ่งที่ทำแล้ว
+- อัปเดต `CONTEXT_LOG.md` เพิ่ม Session Summary นี้เพื่อเก็บ fact และ decision ระดับโดเมนให้ค้นย้อนหลังได้
+- อัปเดต `NEXT_ACTION_PLAN.md` เพิ่ม `[next]` งาน map BigC pay month -> previous run/petty month อัตโนมัติ
+- อัปเดต `CHANGELOG_MASTER.md` บันทึก one-line decision ระดับภาพรวม
+
+### Action ถัดไป
+- ทำ audit/tool ให้ enforce mapping อัตโนมัติทุกครั้งก่อนคำนวณ BigC payroll รายเดือน
+- เพิ่มจุดตรวจ preflight ที่รายงาน mismatch หากพบเดือนวิ่ง/สดย่อยไม่ตรง `M-1`
+
+---
+
+## 2026-05-07 (Session Summary #136 - Recheck BigC เม.ย.2026 ตามกติกา M-1 + preflight)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้สั่ง "ลองตรวจสอบอีกที" สำหรับ BigC เดือนจ่ายเมษายน 2026 โดยย้ำกติกาล็อกแล้ว:
+  - เดือนจ่าย `M` ใช้ข้อมูลงานวิ่งเดือน `M-1`
+  - สดย่อยที่ใช้คำนวณเดือนจ่าย `M` = สดย่อยเดือน `M-1`
+- รอบนี้จึงต้องเทียบที่ `cycle_tag=2026-03` (มีนาคม 2026) พร้อมไฟล์อ้างอิงเดิม 4 ไฟล์
+
+### การตัดสินใจรอบนี้
+- ใช้เครื่องมือเดิม `ProjectYK_System/tools/audit_bigc_manual_vs_system.py` รันซ้ำด้วย `--cycle-tag 2026-03` และ output แยกโฟลเดอร์ `reports/audit_bigc_2026-03_recheck_mminus1`
+- รัน preflight จาก DB เพิ่ม 4 มิติ (`unlinked`, `cycle tag`, `cross-site collision`, `source mismatch`) เพื่อปิดความเสี่ยงข้อมูลตกหล่นแบบตัวเลข
+
+### สิ่งที่ทำแล้ว
+- ยืนยันรอบระบบที่ใช้เทียบคือ BIGC `pay_cycle_tag=2026-03` (`period_start=2026-03-01`, `period_end=2026-03-31`, `run_id=10`)
+- ผล audit เทียบ manual vs system:
+  - `matched_drivers=8`, `missing_in_manual=1` (บุญชอบ), `value_mismatch_drivers=8`
+  - diff รวม: `trip_fee +1,300.00`, `petty +49,825.91`, `fuel_rate -6,272.43`, `net +107,749.01`
+- ผล preflight:
+  - unlinked pending สดย่อยในรอบ BIGC `2026-03`: `0 รายการ / 0.00 บาท`
+  - pending สดย่อยรวมในรอบ: `43 รายการ / 65,825.91 บาท`
+  - cycle-tag date drift: `1 รายการ / 500.00 บาท` (`txn_date=2025-11-25`, ผู้เบิกเกศศักดิ์)
+  - source scan: daily มี `import_daily=325`, `bigc_fuel_rate=3`; fuel มี `bigc_fuel_rate=101` และ `fuel_unlinked=0`
+  - cross-site collision indicator (คนขับในรันนี้มีงานมากกว่า 1 site ในช่วงเวลาเดียวกัน): `6 คน` (ใช้เป็น risk monitor)
+
+### Action ถัดไป
+- เพิ่ม preflight gate ก่อน finalize BigC: ถ้า `cycle_tag_date_outside_month > 0` ให้ขึ้น warning พร้อมยอดเงินกระทบ
+- แยกตรวจเชิงลึก 6 คนที่ติด cross-site collision ว่ามีผลเงินจริงต่อ BIGC run หรือเป็นประวัติข้ามไซต์ที่ไม่ถูกคำนวณ (ยืนยันด้วย query ระดับรายการ)
+
+---
+
+## 2026-05-07 (Session Summary #137 - ปิด gap audit BigC ก้อนใหญ่ + เพิ่ม guardrail cycle-date drift)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้สั่งให้ทำต่อ end-to-end: ปิดช่องว่างเงินฝั่ง petty/fuel/net, ปรับ parser `manual_net`, rerun before/after, และเพิ่ม guardrail ขั้นต่ำ 1 จุดสำหรับ cycle-date drift
+
+### การตัดสินใจรอบนี้
+- แก้ parser ที่ต้นเหตุใน `audit_bigc_manual_vs_system.py` ก่อน โดยเพิ่ม label heuristic ให้ครอบคลุมโครงชีท `Book1.xlsx` ที่ใช้อยู่จริง (`อื่นๆ` สำหรับยอดหักก้อน และ `ยอดรับหลังหักค่าใช้จ่าย` สำหรับ net)
+- เพิ่ม guardrail ในหน้า payroll ของระบบจริง (`/payroll/{run_id}`) ให้เตือนกรณี `pay_cycle_tag` ตรงรอบแต่ `txn_date` หลุดช่วงเดือนวิ่ง พร้อมจำนวนรายการ/ยอดเงินกระทบ
+
+### สิ่งที่ทำแล้ว
+- แก้ไฟล์โค้ด:
+  - `ProjectYK_System/tools/audit_bigc_manual_vs_system.py`
+  - `ProjectYK_System/app/main.py`
+  - `ProjectYK_System/app/templates/payroll_detail.html`
+- Rerun audit `cycle_tag=2026-03`:
+  - before: `petty_diff_total=+49,825.91`, `net_diff_total=+107,749.01`
+  - after: `petty_diff_total=-2,000.00`, `net_diff_total=-5,958.63`
+  - gap ที่ลดลง: petty ดีขึ้น `47,825.91` บาท, net ดีขึ้น `101,790.38` บาท
+- จุดที่ยังต่างหลักหลัง parser:
+  - `สมพร BIG-C`: `petty_diff=-2,000.00` และ `net_diff=-7,999.99`
+  - `สมประสงค์`: `fuel_rate_diff=-6,272.56` แต่ `net_diff` แทบเป็นศูนย์ (`0.10`)
+  - `พรศักดิ์`: `trip_fee_diff=+1,300.00`, `net_diff=+2,299.96`
+- Verify:
+  - `python ProjectYK_System/tools/run_payroll_test.py` ผ่าน
+  - `ReadLints` ไฟล์ที่แก้ ไม่พบ error
+
+### Action ถัดไป
+- เคลียร์เคสคงค้าง 3 คน (สมพร/สมประสงค์/พรศักดิ์) แบบรายบรรทัดจากหน้า drill-down แล้วล็อก rule เพิ่มใน audit เพื่อลด false gap รอบถัดไป
+- พิจารณายกระดับ guardrail จาก “เตือน” เป็น “บล็อก finalize” เมื่อ cycle-date drift > 0 หลังผู้ใช้ยืนยันนโยบาย
+
+---
+
+## 2026-05-07 (Session Summary #138 - Drill-down 3 คนและชี้บรรทัด mismatch สมพร)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้สับสน finalize gate และถามตรงว่า “ลองเทียบของฉันหรือยัง และบรรทัดไหน” โดยต้องการหลักฐานระดับบรรทัดจากไฟล์ผู้ใช้
+- ให้ drill-down ตามลำดับ `สมพร -> พรศักดิ์ -> สมประสงค์`
+
+### การตัดสินใจรอบนี้
+- ดึงหลักฐานคู่เทียบแบบ line-level ระหว่าง `Book1.xlsx` (ชีทรายคน) กับ DB (`PettyCashTxn` + `PayRunItem`) โดยไม่แก้ไฟล์ต้นฉบับผู้ใช้
+- รัน recompute เฉพาะ payrun BIGC `run_id=10` แล้ว rerun audit อีกครั้ง เพื่อแยก “ช่องว่างจากข้อมูล stale” ออกจาก “ช่องว่างจาก business rule”
+
+### สิ่งที่ทำแล้ว
+- ยืนยันแบบบรรทัดต่อบรรทัด (เคสสมพร):
+  - `Book1.xlsx` ชีท `สมพร` แถว `93` (`ค่าเรทน้ำมัน` + `อื่นๆ`) ระบุยอด `2,000`
+  - แถว `96` (`ยอดรับหลังหักค่าใช้จ่าย`) มี detail `2026-03-02 | เงินเบิก | 2,000`
+  - ระบบมีรายการตรงกันใน DB: `PettyCashTxn.id=55933`, `txn_date=2026-03-02`, `deduct_amount=2000`, `memo=เงินเบิก`, `pay_cycle_tag=2026-03`
+- root cause mismatch สมพรรอบก่อน:
+  - ไม่ใช่ไฟล์ผู้ใช้ผิดบรรทัด แต่เกิดจาก payrun item เก่ายังไม่ recompute จึงเคยอ่าน `petty=0`
+  - หลัง recompute `run_id=10`: `petty` ของสมพรกลายเป็น `2,000` ตรงกับไฟล์ผู้ใช้
+- rerun audit หลัง recompute:
+  - `petty_diff_total: +49,825.91 -> 0.00` (ปิดช่องว่างฝั่ง petty ได้ครบ)
+  - `net_diff_total: +107,749.01 -> -7,774.31` (ดีขึ้นมาก แต่ยังไม่ศูนย์)
+
+### Action ถัดไป
+- ปิด residual net gap ที่เหลือโดยแยกเป็น 3 กลุ่ม:
+  - `สมพร`: net ต่าง `-9,999.99` (ต้องยืนยันกติกา net ของชีท manual ว่าควรใช้ค่าใดเป็น “จ่ายจริง”)
+  - `พรศักดิ์`: trip ต่าง `+1,300.00`
+  - `สมประสงค์`: fuel_rate ต่าง `-6,272.56` แต่ net แทบตรง
+- หลังยืนยันกติกา net/manual แล้วค่อยล็อก parser rule รอบสุดท้ายและ rerun เพื่อดัน net diff เข้าใกล้ศูนย์
+
+---
+
+## 2026-05-07 (Session Summary #139 - แก้ parser fuel และยืนยันสมพรแบบบรรทัดต่อบรรทัด)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้ต้องการคำตอบชัดว่า “ลองเทียบของฉันหรือยัง และบรรทัดไหน” และให้ดันผล audit ใกล้ศูนย์ที่สุด
+
+### การตัดสินใจรอบนี้
+- ปรับ parser fuel เพิ่มเติม: ไม่ใช้ label `เรทน้ำมัน` เดี่ยว (เป็น ratio) แต่ใช้เฉพาะ amount label (`ค่าเรทน้ำมัน`/`น้ำมันทำได้`) และเก็บค่าแบบรักษา sign ด้วย absolute-match
+- ใช้ recompute ของ payrun BIGC ก่อน rerun audit เพื่อกันผล stale item บิดเบือน gap
+
+### สิ่งที่ทำแล้ว
+- ตรวจ line-level สมพรกับไฟล์ผู้ใช้:
+  - `Book1.xlsx` ชีท `สมพร`:
+    - แถว `93`: `ค่าเรทน้ำมัน` + `อื่นๆ = 2,000`
+    - แถว `96`: `ยอดรับหลังหักค่าใช้จ่าย = 10,223.79` พร้อม detail `2026-03-02 | เงินเบิก | 2,000`
+  - DB ตรงรายการ: `PettyCashTxn.id=55933`, `2026-03-02`, `เงินเบิก`, `2,000`, `pay_cycle_tag=2026-03`
+- หลัง recompute + rerun ล่าสุด (`reports/audit_bigc_2026-03_recheck_mminus1_after_fuelfix`):
+  - `petty_diff_total = 0.00` (ปิดครบ)
+  - `fuel_rate_diff_total = 0.23` (ลดจาก -6,272.43)
+  - `net_diff_total = -7,774.31` (ยังเหลือหลักจากนิยาม net/manual)
+
+### Action ถัดไป
+- ล็อกนิยาม `manual_net` กับผู้ใช้ (ค่าจ่ายจริงในชีทสมพรใช้ตัวไหนเป็นหลัก) เพื่อปิด gap `-9,999.99`
+- ตรวจแหล่งที่มาค่าเที่ยวพรศักดิ์ที่ต่าง `1,300` ระดับ DailyJob line-by-line แล้วปิด residual สุดท้าย
+
+---
+
+## 2026-05-07 (Session Summary #138 - แก้ sessionStart hook ให้ retry ได้และตอบ JSON เสมอ)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้แจ้งปัญหา `sessionStart hook ไม่ทำงาน` และให้ตรวจ end-to-end ทั้ง `hooks.json`, script, schema, พฤติกรรมบน Windows PowerShell รวมถึงทดสอบแบบ deterministic
+
+### การตัดสินใจรอบนี้
+- คงแนวทาง hook เดิม (`powershell.exe -File .cursor/hooks/cursor-digest.ps1`) แต่แก้แบบ minimal เพื่อความเสถียร:
+  - ไม่ block retry ทั้งวันเมื่อ network fail
+  - ให้ stdout เป็น JSON เสมอ (`{}` หรือ `{ additional_context: ... }`) เพื่อไม่เสี่ยง invalid/no-output path
+- เพิ่ม timeout ของ `sessionStart` จาก 10s เป็น 20s ลดโอกาสตัดกลางคันบนเครือข่ายช้า
+
+### สิ่งที่ทำแล้ว
+- ตรวจ config/schema เทียบ Cursor hooks docs:
+  - โครง `version=1`, `hooks.sessionStart[]`, `command`, `timeout` ถูก schema
+  - path `.cursor/hooks/cursor-digest.ps1` ถูกต้องตามกฎ project hook root
+- พบ root cause จริงจาก script:
+  - กรณี network fail จะเขียน `last_check_date=today` แล้วรอบถัดไปติด `skipped-cache` ทั้งวัน
+  - หลายเส้นทาง exit โดยไม่พิมพ์ JSON (stdout ว่าง)
+- แก้ไฟล์:
+  - `.cursor/hooks/cursor-digest.ps1`: เพิ่ม `Emit-HookOutput`, ตัด logic lockout จาก `last_check_date`, emit JSON ทุกเส้นทาง skip/fail/success
+  - `.cursor/hooks.json`: `timeout` 10 -> 20
+- ทดสอบ:
+  - parse `hooks.json` ผ่าน
+  - รัน command เดียวกับ hook จริง + stdin จำลองแล้วได้ `{}`
+  - `ReadLints` เฉพาะไฟล์ที่แตะ: ไม่พบ error
+
+### Action ถัดไป
+- เปิดแชตใหม่ใน Cursor 1 รอบเพื่อตรวจว่า `sessionStart` ถูกยิงและมีรายการใหม่ใน `.cursor/.cache/cursor-digest.log`
+- ถ้าต้องการ inject ข้อความทุกแชต (ไม่ใช่วันละครั้ง) ให้ปรับนโยบาย cache เพิ่มในรอบถัดไป
+
+---
+
+## 2026-05-07 (Session Summary #140 - Implement BigC finalize block + unresolved queue/fail-repeat logging)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้ยืนยันนโยบายล็อก: (1) BigC ถ้า `cycle-date drift > 0` ต้อง block finalize ทันที, (2) เคสกำกวมให้ safe skip เฉพาะเคสและทำส่วนอื่นต่อ, (3) ถ้า fail เคสเดิมซ้ำให้บันทึกค้างไว้สำหรับเช้าและหยุดวนลูป
+- งานรอบนี้ต้องส่งครบ implementation + verify + อัปเดต context docs
+
+### การตัดสินใจรอบนี้
+- เพิ่ม gate ใน flow `finalize payroll` โดยบังคับเฉพาะ `site=BIGC` ตาม policy ที่ผู้ใช้ล็อกไว้
+- ใช้แนวทาง unresolved queue แบบไฟล์รายงานใน `reports/` เพื่อ trace ย้อนหลังได้และไม่ทำให้ทั้งรอบล่มเมื่อเจอชื่อกำกวม/หา key ไม่เจอ
+- ฝังกลไก fail-repeat marker: ถ้าเหตุเดิมชนซ้ำให้สร้างไฟล์ pending สำหรับเช้าอัตโนมัติ
+
+### สิ่งที่ทำแล้ว
+- แก้ `ProjectYK_System/app/main.py`
+  - เพิ่ม `_write_unresolved_case_report()` เขียนรายงาน blocker ไปที่ `reports/payroll_unresolved_queue/`
+  - ใน `POST /payroll/{run_id}/finalize` เพิ่ม BigC hard block เมื่อพบ `cycle-date drift > 0` และ redirect กลับด้วย `err=cycle_drift_block`
+  - ถ้าเหตุเดิมชนซ้ำ (same run + reason) จะสร้าง `PENDING_MORNING_*.md` และแนบ note ใน payrun
+- แก้ `ProjectYK_System/app/templates/payroll_detail.html`
+  - เพิ่มข้อความ error กรณี `cycle_drift_block` ชัดเจนว่าต้องแก้ drift ก่อน finalize
+- แก้ `ProjectYK_System/tools/audit_bigc_manual_vs_system.py`
+  - เพิ่ม safe skip + unresolved queue สำหรับชีทที่ไม่ match system key (`name_not_found_in_system_keys` / `ambiguous_name_cross_site`)
+  - ส่งออกไฟล์ `unresolved_queue.json`, `unresolved_queue.csv`, `unresolved_history.jsonl`, `pending_morning_unresolved.json`
+  - ถ้า unresolved เดิมเกิดซ้ำ จะสร้าง `PENDING_MORNING_UNRESOLVED.md`
+- รัน verify:
+  - `python ProjectYK_System/tools/run_payroll_test.py` ผ่าน
+  - `python -m py_compile ...main.py ...audit_bigc_manual_vs_system.py` ผ่าน
+  - rerun audit พร้อม unresolved queue output ที่ `reports/audit_bigc_2026-03_recheck_mminus1_after_finalize_policy/` (พบ unresolved 8 เคส)
+  - `ReadLints` ไฟล์ที่แก้: ไม่พบ error
+
+### Action ถัดไป
+- ให้ผู้ใช้ลองกด finalize บน BigC payrun ที่ยังมี drift เพื่อยืนยัน hard block จากหน้า UI
+- ถ้าต้องการทดสอบ fail-repeat policy ให้กด finalize ซ้ำเคสเดิม 2 ครั้ง แล้วตรวจว่าเกิด `PENDING_MORNING_*.md` ใน `reports/payroll_unresolved_queue/`
+- เคลียร์ unresolved queue 8 ชีทโดยยืนยัน mapping ชื่อคนขับใน master ก่อน rerun audit รอบถัดไป
+
+---
+
+## 2026-05-07 (Session Summary #141 - BigC unresolved pass 1 ลดจาก 8 เหลือ 7 แบบ safe-by-default)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้สั่งทำต่อทันทีหลัง finalize block โดยโฟกัส `unresolved 8 เคส` ใน BigC audit
+- กำหนดเงื่อนไขชัดเจนว่า `ห้ามเดา` และถ้าแมตช์ไม่ได้ชัดต้องคงสถานะ unresolved พร้อมเหตุผล/ทางไปต่อ
+
+### การตัดสินใจรอบนี้
+- ใช้กฎจับคู่เพิ่มแบบ conservative: อนุญาต auto-resolve เฉพาะกรณี `single-prefix unique` ที่พิสูจน์ได้จาก system keys เท่านั้น
+- เคสที่ไม่ผ่านเงื่อนไขดังกล่าวให้คง unresolved และเพิ่ม `next_action` รายคนใน queue เพื่อใช้เคลียร์ต่อเช้าวันถัดไป
+
+### สิ่งที่ทำแล้ว
+- แก้ `ProjectYK_System/tools/audit_bigc_manual_vs_system.py`
+  - เพิ่ม fallback mapping แบบ safe (`sheet key` เป็น prefix ของ `system key` และเจอได้เพียง 1 ค่า)
+  - เพิ่มสถิติ `auto_resolved_sheets`/`auto_resolved_sheet_names`
+  - ปรับ `next_action` ใน unresolved queue ให้ระบุชื่อคนขับรายคน
+- rerun audit ไปที่ `reports/audit_bigc_2026-03_recheck_mminus1_after_unresolved_safe/`
+  - unresolved ลดจาก `8 -> 7`
+  - `บุญชอบ` ถูก auto-resolve เป็น `บุญชอบพูลสวัสดิ์`
+  - `missing_in_manual` ลดจาก `1 -> 0`
+  - diff รวมหลัง rerun: `trip_fee_diff_total=+1,300.00`, `petty_diff_total=0.00`, `fuel_rate_diff_total=+0.26`, `net_diff_total=-7,774.28`
+- Verify:
+  - `python -m py_compile ProjectYK_System/tools/audit_bigc_manual_vs_system.py` ผ่าน
+  - `ReadLints` ไฟล์ที่แก้ ไม่พบ error
+
+### Action ถัดไป
+- เคลียร์ unresolved ที่เหลือ 7 คนใน Employee master/alias ตามรายชื่อใน queue แล้ว rerun audit รอบเดียวเพื่อวัดผลลด unresolved
+- เดินงานปิด residual มูลค่าสูงคู่ขนาน: `สมพร net -9,999.99` และ `พรศักดิ์ trip +1,300.00`
+
+---
+
+## 2026-05-07 (Session Summary #142 - LCB preflight hardening readonly-first + finalize drift parity)
+
+### บริบทจากผู้ใช้
+- สั่งทำงานขนานหลัง night-run policy: **LCB preflight hardening** แบบ readonly-first แล้วแก้เฉพาะที่จำเป็น — 4 มิติ, รายงานตัวเลข, guardrail เล็ก optional, safe default, คิวเช้าเมื่อ HIGH/fail ซ้ำ, verify + context docs
+
+### การตัดสินใจรอบนี้
+- ไม่เดา mapping ชื่อ — preflight เป็นแต่ตัวเลข/query + ตัวอย่าง id จาก DB
+- ไม่ใช้ “สดย่อยไซต์อื่นที่ tag สตริงเดียวกับรอบ” เป็น MEDIUM risk เพราะ **แต่ละไซต์นิยามรอบคนละแบบ** (สตริง `YYYY-MM` ซ้อนความหมายได้); แยกเป็นมิติ **INFO** แทน
+- ขยาย **finalize block** ให้ **LCB** เทียบเท่า BigC เมื่อ **cycle-date drift > 0** (`lcb_cycle_date_drift_block`) เพื่อไม่ปิดรอบทับความเสี่ยงสดย่อยวันที่หลุดช่วงวิ่ง
+
+### สิ่งที่ทำแล้ว
+- เพิ่ม `ProjectYK_System/tools/preflight_payrun.py` (default run = `PayRun` ล่าสุดของไซต์ที่เลือกตาม `id`)
+- รัน preflight ตัวอย่างบน DB dev: **LCB `run_id=9` · tag `2026-03`** → `summary_risk_level=HIGH`
+  - unlinked: **33 / 23,716 บาท**
+  - cycle-date drift: **23 / 14,616 บาท**
+  - cross-site (ตัวชี้วัด): **4 คน** มีงานหลายไซต์ในช่วง period เดียวกัน
+  - source scan: daily `book2_2026`, fuel 621 แถวแยก `book2_2026` / `caltex` / `caltex_import`, fuel_unlinked=0; petty ไซต์อื่นที่ tag สตริงชนกัน **247 / 177,825.91 บาท** บันทึกเป็น **INFO** เท่านั้น
+- ส่งออก: `reports/preflight_payrun_LCB_2026-03_run9.json`, `reports/preflight_morning_queue/PENDING_MORNING_preflight_LCB_2026-03_run9.md`
+- แก้แอป: `ProjectYK_System/app/main.py` (`_cycle_drift_predicates_for_payrun`, finalize รองรับ LCB), `ProjectYK_System/app/templates/payroll_detail.html` (ข้อความ BIGC/LCB)
+- Verify: `python ProjectYK_System/tools/run_payroll_test.py`, `python -m py_compile` ผ่าน
+
+### Action ถัดไป
+- โอเปิด `/payroll/9` ตรวจแบนเนอร์ unlinked + drift แล้วแก้สดย่อย (ลิงก์คนขับ / ย้ายรอบ) ก่อน finalize — **ทุกวันนี้ finalize LCB จะโดนบล็อกด้วย drift เช่นเดียวกับ BigC**
+- ถ้าต้องการ preflight รอบอื่น: `python ProjectYK_System/tools/preflight_payrun.py --site LCB --run-id <id>`
+
+---
+
+## 2026-05-07 (Session Summary #143 - Night handoff pack สำหรับเช้าแบบใช้ได้ทันที)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้สั่งให้สร้าง/อัปเดต night handoff pack สำหรับเช้า โดยต้องรวบรวมจากผลล่าสุดใน repo และต้องมีครบ 4 ส่วน:
+  - checklist เช้าแบบ 10 นาที
+  - outstanding queue เรียง `BigC -> LCB -> AYU`
+  - critical decisions pending (ไม่เกิน 5)
+  - next 3 executable commands/steps สำหรับผู้ใช้ non-coder
+
+### การตัดสินใจรอบนี้
+- ใช้รายงานล่าสุดที่มีอยู่ใน `reports/` เป็น single source of truth สำหรับแพ็กเช้า:
+  - BigC: `reports/audit_bigc_2026-03_recheck_mminus1_after_unresolved_safe/summary.json` + `unresolved_queue.json`
+  - LCB: `reports/preflight_payrun_LCB_2026-03_run9.json` + `reports/preflight_morning_queue/PENDING_MORNING_preflight_LCB_2026-03_run9.md`
+- กำหนดเอกสารกลางสำหรับส่งต่องานเช้าเป็นไฟล์เดียว: `ProjectYK_System/TransportRateCalculator/docs/NIGHT_HANDOFF_PACK_LATEST_TH.md`
+- AYU รอบนี้ไม่มี blocker ใหม่จากรายงานล่าสุด จึงลงเป็น monitor state ชัดเจน (ไม่เดาว่าปลอดความเสี่ยง)
+
+### สิ่งที่ทำแล้ว
+- สร้างไฟล์ `ProjectYK_System/TransportRateCalculator/docs/NIGHT_HANDOFF_PACK_LATEST_TH.md`
+  - checklist เช้า 10 นาที
+  - outstanding queue ตามลำดับ `BigC -> LCB -> AYU`
+  - critical decisions pending 5 ข้อ
+  - 3 คำสั่งที่รันได้ทันที (`preflight LCB`, `preflight BIGC`, `audit BIGC rerun`)
+- อัปเดต `NEXT_ACTION_PLAN.md` เพิ่มรายการ `[done]` สำหรับ night handoff pack
+- อัปเดต `CHANGELOG_MASTER.md` บันทึก one-line cross-module decision
+
+### Action ถัดไป
+- เช้าให้รัน 3 คำสั่งใน handoff pack แล้วอัปเดตโฟลเดอร์ `reports/` ด้วยผลรอบใหม่ก่อนตัดสินใจ finalize
+- เคลียร์ unresolved BigC 7 รายชื่อใน master/alias แล้ว rerun audit 1 รอบ
+- เคลียร์ LCB drift/unlinked ตามยอดที่ preflight ชี้ (`23/14,616` และ `33/23,716`) ก่อน finalize run 9
+
+---
+
+## 2026-05-07 (Session Summary #144 - AYU preflight hardening end-to-end + unresolved queue)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้สั่งทำ **AYU preflight hardening แบบ end-to-end** โดยล็อกเงื่อนไข: ตรวจ 4 มิติ, สรุปจำนวน+ยอดเงิน, ทำ quick win ได้ 1 จุดแบบปลอดภัย, เคสกำกวมให้ skip เฉพาะเคสแล้วบันทึก unresolved queue, และต้อง verify + lints + update context docs
+
+### การตัดสินใจรอบนี้
+- รักษาแนวทาง **ไม่เดา/ไม่แก้ DB อัตโนมัติ**: แยกผล unlinked เป็น 2 คิวชัดเจน
+  - `quick-win` เฉพาะ single-match ที่ปลอดภัย
+  - `unresolved` สำหรับ missing/ambiguous/no-match เพื่อให้ทีมเคลียร์ทีละเคสแบบ trace ได้
+- ขยาย finalize guardrail ไปที่ **AYU** ด้วยกติกาเดียวกับ BIGC/LCB เมื่อพบ `cycle-date drift > 0` เพื่อกันการปิดรอบทั้งที่ข้อมูลวันที่/รอบไม่สอดคล้อง
+
+### สิ่งที่ทำแล้ว
+- แก้ `ProjectYK_System/tools/preflight_payrun.py`
+  - เพิ่มมิติ `dimension_unlinked_resolution` ในรายงานหลัก
+  - เพิ่มไฟล์ออกใหม่ใต้ `reports/preflight_unresolved_queue/`:
+    - `unresolved_preflight_AYU_2026-03_run7.json`
+    - `unresolved_preflight_AYU_2026-03_run7.csv`
+    - `quickwin_preflight_AYU_2026-03_run7.json`
+- แก้ `ProjectYK_System/app/main.py`:
+  - `POST /payroll/{run_id}/finalize` บล็อก `cycle-date drift` สำหรับ `AYU` เพิ่มจากเดิมที่มี `BIGC/LCB`
+  - reason ใหม่: `ayu_cycle_date_drift_block`
+- แก้ `ProjectYK_System/app/templates/payroll_detail.html`:
+  - ข้อความ policy block อัปเดตเป็น `BIGC/LCB/AYU`
+- รัน preflight AYU ใหม่ (`run_id=7`, tag `2026-03`) ได้ผล:
+  - unlinked: **33 รายการ / 23,716.00 บาท**
+  - cycle-date drift: **33 รายการ / 24,430.00 บาท**
+  - cross-site collision: **0 คน**
+  - source mismatch (explicit site tag/date inconsistency): **24 รายการ / 17,780.00 บาท**
+  - quick-win queue: **0 รายการ / 0.00 บาท**
+  - unresolved queue: **33 รายการ / 23,716.00 บาท**
+- Verify:
+  - `python ProjectYK_System/tools/preflight_payrun.py --site AYU` ผ่าน
+  - `python ProjectYK_System/tools/run_payroll_test.py` ผ่าน
+  - `python -m py_compile ProjectYK_System/tools/preflight_payrun.py ProjectYK_System/app/main.py` ผ่าน
+  - `ReadLints` ไฟล์ที่แก้: ไม่พบ error
+
+### Action ถัดไป
+- เปิด unresolved queue ของ AYU แล้วเคลียร์ชื่อคนขับทีละเคสจากหน้า `petty-cash` โดยไม่เดา (`reports/preflight_unresolved_queue/unresolved_preflight_AYU_2026-03_run7.json`)
+- หลังเคลียร์ชื่อ รัน preflight AYU ซ้ำเพื่อตรวจว่า `unlinked` และ `cycle-date drift` ลดลงตามจริงก่อนกด finalize
+- ถ้ายังมีเคส drift คงค้าง ให้ย้าย `pay_cycle_tag`/แก้ `txn_date` เฉพาะรายการที่ระบุใน report แล้ว rerun อีกครั้ง
+
+---
+
+## 2026-05-07 (Session Summary #144 - BigC residual pass 2: ปิดพรศักดิ์ trip และคงสมพร net แบบ safe)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้สั่งทำต่อจากสถานะล่าสุดของ BigC audit โดยโฟกัสปิด residual หลัก 2 จุด:
+  - `สมพร BIG-C net -9,999.99`
+  - `พรศักดิ์ trip +1,300.00`
+- กำหนดชัดเจน: safe-by-default, ห้ามเดา, ต้องมี line-level evidence, ปิดไม่ได้ให้บันทึก unresolved + next action, rerun audit before/after
+
+### การตัดสินใจรอบนี้
+- ปิดเคส `พรศักดิ์ trip +1,300` ด้วยแนวทาง surgical เฉพาะจุด (ไม่แก้กว้างทั้งระบบ) เพราะมีหลักฐานว่าเป็นแถวซ้ำฝั่งระบบ
+- คงเคส `สมพร net -9,999.99` เป็น unresolved อย่างตั้งใจ เนื่องจากหลักฐานชี้ว่าเป็นความต่างเชิงนิยาม net/manual formula ไม่ใช่ข้อมูลหาย
+
+### สิ่งที่ทำแล้ว
+- ดึง line-level evidence จาก `Book1.xlsx`:
+  - ชีท `พรศักดิ์` แถว `89`: `ค่าเที่ยว = 13050`
+  - ชีท `สมพร` แถว `91`: `เงินประกันตน = -10000`
+  - ชีท `สมพร` แถว `96`: `ยอดรับหลังหักค่าใช้จ่าย = 10223.793...`
+- ดึง line-level evidence จากระบบ:
+  - `DailyJob.id=5211` (`2026-03-05`, `driver_id=29 พรศักดิ์`, `source=bigc_fuel_rate`) มี `trip_fee_driver=1300` ซ้ำกับแถว `import_daily` ทำให้ trip ฝั่งระบบเกิน
+  - `PayRunItem` ของสมพรมี `net_pay=223.8` และไม่มี deduction -10000 แบบฝั่งชีท manual
+- ทำ fix + verify:
+  - ตั้ง `DailyJob.id=5211.trip_fee_driver=0`
+  - recompute `PayRun.id=10`
+  - rerun audit ออกที่ `reports/audit_bigc_2026-03_recheck_mminus1_after_residual_focus/`
+- before/after (จาก summary.json):
+  - `trip_fee_diff_total: +1,300.00 -> 0.00` (ปิดได้)
+  - `net_diff_total: -7,774.28 -> -9,074.28` (ขยับตามการปิด trip; residual หลักยังเป็นสมพร `-9,999.99`)
+  - `พรศักดิ์` หลังปิด trip: `trip_fee_diff=0.00`, `net_diff=+999.96`
+
+### Action ถัดไป
+- ให้ผู้ใช้ยืนยัน policy net สำหรับ audit BigC:
+  - ถ้าใช้ net ระบบ (`PayRunItem.net_pay`) เป็น source of truth → ปิดเคสสมพรได้ทันทีว่าเป็น manual formula gap
+  - ถ้าจะยึดค่า `ยอดรับหลังหักค่าใช้จ่าย` ในชีท manual เป็นหลัก → ต้องนิยามกติกาแปลค่า `เงินประกันตน` ที่ติดลบก่อน (ไม่ให้บวกกลับสุทธิผิดทิศ)
+- หลังยืนยัน policy ให้ล็อกใน `audit_bigc_manual_vs_system.py` และ rerun รอบยืนยันสุดท้าย
+
+---
+
+## 2026-05-07 (Session Summary #145 - Night-run gate verify + preflight refresh ครบ 3 ไซท์)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้สั่งให้ทำงานอัตโนมัติทั้งคืนแบบ milestone `BigC -> LCB -> AYU -> handoff/doc` โดยต้องทำ end-to-end ต่อก้อน (implement + verify + lints + context update)
+- policy ที่ล็อกไว้: BIGC/LCB ถ้า drift > 0 ต้อง block finalize ทันที, เคสกำกวมให้ skip เฉพาะเคสและไปงานถัดไป
+
+### การตัดสินใจรอบนี้
+- ปรับลำดับ finalize gate สำหรับ BIGC/LCB ให้ drift check มาก่อน unlinked check เพื่อให้สาเหตุ block ตรง policy ที่ล็อกไว้และออก unresolved drift report ได้ทันที
+- คง policy AYU ตามเดิม (ไม่บังคับ drift-first ใน finalize) เพื่อลดผลกระทบข้ามนโยบายที่ยังไม่ยืนยัน
+
+### สิ่งที่ทำแล้ว
+- แก้โค้ด `ProjectYK_System/app/main.py`
+  - ย้าย drift gate สำหรับ `BIGC/LCB` มาอยู่ก่อน unlinked gate
+  - คง unlinked gate ต่อจาก drift gate เหมือนเดิม
+- Verify ฝั่งโค้ด
+  - `python -m py_compile ProjectYK_System/app/main.py` ผ่าน
+  - `ReadLints` ไฟล์ที่แก้: ไม่พบ error
+- Verify พฤติกรรม finalize ด้วย `fastapi.testclient` (ยิงซ้ำ 2 รอบ)
+  - `run_id=10 (BIGC)` -> `303 /payroll/10?err=cycle_drift_block`
+  - `run_id=9 (LCB)` -> `303 /payroll/9?err=cycle_drift_block`
+  - `run_id=7 (AYU)` -> `303 /payroll/7?err=unlinked_pending`
+- รัน preflight ใหม่ครบ 3 ไซท์
+  - `reports/preflight_payrun_BIGC_2026-03_run10.json` -> HIGH (`unlinked 33 / 23,716`, `drift 7 / 4,150`)
+  - `reports/preflight_payrun_LCB_2026-03_run9.json` -> HIGH (`unlinked 33 / 23,716`, `drift 23 / 14,616`)
+  - `reports/preflight_payrun_AYU_2026-03_run7.json` -> HIGH (`unlinked 33 / 23,716`, `drift 33 / 24,430`)
+  - สร้าง morning notes ครบที่ `reports/preflight_morning_queue/PENDING_MORNING_preflight_*.md`
+
+### Action ถัดไป
+- BigC: เคลียร์ drift 7 รายการ (4,150 บาท) ในรายงาน preflight แล้วทดสอบ finalize ใหม่
+- LCB: เคลียร์ drift 23 รายการ (14,616 บาท) + unlinked 33 รายการ (23,716 บาท) ก่อน finalize
+- AYU: เคลียร์ unlinked 33 รายการ (23,716 บาท) ก่อน จากนั้นตัดสินใจว่าจะเปิด drift-first policy สำหรับ AYU หรือคง flow เดิม
+
+---
+
+## 2026-05-08 (Session Summary #146 - Night autopilot 4 รอบต่อเนื่องแบบไม่เดา)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้สั่งให้ทำงานแบบ Night Autopilot ต่อเนื่องทันที 4 รอบในลำดับ `BigC -> LCB -> AYU -> docs/handoff` และห้ามรอคำสั่งเพิ่ม
+- กติกาที่ล็อก: ไม่เดาเคสกำกวม, กำกวมให้ skip เฉพาะเคสพร้อมคิว unresolved, ถ้า fail ซ้ำให้ไปคิวเช้า, ต้องรักษา app runnable
+
+### การตัดสินใจรอบนี้
+- รอบนี้ใช้แนวทาง **readonly-first + verify-first**: รัน preflight ซ้ำ 4 รอบเพื่อยืนยันสถานะความเสี่ยงเชิงเงินล่าสุดก่อนเปิดงานเช้า
+- งดแก้ข้อมูลเงินจริงตอนกลางคืนเพราะไม่มี evidence ใหม่ระดับรายเคสพอสำหรับ safe auto-fix (quick win ทุกไซต์ยังเป็น 0)
+
+### สิ่งที่ทำแล้ว
+- รัน preflight ตามลำดับ `BigC -> LCB -> AYU` ต่อเนื่องครบ 4 รอบ:
+  - `python ProjectYK_System/tools/preflight_payrun.py --site BIGC --run-id 10`
+  - `python ProjectYK_System/tools/preflight_payrun.py --site LCB --run-id 9`
+  - `python ProjectYK_System/tools/preflight_payrun.py --site AYU --run-id 7`
+- ยืนยันผลลัพธ์ซ้ำได้ทุกครั้ง (summary_risk_level = HIGH ทั้ง 3 ไซท์) และเขียนไฟล์ queue ล่าสุดครบ:
+  - `reports/preflight_payrun_BIGC_2026-03_run10.json`
+  - `reports/preflight_payrun_LCB_2026-03_run9.json`
+  - `reports/preflight_payrun_AYU_2026-03_run7.json`
+  - `reports/preflight_morning_queue/PENDING_MORNING_preflight_*.md`
+  - `reports/preflight_unresolved_queue/unresolved_preflight_*.json` + `quickwin_preflight_*.json`
+- ตัวเลขล่าสุดที่ล็อกสำหรับ handoff เช้า:
+  - BigC: unlinked `33 / 23,716`, drift `7 / 4,150`, cross-site collision `6 คน`
+  - LCB: unlinked `33 / 23,716`, drift `23 / 14,616`, cross-site collision `4 คน`
+  - AYU: unlinked `33 / 23,716`, drift `33 / 24,430`, cross-site collision `0 คน`
+- Verify เพิ่มเติมเพื่อยืนยันแอปยังรันได้:
+  - `python ProjectYK_System/tools/run_payroll_test.py` ผ่าน
+
+### Action ถัดไป
+- เช้าทำตามลำดับ `BigC -> LCB -> AYU` โดยเคลียร์ unresolved alias/employee ก่อน แล้ว rerun preflight ทุกครั้งหลังแก้
+- ห้าม finalize run ที่ยังมี drift/unlinked สูง; ใช้ไฟล์ใน `reports/preflight_morning_queue/` เป็น checklist กลาง
+- ถ้าจะลดได้แบบ measurable รอบถัดไป ให้ปิดเคสที่เป็น `name_not_found_in_employee` ก่อน (impact ตรง unlinked 33 รายการ / 23,716 บาท)
+
+---
+
+## 2026-05-08 (Session Summary #147 - UX guardrail #2 + preflight executive summary)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้สั่งโหมด Long-Run Executor ให้เดินงานต่อเนื่องแบบ autonomous และเน้น deliverables ที่ลงมือจริงทันที: UX guardrail ลดงานซ้ำรายเดือน, report อ่านง่ายสำหรับ non-coder manager, และ verify ทุกรอบ
+
+### การตัดสินใจรอบนี้
+- เลือก quick-win ที่ไม่กำกวมและไม่กระทบตัวเงินโดยตรงก่อน: ใช้ query-string preset/filter/action bar แทนการเพิ่มตารางใหม่
+- ขยายรายงาน preflight ให้มี executive summary เชิงตัวเลข (สัดส่วนผลกระทบ) เพื่อให้ผู้จัดการตัดสินใจได้ไวขึ้นจากไฟล์เดียว
+
+### สิ่งที่ทำแล้ว
+- แก้ `ProjectYK_System/app/main.py`
+  - `/daily` เพิ่ม context สำหรับ preset เดือนปัจจุบัน (`current_month_start/current_month_end/current_cycle_tag`)
+  - `/petty-cash` เพิ่ม `current_cycle_tag` สำหรับ preset คลิกเดียว
+  - `/payroll` รองรับ filter `site/cycle/status` + ส่ง `cycle_options/current_cycle_tag` เข้า template
+- แก้ templates ใช้งานจริง
+  - `daily_list.html`: preset `BigC/LCB/AYU เดือนนี้`, `เฉพาะงานจริง`, `เฉพาะลา`
+  - `petty_list.html`: preset `BigC/LCB/AYU เดือนนี้`, `รออนุมัติหัก`, `ยังไม่ผูกคนขับ`
+  - `payroll_list.html`: เพิ่มฟอร์มกรอง + preset และ row action bar (`ดู | รอหัก | ยังไม่ผูก`) เชื่อมไปหน้า `petty-cash` ตาม `site+cycle` ของแต่ละ run
+- แก้ `ProjectYK_System/tools/preflight_payrun.py`
+  - เพิ่ม `manager_summary` ใน JSON (pending รวม, breakdown count/amount, %share, recommended order, finalize readiness)
+  - อัปเกรดไฟล์ `PENDING_MORNING_preflight_*.md` ให้มีหัวข้อ `Executive summary (manager-friendly)`
+- รัน verify
+  - `python -m py_compile ProjectYK_System/app/main.py` ผ่าน
+  - `python -m py_compile ProjectYK_System/tools/preflight_payrun.py` ผ่าน
+  - `python ProjectYK_System/tools/preflight_payrun.py --site BIGC --run-id 10` ผ่าน และออกไฟล์ใหม่พร้อม executive summary
+  - `python ProjectYK_System/tools/run_payroll_test.py` ผ่าน
+  - `ReadLints` สำหรับไฟล์ที่แก้: ไม่พบ error
+
+### Action ถัดไป
+- ทำ guardrail ต่อเนื่องที่หน้า detail (`/payroll/{run_id}`) เป็น action bar เดียวสำหรับ `recompute -> open unresolved -> preflight rerun checklist`
+- เพิ่ม preset เดียวกันให้หน้ารายการที่เกี่ยว (`/fuel`, `/billing`) เพื่อคง UX pattern แบบเดียวกันทั้งระบบ
+- เดินรอบข้อมูลเช้าโดยลำดับ `BigC -> LCB -> AYU` เพื่อลด unresolved จริงใน DB แล้ววัด before/after จาก `manager_summary`
+
+---
+
+## 2026-05-08 (Session Summary #148 - Night Long-Run Coordinator: 5 รอบ UX + verify)
+
+### บริบทจากผู้ใช้
+- สั่งโหมด **Night Long-Run Coordinator**: อ่านแผน/handoff/context ล่าสุด → เลือกงานลงมือได้ทันที (UX guardrail / preflight / payroll safety) → ห้ามเดา mapping → แต่ละรอบ verify (`py_compile`, `run_payroll_test`, preflight ตามไซต์) → อัปเดตเอกสาร
+
+### การตัดสินใจรอบนี้
+- ข้ามงานที่ต้องยืนยันโดเมน (BigC unresolved 7 ชื่อ, สมพร net definition, AYU unlinked 33 รายการ) — ไม่แตะ DB ตัวเลข
+- ปิดช่องว่าง UX จาก `NEXT_ACTION` หลัง #147: action bar หน้า payroll detail + preset `/fuel` `/billing` + ลิงก์รายคนที่หน้า employee payroll
+
+### สิ่งที่ทำแล้ว
+- `payroll_detail.html`: แถบ **Ops** (คำนวณใหม่, สดย่อยไซต์รอบ, ยังไม่ผูกตาม gate, เดลี่/น้ำมันช่วงรอบ, วางบิลเดือนแท็กรอบ, `<details>` คำสั่ง `preflight_payrun.py`)
+- `payroll_employee_detail.html`: ลัดสดย่อย `driver_id`+ไซต์+รอบ, เดลี่/น้ำมันช่วงรอบ
+- `main.py` + `fuel_list.html`: `current_month_start/end`, `current_cycle_tag` + preset BigC/LCB/AYU เดือนนี้ + ยังไม่เชื่อม Job
+- `main.py` + `billing_page.html`: `current_billing_month` + preset BigC/LCB/AYU/ทุกไซต์ เดือนปฏิทิน
+- `NIGHT_HANDOFF_PACK_LATEST_TH.md`: เติม bullet checklist อ้างอิงแถบ Ops บน `/payroll/{id}`
+- Verify: `python -m py_compile .../main.py`, `run_payroll_test.py`, preflight `--site BIGC --run-id 10` / `LCB 9` / `AYU 7`, `ReadLints` main.py
+
+### Action ถัดไป
+- เช้าเคลียร์คิวตาม handoff (`BigC -> LCB -> AYU`) แล้วกดลิงก์จากหน้า payroll detail เพื่อตรวจสอบว่า flow ลัดตรงกับงานจริง
+- ถ้าต้องการสถานะมาตรฐานเดียวทั้งระบบ (ร่าง/รอชำระ/ฯลฯ) ให้แยก scope เป็นเฟส UI ถัดไป — ยังไม่ทำในรอบนี้
+
+---
+
+## 2026-05-08 (Session Summary #150 - OAuth2 + Draft Daily + Grid เต็ม — handoff เท่านั้น)
+
+### บริบทจากผู้ใช้
+- ต้องการต่อ OAuth2 Gmail/Workspace, ปุ่ม Inbox → สร้างร่าง Daily (human confirm), และ Daily Grid ให้คอลัมน์ครบทุกฟิลด์ + ซ่อนคอลัมน์แบบ Excel
+
+### การตัดสินใจรอบนี้
+- อยู่ในโหมดที่แก้โค้ดหลักโดยตรงไม่ได้ (Plan/คุมโหมด) จึงบันทึก **spec + โค้ดเต็ม** เป็น handoff เดียว
+
+### สิ่งที่ทำแล้ว
+- เพิ่มเอกสาร implement: `ProjectYK_System/docs/EMAIL_OAUTH_DRAFT_DAILY_GRID_V2_TH.md` (OAuth2, ingest แก้, routes, draft daily, grid ขยาย + localStorage ซ่อนคอลัมน์, .gitignore token)
+
+### Action ถัดไป
+- สลับ Cursor เป็น **Agent mode** แล้วสั่งให้ apply ไฟล์ handoff ด้านบนให้ครบ หรือ copy โค้ดจากในนั้นไปวางเอง
+
+---
+
+## 2026-05-08 (Session Summary #149 - Email Inbox IMAP + Daily Grid แบบคล้าย Excel)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้ต้องการให้ระบบดึงเมลจาก Google (IMAP/POP3) มาใช้แจ้งเตือน/คัดแยกงานเข้า และถามความเป็นไปได้ของ Gemini API
+- ผู้ใช้ต้องการหน้า Daily/สดย่อยให้ใช้งาน “เหมือน Excel” มากขึ้นแบบค่อยเป็นค่อยไป โดยย้ายคนเข้าระบบก่อนแล้วค่อย optimize
+
+### การตัดสินใจรอบนี้
+- ล็อก scope รอบแรกเป็น **single mailbox IMAP** (safe default) ผ่าน env config ก่อน ไม่เปิด multi-account อัตโนมัติในรอบแรก
+- ล็อก guardrail ว่า AI ใช้ได้แค่ classify/suggest; ทุกรายการยัง `needs_review=True` และ `suggested_action=review_only` ห้าม auto-create งาน/รายการการเงิน
+- เริ่ม Excel-like จาก Daily ก่อนด้วย Grid POC (Tabulator CDN + batch save) เพื่อไม่กระทบ flow payroll/import เดิม
+
+### สิ่งที่ทำแล้ว
+- เพิ่ม schema ใหม่ใน `app/models.py`:
+  - `InboxEmail`, `InboxSyncRun`
+  - enums `INBOX_EMAIL_STATUS`, `INBOX_EMAIL_CATEGORY`
+- เพิ่ม service ใหม่ `app/services/email_ingest.py`:
+  - `get_inbox_scope()` สำหรับ scope/config IMAP
+  - `sync_inbox()` ดึงเมลจาก IMAP -> upsert เข้า DB + run log
+  - `classify_email_item()` ใช้ rule-based และ optional Gemini (`EMAIL_GEMINI_ENABLED=1` + `GEMINI_API_KEY`) พร้อม guardrail review-only
+- เพิ่ม routes/API ใน `app/main.py`:
+  - `/email/inbox`, `/email/inbox/sync`, `/email/inbox/{id}/status`, `/email/inbox/{id}/reclassify`
+  - `/daily/grid`, `/api/daily/grid-data`, `/api/daily/grid-save`
+- เพิ่ม templates:
+  - `app/templates/email_inbox.html` (read-only inbox + filter + mark status + reclassify)
+  - `app/templates/daily_grid.html` (Excel-like grid, copy/paste friendly, Save แบบ batch)
+  - nav link ใน `app/templates/base.html` ไปหน้าใหม่
+- Verify:
+  - `python -m py_compile app/main.py app/models.py app/services/email_ingest.py` ผ่าน
+  - `ReadLints` สำหรับไฟล์ที่แก้: ไม่พบ error
+
+### Action ถัดไป
+- ทำ onboarding ค่าตั้ง IMAP/OAuth2 สำหรับบัญชีจริง (อย่างน้อย 1 mailbox ops) และทดสอบ sync กับเมลจริง
+- เพิ่มหน้า “Create Draft Daily จาก Inbox” (ยังต้อง human confirm ทุกเคส) + ป้องกัน duplicate ด้วย `message_id`/fingerprint มากขึ้น
+- ถ้าทีมตอบรับ Daily Grid แล้ว ค่อยขยายแนวทางเดียวกันไปฝั่งสดย่อยแบบจำกัดคอลัมน์และคง preflight guardrail เดิม
+
+---
+
+## 2026-05-08 (Session Summary #151 - Implement OAuth2 + Inbox Draft Daily + Grid parity ตาม V2 doc)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้สั่งให้ apply ตามเอกสาร `ProjectYK_System/docs/EMAIL_OAUTH_DRAFT_DAILY_GRID_V2_TH.md` แบบตรงสเปก (ไม่ใช่ไฟล์แผน) ครบทั้ง service/routes/templates/.gitignore พร้อมรัน verify และ workflow test
+- กำหนด guardrail ชัดเจน: ต้องยังคง human confirm ก่อน save จาก inbox และห้าม action กระทบเงินอัตโนมัติ
+
+### การตัดสินใจรอบนี้
+- ใช้แนวทาง `password|oauth2` dual-mode ใน `email_ingest` เพื่อไม่ทำให้ flow เดิมพัง และเพิ่ม OAuth route แยก `/email/oauth/start|callback` ตามสเปก
+- ขยาย Daily Grid ให้ใกล้ parity กับ Daily form แต่ยังคง save ผ่าน API แบบ explicit (ผู้ใช้กด Save เอง) และเพิ่ม column hide/show ใน localStorage เพื่อลดความหนาแน่นจอ
+
+### สิ่งที่ทำแล้ว
+- เพิ่มไฟล์ใหม่ `ProjectYK_System/app/services/email_oauth.py`:
+  - authorize URL, callback token exchange, refresh access token, XOAUTH2 payload helper, token file save/load
+- แก้ `ProjectYK_System/app/services/email_ingest.py`:
+  - เพิ่ม `InboxScope.auth_mode`
+  - รองรับ `EMAIL_IMAP_AUTH=password|oauth2`
+  - เพิ่ม `_imap_connect_login()` สำหรับ `login()` หรือ `authenticate("XOAUTH2", ...)`
+  - เพิ่ม credential checks แยกโหมด
+- แก้ `ProjectYK_System/app/main.py`:
+  - import OAuth helpers
+  - เพิ่ม route `/email/oauth/start` และ `/email/oauth/callback`
+  - เพิ่ม route `/email/inbox/{mail_id}/draft-daily` (สร้าง Daily draft ในหน่วยความจำ + preflight warnings)
+  - เพิ่ม `inbox_mail_id` ใน `daily_save` และเชื่อม `InboxEmail.linked_daily_job_id` + `status=linked` หลังบันทึก Daily ใหม่
+  - ขยาย `/daily/grid` + `/api/daily/grid-data` + `/api/daily/grid-save`:
+    - filter `status`, `limit` (1..800)
+    - คืน/แก้ไข field ครอบคลุมเกือบทุกฟิลด์ใน Daily form
+    - `status_code` เป็นข้อความอิสระ, `leave_status` validate ตาม choices, parse FK/date/invoice_date
+    - เรียก `rate_record_from_daily` ตอน save เช่นเดียวกับ form save
+- แก้ template:
+  - `email_inbox.html`: แสดง auth mode + link ตั้งค่า OAuth + action `สร้างร่าง Daily`
+  - `daily_form.html`: กล่อง preflight warning + hidden `inbox_mail_id`
+  - `daily_grid.html`: เพิ่มคอลัมน์ใกล้ parity, ปุ่มคอลัมน์ + dialog checklist, hide/show และ persist ที่ `localStorage['yk_daily_grid_hidden_v1']`
+- แก้ `.gitignore` เพิ่ม `ProjectYK_System/app/data/email_google_refresh.token`
+- Verify:
+  - `python -m py_compile ProjectYK_System/app/main.py ProjectYK_System/app/services/email_ingest.py ProjectYK_System/app/services/email_oauth.py` ผ่าน
+  - `python ProjectYK_System/tools/run_payroll_test.py` ผ่าน
+  - FastAPI TestClient flow (mock OAuth callback + inbox->draft->save->grid-save) ผ่าน (`workflow_test_ok`)
+  - `ReadLints` ไฟล์ที่แก้: ไม่พบ error
+
+### Action ถัดไป
+- ทดสอบ OAuth จริงกับ Google account จริง (external consent) เพื่อยืนยัน redirect URI/refresh token end-to-end ใน environment production-like
+- ทดสอบมือหน้า `/daily/grid` เรื่อง column hide/show persistence ข้าม refresh และความถูกต้องของคอลัมน์ที่ทีมใช้จริง
+- หลัง onboarding mailbox จริง ให้รัน Inbox Sync จริงแล้วตรวจ duplicate guard จาก `message_id/imap_uid` เพิ่มเติม
+
+---
+
+## 2026-05-08 (Session Summary #152 - Daily Grid UX hardening + presets)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้สั่งต่อยอด `/daily/grid` ให้รองรับอนาคต single-page Daily workflow ดีขึ้น โดยไม่ทำ route เดิมพัง
+- ต้องเพิ่ม quick preset options, ทำ editing ให้ robust สำหรับ field Daily ที่มีอยู่, และ verify `py_compile` + payroll smoke + route/API checks
+
+### การตัดสินใจรอบนี้
+- เลือกเสริมแบบ low-risk ใน template/API เดิมก่อน ไม่ rewrite เป็นโมดูลใหม่: ใช้ query-string presets, Tabulator dirty state, และลิงก์กลับฟอร์ม Daily เต็มรายแถว
+- เปลี่ยน save payload จาก “ส่งทั้งแถว” เป็น “ส่งเฉพาะ field ที่ถูกแก้จริง + id” เพื่อลดความเสี่ยง overwrite ข้อมูล Daily ช่องอื่นแบบเงียบ ๆ
+
+### สิ่งที่ทำแล้ว
+- แก้ `ProjectYK_System/app/main.py`
+  - `/daily/grid` ส่ง context เดือนปัจจุบัน/จำนวนรายการจริงสำหรับ preset และ summary
+  - `_daily_grid_filters()` รองรับ `status=real` แบบเดียวกับ `/daily` และค้นหา `origin` เพิ่ม
+  - `/api/daily/grid-save` คืน `saved_ids` เพิ่มสำหรับ feedback ฝั่ง UI โดยยังคง route เดิม
+- แก้ `ProjectYK_System/app/templates/daily_grid.html`
+  - เพิ่ม preset `BigC/LCB/AYU เดือนนี้`, `งานจริง/ลา/placeholder เดือนนี้`
+  - แสดงคอลัมน์ editable ด้วยสัญลักษณ์ `✎`
+  - เพิ่ม dirty-cell highlight, unsaved warning ก่อนออก/โหลด filter ใหม่, save feedback และ error detail
+  - เพิ่มลิงก์ `+ สร้าง Daily`, `กลับ List`, และคอลัมน์ `เปิด -> แก้เต็ม` เพื่อเป็นก้าวเล็กสู่ single-page Daily workflow
+- Verify:
+  - `python -m py_compile ProjectYK_System/app/main.py` ผ่าน
+  - `python ProjectYK_System/tools/run_payroll_test.py` ผ่าน
+  - route checks `/daily/grid`, `/api/daily/grid-data`, `/api/daily/grid-save` ผ่าน
+  - `ReadLints` ไฟล์ที่แก้: ไม่พบ error
+
+### Action ถัดไป
+- ให้ทีมลองใช้ `/daily/grid` กับงานจริง 1 วัน เพื่อดูว่าคอลัมน์ preset/hide/show ตรง workflow หรือยัง
+- ถ้าจะขยับเป็น single-page Daily ต่อ ให้เพิ่ม in-grid create row แบบ draft + validation preview ก่อน save จริง โดยยังไม่แตะ payroll/billing อัตโนมัติ
+
+---
+
+## 2026-05-08 (Session Summary #153 - ปรับ preset Daily/Daily Grid ตามรอบ payroll ทุกไซต์)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้แก้ requirement ให้แทน scope เดิม: ต้องทำ quick presets ของทุกไซต์ให้ยึด payroll-cycle cutoffs (ไม่ใช่เดือนปฏิทิน) และให้ใช้กับทั้ง `/daily` และ `/daily/grid`
+- mapping ที่ล็อก: `AYU 26->25`, `BIGC 1->สิ้นเดือน (display intent เดือนวิ่ง T-1)`, `LCB 16->15`
+
+### การตัดสินใจรอบนี้
+- ใช้ helper กลางใน backend (`_daily_site_preset_cycles`) เพื่อคำนวณช่วงวันที่ preset ต่อไซต์แล้วส่งเข้า template ทั้ง 2 หน้า ลดโอกาส logic ไม่ตรงกัน
+- คง behavior filter อื่นเดิม และปรับเฉพาะลิงก์ preset + label ให้สื่อว่าเป็น “รอบ payroll” ชัดเจน
+
+### สิ่งที่ทำแล้ว
+- แก้ `ProjectYK_System/app/main.py`
+  - เพิ่ม `_shift_year_month()` และ `_daily_site_preset_cycles(today)`
+  - route `/daily` และ `/daily/grid` เปลี่ยนจากส่ง `current_month_*` เป็น `preset_cycles`
+- แก้ `ProjectYK_System/app/templates/daily_list.html`
+  - preset 3 ไซต์เปลี่ยนไปใช้ช่วงจาก `preset_cycles` และแสดง label รอบ payroll
+- แก้ `ProjectYK_System/app/templates/daily_grid.html`
+  - preset 3 ไซต์เปลี่ยนไปใช้ช่วงจาก `preset_cycles` และแสดง label รอบ payroll
+  - ปรับหัวข้อ preset เป็น “ตามรอบ payroll”
+- Verify:
+  - `python -m py_compile ProjectYK_System/app/main.py` ผ่าน
+  - route render check: `/daily` = 200, `/daily/grid` = 200 (ผ่าน TestClient)
+  - `ReadLints` (`main.py`, `daily_list.html`, `daily_grid.html`) ไม่พบ error
+
+### Action ถัดไป
+- ให้ผู้ใช้ลองคลิก preset ใหม่ทั้ง 3 ไซต์บน `/daily` และ `/daily/grid` เพื่อยืนยันว่าตรง workflow หน้างานรายเดือนจริง
+- ถ้าต้องการ consistency เพิ่มเติม ให้พิจารณาปรับ preset status (`งานจริง/ลา/placeholder`) ให้เลือกช่วงตามไซต์ที่กำลัง filter อัตโนมัติ
+
+---
+
+## 2026-05-08 (Session Summary #154 - Implement Plan C: Driver policy-first cycle + review queue)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้อนุมัติ Plan C และสั่งลงมือทันที: ต้องเพิ่ม `pay_cycle_policy` ใน driver master, เปลี่ยนคำนวณรอบจาก site-first เป็น driver-policy-first, คง preset เดือนเดิมและเพิ่มช่องทาง cycle-based, และทำ guardrail กันรายการตกหล่นเงียบ
+- เงื่อนไขบังคับ: backward compatible สูงสุด, UI ไทย, ไม่ commit, อัปเดต `CONTEXT_LOG/NEXT_ACTION_PLAN/CHANGELOG_MASTER`, และรัน verify + lint
+
+### การตัดสินใจรอบนี้
+- เพิ่ม policy แบบ safe default `site_default` เพื่อให้ข้อมูลเดิมยังคงพฤติกรรมเดิมโดยไม่ต้อง migrate เชิงทำลาย
+- ใช้ helper กลางใน `services/payroll.py` (`normalize_pay_cycle_policy`, `compute_pay_cycle_tag_by_policy`) แล้วให้เส้นทางสดย่อย/preflight เรียก helper เดียวกัน ลด drift ของ logic
+- เพิ่ม guardrail แบบ block-able: ถ้ามีเคส `missing_driver` / `unclear_policy` / `tag mismatch vs policy` จะเข้าคิว review และ block finalize (`policy_review_block`)
+
+### สิ่งที่ทำแล้ว
+- แก้ `app/models.py`:
+  - เพิ่ม `Employee.pay_cycle_policy` (default `site_default`, indexed)
+  - เพิ่ม constant `PAY_CYCLE_POLICIES` สำหรับ UI
+- แก้ `app/main.py`:
+  - bump `SCHEMA_VERSION` เป็น 17 + additive migration `_ensure_column("employee", "pay_cycle_policy", ...)`
+  - หน้า employee form/list รองรับเลือก/แสดง policy
+  - เพิ่ม `_resolve_cycle_tag_for_driver()` ใช้ driver-policy-first + fallback site
+  - `petty_save` ใช้ policy-first เมื่อไม่ได้กรอก `pay_cycle_tag` เอง
+  - `/api/cycle-tag` รับ `driver_id` และคืน `policy_used/review_reason`
+  - `/petty-cash` เพิ่ม review filter (`review=1`) + สถานะ review ต่อแถว
+  - `/payroll/{run_id}` เพิ่ม policy review summary และ `/payroll/{run_id}/finalize` block เมื่อยังมี review queue
+- แก้ `app/services/payroll.py`:
+  - เพิ่ม `KNOWN_PAY_CYCLE_POLICIES`, `normalize_pay_cycle_policy()`, `compute_pay_cycle_tag_by_policy()`
+- แก้ template:
+  - `employee_form.html`, `employees_list.html`, `petty_form.html`, `petty_list.html`, `payroll_detail.html` สำหรับ UI policy + review queue
+- แก้ `tools/preflight_payrun.py`:
+  - ใช้ expected tag จาก driver policy เป็นหลัก
+  - เพิ่มมิติรายงาน `dimension_policy_review_queue`
+- Verify:
+  - `python -m py_compile ProjectYK_System/app/main.py ProjectYK_System/app/models.py` ผ่าน
+  - `python ProjectYK_System/tools/run_payroll_test.py` ผ่าน (หลังรัน `main.init_db()` เพื่อเติมคอลัมน์ใหม่ใน DB เดิม)
+  - `python ProjectYK_System/tools/preflight_payrun.py --site BIGC --run-id 10` ผ่าน
+  - `ReadLints` ไฟล์ที่แก้: ไม่พบ error
+
+### Action ถัดไป
+- ทำ data pass ตั้งค่า `pay_cycle_policy` รายคนขับที่ต้องใช้ non-default แล้วไล่เคลียร์คิว `/petty-cash?review=1&deduct=1&dstatus=pending`
+- รัน preflight ซ้ำ `BigC -> LCB -> AYU` เพื่อตรวจว่า `dimension_policy_review_queue.count` ลดลงจริงก่อน finalize
+- หากต้องการ strict เพิ่มอีกขั้น ให้เพิ่ม bulk action “re-tag by driver policy” สำหรับรายการสดย่อยที่ `tag mismatch vs policy`
+
+---
+
+## 2026-05-08 (Session Summary #155 - บันทึกผลตรวจ CC: Email Inbox/OAuth/Draft Daily/Grid)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้ส่งสรุปจากเซสชัน Claude Code และต้องการให้บันทึกเป็นข้อเท็จจริงในบริบทระบบว่า CC ตรวจอะไรและพบอะไรบ้าง
+- ขอบเขตที่ CC ตรวจคือ `app/services/email_oauth.py`, `app/services/email_ingest.py`, `app/templates/email_inbox.html`, `app/templates/daily_grid.html` และ route ที่เกี่ยวข้องใน `app/main.py`
+
+### การตัดสินใจรอบนี้
+- รอบนี้ทำเฉพาะการบันทึก context/plan/changelog จากผลตรวจ CC และไม่แก้โค้ดแอปหลัก เพื่อคงพฤติกรรมระบบเดิม
+- ยืนยันว่า pending decisions จาก CC ต้องให้ผู้ใช้ตัดสินใจก่อนลงมือแก้เชิงพฤติกรรมใน flow inbox -> daily
+
+### สิ่งที่ทำแล้ว
+- บันทึกผลจาก CC ว่า syntax check ผ่าน (`python -m py_compile main.py services/email_ingest.py services/email_oauth.py`) และ payroll regression ผ่าน (`run_payroll_test.py`)
+- บันทึกผลจาก CC ว่ายัง register `dmy_hm` filter ถูกต้อง และ flow `draft-daily -> daily_form -> daily/new` เชื่อม `inbox_mail_id` ได้
+- บันทึกความเสี่ยง 3 จุดจาก CC:
+  1) redirect sync `?ok=1` แต่หน้า inbox ยังไม่มี flash ที่ชัดเจน
+  2) OAuth callback ใช้ GET + มี state cookie check แล้ว แต่ UX ของ callback/refresh อาจทำให้ผู้ใช้สับสน
+  3) draft-daily ยังเขียน preview ลง remark โดยตรง ยังไม่มี metadata แยก และยังไม่มี linked timestamp/status auto update หลัง save
+- บันทึกคำถามค้าง 3 ข้อจาก CC:
+  1) ต้องเพิ่ม flash banner ว่า synced กี่ mails หรือไม่
+  2) หลังบันทึก daily จาก inbox ให้ auto mark linked หรือไม่
+  3) `/daily/grid` ที่ใช้ Tabulator CDN หาก offline จะยอมรับความเสี่ยงหรือไม่
+
+### Action ถัดไป
+- รอคำตอบผู้ใช้ Q1 + Q2 ก่อน แล้วค่อยแก้ `POST /daily/new` ให้ auto-linked ตาม policy ที่ยืนยัน (ไม่กระทบ payroll)
+- ถ้าต้องรองรับ offline สำหรับ daily grid ให้ตัดสินใจเรื่อง fallback asset/local bundle เพิ่มเติม

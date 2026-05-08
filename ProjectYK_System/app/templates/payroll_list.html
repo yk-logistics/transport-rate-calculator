@@ -13,6 +13,55 @@
   </a>
 </div>
 
+<form method="get" class="bg-white rounded-lg border p-4 mb-4 grid md:grid-cols-4 gap-3 items-end">
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">ไซต์</label>
+    <select name="site" class="w-full border rounded px-2 py-1.5 text-sm">
+      <option value="">ทั้งหมด</option>
+      {% for sc in site_codes %}
+      <option value="{{ sc }}" {% if site==sc %}selected{% endif %}>{{ sc }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">รอบจ่าย</label>
+    <select name="cycle" class="w-full border rounded px-2 py-1.5 text-sm">
+      <option value="">ทั้งหมด</option>
+      {% for tag, cnt in cycle_options %}
+      <option value="{{ tag }}" {% if cycle==tag %}selected{% endif %}>{{ tag }} ({{ cnt }})</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">สถานะ</label>
+    <select name="status" class="w-full border rounded px-2 py-1.5 text-sm">
+      <option value="">ทั้งหมด</option>
+      <option value="draft" {% if status=='draft' %}selected{% endif %}>ร่าง</option>
+      <option value="finalized" {% if status=='finalized' %}selected{% endif %}>ปิดรอบแล้ว</option>
+      <option value="paid" {% if status=='paid' %}selected{% endif %}>จ่ายแล้ว</option>
+    </select>
+  </div>
+  <div class="flex gap-2">
+    <button class="bg-slate-200 px-4 py-1.5 rounded text-sm">กรอง</button>
+    <a href="/payroll" class="text-sm text-slate-500 underline self-center">ล้าง</a>
+  </div>
+  <div class="md:col-span-4 border-t pt-3">
+    <div class="text-xs text-slate-500 mb-1">Preset เร็ว</div>
+    <div class="flex flex-wrap gap-2 text-xs">
+      <a href="/payroll?site=BIGC&cycle={{ current_cycle_tag }}"
+         class="px-2 py-1 rounded border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100">BigC เดือนนี้</a>
+      <a href="/payroll?site=LCB&cycle={{ current_cycle_tag }}"
+         class="px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">LCB เดือนนี้</a>
+      <a href="/payroll?site=AYU&cycle={{ current_cycle_tag }}"
+         class="px-2 py-1 rounded border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">AYU เดือนนี้</a>
+      <a href="/payroll?status=draft"
+         class="px-2 py-1 rounded border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100">รออนุมัติ</a>
+      <a href="/payroll?status=finalized"
+         class="px-2 py-1 rounded border border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200">ปิดรอบแล้ว</a>
+    </div>
+  </div>
+</form>
+
 <div class="bg-white border rounded-lg overflow-x-auto">
   <table class="w-full text-sm">
     <thead class="bg-slate-100 text-left">
@@ -25,7 +74,7 @@
         <th class="px-3 py-2 text-right">รวมหัก</th>
         <th class="px-3 py-2 text-right">ยอดสุทธิ</th>
         <th class="px-3 py-2">สถานะ</th>
-        <th class="px-3 py-2"></th>
+        <th class="px-3 py-2">Action</th>
       </tr>
     </thead>
     <tbody>
@@ -53,8 +102,14 @@
             <span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">ร่าง</span>
           {% endif %}
         </td>
-        <td class="px-3 py-2 text-right">
+        <td class="px-3 py-2 text-right whitespace-nowrap">
           <a href="/payroll/{{ s.run.id }}" class="text-sky-600 hover:underline text-xs">ดู</a>
+          <span class="mx-1 text-slate-300">|</span>
+          <a href="/petty-cash?site={{ s.run.site_code }}&cycle={{ s.run.pay_cycle_tag }}&deduct=1&dstatus=pending"
+             class="text-amber-700 hover:underline text-xs">รอหัก</a>
+          <span class="mx-1 text-slate-300">|</span>
+          <a href="/petty-cash?site={{ s.run.site_code }}&cycle={{ s.run.pay_cycle_tag }}&deduct=1&dstatus=pending&unlinked=1"
+             class="text-rose-700 hover:underline text-xs">ยังไม่ผูก</a>
         </td>
       </tr>
     {% else %}

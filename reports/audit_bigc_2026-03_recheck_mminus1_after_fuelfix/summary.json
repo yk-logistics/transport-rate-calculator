@@ -1,0 +1,302 @@
+{
+  "meta": {
+    "generated_at": "2026-05-07T22:53:50",
+    "cycle_tag": "2026-03",
+    "name_matching_policy": "nickname_first_then_full_name",
+    "paths": {
+      "base_dir": "C:\\Users\\Home\\Desktop\\Work\\Salary\\2026\\4.Apr\\BigC",
+      "daily": "C:\\Users\\Home\\Desktop\\Work\\Salary\\2026\\4.Apr\\BigC\\2564Daily Report (04.21).xlsx",
+      "petty": "C:\\Users\\Home\\Desktop\\Work\\Salary\\2026\\4.Apr\\BigC\\สดย่อยวังน้อย.xlsx",
+      "payroll": "C:\\Users\\Home\\Desktop\\Work\\Salary\\2026\\4.Apr\\BigC\\Book1.xlsx",
+      "fuel": "C:\\Users\\Home\\Desktop\\Work\\Salary\\2026\\4.Apr\\BigC\\เรทน้ำมันเดือนมีนาคม69.xlsx"
+    },
+    "sheets": {
+      "daily": "เดือน06.21",
+      "petty": "MAR 26",
+      "fuel": "รวมเรท",
+      "payroll": "ALL_SHEETS"
+    }
+  },
+  "source_scan": {
+    "daily": {
+      "sheet": "เดือน06.21",
+      "rows_non_empty_sampled": 328,
+      "date_min": "2026-03-01",
+      "date_max": "2026-03-31"
+    },
+    "petty": {
+      "sheet": "MAR 26",
+      "rows_non_empty_sampled": 776,
+      "date_min": "2025-10-08",
+      "date_max": "2026-06-14"
+    },
+    "fuel": {
+      "sheet": "รวมเรท",
+      "rows_non_empty_sampled": 10,
+      "date_min": null,
+      "date_max": null
+    }
+  },
+  "system_run": {
+    "run_id": 10,
+    "status": "draft",
+    "period_start": "2026-03-01",
+    "period_end": "2026-03-31"
+  },
+  "manual_sheet_filter": {
+    "total_sheets": 22,
+    "used_driver_sheets": 8,
+    "skipped_non_driver_sheet": 6,
+    "skipped_not_in_system_keys": 8,
+    "used_sheet_names": [
+      "เกรียงไกร",
+      "สมประสงค์",
+      "ธนวัฒน์",
+      "สมัย",
+      "เกศศักดิ์",
+      "ณัชพน",
+      "พรศักดิ์",
+      "สมพร"
+    ],
+    "skipped_sheet_names": [
+      "รวม YK",
+      "แบ็งค์",
+      "เงินหัก",
+      "เงินประกันตน",
+      "รวม12หัว",
+      "ใหม่",
+      "ออก",
+      "บุญชอบ",
+      "รับปกต",
+      "อภิรักษ์",
+      "ไวพจน์",
+      "ธีระวัฒน์",
+      "สุพนธ์",
+      "นันทวัฒน์"
+    ]
+  },
+  "outputs": {
+    "summary_json": "C:\\Users\\Home\\Desktop\\Project YK\\reports\\audit_bigc_2026-03_recheck_mminus1_after_fuelfix\\summary.json",
+    "matched_compare_csv": "C:\\Users\\Home\\Desktop\\Project YK\\reports\\audit_bigc_2026-03_recheck_mminus1_after_fuelfix\\matched_compare.csv",
+    "value_mismatch_csv": "C:\\Users\\Home\\Desktop\\Project YK\\reports\\audit_bigc_2026-03_recheck_mminus1_after_fuelfix\\value_mismatch.csv",
+    "missing_in_manual_csv": "C:\\Users\\Home\\Desktop\\Project YK\\reports\\audit_bigc_2026-03_recheck_mminus1_after_fuelfix\\missing_in_manual.csv",
+    "extra_in_manual_csv": "C:\\Users\\Home\\Desktop\\Project YK\\reports\\audit_bigc_2026-03_recheck_mminus1_after_fuelfix\\extra_in_manual.csv"
+  },
+  "compare": {
+    "totals": {
+      "system": {
+        "trip_fee": 107500.0,
+        "petty": 65825.91,
+        "fuel_rate": 7356.48,
+        "net": 105933.33
+      },
+      "manual": {
+        "trip_fee": 106200.0,
+        "petty": 65825.91,
+        "fuel_rate": 7356.25,
+        "net": 113707.64
+      },
+      "diff": {
+        "trip_fee_diff_total": 1300.0,
+        "petty_diff_total": 0.0,
+        "fuel_rate_diff_total": 0.23,
+        "net_diff_total": -7774.31
+      }
+    },
+    "counts": {
+      "system_drivers": 9,
+      "manual_sheets": 8,
+      "matched_drivers": 8,
+      "missing_in_manual": 1,
+      "extra_in_manual": 0,
+      "value_mismatch_drivers": 8
+    },
+    "missing_in_manual": [
+      {
+        "driver_key": "บุญชอบพูลสวัสดิ์",
+        "system_name": "บุญชอบ พูลสวัสดิ์"
+      }
+    ],
+    "extra_in_manual": [],
+    "value_mismatches": [
+      {
+        "driver_key": "ณัชพน",
+        "system_name": "ณัชพน",
+        "manual_sheet": "ณัชพน",
+        "trip_fee_diff": 0.0,
+        "petty_diff": 0.0,
+        "fuel_rate_diff": -0.02,
+        "net_diff": -69.96
+      },
+      {
+        "driver_key": "ธนวัฒน์",
+        "system_name": "ธนวัฒน์",
+        "manual_sheet": "ธนวัฒน์",
+        "trip_fee_diff": 0.0,
+        "petty_diff": 0.0,
+        "fuel_rate_diff": 0.04,
+        "net_diff": 1.74
+      },
+      {
+        "driver_key": "พรศักดิ์",
+        "system_name": "พรศักดิ์",
+        "manual_sheet": "พรศักดิ์",
+        "trip_fee_diff": 1300.0,
+        "petty_diff": 0.0,
+        "fuel_rate_diff": 0.06,
+        "net_diff": 2299.96
+      },
+      {
+        "driver_key": "สมประสงค์",
+        "system_name": "สมประสงค์",
+        "manual_sheet": "สมประสงค์",
+        "trip_fee_diff": 0.0,
+        "petty_diff": 0.0,
+        "fuel_rate_diff": 0.1,
+        "net_diff": 0.1
+      },
+      {
+        "driver_key": "สมพร",
+        "system_name": "สมพร BIG-C",
+        "manual_sheet": "สมพร",
+        "trip_fee_diff": 0.0,
+        "petty_diff": 0.0,
+        "fuel_rate_diff": 0.0,
+        "net_diff": -9999.99
+      },
+      {
+        "driver_key": "สมัย",
+        "system_name": "สมัย",
+        "manual_sheet": "สมัย",
+        "trip_fee_diff": 0.0,
+        "petty_diff": 0.0,
+        "fuel_rate_diff": 0.05,
+        "net_diff": -5.61
+      },
+      {
+        "driver_key": "เกรียงไกร",
+        "system_name": "เกรียงไกร",
+        "manual_sheet": "เกรียงไกร",
+        "trip_fee_diff": 0.0,
+        "petty_diff": 0.0,
+        "fuel_rate_diff": -0.07,
+        "net_diff": -0.62
+      },
+      {
+        "driver_key": "เกศศักดิ์",
+        "system_name": "เกศศักดิ์",
+        "manual_sheet": "เกศศักดิ์",
+        "trip_fee_diff": 0.0,
+        "petty_diff": 0.0,
+        "fuel_rate_diff": 0.07,
+        "net_diff": 0.07
+      }
+    ],
+    "matched_rows": [
+      {
+        "driver_key": "ณัชพน",
+        "system_driver_name": "ณัชพน",
+        "manual_sheet_name": "ณัชพน",
+        "system_trip_fee": 17500.0,
+        "manual_trip_fee": 17500.0,
+        "system_petty": 8000.0,
+        "manual_petty": 8000.0,
+        "system_fuel_rate": 4463.32,
+        "manual_fuel_rate": 4463.34,
+        "system_net": 21685.35,
+        "manual_net": 21755.31
+      },
+      {
+        "driver_key": "ธนวัฒน์",
+        "system_driver_name": "ธนวัฒน์",
+        "manual_sheet_name": "ธนวัฒน์",
+        "system_trip_fee": 15550.0,
+        "manual_trip_fee": 15550.0,
+        "system_petty": 10350.0,
+        "manual_petty": 10350.0,
+        "system_fuel_rate": 3611.67,
+        "manual_fuel_rate": 3611.63,
+        "system_net": 17007.44,
+        "manual_net": 17005.7
+      },
+      {
+        "driver_key": "พรศักดิ์",
+        "system_driver_name": "พรศักดิ์",
+        "manual_sheet_name": "พรศักดิ์",
+        "system_trip_fee": 14350.0,
+        "manual_trip_fee": 13050.0,
+        "system_petty": 4975.91,
+        "manual_petty": 4975.91,
+        "system_fuel_rate": 616.21,
+        "manual_fuel_rate": 616.15,
+        "system_net": 16885.36,
+        "manual_net": 14585.4
+      },
+      {
+        "driver_key": "สมประสงค์",
+        "system_driver_name": "สมประสงค์",
+        "manual_sheet_name": "สมประสงค์",
+        "system_trip_fee": 14900.0,
+        "manual_trip_fee": 14900.0,
+        "system_petty": 10000.0,
+        "manual_petty": 10000.0,
+        "system_fuel_rate": -6268.9,
+        "manual_fuel_rate": -6269.0,
+        "system_net": 7181.1,
+        "manual_net": 7181.0
+      },
+      {
+        "driver_key": "สมพร",
+        "system_driver_name": "สมพร BIG-C",
+        "manual_sheet_name": "สมพร",
+        "system_trip_fee": 1400.0,
+        "manual_trip_fee": 1400.0,
+        "system_petty": 2000.0,
+        "manual_petty": 2000.0,
+        "system_fuel_rate": 35.83,
+        "manual_fuel_rate": 35.83,
+        "system_net": 223.8,
+        "manual_net": 10223.79
+      },
+      {
+        "driver_key": "สมัย",
+        "system_driver_name": "สมัย",
+        "manual_sheet_name": "สมัย",
+        "system_trip_fee": 16650.0,
+        "manual_trip_fee": 16650.0,
+        "system_petty": 10000.0,
+        "manual_petty": 10000.0,
+        "system_fuel_rate": 1922.18,
+        "manual_fuel_rate": 1922.13,
+        "system_net": 17052.08,
+        "manual_net": 17057.69
+      },
+      {
+        "driver_key": "เกรียงไกร",
+        "system_driver_name": "เกรียงไกร",
+        "manual_sheet_name": "เกรียงไกร",
+        "system_trip_fee": 13750.0,
+        "manual_trip_fee": 13750.0,
+        "system_petty": 10000.0,
+        "manual_petty": 10000.0,
+        "system_fuel_rate": 2181.33,
+        "manual_fuel_rate": 2181.4,
+        "system_net": 13653.36,
+        "manual_net": 13653.98
+      },
+      {
+        "driver_key": "เกศศักดิ์",
+        "system_driver_name": "เกศศักดิ์",
+        "manual_sheet_name": "เกศศักดิ์",
+        "system_trip_fee": 13400.0,
+        "manual_trip_fee": 13400.0,
+        "system_petty": 10500.0,
+        "manual_petty": 10500.0,
+        "system_fuel_rate": 794.84,
+        "manual_fuel_rate": 794.77,
+        "system_net": 12244.84,
+        "manual_net": 12244.77
+      }
+    ]
+  }
+}

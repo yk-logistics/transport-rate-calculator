@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Inbox · อีเมลงาน{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-2xl font-bold">Inbox อีเมลงาน</h1>
+  <form method="post" action="/email/inbox/sync">
+    <button class="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-700">Sync IMAP</button>
+  </form>
+</div>
+
+<div class="bg-white border rounded-lg p-3 mb-4 text-sm">
+  <div><span class="text-slate-500">Scope:</span> {{ scope.account_label }} / {{ scope.mailbox }} ({{ scope.host }})</div>
+  <div><span class="text-slate-500">auth:</span> {{ scope.auth_mode }} {% if has_refresh_token %}<span class="text-emerald-700">(refresh token พร้อม)</span>{% endif %}</div>
+  <div><span class="text-slate-500">สถานะ:</span>
+    {% if scope.enabled %}<span class="text-emerald-700 font-semibold">Enabled</span>{% else %}<span class="text-amber-700 font-semibold">Disabled (ตั้ง EMAIL_INGEST_ENABLED=1)</span>{% endif %}
+  </div>
+  <div class="mt-1"><a href="/email/oauth/start" class="text-sky-700 underline">ตั้งค่า OAuth Google</a></div>
+  {% if latest_run %}
+  <div class="mt-1 text-xs text-slate-500">
+    ล่าสุด: {{ latest_run.started_at | dmy_hm }} /
+    status={{ latest_run.status }} / fetched={{ latest_run.fetched_count }} / inserted={{ latest_run.inserted_count }} / updated={{ latest_run.updated_count }}
+    {% if latest_run.error_message %}<span class="text-red-600">({{ latest_run.error_message }})</span>{% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<form method="get" class="bg-white rounded-lg border p-4 mb-4 grid md:grid-cols-5 gap-3 items-end">
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">สถานะ</label>
+    <select name="status" class="w-full border rounded px-2 py-1.5 text-sm">
+      <option value="">ทั้งหมด</option>
+      {% for key, label in inbox_statuses %}
+      <option value="{{ key }}" {% if status==key %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">หมวด</label>
+    <select name="category" class="w-full border rounded px-2 py-1.5 text-sm">
+      <option value="">ทั้งหมด</option>
+      {% for key, label in inbox_categories %}
+      <option value="{{ key }}" {% if category==key %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">ไซต์แนะนำ</label>
+    <select name="site" class="w-full border rounded px-2 py-1.5 text-sm">
+      <option value="">ทั้งหมด</option>
+      {% for sc in site_codes %}
+      <option value="{{ sc }}" {% if site==sc %}selected{% endif %}>{{ sc }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="md:col-span-2">
+    <label class="block text-xs text-slate-500 mb-1">ค้นหา</label>
+    <input name="q" value="{{ q }}" class="w-full border rounded px-2 py-1.5 text-sm" placeholder="subject / sender / text" />
+  </div>
+  <div class="md:col-span-5 flex gap-2">
+    <button class="bg-slate-200 px-4 py-1.5 rounded text-sm">กรอง</button>
+    <a href="/email/inbox" class="text-sm text-slate-500 underline self-center">ล้าง</a>
+  </div>
+</form>
+
+<div class="bg-white rounded-lg border overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-100 text-left">
+      <tr>
+        <th class="px-2 py-2">เวลา</th>
+        <th class="px-2 py-2">ผู้ส่ง</th>
+        <th class="px-2 py-2">หัวข้อ</th>
+        <th class="px-2 py-2">หมวด</th>
+        <th class="px-2 py-2">ไซต์</th>
+        <th class="px-2 py-2">ความมั่นใจ</th>
+        <th class="px-2 py-2">สถานะ</th>
+        <th class="px-2 py-2"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr class="border-t align-top">
+        <td class="px-2 py-2 whitespace-nowrap">{{ r.sent_at | dmy_hm }}</td>
+        <td class="px-2 py-2 text-xs">
+          <div class="font-semibold">{{ r.from_name or "-" }}</div>
+          <div class="text-slate-500">{{ r.from_email }}</div>
+        </td>
+        <td class="px-2 py-2">
+          <div class="font-medium">{{ r.subject or "(no subject)" }}</div>
+          <div class="text-xs text-slate-500 mt-1">{{ (r.body_text or "")[:140] }}{% if (r.body_text or "")|length > 140 %}...{% endif %}</div>
+          {% if r.has_attachment %}<span class="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded bg-sky-100 text-sky-700">มีไฟล์แนบ</span>{% endif %}
+          {% if r.risk_flags %}<span class="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">{{ r.risk_flags }}</span>{% endif %}
+        </td>
+        <td class="px-2 py-2">{{ r.category }}</td>
+        <td class="px-2 py-2">{{ r.suggested_site_code or "-" }}</td>
+        <td class="px-2 py-2">{{ "%.2f"|format(r.confidence or 0) }}</td>
+        <td class="px-2 py-2">{{ r.status }}</td>
+        <td class="px-2 py-2 whitespace-nowrap text-xs">
+          <a href="/email/inbox/{{ r.id }}/draft-daily" class="text-violet-700 hover:underline">สร้างร่าง Daily</a>
+          <span class="text-slate-300 mx-1">|</span>
+          <form method="post" action="/email/inbox/{{ r.id }}/reclassify" class="inline">
+            <button class="text-sky-700 hover:underline">reclassify</button>
+          </form>
+          <form method="post" action="/email/inbox/{{ r.id }}/status" class="inline ml-2">
+            <input type="hidden" name="status" value="reviewed" />
+            <button class="text-emerald-700 hover:underline">ตรวจแล้ว</button>
+          </form>
+          <form method="post" action="/email/inbox/{{ r.id }}/status" class="inline ml-2">
+            <input type="hidden" name="status" value="ignored" />
+            <button class="text-slate-500 hover:underline">ไม่เกี่ยว</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="px-3 py-8 text-center text-slate-400">ยังไม่มีอีเมลใน Inbox</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

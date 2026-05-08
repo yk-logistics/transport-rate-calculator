@@ -59,6 +59,19 @@
     <button class="bg-slate-200 px-4 py-1.5 rounded text-sm">กรอง</button>
     <a href="/fuel" class="text-sm text-slate-500 underline self-center">ล้าง</a>
   </div>
+  <div class="md:col-span-6 border-t pt-3">
+    <div class="text-xs text-slate-500 mb-1">Preset เร็ว (เดือนปฏิทินปัจจุบัน)</div>
+    <div class="flex flex-wrap gap-2 text-xs">
+      <a href="/fuel?site=BIGC&amp;d_from={{ current_month_start }}&amp;d_to={{ current_month_end }}&amp;per_page={{ per_page }}"
+         class="px-2 py-1 rounded border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100">BigC เดือนนี้</a>
+      <a href="/fuel?site=LCB&amp;d_from={{ current_month_start }}&amp;d_to={{ current_month_end }}&amp;per_page={{ per_page }}"
+         class="px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">LCB เดือนนี้</a>
+      <a href="/fuel?site=AYU&amp;d_from={{ current_month_start }}&amp;d_to={{ current_month_end }}&amp;per_page={{ per_page }}"
+         class="px-2 py-1 rounded border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">AYU เดือนนี้</a>
+      <a href="/fuel?linked=no&amp;d_from={{ current_month_start }}&amp;d_to={{ current_month_end }}&amp;per_page={{ per_page }}"
+         class="px-2 py-1 rounded border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100">ยังไม่เชื่อม Job · เดือนนี้</a>
+    </div>
+  </div>
 </form>
 
 <div class="grid grid-cols-3 gap-4 mb-4">

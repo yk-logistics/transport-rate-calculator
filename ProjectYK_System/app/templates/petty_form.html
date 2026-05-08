@@ -188,6 +188,7 @@
 (function(){
   const dateEl = document.querySelector('input[name=txn_date]');
   const siteEl = document.querySelector('select[name=site_code]');
+  const driverEl = document.querySelector('select[name=driver_id]');
   const tagEl  = document.getElementById('pay_cycle_tag');
   const hint   = document.getElementById('cycle_hint');
   const btnAuto = document.getElementById('btn_cycle_auto');
@@ -198,7 +199,8 @@
   async function fetchAuto(){
     if(!dateEl.value || !siteEl.value) return;
     try{
-      const r = await fetch(`/api/cycle-tag?site=${siteEl.value}&d=${dateEl.value}`);
+      const driverId = (driverEl && driverEl.value) ? `&driver_id=${driverEl.value}` : '';
+      const r = await fetch(`/api/cycle-tag?site=${siteEl.value}&d=${dateEl.value}${driverId}`);
       const j = await r.json();
       autoTag = j.tag || '';
       if(!tagEl.value && autoTag){ tagEl.value = autoTag; }
@@ -210,6 +212,10 @@
           hint.textContent = `รอบ auto: ${autoTag} — ตอนนี้ override เป็น ${tagEl.value}`;
           hint.className = 'text-xs text-amber-700 mt-1 font-semibold';
         }
+      }
+      if(j.review_reason === 'missing_driver'){
+        hint.textContent = `รอบ auto: ${autoTag} — ยังไม่ผูกคนขับ (ต้อง review ก่อนปิดรอบ)`;
+        hint.className = 'text-xs text-rose-700 mt-1 font-semibold';
       }
     }catch(e){}
   }
@@ -223,6 +229,7 @@
   }
   dateEl.addEventListener('change', fetchAuto);
   siteEl.addEventListener('change', fetchAuto);
+  if(driverEl){ driverEl.addEventListener('change', fetchAuto); }
   tagEl.addEventListener('input', fetchAuto);
   btnAuto.addEventListener('click', ()=>{ if(autoTag){ tagEl.value = autoTag; fetchAuto(); }});
   btnNext.addEventListener('click', ()=>{ const base = tagEl.value || autoTag; const next = shiftMonth(base, +1); if(next){ tagEl.value = next; fetchAuto(); }});

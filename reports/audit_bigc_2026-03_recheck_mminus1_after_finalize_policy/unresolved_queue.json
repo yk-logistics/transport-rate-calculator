@@ -1,0 +1,66 @@
+[
+  {
+    "sheet_name": "แบ็งค์",
+    "driver_key": "แบ็งค์",
+    "reason": "name_not_found_in_system_keys",
+    "candidate_count": 0,
+    "candidate_keys": [],
+    "next_action": "verify canonical name/site mapping in Employee master and rerun audit"
+  },
+  {
+    "sheet_name": "ใหม่",
+    "driver_key": "ใหม่",
+    "reason": "name_not_found_in_system_keys",
+    "candidate_count": 0,
+    "candidate_keys": [],
+    "next_action": "verify canonical name/site mapping in Employee master and rerun audit"
+  },
+  {
+    "sheet_name": "บุญชอบ",
+    "driver_key": "บุญชอบ",
+    "reason": "name_not_found_in_system_keys",
+    "candidate_count": 0,
+    "candidate_keys": [],
+    "next_action": "verify canonical name/site mapping in Employee master and rerun audit"
+  },
+  {
+    "sheet_name": "อภิรักษ์",
+    "driver_key": "อภิรักษ์",
+    "reason": "name_not_found_in_system_keys",
+    "candidate_count": 0,
+    "candidate_keys": [],
+    "next_action": "verify canonical name/site mapping in Employee master and rerun audit"
+  },
+  {
+    "sheet_name": "ไวพจน์",
+    "driver_key": "ไวพจน์",
+    "reason": "name_not_found_in_system_keys",
+    "candidate_count": 0,
+    "candidate_keys": [],
+    "next_action": "verify canonical name/site mapping in Employee master and rerun audit"
+  },
+  {
+    "sheet_name": "ธีระวัฒน์",
+    "driver_key": "ธีระวัฒน์",
+    "reason": "name_not_found_in_system_keys",
+    "candidate_count": 0,
+    "candidate_keys": [],
+    "next_action": "verify canonical name/site mapping in Employee master and rerun audit"
+  },
+  {
+    "sheet_name": "สุพนธ์",
+    "driver_key": "สุพนธ์",
+    "reason": "name_not_found_in_system_keys",
+    "candidate_count": 0,
+    "candidate_keys": [],
+    "next_action": "verify canonical name/site mapping in Employee master and rerun audit"
+  },
+  {
+    "sheet_name": "นันทวัฒน์",
+    "driver_key": "นันทวัฒน์",
+    "reason": "name_not_found_in_system_keys",
+    "candidate_count": 0,
+    "candidate_keys": [],
+    "next_action": "verify canonical name/site mapping in Employee master and rerun audit"
+  }
+]

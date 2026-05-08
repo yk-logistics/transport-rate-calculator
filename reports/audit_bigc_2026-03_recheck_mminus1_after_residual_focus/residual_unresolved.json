@@ -1,0 +1,25 @@
+{
+  "cycle_tag": "2026-03",
+  "generated_at": "2026-05-07T23:59:00+07:00",
+  "residuals": [
+    {
+      "driver": "สมพร BIG-C",
+      "field": "net",
+      "diff": -9999.99,
+      "status": "unresolved_safe",
+      "reason": "manual_sheet_formula_gap",
+      "evidence": {
+        "manual_sheet": "Book1.xlsx::สมพร",
+        "manual_lines": [
+          "row 91: เงินประกันตน = -10000",
+          "row 96: ยอดรับหลังหักค่าใช้จ่าย = 10223.793..."
+        ],
+        "system_lines": [
+          "PayRunItem(run_id=10, employee='สมพร BIG-C'): net_pay=223.8",
+          "trip_fee=1400, petty=2000, fuel_rate=35.83, social_security=83"
+        ]
+      },
+      "next_action": "ผู้ใช้ยืนยันนิยาม net ที่ต้องใช้ตัดสิน (manual-sheet net vs system net) แล้วค่อยล็อก parser/policy ใน audit"
+    }
+  ]
+}

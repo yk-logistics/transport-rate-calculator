@@ -8,6 +8,7 @@ URL:   http://localhost:8000
 from __future__ import annotations
 
 import json
+import re
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
@@ -36,6 +37,8 @@ from models import (
     FuelPriceIndex,
     FuelSurchargeBand,
     FuelTxn,
+    InboxEmail,
+    InboxSyncRun,
     LeaveRecord,
     Loan,
     LoanPayment,
@@ -59,8 +62,17 @@ from models import (
     Vendor,
     VendorPrice,
 )
+from services.email_oauth import (
+    build_authorize_url,
+    exchange_code_for_tokens,
+    load_google_refresh_token,
+    new_oauth_state,
+    oauth_client_config,
+    save_google_refresh_token,
+)
+from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 17
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 if IS_SQLITE:
     engine = create_engine(
@@ -151,6 +163,72 @@ def _parse_bool(value: Optional[str]) -> bool:
     return value in ("1", "true", "on", "yes")
 
 
+def _reports_root() -> Path:
+    """Workspace-level reports directory (../reports from app/)."""
+    return APP_DIR.parents[1] / "reports"
+
+
+def _write_unresolved_case_report(
+    *,
+    run_id: int,
+    site_code: str,
+    cycle_tag: str,
+    reason: str,
+    payload: dict,
+    next_action: str,
+) -> dict:
+    """Write unresolved queue entry + repeat-fail marker under reports/.
+
+    Returns metadata for caller logging/debug:
+      {"report_path": "...", "is_repeated_fail": bool, "pending_note_path": "...|''"}
+    """
+    out_dir = _reports_root() / "payroll_unresolved_queue"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    safe_reason = re.sub(r"[^a-z0-9_]+", "_", (reason or "").strip().lower()).strip("_") or "unknown"
+    report_path = out_dir / f"{ts}_{site_code}_{cycle_tag}_run{run_id}_{safe_reason}.json"
+    report_obj = {
+        "generated_at_utc": datetime.utcnow().isoformat(timespec="seconds"),
+        "run_id": run_id,
+        "site_code": site_code,
+        "cycle_tag": cycle_tag,
+        "reason": reason,
+        "payload": payload,
+        "next_action": next_action,
+    }
+    report_path.write_text(json.dumps(report_obj, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    history = sorted(out_dir.glob(f"*_{site_code}_{cycle_tag}_run{run_id}_{safe_reason}.json"))
+    is_repeated_fail = len(history) >= 2
+    pending_note_path = ""
+    if is_repeated_fail:
+        pending_md = out_dir / f"PENDING_MORNING_{site_code}_{cycle_tag}_run{run_id}_{safe_reason}.md"
+        pending_md.write_text(
+            "\n".join(
+                [
+                    f"# Pending (Morning) - {site_code} run {run_id}",
+                    "",
+                    f"- reason: {reason}",
+                    f"- repeated_fail_count: {len(history)}",
+                    f"- latest_report: {report_path}",
+                    f"- next_action: {next_action}",
+                    "",
+                    "## Notes",
+                    "- This case failed repeatedly in the same reason class.",
+                    "- Follow policy: stop looping and continue other tasks.",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        pending_note_path = str(pending_md)
+
+    return {
+        "report_path": str(report_path),
+        "is_repeated_fail": is_repeated_fail,
+        "pending_note_path": pending_note_path,
+    }
+
+
 def _gen_next_code(session: Session, model, prefix: str, width: int = 4) -> str:
     """Generate next sequential code like E0001, C0001."""
     rows = session.exec(select(model)).all()
@@ -235,6 +313,9 @@ def _apply_additive_migrations() -> None:
     _ensure_column("payrun", "ss_rate", "REAL")
     _ensure_column("payrun", "ss_base_min", "REAL")
     _ensure_column("payrun", "ss_base_max", "REAL")
+    # v16: InboxEmail / InboxSyncRun tables for IMAP ingestion are create_all-only.
+    # v17: Employee.pay_cycle_policy for driver-policy-first cycle resolution.
+    _ensure_column("employee", "pay_cycle_policy", "TEXT", default="site_default")
 
 
 def init_db() -> None:
@@ -301,6 +382,7 @@ def base_context(request: Request) -> dict:
         "today": date.today().isoformat(),
         "site_codes": models.SITE_CODES,
         "pay_modes": models.PAY_MODES,
+        "pay_cycle_policies": models.PAY_CYCLE_POLICIES,
         "vehicle_kinds": models.VEHICLE_KINDS,
         "truck_types": models.TRUCK_TYPES,
         "vehicle_status": models.VEHICLE_STATUS,
@@ -313,6 +395,8 @@ def base_context(request: Request) -> dict:
         "deduction_status": models.DEDUCTION_STATUS,
         "petty_txn_status": models.PETTY_TXN_STATUS,
         "employee_roles": models.EMPLOYEE_ROLES,
+        "inbox_statuses": models.INBOX_EMAIL_STATUS,
+        "inbox_categories": models.INBOX_EMAIL_CATEGORY,
     }
 
 
@@ -392,6 +476,7 @@ def employees_save(
     end_date: str = Form(""),
     status: str = Form("active"),
     pay_mode: str = Form("ayu_trip"),
+    pay_cycle_policy: str = Form("site_default"),
     base_salary: str = Form("0"),
     care_allowance: str = Form("0"),
     gross_share_rate: str = Form(""),
@@ -429,6 +514,9 @@ def employees_save(
         row.end_date = _parse_date(end_date)
         row.status = status
         row.pay_mode = pay_mode
+        policy_val = (pay_cycle_policy or "").strip().lower()
+        known_policies = {p[0] for p in models.PAY_CYCLE_POLICIES}
+        row.pay_cycle_policy = policy_val if policy_val in known_policies else "site_default"
         row.base_salary = _parse_float(base_salary)
         row.care_allowance = _parse_float(care_allowance)
         rate = _parse_float(gross_share_rate) if gross_share_rate else None
@@ -700,6 +788,7 @@ def daily_list(
     per_page: int = 100,
 ):
     from sqlalchemy import func as sa_func
+
     page = max(1, page)
     per_page = max(10, min(500, per_page))
 
@@ -788,6 +877,8 @@ def daily_list(
         }
 
     display = [_display_row(r) for r in rows]
+    today = date.today()
+    preset_cycles = _daily_site_preset_cycles(today)
     ctx = base_context(request)
     ctx.update({
         "rows": display, "site": site, "d": d,
@@ -797,6 +888,7 @@ def daily_list(
         "total_rev": total_rev, "total_trip": total_trip, "total_fuel": total_fuel,
         "total_rows": total_rows,
         "page": page, "per_page": per_page, "total_pages": total_pages,
+        "preset_cycles": preset_cycles,
     })
     return templates.TemplateResponse("daily_list.html", ctx)
 
@@ -806,8 +898,17 @@ def daily_new_form(request: Request):
     with Session(engine) as s:
         employees, vehicles, customers = _load_masters(s)
     ctx = base_context(request)
-    ctx.update({"row": None, "mode": "new",
-                "employees": employees, "vehicles": vehicles, "customers": customers})
+    ctx.update(
+        {
+            "row": None,
+            "mode": "new",
+            "employees": employees,
+            "vehicles": vehicles,
+            "customers": customers,
+            "preflight_warnings": [],
+            "inbox_mail_id": "",
+        }
+    )
     return templates.TemplateResponse("daily_form.html", ctx)
 
 
@@ -859,6 +960,7 @@ def daily_save(
     invoice_date: str = Form(""),
     wht_53: str = Form("0"),
     remark: str = Form(""),
+    inbox_mail_id: str = Form(""),
 ):
     wd = _parse_date(work_date)
     if not wd:
@@ -873,6 +975,7 @@ def daily_save(
             row.work_date = wd
             row.site_code = site_code.strip().upper()
         row.driver_id = _parse_int(driver_id)
+        driver_obj = s.get(Employee, row.driver_id) if row.driver_id else None
         row.driver_raw_name = driver_raw_name.strip()
         row.head_vehicle_id = _parse_int(head_vehicle_id)
         row.tail_vehicle_id = _parse_int(tail_vehicle_id)
@@ -910,6 +1013,16 @@ def daily_save(
             s.commit()
         except Exception:
             s.rollback()
+        if job_id is None:
+            inbox_id = _parse_int(inbox_mail_id)
+            if inbox_id:
+                mail = s.get(InboxEmail, inbox_id)
+                if mail:
+                    mail.linked_daily_job_id = row.id
+                    mail.status = "linked"
+                    mail.updated_at = datetime.utcnow()
+                    s.add(mail)
+                    s.commit()
     return RedirectResponse(url="/daily", status_code=303)
 
 
@@ -923,26 +1036,501 @@ def daily_delete(job_id: int):
     return RedirectResponse(url="/daily", status_code=303)
 
 
-def _cycle_tag_for_site(site: str, d: date) -> str:
-    """Pay cycle label ``YYYY-MM`` that date d falls into, per site rules.
+def _daily_grid_filters(stmt, site: str, d_from: str, d_to: str, q: str, status: str = ""):
+    if site:
+        stmt = stmt.where(DailyJob.site_code == site)
+    df = _parse_date(d_from)
+    dt = _parse_date(d_to)
+    if df:
+        stmt = stmt.where(DailyJob.work_date >= df)
+    if dt:
+        stmt = stmt.where(DailyJob.work_date <= dt)
+    if q:
+        stmt = stmt.where(
+            DailyJob.driver_raw_name.contains(q)
+            | DailyJob.customer_name_raw.contains(q)
+            | DailyJob.plate_no_raw.contains(q)
+            | DailyJob.origin.contains(q)
+            | DailyJob.destination.contains(q)
+        )
+    if status:
+        if status == "real":
+            stmt = stmt.where(DailyJob.status_code.notin_(["idle", "placeholder", "leave"]))
+        else:
+            stmt = stmt.where(DailyJob.status_code == status)
+    return stmt
 
-    AYU 26→25 | BIGC 1→end | LCB 16→15
-    Output label = month the cycle **ends** in.
+
+@app.get("/daily/grid", response_class=HTMLResponse)
+def daily_grid_page(
+    request: Request,
+    site: str = "",
+    d_from: str = "",
+    d_to: str = "",
+    q: str = "",
+    status: str = "",
+    limit: int = 400,
+):
+    from sqlalchemy import func as sa_func
+
+    limit = max(1, min(800, limit))
+    today = date.today()
+    preset_cycles = _daily_site_preset_cycles(today)
+    with Session(engine) as s:
+        rows = s.exec(
+            _daily_grid_filters(
+                select(DailyJob).order_by(DailyJob.work_date.desc(), DailyJob.id.desc()),
+                site,
+                d_from,
+                d_to,
+                q,
+                status,
+            ).limit(limit)
+        ).all()
+        total_rows = s.exec(
+            _daily_grid_filters(select(sa_func.count(DailyJob.id)), site, d_from, d_to, q, status)
+        ).one()
+    ctx = base_context(request)
+    ctx.update(
+        {
+            "site": site,
+            "d_from": d_from,
+            "d_to": d_to,
+            "q": q,
+            "status": status,
+            "limit": limit,
+            "today_iso": today.isoformat(),
+            "total_rows": total_rows,
+            "shown_rows": len(rows),
+            "preset_cycles": preset_cycles,
+        }
+    )
+    return templates.TemplateResponse("daily_grid.html", ctx)
+
+
+@app.get("/api/daily/grid-data")
+def daily_grid_data(
+    site: str = "",
+    d_from: str = "",
+    d_to: str = "",
+    q: str = "",
+    status: str = "",
+    limit: int = 400,
+):
+    limit = max(1, min(800, limit))
+    with Session(engine) as s:
+        rows = s.exec(
+            _daily_grid_filters(
+                select(DailyJob).order_by(DailyJob.work_date.desc(), DailyJob.id.desc()),
+                site,
+                d_from,
+                d_to,
+                q,
+                status,
+            ).limit(limit)
+        ).all()
+    data = [
+        {
+            "id": r.id,
+            "work_date": r.work_date.isoformat() if r.work_date else "",
+            "site_code": r.site_code or "",
+            "driver_id": r.driver_id,
+            "driver_raw_name": r.driver_raw_name or "",
+            "head_vehicle_id": r.head_vehicle_id,
+            "tail_vehicle_id": r.tail_vehicle_id,
+            "plate_no_raw": r.plate_no_raw or "",
+            "tail_plate_raw": r.tail_plate_raw or "",
+            "customer_id": r.customer_id,
+            "customer_name_raw": r.customer_name_raw or "",
+            "trip_group_id": r.trip_group_id,
+            "trip_type_code": r.trip_type_code or "",
+            "origin": r.origin or "",
+            "destination": r.destination or "",
+            "pickup_location": r.pickup_location or "",
+            "store_code": r.store_code or "",
+            "truck_type_raw": r.truck_type_raw or "",
+            "doc_no": r.doc_no or "",
+            "job_ref": r.job_ref or "",
+            "container_no": r.container_no or "",
+            "container_size": r.container_size or "",
+            "status_code": r.status_code or "",
+            "leave_status": r.leave_status or "",
+            "revenue_customer": float(r.revenue_customer or 0),
+            "trip_fee_driver": float(r.trip_fee_driver or 0),
+            "fuel_liter": float(r.fuel_liter or 0),
+            "fuel_amount": float(r.fuel_amount or 0),
+            "fuel_station": r.fuel_station or "",
+            "fuel_rate_km_per_l": float(r.fuel_rate_km_per_l or 0),
+            "mile_snapshot": float(r.mile_snapshot or 0),
+            "invoice_no": r.invoice_no or "",
+            "invoice_date": r.invoice_date.isoformat() if r.invoice_date else "",
+            "wht_53": float(r.wht_53 or 0),
+            "remark": r.remark or "",
+            "source": r.source or "",
+            "created_at": r.created_at.isoformat(timespec="seconds") if r.created_at else "",
+            "updated_at": r.updated_at.isoformat(timespec="seconds") if r.updated_at else "",
+        }
+        for r in rows
+    ]
+    return {"items": data}
+
+
+@app.post("/api/daily/grid-save")
+async def daily_grid_save(request: Request):
+    payload = await request.json()
+    rows = payload.get("rows", []) if isinstance(payload, dict) else []
+    if not isinstance(rows, list) or not rows:
+        return JSONResponse({"ok": False, "error": "no rows"}, status_code=400)
+
+    editable = {
+        "work_date",
+        "site_code",
+        "driver_id",
+        "driver_raw_name",
+        "head_vehicle_id",
+        "tail_vehicle_id",
+        "plate_no_raw",
+        "tail_plate_raw",
+        "customer_id",
+        "customer_name_raw",
+        "trip_group_id",
+        "trip_type_code",
+        "origin",
+        "destination",
+        "pickup_location",
+        "store_code",
+        "truck_type_raw",
+        "doc_no",
+        "job_ref",
+        "container_no",
+        "container_size",
+        "status_code",
+        "leave_status",
+        "remark",
+        "revenue_customer",
+        "trip_fee_driver",
+        "fuel_liter",
+        "fuel_amount",
+        "fuel_station",
+        "fuel_rate_km_per_l",
+        "mile_snapshot",
+        "invoice_no",
+        "invoice_date",
+        "wht_53",
+    }
+    allowed_leave = {k for k, _ in models.LEAVE_STATUS_CHOICES}
+
+    updated = 0
+    saved_ids: list[int] = []
+    errors: list[dict] = []
+    with Session(engine) as s:
+        for item in rows:
+            if not isinstance(item, dict):
+                continue
+            rid = _parse_int(str(item.get("id", "")))
+            if not rid:
+                continue
+            row = s.get(DailyJob, rid)
+            if not row:
+                errors.append({"id": rid, "error": "not_found"})
+                continue
+            for key, val in item.items():
+                if key not in editable:
+                    continue
+                if key in (
+                    "revenue_customer",
+                    "trip_fee_driver",
+                    "fuel_liter",
+                    "fuel_amount",
+                    "fuel_rate_km_per_l",
+                    "mile_snapshot",
+                    "wht_53",
+                ):
+                    setattr(row, key, _parse_float(str(val)))
+                    continue
+                if key in ("driver_id", "customer_id", "head_vehicle_id", "tail_vehicle_id", "trip_group_id"):
+                    setattr(row, key, _parse_int(str(val)))
+                    continue
+                if key == "work_date":
+                    parsed = _parse_date(str(val))
+                    if not parsed:
+                        errors.append({"id": rid, "error": "invalid work_date"})
+                        continue
+                    row.work_date = parsed
+                    continue
+                if key == "invoice_date":
+                    text = (str(val) if val is not None else "").strip()
+                    if not text:
+                        row.invoice_date = None
+                        continue
+                    parsed = _parse_date(text)
+                    if not parsed:
+                        errors.append({"id": rid, "error": "invalid invoice_date"})
+                        continue
+                    row.invoice_date = parsed
+                    continue
+                text = (str(val) if val is not None else "").strip()
+                if key == "leave_status" and text not in allowed_leave:
+                    errors.append({"id": rid, "error": f"invalid leave_status={text}"})
+                    continue
+                setattr(row, key, text)
+            row.updated_at = datetime.utcnow()
+            s.add(row)
+            try:
+                rate_record_from_daily(s, row)
+            except Exception:
+                pass
+            updated += 1
+            saved_ids.append(rid)
+        s.commit()
+    return {"ok": True, "updated": updated, "saved_ids": saved_ids, "errors": errors}
+
+
+@app.get("/email/inbox", response_class=HTMLResponse)
+def email_inbox(
+    request: Request,
+    status: str = "",
+    category: str = "",
+    site: str = "",
+    q: str = "",
+):
+    scope = get_inbox_scope()
+    has_refresh_token = bool(load_google_refresh_token())
+    with Session(engine) as s:
+        stmt = select(InboxEmail).order_by(InboxEmail.sent_at.desc(), InboxEmail.id.desc())
+        if status:
+            stmt = stmt.where(InboxEmail.status == status)
+        if category:
+            stmt = stmt.where(InboxEmail.category == category)
+        if site:
+            stmt = stmt.where(InboxEmail.suggested_site_code == site)
+        if q:
+            stmt = stmt.where(
+                InboxEmail.subject.contains(q)
+                | InboxEmail.from_email.contains(q)
+                | InboxEmail.body_text.contains(q)
+            )
+        rows = s.exec(stmt.limit(300)).all()
+        latest_run = s.exec(select(InboxSyncRun).order_by(InboxSyncRun.id.desc())).first()
+    ctx = base_context(request)
+    ctx.update(
+        {
+            "rows": rows,
+            "status": status,
+            "category": category,
+            "site": site,
+            "q": q,
+            "latest_run": latest_run,
+            "scope": scope,
+            "has_refresh_token": has_refresh_token,
+        }
+    )
+    return templates.TemplateResponse("email_inbox.html", ctx)
+
+
+@app.get("/email/oauth/start")
+def email_oauth_start():
+    state = new_oauth_state()
+    url = build_authorize_url(state)
+    resp = RedirectResponse(url=url, status_code=303)
+    resp.set_cookie("email_oauth_state", state, max_age=600, httponly=True, samesite="lax")
+    return resp
+
+
+@app.get("/email/oauth/callback", response_class=HTMLResponse)
+def email_oauth_callback(request: Request, code: str = "", state: str = ""):
+    cookie_state = request.cookies.get("email_oauth_state", "")
+    if not state or not cookie_state or state != cookie_state:
+        raise HTTPException(400, "oauth state mismatch")
+    if not code:
+        raise HTTPException(400, "missing code")
+    tokens = exchange_code_for_tokens(code)
+    refresh_token = str(tokens.get("refresh_token") or "").strip()
+    token_path = "(not updated - no refresh token in callback)"
+    if refresh_token:
+        token_path = str(save_google_refresh_token(refresh_token))
+    _, _, redirect_uri = oauth_client_config()
+    html = f"""
+    <html><body style="font-family:Arial,sans-serif;padding:24px;">
+      <h3>OAuth saved</h3>
+      <p>Refresh token file: <code>{token_path}</code></p>
+      <p>Set <code>EMAIL_IMAP_AUTH=oauth2</code> then open <a href="/email/inbox">/email/inbox</a> and Sync.</p>
+      <p>Redirect URI used: <code>{redirect_uri}</code></p>
+    </body></html>
     """
-    site = (site or "").upper()
-    if site == "AYU":
-        if d.day >= 26:
-            y = d.year + (1 if d.month == 12 else 0)
-            m = 1 if d.month == 12 else d.month + 1
-            return f"{y:04d}-{m:02d}"
-        return f"{d.year:04d}-{d.month:02d}"
-    if site == "LCB":
-        if d.day >= 16:
-            y = d.year + (1 if d.month == 12 else 0)
-            m = 1 if d.month == 12 else d.month + 1
-            return f"{y:04d}-{m:02d}"
-        return f"{d.year:04d}-{d.month:02d}"
-    return f"{d.year:04d}-{d.month:02d}"
+    resp = HTMLResponse(content=html)
+    resp.delete_cookie("email_oauth_state")
+    return resp
+
+
+@app.get("/email/inbox/{mail_id}/draft-daily", response_class=HTMLResponse)
+def email_inbox_draft_daily(mail_id: int, request: Request):
+    with Session(engine) as s:
+        mail = s.get(InboxEmail, mail_id)
+        if not mail:
+            raise HTTPException(404)
+        employees, vehicles, customers = _load_masters(s)
+    wd = mail.sent_at.date() if mail.sent_at else date.today()
+    site = (mail.suggested_site_code or "").strip().upper() or "BIGC"
+    body = (mail.body_text or "").strip()
+    body_preview = body[:1200] + ("..." if len(body) > 1200 else "")
+    draft_job = DailyJob(
+        work_date=wd,
+        site_code=site,
+        customer_name_raw=(mail.suggested_customer or "").strip(),
+        source="manual",
+        remark=(
+            f"[จากอีเมล inbox #{mail.id}]\n"
+            f"หัวข้อ: {(mail.subject or '').strip()}\n"
+            "---\n"
+            f"{body_preview}"
+        ),
+    )
+    preflight_warnings: list[str] = []
+    preflight_warnings.append("ต้องยืนยันคนขับ/ทะเบียน/ลูกค้าก่อนบันทึกจริง (human confirm)")
+    preflight_warnings.append("รายการจาก Inbox ยังไม่สร้างผลกระทบเงินอัตโนมัติจนกว่าจะกดบันทึก Daily")
+    if not draft_job.driver_id:
+        preflight_warnings.append("ยังไม่ได้เลือกพนักงานขับรถใน master (driver_id ว่าง)")
+    if not draft_job.customer_id:
+        preflight_warnings.append("ยังไม่ได้เลือกลูกค้าใน master (customer_id ว่าง)")
+    if mail.has_attachment and len(body.strip()) < 30:
+        preflight_warnings.append("อีเมลมีไฟล์แนบแต่ข้อความสั้นผิดปกติ ควรเปิดไฟล์แนบ/ต้นฉบับก่อนบันทึก")
+    ctx = base_context(request)
+    ctx.update(
+        {
+            "row": draft_job,
+            "mode": "new",
+            "employees": employees,
+            "vehicles": vehicles,
+            "customers": customers,
+            "preflight_warnings": preflight_warnings,
+            "inbox_mail_id": mail.id,
+        }
+    )
+    return templates.TemplateResponse("daily_form.html", ctx)
+
+
+@app.post("/email/inbox/sync")
+def email_inbox_sync():
+    with Session(engine) as s:
+        result = sync_inbox(s)
+    suffix = "ok=1" if result.get("ok") else "ok=0"
+    return RedirectResponse(url=f"/email/inbox?{suffix}", status_code=303)
+
+
+@app.post("/email/inbox/{mail_id}/status")
+def email_inbox_mark(mail_id: int, status: str = Form("reviewed")):
+    if status not in {"new", "reviewed", "ignored", "linked"}:
+        raise HTTPException(400, "invalid status")
+    with Session(engine) as s:
+        row = s.get(InboxEmail, mail_id)
+        if not row:
+            raise HTTPException(404)
+        row.status = status
+        row.updated_at = datetime.utcnow()
+        s.add(row)
+        s.commit()
+    return RedirectResponse(url="/email/inbox", status_code=303)
+
+
+@app.post("/email/inbox/{mail_id}/reclassify")
+def email_inbox_reclassify(mail_id: int):
+    with Session(engine) as s:
+        row = s.get(InboxEmail, mail_id)
+        if not row:
+            raise HTTPException(404)
+        classify_email_item(row)
+        row.updated_at = datetime.utcnow()
+        s.add(row)
+        s.commit()
+    return RedirectResponse(url="/email/inbox", status_code=303)
+
+
+def _cycle_tag_for_site(site: str, d: date) -> str:
+    """Backward-compatible site rule wrapper (used by legacy callers)."""
+    return compute_pay_cycle_tag(site, d)
+
+
+def _resolve_cycle_tag_for_driver(
+    d: date,
+    site_code: str,
+    driver: Optional[Employee],
+) -> tuple[str, str, str]:
+    """Return (cycle_tag, policy_used, review_reason).
+
+    review_reason values:
+    - "" (ok)
+    - "missing_driver"
+    - "unclear_policy"
+    """
+    if driver is None:
+        return compute_pay_cycle_tag(site_code, d), "site_default", "missing_driver"
+    raw_policy = (driver.pay_cycle_policy or "").strip().lower()
+    policy = normalize_pay_cycle_policy(raw_policy)
+    tag = compute_pay_cycle_tag_by_policy(policy, d, site_code=driver.home_site_code or site_code)
+    if raw_policy and raw_policy == policy:
+        return tag, policy, ""
+    if raw_policy in ("", "site_default"):
+        return tag, "site_default", ""
+    return tag, policy, "unclear_policy"
+
+
+def _shift_year_month(year: int, month: int, delta: int) -> tuple[int, int]:
+    month += delta
+    while month < 1:
+        month += 12
+        year -= 1
+    while month > 12:
+        month -= 12
+        year += 1
+    return year, month
+
+
+def _daily_site_preset_cycles(today: date) -> dict[str, dict[str, str]]:
+    """Preset ranges for /daily and /daily/grid by payroll cycle intent.
+
+    AYU: 26->25, LCB: 16->15, BIGC: 1->end (display intent T-1 month worked).
+    """
+    ayu_end_year, ayu_end_month = (today.year, today.month)
+    if today.day >= 26:
+        ayu_end_year, ayu_end_month = _shift_year_month(today.year, today.month, 1)
+    ayu_start_year, ayu_start_month = _shift_year_month(ayu_end_year, ayu_end_month, -1)
+    ayu_start = date(ayu_start_year, ayu_start_month, 26)
+    ayu_end = date(ayu_end_year, ayu_end_month, 25)
+    ayu_tag = f"{ayu_end_year:04d}-{ayu_end_month:02d}"
+
+    lcb_end_year, lcb_end_month = (today.year, today.month)
+    if today.day >= 16:
+        lcb_end_year, lcb_end_month = _shift_year_month(today.year, today.month, 1)
+    lcb_start_year, lcb_start_month = _shift_year_month(lcb_end_year, lcb_end_month, -1)
+    lcb_start = date(lcb_start_year, lcb_start_month, 16)
+    lcb_end = date(lcb_end_year, lcb_end_month, 15)
+    lcb_tag = f"{lcb_end_year:04d}-{lcb_end_month:02d}"
+
+    bigc_year, bigc_month = _shift_year_month(today.year, today.month, -1)
+    bigc_start, bigc_end = _month_bounds(bigc_year, bigc_month)
+    bigc_tag = f"{bigc_year:04d}-{bigc_month:02d}"
+
+    return {
+        "AYU": {
+            "start": ayu_start.isoformat(),
+            "end": ayu_end.isoformat(),
+            "tag": ayu_tag,
+            "label": f"AYU รอบ {ayu_start.strftime('%d/%m')}–{ayu_end.strftime('%d/%m')}",
+        },
+        "BIGC": {
+            "start": bigc_start.isoformat(),
+            "end": bigc_end.isoformat(),
+            "tag": bigc_tag,
+            "label": f"BIGC เดือนวิ่ง {bigc_tag} (T-1)",
+        },
+        "LCB": {
+            "start": lcb_start.isoformat(),
+            "end": lcb_end.isoformat(),
+            "tag": lcb_tag,
+            "label": f"LCB รอบ {lcb_start.strftime('%d/%m')}–{lcb_end.strftime('%d/%m')}",
+        },
+    }
 
 
 def _parse_internal_path(raw: Optional[str]) -> Optional[str]:
@@ -969,6 +1557,7 @@ def petty_list(
     dstatus: str = "",
     deduct: str = "",
     unlinked: str = "",
+    review: str = "",
     cycle: str = "",
     page: int = 1,
     per_page: int = 100,
@@ -989,6 +1578,7 @@ def petty_list(
         )
 
         def apply_where(stmt_):
+            from sqlalchemy import or_
             if site:
                 stmt_ = stmt_.where(PettyCashTxn.site_code == site)
             df = _parse_date(d_from)
@@ -1008,6 +1598,15 @@ def petty_list(
                 stmt_ = stmt_.where(PettyCashTxn.driver_id == drv_id)
             if unlinked == "1":
                 stmt_ = stmt_.where(PettyCashTxn.driver_id.is_(None))
+            if review == "1":
+                known_policies = [p[0] for p in models.PAY_CYCLE_POLICIES]
+                unknown_policy_driver_ids = select(Employee.id).where(~Employee.pay_cycle_policy.in_(known_policies))
+                stmt_ = stmt_.where(
+                    or_(
+                        PettyCashTxn.driver_id.is_(None),
+                        ~PettyCashTxn.driver_id.in_(unknown_policy_driver_ids),
+                    )
+                )
             if cycle:
                 stmt_ = stmt_.where(PettyCashTxn.pay_cycle_tag == cycle)
             return stmt_
@@ -1033,7 +1632,23 @@ def petty_list(
 
     def disp(r: PettyCashTxn):
         drv = emp_map.get(r.driver_id) if r.driver_id else None
-        auto_tag = _cycle_tag_for_site(r.site_code, r.txn_date) if r.txn_date else ""
+        auto_tag = ""
+        policy_used = "site_default"
+        review_reason = ""
+        if r.txn_date:
+            auto_tag, policy_used, review_reason = _resolve_cycle_tag_for_driver(
+                r.txn_date,
+                r.site_code,
+                drv,
+            )
+        review_required = bool(review_reason or (r.pay_cycle_tag and auto_tag and r.pay_cycle_tag != auto_tag))
+        reason_text = ""
+        if review_reason == "missing_driver":
+            reason_text = "ยังไม่ผูกคนขับ"
+        elif review_reason == "unclear_policy":
+            reason_text = "นโยบายรอบจ่ายไม่ชัดเจน"
+        elif r.pay_cycle_tag and auto_tag and r.pay_cycle_tag != auto_tag:
+            reason_text = f"แท็กรอบไม่ตรง policy ({r.pay_cycle_tag} -> {auto_tag})"
         return {
             "id": r.id, "txn_date": r.txn_date, "site_code": r.site_code,
             "direction": r.direction, "amount": r.amount,
@@ -1046,6 +1661,9 @@ def petty_list(
             "pay_cycle_tag": r.pay_cycle_tag,
             "cycle_overridden": bool(r.pay_cycle_tag and auto_tag and r.pay_cycle_tag != auto_tag),
             "auto_cycle_tag": auto_tag,
+            "policy_used": policy_used,
+            "review_required": review_required,
+            "review_reason": reason_text,
             "pending_amount": r.pending_amount,
             "pending_cleared": r.pending_cleared_at is not None,
             "status": r.status,
@@ -1063,15 +1681,19 @@ def petty_list(
         ).all()
     cycle_options = sorted([(t, int(c or 0)) for t, c in cycle_rows if t], reverse=True)
 
+    today = date.today()
+    current_cycle_tag = f"{today.year:04d}-{today.month:02d}"
+
     ctx.update({
         "rows": display, "site": site, "d_from": d_from, "d_to": d_to,
-        "driver": driver, "cat": cat, "dstatus": dstatus, "deduct": deduct, "unlinked": unlinked,
+        "driver": driver, "cat": cat, "dstatus": dstatus, "deduct": deduct, "unlinked": unlinked, "review": review,
         "cycle": cycle, "cycle_options": cycle_options,
         "employees": employees,
         "total_out": total_out, "total_in": total_in,
         "total_deduct_pending": total_deduct_pending,
         "total_rows": total_rows,
         "page": page, "per_page": per_page, "total_pages": total_pages,
+        "current_cycle_tag": current_cycle_tag,
     })
     return templates.TemplateResponse("petty_list.html", ctx)
 
@@ -1161,7 +1783,11 @@ def petty_save(
         row.has_receipt = _parse_bool(has_receipt)
         row.deduct_from_driver = _parse_bool(deduct_from_driver)
         row.deduct_amount = _parse_float(deduct_amount) if row.deduct_from_driver else 0.0
-        row.pay_cycle_tag = pay_cycle_tag.strip() or _cycle_tag_for_site(row.site_code, td)
+        if pay_cycle_tag.strip():
+            row.pay_cycle_tag = pay_cycle_tag.strip()
+        else:
+            resolved_tag, _, _ = _resolve_cycle_tag_for_driver(td, row.site_code, driver_obj)
+            row.pay_cycle_tag = resolved_tag
         row.linked_vehicle_plate_raw = linked_vehicle_plate_raw.strip()
         row.linked_vehicle_id = _parse_int(linked_vehicle_id)
         row.linked_daily_job_id = _parse_int(linked_daily_job_id)
@@ -1395,12 +2021,15 @@ def petty_clearance_mark(txn_id: int):
 
 
 @app.get("/api/cycle-tag")
-def api_cycle_tag(site: str, d: str):
-    """Helper for form UX: returns suggested pay_cycle_tag for (site, date)."""
+def api_cycle_tag(site: str, d: str, driver_id: str = ""):
+    """Helper for form UX: returns suggested pay_cycle_tag policy-first."""
     parsed = _parse_date(d)
     if not parsed:
-        return {"tag": ""}
-    return {"tag": _cycle_tag_for_site(site, parsed)}
+        return {"tag": "", "policy_used": "site_default", "review_reason": "invalid_date"}
+    with Session(engine) as s:
+        driver = s.get(Employee, _parse_int(driver_id)) if _parse_int(driver_id) else None
+    tag, policy_used, review_reason = _resolve_cycle_tag_for_driver(parsed, site, driver)
+    return {"tag": tag, "policy_used": policy_used, "review_reason": review_reason}
 
 
 @app.get("/api/daily-jobs/suggest")
@@ -1571,6 +2200,12 @@ def fuel_list(
         rows = s.exec(stmt.offset(offset).limit(per_page)).all()
 
     avg_price = (total_amount / total_liter) if total_liter else 0
+    import calendar
+
+    today = date.today()
+    month_start = today.replace(day=1).isoformat()
+    month_end = today.replace(day=calendar.monthrange(today.year, today.month)[1]).isoformat()
+    current_cycle_tag = f"{today.year:04d}-{today.month:02d}"
     ctx = base_context(request)
     ctx.update({
         "rows": rows,
@@ -1580,6 +2215,9 @@ def fuel_list(
         "total_rows": total_rows, "total_liter": total_liter,
         "total_amount": total_amount, "avg_price": avg_price,
         "page": page, "per_page": per_page, "total_pages": total_pages,
+        "current_month_start": month_start,
+        "current_month_end": month_end,
+        "current_cycle_tag": current_cycle_tag,
     })
     return templates.TemplateResponse("fuel_list.html", ctx)
 
@@ -1777,14 +2415,29 @@ from services.payroll import (
     get_or_create_pay_run,
     compute_pay_run,
     compute_pay_cycle_tag,
+    compute_pay_cycle_tag_by_policy,
+    normalize_pay_cycle_policy,
 )
 
 
 @app.get("/payroll", response_class=HTMLResponse)
-def payroll_list(request: Request):
+def payroll_list(
+    request: Request,
+    site: str = "",
+    cycle: str = "",
+    status: str = "",
+):
     from sqlalchemy import func as sa_func
     with Session(engine) as s:
-        runs = s.exec(select(PayRun).order_by(PayRun.pay_cycle_tag.desc(), PayRun.site_code)).all()
+        stmt = select(PayRun).order_by(PayRun.pay_cycle_tag.desc(), PayRun.site_code)
+        if site:
+            stmt = stmt.where(PayRun.site_code == site)
+        if cycle:
+            stmt = stmt.where(PayRun.pay_cycle_tag == cycle)
+        if status:
+            stmt = stmt.where(PayRun.status == status)
+
+        runs = s.exec(stmt).all()
         summary = []
         for pr in runs:
             items = s.exec(select(PayRunItem).where(PayRunItem.pay_run_id == pr.id)).all()
@@ -1798,8 +2451,25 @@ def payroll_list(request: Request):
                 "ded": total_ded,
                 "net": total_net,
             })
+        cycle_rows = s.exec(
+            select(PayRun.pay_cycle_tag, sa_func.count(PayRun.id))
+            .group_by(PayRun.pay_cycle_tag)
+            .order_by(PayRun.pay_cycle_tag.desc())
+        ).all()
+        cycle_options = [(t, int(c or 0)) for t, c in cycle_rows if t]
+    today = date.today()
+    current_cycle_tag = f"{today.year:04d}-{today.month:02d}"
     ctx = base_context(request)
-    ctx.update({"summary": summary})
+    ctx.update(
+        {
+            "summary": summary,
+            "site": site,
+            "cycle": cycle,
+            "status": status,
+            "cycle_options": cycle_options,
+            "current_cycle_tag": current_cycle_tag,
+        }
+    )
     return templates.TemplateResponse("payroll_list.html", ctx)
 
 
@@ -1853,6 +2523,93 @@ def _petty_unlinked_predicates_for_payrun(pr: "PayRun"):
             )
         )
     return preds
+
+
+def _cycle_drift_predicates_for_payrun(pr: "PayRun"):
+    """Petty หักคนขับ pending ที่ติด pay_cycle_tag รอบนี้แต่ txn_date นอกช่วงวิ่ง."""
+    from sqlalchemy import or_
+
+    preds = [
+        PettyCashTxn.pay_cycle_tag == pr.pay_cycle_tag,
+        PettyCashTxn.deduct_from_driver == True,  # noqa: E712
+        PettyCashTxn.deduction_status == "pending",
+        or_(PettyCashTxn.txn_date < pr.period_start, PettyCashTxn.txn_date > pr.period_end),
+    ]
+    site = (pr.site_code or "").strip()
+    if site:
+        preds.append(
+            or_(
+                PettyCashTxn.site_code == site,
+                PettyCashTxn.site_code == "",
+                PettyCashTxn.site_code.is_(None),
+            )
+        )
+    return preds
+
+
+def _collect_policy_review_for_payrun(s: Session, pr: "PayRun", limit: int = 8) -> dict:
+    """Rows that require manual review to avoid silent payroll omission."""
+    from sqlalchemy import or_
+
+    site = (pr.site_code or "").strip()
+    preds = [
+        PettyCashTxn.pay_cycle_tag == pr.pay_cycle_tag,
+        PettyCashTxn.deduct_from_driver == True,  # noqa: E712
+        PettyCashTxn.deduction_status == "pending",
+    ]
+    if site:
+        preds.append(
+            or_(
+                PettyCashTxn.site_code == site,
+                PettyCashTxn.site_code == "",
+                PettyCashTxn.site_code.is_(None),
+            )
+        )
+    rows = s.exec(
+        select(PettyCashTxn).where(*preds).order_by(PettyCashTxn.txn_date.desc(), PettyCashTxn.id.desc())
+    ).all()
+    emp_ids = sorted({int(r.driver_id) for r in rows if r.driver_id})
+    emp_map = {e.id: e for e in s.exec(select(Employee).where(Employee.id.in_(emp_ids))).all()} if emp_ids else {}
+
+    flagged = []
+    for r in rows:
+        reason = ""
+        expected_tag = ""
+        policy_used = "site_default"
+        if not r.driver_id:
+            reason = "ยังไม่ผูกคนขับ"
+        else:
+            driver = emp_map.get(int(r.driver_id))
+            if driver is None:
+                reason = "ไม่พบข้อมูลคนขับ"
+            elif not r.txn_date:
+                reason = "ไม่พบวันที่รายการ"
+            else:
+                expected_tag, policy_used, review_reason = _resolve_cycle_tag_for_driver(
+                    r.txn_date,
+                    r.site_code or pr.site_code,
+                    driver,
+                )
+                if review_reason == "unclear_policy":
+                    reason = "นโยบายรอบจ่ายคนขับไม่ชัดเจน"
+                elif expected_tag and (r.pay_cycle_tag or "").strip() != expected_tag:
+                    reason = f"แท็กรอบไม่ตรง policy ({r.pay_cycle_tag} -> {expected_tag})"
+        if reason:
+            flagged.append(
+                {
+                    "id": r.id,
+                    "txn_date": r.txn_date,
+                    "requester_raw": r.requester_raw,
+                    "deduct_amount": float(r.deduct_amount or 0.0),
+                    "reason": reason,
+                    "policy_used": policy_used,
+                }
+            )
+    return {
+        "count": len(flagged),
+        "amount": round(sum(x["deduct_amount"] for x in flagged), 2),
+        "rows": flagged[: max(1, limit)],
+    }
 
 
 def _detect_payrun_stale(s: Session, pr: "PayRun", items: list) -> dict:
@@ -1954,6 +2711,23 @@ def payroll_detail(run_id: int, request: Request, err: str = ""):
             .order_by(PettyCashTxn.txn_date.desc(), PettyCashTxn.id.desc())
             .limit(8)
         ).all()
+        # Guardrail: cycle-date drift (pay_cycle_tag ตรงรอบ แต่วันที่รายการอยู่นอกช่วงวิ่ง)
+        cycle_drift_preds = _cycle_drift_predicates_for_payrun(pr)
+        cycle_drift_count = int(
+            s.exec(select(sa_func.count(PettyCashTxn.id)).where(*cycle_drift_preds)).one() or 0
+        )
+        cycle_drift_amount = float(
+            s.exec(
+                select(sa_func.coalesce(sa_func.sum(PettyCashTxn.deduct_amount), 0.0)).where(*cycle_drift_preds)
+            ).one() or 0.0
+        )
+        cycle_drift_top = s.exec(
+            select(PettyCashTxn)
+            .where(*cycle_drift_preds)
+            .order_by(PettyCashTxn.txn_date.desc(), PettyCashTxn.id.desc())
+            .limit(8)
+        ).all()
+        policy_review = _collect_policy_review_for_payrun(s, pr, limit=8)
         stale = _detect_payrun_stale(s, pr, items)
     ctx = base_context(request)
     from services.payroll_slip import salary_folder_month_tag
@@ -1969,6 +2743,12 @@ def payroll_detail(run_id: int, request: Request, err: str = ""):
             "amount": unlinked_amount,
             "rows": unlinked_top,
         },
+        "cycle_drift": {
+            "count": cycle_drift_count,
+            "amount": cycle_drift_amount,
+            "rows": cycle_drift_top,
+        },
+        "policy_review": policy_review,
         "salary_export_folder_month": salary_folder_month_tag(pr),
     })
     return templates.TemplateResponse("payroll_detail.html", ctx)
@@ -2274,23 +3054,82 @@ def payroll_employee_override(
 @app.post("/payroll/{run_id}/finalize")
 def payroll_finalize(run_id: int):
     from datetime import datetime as _dt
-    from sqlalchemy import func as sa_func
+    from sqlalchemy import func as sa_func, or_ as _or
     with Session(engine) as s:
         pr = s.get(PayRun, run_id)
         if pr is None:
             return RedirectResponse("/payroll", status_code=303)
+        # BIGC / LCB policy lock: cycle-date drift > 0 must block first (before unlinked gate),
+        # so UI/error aligns with locked policy and generates unresolved drift report immediately.
+        _site_upper = (pr.site_code or "").strip().upper()
+        if _site_upper in ("BIGC", "LCB"):
+            _site = (pr.site_code or "").strip()
+            cycle_drift_preds = _cycle_drift_predicates_for_payrun(pr)
+            drift_cnt = int(s.exec(select(sa_func.count(PettyCashTxn.id)).where(*cycle_drift_preds)).one() or 0)
+            if drift_cnt > 0:
+                drift_amount = float(
+                    s.exec(
+                        select(sa_func.coalesce(sa_func.sum(PettyCashTxn.deduct_amount), 0.0)).where(*cycle_drift_preds)
+                    ).one() or 0.0
+                )
+                drift_top = s.exec(
+                    select(PettyCashTxn)
+                    .where(*cycle_drift_preds)
+                    .order_by(PettyCashTxn.txn_date.desc(), PettyCashTxn.id.desc())
+                    .limit(20)
+                ).all()
+                drift_reason = (
+                    "bigc_cycle_date_drift_block"
+                    if _site_upper == "BIGC"
+                    else "lcb_cycle_date_drift_block"
+                )
+                report_meta = _write_unresolved_case_report(
+                    run_id=pr.id or run_id,
+                    site_code=_site or _site_upper,
+                    cycle_tag=pr.pay_cycle_tag or "",
+                    reason=drift_reason,
+                    payload={
+                        "drift_count": drift_cnt,
+                        "drift_amount": drift_amount,
+                        "period_start": pr.period_start.isoformat(),
+                        "period_end": pr.period_end.isoformat(),
+                        "sample_rows": [
+                            {
+                                "id": r.id,
+                                "txn_date": r.txn_date.isoformat() if r.txn_date else None,
+                                "requester_raw": r.requester_raw,
+                                "deduct_amount": float(r.deduct_amount or 0.0),
+                                "site_code": r.site_code,
+                            }
+                            for r in drift_top
+                        ],
+                    },
+                    next_action="review petty rows with same cycle_tag and move drifted rows to correct cycle before finalize",
+                )
+                if report_meta.get("is_repeated_fail"):
+                    # Persist this in run note so admin immediately sees repeated blocker context.
+                    pr.notes = (
+                        f"[pending_morning] cycle-date drift fail repeated; "
+                        f"see {report_meta.get('pending_note_path') or report_meta.get('report_path')}"
+                    )
+                    s.add(pr)
+                    s.commit()
+                return RedirectResponse(f"/payroll/{pr.id}?err=cycle_drift_block", status_code=303)
         # Finalization gate: block when there are pending driver-deductions still unlinked.
+        # For BIGC/LCB this runs after drift gate by policy; for other sites behavior is unchanged.
         unlinked_cnt_q = select(sa_func.count(PettyCashTxn.id)).where(
             *_petty_unlinked_predicates_for_payrun(pr)
         )
         unlinked_cnt = int(s.exec(unlinked_cnt_q).one() or 0)
         if unlinked_cnt > 0:
             return RedirectResponse(f"/payroll/{pr.id}?err=unlinked_pending", status_code=303)
+        policy_review = _collect_policy_review_for_payrun(s, pr, limit=1)
+        if policy_review["count"] > 0:
+            return RedirectResponse(f"/payroll/{pr.id}?err=policy_review_block", status_code=303)
         pr.status = "finalized"
         pr.finalized_at = _dt.utcnow()
         # Lock petty cash rows that were consumed — include blank/NULL site_code
         # (same OR logic as _petty_unlinked_predicates_for_payrun / _sum_petty_cash_deduction)
-        from sqlalchemy import or_ as _or
         _site = (pr.site_code or "").strip()
         _site_pred = _or(
             PettyCashTxn.site_code == _site,
@@ -4816,6 +5655,7 @@ def billing_page(
             "wht": sum(g["wht"] for g in groups.values()),
         }
 
+    current_billing_month = f"{today.year:04d}-{today.month:02d}"
     ctx = base_context(request)
     ctx.update({
         "site": site, "month": month, "customer_id": customer_id,
@@ -4823,6 +5663,7 @@ def billing_page(
         "groups": sorted(groups.values(), key=lambda g: -g["revenue"]),
         "customers": customers,
         "summary": summary,
+        "current_billing_month": current_billing_month,
     })
     return templates.TemplateResponse("billing_page.html", ctx)
 

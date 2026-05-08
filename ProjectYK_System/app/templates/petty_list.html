@@ -63,10 +63,31 @@
       <input type="checkbox" name="unlinked" value="1" {% if unlinked=='1' %}checked{% endif %} />
       เฉพาะยังไม่ลิงก์คนขับ
     </label>
+    <label class="inline-flex items-center gap-1 text-sm">
+      <input type="checkbox" name="review" value="1" {% if review=='1' %}checked{% endif %} />
+      ต้องทวน policy รอบจ่าย
+    </label>
   </div>
   <div class="md:col-span-6 flex gap-2">
     <button class="bg-slate-200 px-4 py-1.5 rounded text-sm">กรอง</button>
     <a href="/petty-cash" class="text-sm text-slate-500 underline self-center">ล้าง</a>
+  </div>
+  <div class="md:col-span-6 border-t pt-3">
+    <div class="text-xs text-slate-500 mb-1">Preset เร็ว</div>
+    <div class="flex flex-wrap gap-2 text-xs">
+      <a href="/petty-cash?site=BIGC&cycle={{ current_cycle_tag }}&per_page={{ per_page }}"
+         class="px-2 py-1 rounded border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100">BigC เดือนนี้</a>
+      <a href="/petty-cash?site=LCB&cycle={{ current_cycle_tag }}&per_page={{ per_page }}"
+         class="px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">LCB เดือนนี้</a>
+      <a href="/petty-cash?site=AYU&cycle={{ current_cycle_tag }}&per_page={{ per_page }}"
+         class="px-2 py-1 rounded border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">AYU เดือนนี้</a>
+      <a href="/petty-cash?deduct=1&dstatus=pending&per_page={{ per_page }}"
+         class="px-2 py-1 rounded border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100">รออนุมัติหัก</a>
+      <a href="/petty-cash?unlinked=1&deduct=1&dstatus=pending&per_page={{ per_page }}"
+         class="px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">ยังไม่ผูกคนขับ</a>
+      <a href="/petty-cash?review=1&deduct=1&dstatus=pending&per_page={{ per_page }}"
+         class="px-2 py-1 rounded border border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100">ต้องทวน policy</a>
+    </div>
   </div>
 </form>
 
@@ -115,6 +136,7 @@
         <th class="px-2 py-2">หมวด</th>
         <th class="px-2 py-2 text-center">หัก พขร.</th>
         <th class="px-2 py-2">รอบ</th>
+        <th class="px-2 py-2">Review</th>
         <th class="px-2 py-2">สถานะ</th>
         <th class="px-2 py-2"></th>
       </tr>
@@ -169,6 +191,14 @@
           {% endif %}
         </td>
         <td class="px-2 py-2 text-xs">
+          {% if r.review_required %}
+            <span class="px-1.5 py-0.5 rounded bg-fuchsia-100 text-fuchsia-800">ต้องทวน</span>
+            <div class="text-[10px] text-fuchsia-700 mt-0.5">{{ r.review_reason }}</div>
+          {% else %}
+            <span class="text-slate-400">—</span>
+          {% endif %}
+        </td>
+        <td class="px-2 py-2 text-xs">
           {% if r.status == 'locked' %}<span class="text-slate-400">🔒</span>{% else %}{{ r.status }}{% endif %}
         </td>
         <td class="px-2 py-2 whitespace-nowrap">
@@ -194,7 +224,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="12" class="px-3 py-8 text-center text-slate-400">ยังไม่มีรายการ — กด "+ เพิ่มรายการ" หรือใช้ตัวกรองอื่น</td></tr>
+      <tr><td colspan="13" class="px-3 py-8 text-center text-slate-400">ยังไม่มีรายการ — กด "+ เพิ่มรายการ" หรือใช้ตัวกรองอื่น</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -210,6 +240,7 @@
 {% if dstatus %}{% set qs = qs + '&dstatus=' + dstatus %}{% endif %}
 {% if deduct %}{% set qs = qs + '&deduct=' + deduct %}{% endif %}
 {% if unlinked %}{% set qs = qs + '&unlinked=' + unlinked %}{% endif %}
+{% if review %}{% set qs = qs + '&review=' + review %}{% endif %}
 {% if cycle %}{% set qs = qs + '&cycle=' + cycle %}{% endif %}
 {% set qs = qs + '&per_page=' + per_page|string %}
 <div class="flex items-center justify-center gap-1 mt-4 flex-wrap text-sm">
@@ -231,6 +262,7 @@
     {% if dstatus %}<input type="hidden" name="dstatus" value="{{ dstatus }}">{% endif %}
     {% if deduct %}<input type="hidden" name="deduct" value="{{ deduct }}">{% endif %}
     {% if unlinked %}<input type="hidden" name="unlinked" value="{{ unlinked }}">{% endif %}
+    {% if review %}<input type="hidden" name="review" value="{{ review }}">{% endif %}
     {% if cycle %}<input type="hidden" name="cycle" value="{{ cycle }}">{% endif %}
     <input type="hidden" name="per_page" value="{{ per_page }}">
     <span class="text-xs text-slate-500">ไปหน้า:</span>

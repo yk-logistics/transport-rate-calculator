@@ -1,0 +1,65 @@
+{
+  "generated_at_utc": "2026-05-07T16:55:16",
+  "run_id": 10,
+  "site_code": "BIGC",
+  "cycle_tag": "2026-03",
+  "reason": "bigc_cycle_date_drift_block",
+  "payload": {
+    "drift_count": 7,
+    "drift_amount": 4150.0,
+    "period_start": "2026-03-01",
+    "period_end": "2026-03-31",
+    "sample_rows": [
+      {
+        "id": 55739,
+        "txn_date": "2026-02-22",
+        "requester_raw": "วันชัย",
+        "deduct_amount": 50.0,
+        "site_code": ""
+      },
+      {
+        "id": 55731,
+        "txn_date": "2025-12-19",
+        "requester_raw": "อภิชาติ",
+        "deduct_amount": 500.0,
+        "site_code": ""
+      },
+      {
+        "id": 55730,
+        "txn_date": "2025-12-13",
+        "requester_raw": "เนื้อ",
+        "deduct_amount": 500.0,
+        "site_code": ""
+      },
+      {
+        "id": 55729,
+        "txn_date": "2025-12-11",
+        "requester_raw": "วันชัย",
+        "deduct_amount": 500.0,
+        "site_code": ""
+      },
+      {
+        "id": 55726,
+        "txn_date": "2025-12-04",
+        "requester_raw": "ข้าวฟ่าง",
+        "deduct_amount": 100.0,
+        "site_code": ""
+      },
+      {
+        "id": 55727,
+        "txn_date": "2025-11-25",
+        "requester_raw": "เกศศักดิ์",
+        "deduct_amount": 500.0,
+        "site_code": "BIGC"
+      },
+      {
+        "id": 55725,
+        "txn_date": "2025-11-19",
+        "requester_raw": "พงษ์พันธ์",
+        "deduct_amount": 2000.0,
+        "site_code": ""
+      }
+    ]
+  },
+  "next_action": "review petty rows with same cycle_tag and move drifted rows to correct cycle before finalize"
+}

@@ -3,7 +3,21 @@
 {% block content %}
 <h1 class="text-2xl font-bold mb-4">{% if mode=='new' %}เพิ่มงานประจำวัน{% else %}แก้ไขงาน #{{ row.id }}{% endif %}</h1>
 
+{% if preflight_warnings %}
+<div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+  <div class="font-semibold text-amber-800 mb-1">เตือนก่อนบันทึก</div>
+  <ul class="list-disc pl-5 text-sm text-amber-800 space-y-1">
+    {% for w in preflight_warnings %}
+    <li>{{ w }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
 <form method="post" action="{% if mode=='new' %}/daily/new{% else %}/daily/{{ row.id }}/edit{% endif %}" class="space-y-6">
+{% if inbox_mail_id %}
+  <input type="hidden" name="inbox_mail_id" value="{{ inbox_mail_id }}" />
+{% endif %}
 
 <section class="bg-white rounded-lg border p-6">
   <h2 class="font-semibold mb-3">ข้อมูลหลัก</h2>

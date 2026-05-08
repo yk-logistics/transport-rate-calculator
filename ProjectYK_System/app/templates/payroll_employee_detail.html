@@ -21,6 +21,15 @@
   </div>
 </div>
 
+<div class="mb-3 flex flex-wrap gap-2 text-xs no-print">
+  <a href="/petty-cash?site={{ run.site_code }}&amp;cycle={{ run.pay_cycle_tag }}&amp;driver={{ employee.id }}&amp;deduct=1"
+     class="px-2 py-1 rounded border border-slate-200 bg-white hover:bg-slate-50">สดย่อย · คนนี้ + รอบ</a>
+  <a href="/daily?site={{ run.site_code }}&amp;d_from={{ run.period_start.isoformat() }}&amp;d_to={{ run.period_end.isoformat() }}"
+     class="px-2 py-1 rounded border border-slate-200 bg-white hover:bg-slate-50">เดลี่ · ช่วงรอบ (ไซต์)</a>
+  <a href="/fuel?site={{ run.site_code }}&amp;d_from={{ run.period_start.isoformat() }}&amp;d_to={{ run.period_end.isoformat() }}"
+     class="px-2 py-1 rounded border border-slate-200 bg-white hover:bg-slate-50">น้ำมัน · ช่วงรอบ</a>
+</div>
+
 {% if petty_saved_hint and run.status != 'finalized' %}
 <div class="mb-4 rounded-lg border border-sky-400 bg-sky-50 p-3 flex flex-wrap items-center justify-between gap-3 no-print">
   <div class="text-sm text-sky-950">

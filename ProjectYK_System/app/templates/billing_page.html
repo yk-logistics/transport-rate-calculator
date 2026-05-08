@@ -38,6 +38,20 @@
   </a>
 </form>
 
+<div class="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+  <div class="text-xs text-slate-500 mb-1">Preset เร็ว · เดือนปฏิทินล่าสุด (<span class="font-mono">{{ current_billing_month }}</span>)</div>
+  <div class="flex flex-wrap gap-2 text-xs">
+    <a href="/billing?site=BIGC&amp;month={{ current_billing_month }}"
+       class="px-2 py-1 rounded border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100">BigC เดือนนี้</a>
+    <a href="/billing?site=LCB&amp;month={{ current_billing_month }}"
+       class="px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">LCB เดือนนี้</a>
+    <a href="/billing?site=AYU&amp;month={{ current_billing_month }}"
+       class="px-2 py-1 rounded border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">AYU เดือนนี้</a>
+    <a href="/billing?month={{ current_billing_month }}"
+       class="px-2 py-1 rounded border border-slate-200 bg-white text-slate-700 hover:bg-slate-100">ทุกไซต์ · เดือนนี้</a>
+  </div>
+</div>
+
 <div class="grid grid-cols-4 gap-3 mb-4 text-sm">
   <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">เที่ยวรวม</div><div class="text-lg font-semibold">{{ "{:,}".format(summary.count) }}</div></div>
   <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">ค่าขนส่ง</div><div class="text-lg font-semibold font-mono">{{ "{:,.2f}".format(summary.revenue) }}</div></div>

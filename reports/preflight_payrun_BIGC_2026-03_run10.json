@@ -1,0 +1,704 @@
+{
+  "pay_run_id": 10,
+  "site_code": "BIGC",
+  "pay_cycle_tag": "2026-03",
+  "period_start": "2026-03-01",
+  "period_end": "2026-03-31",
+  "run_status": "draft",
+  "summary_risk_level": "HIGH",
+  "manager_summary": {
+    "pending_total_count": 76,
+    "pending_total_amount_thb": 89541.91,
+    "risk_breakdown": [
+      {
+        "key": "unresolved_unlinked",
+        "label_th": "ยังไม่ผูกคนขับ (ต้องตัดสินใจ)",
+        "count": 33,
+        "amount_thb": 23716.0,
+        "share_of_pending_amount_pct": 26.49
+      },
+      {
+        "key": "cycle_date_drift",
+        "label_th": "วันที่หลุดช่วงรอบวิ่ง",
+        "count": 7,
+        "amount_thb": 4150.0,
+        "share_of_pending_amount_pct": 4.63
+      },
+      {
+        "key": "quick_win_safe_matches",
+        "label_th": "เคสแก้เร็วแบบปลอดภัย",
+        "count": 0,
+        "amount_thb": 0.0,
+        "share_of_pending_amount_pct": 0.0
+      }
+    ],
+    "recommended_order": [
+      "1) ทำ quick-win safe matches ก่อน",
+      "2) เคลียร์ unresolved unlinked ตาม queue",
+      "3) ปิด cycle-date drift แล้ว rerun preflight"
+    ],
+    "is_finalize_ready": false
+  },
+  "dimension_unlinked": {
+    "risk": "HIGH",
+    "count": 33,
+    "amount_thb": 23716.0,
+    "note": "หักคนขับ pending + ยังไม่มี driver_id (รวม site ว่างจาก import)"
+  },
+  "dimension_unlinked_resolution": {
+    "risk": "MEDIUM",
+    "unresolved_count": 33,
+    "unresolved_amount_thb": 23716.0,
+    "quick_win_count": 0,
+    "quick_win_amount_thb": 0,
+    "note": "skip เฉพาะเคสกำกวม/หาไม่เจอ และแยก quick-win เฉพาะ single-match ที่ปลอดภัย",
+    "unresolved_rows": [
+      {
+        "id": 56451,
+        "txn_date": "2026-03-28",
+        "requester_raw": "เอ๊ะ",
+        "deduct_amount": 1000.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "เงินเบิก",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56449,
+        "txn_date": "2026-03-26",
+        "requester_raw": "ช่างน้อย",
+        "deduct_amount": 1000.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "เงินเบิก",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56438,
+        "txn_date": "2026-03-26",
+        "requester_raw": "สมัย อยุธยา",
+        "deduct_amount": 1000.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "เงินเบิก",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56417,
+        "txn_date": "2026-03-25",
+        "requester_raw": "ประจัก",
+        "deduct_amount": 70.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "รับตู้ OM+เข้าท่า R2603-11996,R2603-11997,202603274566",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56416,
+        "txn_date": "2026-03-25",
+        "requester_raw": "อภิชาติ",
+        "deduct_amount": 30.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "รับตู้ D DEPOT R260307077,R260307078",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56415,
+        "txn_date": "2026-03-25",
+        "requester_raw": "สุรเดช",
+        "deduct_amount": 100.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "เข้าท่า+OT 202603266565,202603269796",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56411,
+        "txn_date": "2026-03-25",
+        "requester_raw": "พิชิต",
+        "deduct_amount": 300.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "รับตู้ MPJ+เข้าท่า AP2603-00605,AP2603-00604",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56410,
+        "txn_date": "2026-03-25",
+        "requester_raw": "วิชาญ",
+        "deduct_amount": 100.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "รับตู้ HK+เข้าท่า TY-2026-46274,TY-2026-46277,202603271932",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56409,
+        "txn_date": "2026-03-25",
+        "requester_raw": "ปกรณ์",
+        "deduct_amount": 70.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "รับตู้ OM+เข้าท่า R2603-11965,R2603-11966,202603271625",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56408,
+        "txn_date": "2026-03-25",
+        "requester_raw": "วันชัย",
+        "deduct_amount": 70.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "รับตู้ OM+เข้าท่า R2603-11926,R2603-11927,202603276067",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56406,
+        "txn_date": "2026-03-25",
+        "requester_raw": "นันทสิทธิ์",
+        "deduct_amount": 106.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "รับตู้ KSP+เข้าท่า KS2603-07733,KS2603-07734,202603274565",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56405,
+        "txn_date": "2026-03-25",
+        "requester_raw": "พชร",
+        "deduct_amount": 100.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "รับตู้ TIPS+เข้าท่า CS13260318118,CS13260318117,202603277694",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56404,
+        "txn_date": "2026-03-25",
+        "requester_raw": "นิยม",
+        "deduct_amount": 70.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "รับตู้ HK+เข้าท่า TY-2026-46257,TY-2026-46258,202603270143",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56348,
+        "txn_date": "2026-03-23",
+        "requester_raw": "ช่างน้อย",
+        "deduct_amount": 1000.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "เงินเบิก",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56337,
+        "txn_date": "2026-03-23",
+        "requester_raw": "สมัย อยุธยา",
+        "deduct_amount": 1000.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "เงินเบิก",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56292,
+        "txn_date": "2026-03-20",
+        "requester_raw": "เอ๊ะ",
+        "deduct_amount": 2000.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "เงินเบิก",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56231,
+        "txn_date": "2026-03-16",
+        "requester_raw": "ช่างน้อย",
+        "deduct_amount": 1000.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "เงินเบิก",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56221,
+        "txn_date": "2026-03-16",
+        "requester_raw": "สมัย อยุธยา",
+        "deduct_amount": 2000.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "เงินเบิก",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56192,
+        "txn_date": "2026-03-15",
+        "requester_raw": "เอ๊ะ",
+        "deduct_amount": 1500.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "เงินเบิก",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56175,
+        "txn_date": "2026-03-13",
+        "requester_raw": "พชร",
+        "deduct_amount": 500.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "ค่าปรับวิ่งขวา ศรีราชา 71-8009 วันที่ 6/2/26",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56183,
+        "txn_date": "2026-03-11",
+        "requester_raw": "สันติพงษ์",
+        "deduct_amount": 500.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "อุบัติเหตุ 11/3/26 72-1219 ชนกล้องโฮมโปร ครั้งที่1/4",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56108,
+        "txn_date": "2026-03-10",
+        "requester_raw": "ช่างน้อย",
+        "deduct_amount": 1000.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "เงินเบิก",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56080,
+        "txn_date": "2026-03-09",
+        "requester_raw": "เอ๊ะ",
+        "deduct_amount": 2000.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "เงินเบิก",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56078,
+        "txn_date": "2026-03-09",
+        "requester_raw": "ช่างน้อย",
+        "deduct_amount": 2000.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "เงินเบิก",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56067,
+        "txn_date": "2026-03-09",
+        "requester_raw": "สมัย อยุธยา",
+        "deduct_amount": 1000.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "เงินเบิก",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56042,
+        "txn_date": "2026-03-08",
+        "requester_raw": "สมัย อยุธยา",
+        "deduct_amount": 50.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "ทางด่วน 10/3/26,9/3/26,14/3/26,20/3/26,21/3/26,22/3/26,24/3/26,25/3/26,26/3/26",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 56017,
+        "txn_date": "2026-03-06",
+        "requester_raw": "นิยม",
+        "deduct_amount": 500.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "ค่าปรับวิ่งขวา ศรีราชา 71-9627 วันที่ 13/1/26",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 55739,
+        "txn_date": "2026-02-22",
+        "requester_raw": "วันชัย",
+        "deduct_amount": 50.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "ค่าซ่อมแอร์ 72-1218 (1300 บริษัทออก50% เหลือ650)งวดที่ 2/12",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 55731,
+        "txn_date": "2025-12-19",
+        "requester_raw": "อภิชาติ",
+        "deduct_amount": 500.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "ค่าถุงลมเสียหาย (5,000) งวดที่ 4/10",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 55730,
+        "txn_date": "2025-12-13",
+        "requester_raw": "เนื้อ",
+        "deduct_amount": 500.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "ค่ารถยก (5,000) งวดที่ 4/10",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 55729,
+        "txn_date": "2025-12-11",
+        "requester_raw": "วันชัย",
+        "deduct_amount": 500.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "ค่าดัดคานหาง (2,000) งวดที่ 4/4",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 55726,
+        "txn_date": "2025-12-04",
+        "requester_raw": "ข้าวฟ่าง",
+        "deduct_amount": 100.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "OT KAO (1000) งวดที่ 4/10",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      },
+      {
+        "id": 55725,
+        "txn_date": "2025-11-19",
+        "requester_raw": "พงษ์พันธ์",
+        "deduct_amount": 2000.0,
+        "site_code": "",
+        "pay_cycle_tag": "2026-03",
+        "source": "book2_2026",
+        "memo": "ค่ารถยก (4,000) งวดที่5/5",
+        "reason": "name_not_found_in_employee",
+        "next_action": "add alias or create employee before linking this deduction"
+      }
+    ],
+    "quick_win_rows": []
+  },
+  "dimension_pending_petty_cycle": {
+    "risk": "INFO",
+    "count": 76,
+    "amount_thb": 89541.91,
+    "note": "สดย่อยหักคนขับทั้งหมดในรอบ (pending) สำหรับตั้งคำถามว่าครบหรือยัง"
+  },
+  "dimension_cycle_date_drift": {
+    "risk": "HIGH",
+    "count": 7,
+    "amount_thb": 4150.0,
+    "note": "ติด pay_cycle_tag รอบนี้แต่ txn_date นอก period_start/end"
+  },
+  "dimension_pay_cycle_tag_vs_txn_date": {
+    "risk": "HIGH",
+    "count": 7,
+    "amount_thb": 4150.0,
+    "note": "stored pay_cycle_tag != compute_pay_cycle_tag(site, txn_date) — ต้องแก้ tag/วันที่ก่อนปิดความเสี่ยงเงียบ",
+    "sample_rows": [
+      {
+        "id": 55725,
+        "txn_date": "2025-11-19",
+        "pay_cycle_tag_stored": "2026-03",
+        "pay_cycle_tag_expected": "2025-11",
+        "deduct_amount": 2000.0,
+        "site_code": ""
+      },
+      {
+        "id": 55726,
+        "txn_date": "2025-12-04",
+        "pay_cycle_tag_stored": "2026-03",
+        "pay_cycle_tag_expected": "2025-12",
+        "deduct_amount": 100.0,
+        "site_code": ""
+      },
+      {
+        "id": 55727,
+        "txn_date": "2025-11-25",
+        "pay_cycle_tag_stored": "2026-03",
+        "pay_cycle_tag_expected": "2025-11",
+        "deduct_amount": 500.0,
+        "site_code": "BIGC"
+      },
+      {
+        "id": 55729,
+        "txn_date": "2025-12-11",
+        "pay_cycle_tag_stored": "2026-03",
+        "pay_cycle_tag_expected": "2025-12",
+        "deduct_amount": 500.0,
+        "site_code": ""
+      },
+      {
+        "id": 55730,
+        "txn_date": "2025-12-13",
+        "pay_cycle_tag_stored": "2026-03",
+        "pay_cycle_tag_expected": "2025-12",
+        "deduct_amount": 500.0,
+        "site_code": ""
+      },
+      {
+        "id": 55731,
+        "txn_date": "2025-12-19",
+        "pay_cycle_tag_stored": "2026-03",
+        "pay_cycle_tag_expected": "2025-12",
+        "deduct_amount": 500.0,
+        "site_code": ""
+      },
+      {
+        "id": 55739,
+        "txn_date": "2026-02-22",
+        "pay_cycle_tag_stored": "2026-03",
+        "pay_cycle_tag_expected": "2026-02",
+        "deduct_amount": 50.0,
+        "site_code": ""
+      }
+    ]
+  },
+  "dimension_policy_review_queue": {
+    "risk": "HIGH",
+    "count": 33,
+    "amount_thb": 23716.0,
+    "note": "missing driver_id or unclear driver pay_cycle_policy (review required before finalize)",
+    "sample_rows": [
+      {
+        "id": 55725,
+        "txn_date": "2025-11-19",
+        "reason": "missing_driver",
+        "deduct_amount": 2000.0
+      },
+      {
+        "id": 55726,
+        "txn_date": "2025-12-04",
+        "reason": "missing_driver",
+        "deduct_amount": 100.0
+      },
+      {
+        "id": 55729,
+        "txn_date": "2025-12-11",
+        "reason": "missing_driver",
+        "deduct_amount": 500.0
+      },
+      {
+        "id": 55730,
+        "txn_date": "2025-12-13",
+        "reason": "missing_driver",
+        "deduct_amount": 500.0
+      },
+      {
+        "id": 55731,
+        "txn_date": "2025-12-19",
+        "reason": "missing_driver",
+        "deduct_amount": 500.0
+      },
+      {
+        "id": 55739,
+        "txn_date": "2026-02-22",
+        "reason": "missing_driver",
+        "deduct_amount": 50.0
+      },
+      {
+        "id": 56017,
+        "txn_date": "2026-03-06",
+        "reason": "missing_driver",
+        "deduct_amount": 500.0
+      },
+      {
+        "id": 56042,
+        "txn_date": "2026-03-08",
+        "reason": "missing_driver",
+        "deduct_amount": 50.0
+      },
+      {
+        "id": 56067,
+        "txn_date": "2026-03-09",
+        "reason": "missing_driver",
+        "deduct_amount": 1000.0
+      },
+      {
+        "id": 56078,
+        "txn_date": "2026-03-09",
+        "reason": "missing_driver",
+        "deduct_amount": 2000.0
+      },
+      {
+        "id": 56080,
+        "txn_date": "2026-03-09",
+        "reason": "missing_driver",
+        "deduct_amount": 2000.0
+      },
+      {
+        "id": 56108,
+        "txn_date": "2026-03-10",
+        "reason": "missing_driver",
+        "deduct_amount": 1000.0
+      }
+    ]
+  },
+  "dimension_cross_site_collision": {
+    "risk": "MEDIUM",
+    "drivers_with_multi_site_jobs_in_period": 6,
+    "employees": [
+      {
+        "employee_id": 1,
+        "full_name": "สมัย",
+        "sites_in_period": [
+          "AYU",
+          "BIGC"
+        ]
+      },
+      {
+        "employee_id": 9,
+        "full_name": "เกศศักดิ์",
+        "sites_in_period": [
+          "AYU",
+          "BIGC"
+        ]
+      },
+      {
+        "employee_id": 10,
+        "full_name": "สมประสงค์",
+        "sites_in_period": [
+          "AYU",
+          "BIGC"
+        ]
+      },
+      {
+        "employee_id": 11,
+        "full_name": "ธนวัฒน์",
+        "sites_in_period": [
+          "AYU",
+          "BIGC"
+        ]
+      },
+      {
+        "employee_id": 15,
+        "full_name": "เกรียงไกร",
+        "sites_in_period": [
+          "AYU",
+          "BIGC"
+        ]
+      },
+      {
+        "employee_id": 29,
+        "full_name": "พรศักดิ์",
+        "sites_in_period": [
+          "AYU",
+          "BIGC"
+        ]
+      }
+    ],
+    "note": "ตัวชี้วัดเท่านั้น — ต้องดูว่างานข้ามไซต์เข้ายอดรอบนี้จริงหรือเป็นประวัติคนละไซต์"
+  },
+  "dimension_source_scan": {
+    "daily_job_by_source": {
+      "bigc_fuel_rate": 3,
+      "import_daily": 325
+    },
+    "daily_bigc_fuel_rate_rows_at_site": 3,
+    "fuel_txn_count": 101,
+    "fuel_txn_by_source": {
+      "bigc_fuel_rate": 101
+    },
+    "fuel_unlinked_driver": {
+      "risk": "LOW",
+      "count": 0,
+      "amount_thb": 0.0
+    },
+    "petty_other_sites_same_cycle_tag_string": {
+      "risk": "INFO",
+      "count": 224,
+      "amount_thb": 112000.0,
+      "note": "รายการไซต์อื่นที่ใช้ pay_cycle_tag สตริงเดียวกับรอบนี้ — ไม่ถือเป็น bug อัตโนมัติ เพราะแต่ละไซต์นิยามรอบคนละแบบ"
+    },
+    "petty_explicit_site_tag_date_inconsistency": {
+      "risk": "MEDIUM",
+      "count": 1,
+      "amount_thb": 500.0,
+      "note": "เฉพาะ site_code='BIGC' ที่ pending — tag/วันที่ไม่สอดคล้องกฎรอบหรือนอกช่วง period",
+      "sample_rows": [
+        {
+          "id": 55727,
+          "txn_date": "2025-11-25",
+          "pay_cycle_tag_stored": "2026-03",
+          "pay_cycle_tag_expected": "2025-11",
+          "deduct_amount": 500.0,
+          "site_code": "BIGC"
+        }
+      ]
+    }
+  }
+}

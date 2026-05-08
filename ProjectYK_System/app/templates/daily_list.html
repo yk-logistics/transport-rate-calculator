@@ -68,6 +68,21 @@
     <button class="bg-slate-200 px-4 py-1.5 rounded text-sm">กรอง</button>
     <a href="/daily" class="text-sm text-slate-500 underline self-center">ล้างตัวกรอง</a>
   </div>
+  <div class="md:col-span-6 border-t pt-3">
+    <div class="text-xs text-slate-500 mb-1">Preset เร็ว (ตามรอบ payroll)</div>
+    <div class="flex flex-wrap gap-2 text-xs">
+      <a href="/daily?site=BIGC&d_from={{ preset_cycles.BIGC.start }}&d_to={{ preset_cycles.BIGC.end }}&per_page={{ per_page }}"
+         class="px-2 py-1 rounded border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100">{{ preset_cycles.BIGC.label }}</a>
+      <a href="/daily?site=LCB&d_from={{ preset_cycles.LCB.start }}&d_to={{ preset_cycles.LCB.end }}&per_page={{ per_page }}"
+         class="px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">{{ preset_cycles.LCB.label }}</a>
+      <a href="/daily?site=AYU&d_from={{ preset_cycles.AYU.start }}&d_to={{ preset_cycles.AYU.end }}&per_page={{ per_page }}"
+         class="px-2 py-1 rounded border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">{{ preset_cycles.AYU.label }}</a>
+      <a href="/daily?status=real&per_page={{ per_page }}"
+         class="px-2 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100">เฉพาะงานจริง</a>
+      <a href="/daily?status=leave&per_page={{ per_page }}"
+         class="px-2 py-1 rounded border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100">เฉพาะลา</a>
+    </div>
+  </div>
 </form>
 
 <div class="grid grid-cols-3 gap-4 mb-4">

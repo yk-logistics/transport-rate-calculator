@@ -79,6 +79,14 @@ def _driver_key(full_name: str, nickname: str = "") -> str:
     return normalize_person_name(full_name or "")
 
 
+def _base_person_key(norm_key: str) -> str:
+    """Remove common site suffix tokens for ambiguity detection."""
+    s = _norm_text(norm_key or "")
+    for tok in ("bigc", "big-c", "big c", "ayu", "lcb", "อยธยา", "แหลมฉบง"):
+        s = s.replace(_norm_text(tok), "")
+    return s.strip()
+
+
 def _to_float(v) -> float:
     if v is None or v == "":
         return 0.0
@@ -150,18 +158,25 @@ def extract_manual_payroll_by_sheet(payroll_path: Path, system_keys: set[str]) -
     stats = {
         "total_sheets": 0,
         "used_driver_sheets": 0,
+        "auto_resolved_sheets": 0,
         "skipped_non_driver_sheet": 0,
         "skipped_not_in_system_keys": 0,
         "used_sheet_names": [],
+        "auto_resolved_sheet_names": [],
         "skipped_sheet_names": [],
+        "unresolved_queue": [],
     }
 
     # label -> field mapping (heuristic)
     label_map = {
         "trip_fee": ("ค่าเที่ยว", "ค่ารอบ", "เที่ยวพขร", "ค่าเที่ยวพขร"),
-        "petty": ("สดย่อย", "เบิก", "หักเงินเดือน"),
-        "fuel_rate": ("เรทน้ำมัน", "น้ำมันทำได้", "ค่าเรทน้ำมัน"),
-        "net": ("สุทธิ", "รับสุทธิ", "คงเหลือรับ", "ยอดสุทธิ"),
+        # Book1 มักเก็บยอดสดย่อยทั้งก้อนในแถว "อื่นๆ" ฝั่งค่าใช้จ่าย
+        # ขณะเดียวกันบางชีทใช้คำว่า "เงินเบิก"/"สดย่อย" โดยตรง
+        "petty": ("สดย่อย", "เบิก", "เงินเบิก", "หักเงินเดือน", "อื่นๆ"),
+        # IMPORTANT: "เรทน้ำมัน" เดี่ยวๆ มักเป็นค่า ratio (เช่น 3.65) ไม่ใช่รายได้เรทน้ำมันเป็นเงินบาท
+        # จึงใช้เฉพาะ label ที่สื่อถึง "จำนวนเงิน" เท่านั้น
+        "fuel_rate": ("ค่าเรทน้ำมัน", "น้ำมันทำได้"),
+        "net": ("สุทธิ", "รับสุทธิ", "คงเหลือรับ", "ยอดสุทธิ", "ยอดรับหลังหักค่าใช้จ่าย"),
     }
 
     for ws in wb.worksheets:
@@ -177,10 +192,34 @@ def extract_manual_payroll_by_sheet(payroll_path: Path, system_keys: set[str]) -
             stats["skipped_sheet_names"].append(sheet_name)
             continue
         # Keep only sheets that map to known system drivers to avoid summary/helper tabs.
+        resolved_key = key
         if key not in system_keys:
-            stats["skipped_not_in_system_keys"] += 1
-            stats["skipped_sheet_names"].append(sheet_name)
-            continue
+            # Safe-by-default fallback: allow only provable single-candidate prefix mapping.
+            # Example: sheet "บุญชอบ" -> system key "บุญชอบพูลสวัสดิ์".
+            strict_prefix_candidates = sorted([k for k in system_keys if key and k.startswith(key)])
+            if len(strict_prefix_candidates) == 1:
+                resolved_key = strict_prefix_candidates[0]
+                stats["auto_resolved_sheets"] += 1
+                stats["auto_resolved_sheet_names"].append(sheet_name)
+            else:
+                stats["skipped_not_in_system_keys"] += 1
+                stats["skipped_sheet_names"].append(sheet_name)
+                base_key = _base_person_key(key)
+                candidate_keys = sorted(
+                    [k for k in system_keys if _base_person_key(k) and _base_person_key(k) == base_key]
+                )
+                reason = "ambiguous_name_cross_site" if len(candidate_keys) > 1 else "name_not_found_in_system_keys"
+                stats["unresolved_queue"].append(
+                    {
+                        "sheet_name": sheet_name,
+                        "driver_key": key,
+                        "reason": reason,
+                        "candidate_count": len(candidate_keys),
+                        "candidate_keys": candidate_keys,
+                        "next_action": f"confirm driver '{sheet_name}' in Employee master (BIGC) and rerun audit",
+                    }
+                )
+                continue
 
         metrics = {"trip_fee": 0.0, "petty": 0.0, "fuel_rate": 0.0, "net": 0.0}
         matched_label_count = 0
@@ -199,12 +238,18 @@ def extract_manual_payroll_by_sheet(payroll_path: Path, system_keys: set[str]) -
                     if any(lbl in txt for lbl in labels):
                         val = _pick_numeric_right(row_vals, i, lookahead=10)
                         if abs(val) > 0:
-                            metrics[field] = max(metrics[field], val)
+                            # Amount fields that may be negative (fuel residual / net adjustments)
+                            # should keep the strongest absolute value with sign preserved.
+                            if field in ("fuel_rate", "net"):
+                                if abs(val) > abs(metrics[field]):
+                                    metrics[field] = val
+                            else:
+                                metrics[field] = max(metrics[field], val)
                             matched_label_count += 1
 
-        out[key] = {
+        out[resolved_key] = {
             "sheet_name": sheet_name,
-            "driver_key": key,
+            "driver_key": resolved_key,
             "trip_fee": round(metrics["trip_fee"], 2),
             "petty": round(metrics["petty"], 2),
             "fuel_rate": round(metrics["fuel_rate"], 2),
@@ -448,6 +493,102 @@ def write_compare_csvs(compare: dict, output_dir: Path) -> dict:
     return files
 
 
+def write_unresolved_queue_reports(unresolved_queue: list[dict], output_dir: Path, cycle_tag: str) -> dict:
+    files: dict[str, str | bool] = {}
+    queue_json = output_dir / "unresolved_queue.json"
+    queue_csv = output_dir / "unresolved_queue.csv"
+    queue_json.write_text(json.dumps(unresolved_queue, ensure_ascii=False, indent=2), encoding="utf-8")
+    files["unresolved_queue_json"] = str(queue_json)
+
+    with queue_csv.open("w", encoding="utf-8-sig", newline="") as f:
+        w = csv.DictWriter(
+            f,
+            fieldnames=[
+                "sheet_name",
+                "driver_key",
+                "reason",
+                "candidate_count",
+                "candidate_keys",
+                "next_action",
+            ],
+        )
+        w.writeheader()
+        for row in unresolved_queue:
+            out = dict(row)
+            out["candidate_keys"] = "|".join(row.get("candidate_keys", []))
+            w.writerow(out)
+    files["unresolved_queue_csv"] = str(queue_csv)
+
+    # Persist history to detect repeated unresolved failures (same sheet+reason).
+    history_path = output_dir / "unresolved_history.jsonl"
+    history_rows: list[dict] = []
+    if history_path.exists():
+        try:
+            for line in history_path.read_text(encoding="utf-8").splitlines():
+                t = (line or "").strip()
+                if not t:
+                    continue
+                history_rows.append(json.loads(t))
+        except Exception:
+            history_rows = []
+
+    repeat_hits = []
+    now_iso = datetime.now().isoformat(timespec="seconds")
+    for row in unresolved_queue:
+        key = f"{row.get('sheet_name','')}|{row.get('reason','')}"
+        prev_count = sum(
+            1
+            for h in history_rows
+            if f"{h.get('sheet_name','')}|{h.get('reason','')}" == key
+        )
+        if prev_count >= 1:
+            repeat_hits.append(
+                {
+                    "sheet_name": row.get("sheet_name", ""),
+                    "reason": row.get("reason", ""),
+                    "seen_before_count": prev_count,
+                    "next_action": row.get("next_action", ""),
+                }
+            )
+        history_rows.append(
+            {
+                "logged_at": now_iso,
+                "cycle_tag": cycle_tag,
+                **row,
+            }
+        )
+
+    with history_path.open("w", encoding="utf-8") as f:
+        for row in history_rows:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    files["unresolved_history_jsonl"] = str(history_path)
+    files["has_repeated_unresolved"] = bool(repeat_hits)
+
+    repeat_json = output_dir / "pending_morning_unresolved.json"
+    repeat_json.write_text(json.dumps(repeat_hits, ensure_ascii=False, indent=2), encoding="utf-8")
+    files["pending_morning_unresolved_json"] = str(repeat_json)
+    if repeat_hits:
+        repeat_md = output_dir / "PENDING_MORNING_UNRESOLVED.md"
+        repeat_md.write_text(
+            "\n".join(
+                [
+                    f"# Pending for morning (cycle {cycle_tag})",
+                    "",
+                    "พบ unresolved case เดิมซ้ำ — ให้หยุดวนลูปและไปทำส่วนอื่นต่อ",
+                    "",
+                    "## Repeated cases",
+                    *[
+                        f"- {r['sheet_name']} | {r['reason']} | seen_before={r['seen_before_count']} | next={r['next_action']}"
+                        for r in repeat_hits
+                    ],
+                ]
+            ),
+            encoding="utf-8",
+        )
+        files["pending_morning_unresolved_md"] = str(repeat_md)
+    return files
+
+
 def main():
     ap = ArgumentParser()
     ap.add_argument("--cycle-tag", default="2026-03")
@@ -487,6 +628,9 @@ def main():
     manual_data, manual_sheet_stats = extract_manual_payroll_by_sheet(payroll_path, system_keys)
     compare = build_compare(system_data, manual_data)
     csv_files = write_compare_csvs(compare, output_dir)
+    unresolved_files = write_unresolved_queue_reports(
+        manual_sheet_stats.get("unresolved_queue", []), output_dir, args.cycle_tag
+    )
 
     report = {
         "meta": {
@@ -518,6 +662,7 @@ def main():
         "outputs": {
             "summary_json": str(output_dir / "summary.json"),
             **csv_files,
+            **unresolved_files,
         },
         "compare": compare,
     }
@@ -534,6 +679,12 @@ def main():
     print("CSV:")
     for k, v in csv_files.items():
         print(f"  {k}: {v}")
+    print("Unresolved queue:")
+    print(f"  unresolved_count={len(manual_sheet_stats.get('unresolved_queue', []))}")
+    print(f"  unresolved_queue_json={unresolved_files.get('unresolved_queue_json')}")
+    print(f"  unresolved_queue_csv={unresolved_files.get('unresolved_queue_csv')}")
+    if unresolved_files.get("has_repeated_unresolved"):
+        print(f"  pending_morning={unresolved_files.get('pending_morning_unresolved_md')}")
     print(f"System run: id={system_data['run_id']} status={system_data['status']} "
           f"period={system_data['period_start']}..{system_data['period_end']}")
     print("-" * 72)

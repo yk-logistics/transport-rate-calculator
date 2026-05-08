@@ -1,0 +1,156 @@
+{
+  "generated_at_utc": "2026-05-07T16:55:16",
+  "run_id": 7,
+  "site_code": "AYU",
+  "cycle_tag": "2026-03",
+  "reason": "ayu_cycle_date_drift_block",
+  "payload": {
+    "drift_count": 33,
+    "drift_amount": 24430.0,
+    "period_start": "2026-02-26",
+    "period_end": "2026-03-25",
+    "sample_rows": [
+      {
+        "id": 56453,
+        "txn_date": "2026-03-30",
+        "requester_raw": "พบ",
+        "deduct_amount": 500.0,
+        "site_code": "AYU"
+      },
+      {
+        "id": 56452,
+        "txn_date": "2026-03-30",
+        "requester_raw": "เรวัตร",
+        "deduct_amount": 500.0,
+        "site_code": "AYU"
+      },
+      {
+        "id": 56451,
+        "txn_date": "2026-03-28",
+        "requester_raw": "เอ๊ะ",
+        "deduct_amount": 1000.0,
+        "site_code": ""
+      },
+      {
+        "id": 56450,
+        "txn_date": "2026-03-26",
+        "requester_raw": "ศราวุธ",
+        "deduct_amount": 500.0,
+        "site_code": "AYU"
+      },
+      {
+        "id": 56449,
+        "txn_date": "2026-03-26",
+        "requester_raw": "ช่างน้อย",
+        "deduct_amount": 1000.0,
+        "site_code": ""
+      },
+      {
+        "id": 56448,
+        "txn_date": "2026-03-26",
+        "requester_raw": "เสรี",
+        "deduct_amount": 1000.0,
+        "site_code": "AYU"
+      },
+      {
+        "id": 56447,
+        "txn_date": "2026-03-26",
+        "requester_raw": "วัชระ",
+        "deduct_amount": 1000.0,
+        "site_code": "AYU"
+      },
+      {
+        "id": 56446,
+        "txn_date": "2026-03-26",
+        "requester_raw": "ธเนศน์",
+        "deduct_amount": 1000.0,
+        "site_code": "AYU"
+      },
+      {
+        "id": 56445,
+        "txn_date": "2026-03-26",
+        "requester_raw": "ทองสุข",
+        "deduct_amount": 1000.0,
+        "site_code": "AYU"
+      },
+      {
+        "id": 56444,
+        "txn_date": "2026-03-26",
+        "requester_raw": "ติ๋ว",
+        "deduct_amount": 1000.0,
+        "site_code": "AYU"
+      },
+      {
+        "id": 56443,
+        "txn_date": "2026-03-26",
+        "requester_raw": "เรืองฤทธิ์",
+        "deduct_amount": 1000.0,
+        "site_code": "AYU"
+      },
+      {
+        "id": 56442,
+        "txn_date": "2026-03-26",
+        "requester_raw": "นิวัติ",
+        "deduct_amount": 1000.0,
+        "site_code": "AYU"
+      },
+      {
+        "id": 56441,
+        "txn_date": "2026-03-26",
+        "requester_raw": "ธัชชนพล",
+        "deduct_amount": 500.0,
+        "site_code": "AYU"
+      },
+      {
+        "id": 56440,
+        "txn_date": "2026-03-26",
+        "requester_raw": "วัชร์นล",
+        "deduct_amount": 1000.0,
+        "site_code": "AYU"
+      },
+      {
+        "id": 56439,
+        "txn_date": "2026-03-26",
+        "requester_raw": "วทัญญู",
+        "deduct_amount": 1000.0,
+        "site_code": "AYU"
+      },
+      {
+        "id": 56438,
+        "txn_date": "2026-03-26",
+        "requester_raw": "สมัย อยุธยา",
+        "deduct_amount": 1000.0,
+        "site_code": ""
+      },
+      {
+        "id": 56437,
+        "txn_date": "2026-03-26",
+        "requester_raw": "เรวัตร",
+        "deduct_amount": 1000.0,
+        "site_code": "AYU"
+      },
+      {
+        "id": 55739,
+        "txn_date": "2026-02-22",
+        "requester_raw": "วันชัย",
+        "deduct_amount": 50.0,
+        "site_code": ""
+      },
+      {
+        "id": 55738,
+        "txn_date": "2026-02-18",
+        "requester_raw": "ธเนศน์",
+        "deduct_amount": 500.0,
+        "site_code": "AYU"
+      },
+      {
+        "id": 55736,
+        "txn_date": "2026-02-06",
+        "requester_raw": "เสรี",
+        "deduct_amount": 500.0,
+        "site_code": "AYU"
+      }
+    ]
+  },
+  "next_action": "review petty rows with same cycle_tag and move drifted rows to correct cycle before finalize"
+}

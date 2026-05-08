@@ -33,6 +33,7 @@
         <th class="px-3 py-2">ชื่อเล่น</th>
         <th class="px-3 py-2">ไซต์</th>
         <th class="px-3 py-2">รูปแบบจ้าง</th>
+        <th class="px-3 py-2">นโยบายรอบจ่าย</th>
         <th class="px-3 py-2 text-right">ฐานเงินเดือน</th>
         <th class="px-3 py-2 text-right">ค่าดูแลรถ</th>
         <th class="px-3 py-2 text-right">Share %</th>
@@ -49,6 +50,7 @@
         <td class="px-3 py-2">{{ r.nickname }}</td>
         <td class="px-3 py-2">{{ r.home_site_code }}</td>
         <td class="px-3 py-2 text-xs">{{ r.pay_mode }}</td>
+        <td class="px-3 py-2 text-xs">{{ r.pay_cycle_policy or 'site_default' }}</td>
         <td class="px-3 py-2 text-right">{{ "%.0f"|format(r.base_salary) }}</td>
         <td class="px-3 py-2 text-right">{{ "%.0f"|format(r.care_allowance) }}</td>
         <td class="px-3 py-2 text-right">{% if r.gross_share_rate %}{{ "%.0f"|format(r.gross_share_rate * 100) }}%{% endif %}</td>
@@ -61,7 +63,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="11" class="px-3 py-8 text-center text-slate-400">ยังไม่มีข้อมูล — กด "+ เพิ่มคนขับ" เพื่อเริ่ม</td></tr>
+      <tr><td colspan="12" class="px-3 py-8 text-center text-slate-400">ยังไม่มีข้อมูล — กด "+ เพิ่มคนขับ" เพื่อเริ่ม</td></tr>
       {% endfor %}
     </tbody>
   </table>

@@ -33,6 +33,7 @@ class Employee(SQLModel, table=True):
     role: str = Field(default="driver", index=True)
 
     pay_mode: str = Field(default="ayu_trip")
+    pay_cycle_policy: str = Field(default="site_default", index=True)
     base_salary: float = 0.0
     care_allowance: float = 0.0
     gross_share_rate: Optional[float] = None
@@ -978,6 +979,61 @@ class DriverSubmission(SQLModel, table=True):
     device_info: str = ""
 
 
+class InboxEmail(SQLModel, table=True):
+    """Inbound email items synced from IMAP for operations review."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    account_label: str = Field(default="ops", index=True)
+    mailbox: str = Field(default="INBOX", index=True)
+    imap_uid: str = Field(default="", index=True)
+
+    message_id: str = Field(default="", index=True)
+    thread_hint: str = ""
+    sent_at: Optional[datetime] = Field(default=None, index=True)
+    from_name: str = ""
+    from_email: str = Field(default="", index=True)
+    to_emails: str = ""
+    cc_emails: str = ""
+    subject: str = Field(default="", index=True)
+    body_text: str = ""
+    has_attachment: bool = Field(default=False, index=True)
+    attachment_paths: str = ""
+
+    # Classification and guardrails
+    category: str = Field(default="other", index=True)
+    confidence: float = 0.0
+    risk_flags: str = ""
+    suggested_site_code: str = ""
+    suggested_customer: str = ""
+    suggested_action: str = ""
+    ai_provider: str = ""
+    ai_note: str = ""
+    needs_review: bool = Field(default=True, index=True)
+
+    status: str = Field(default="new", index=True)  # new | reviewed | ignored | linked
+    linked_daily_job_id: Optional[int] = Field(default=None, foreign_key="dailyjob.id", index=True)
+    linked_petty_txn_id: Optional[int] = Field(default=None, foreign_key="pettycashtxn.id", index=True)
+    note: str = ""
+
+    source: str = Field(default="imap", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class InboxSyncRun(SQLModel, table=True):
+    """Audit log for each IMAP sync run."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    account_label: str = Field(default="ops", index=True)
+    mailbox: str = Field(default="INBOX", index=True)
+    started_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    ended_at: Optional[datetime] = None
+    status: str = Field(default="running", index=True)  # running | ok | error
+    fetched_count: int = 0
+    inserted_count: int = 0
+    updated_count: int = 0
+    ignored_count: int = 0
+    error_message: str = ""
+
+
 SUBMISSION_KINDS = (
     ("vehicle_check", "ตรวจรถก่อนวิ่ง"),
     ("alcohol_test",  "เป่าแอลกอฮอล์"),
@@ -992,6 +1048,22 @@ REVIEW_STATUS = (
     ("approved", "ผ่าน"),
     ("flagged",  "ทักท้วง"),
     ("archived", "เก็บถาวร"),
+)
+
+INBOX_EMAIL_STATUS = (
+    ("new", "ใหม่"),
+    ("reviewed", "ตรวจแล้ว"),
+    ("ignored", "ไม่เกี่ยวงาน"),
+    ("linked", "ผูกงานแล้ว"),
+)
+
+INBOX_EMAIL_CATEGORY = (
+    ("booking", "จองเที่ยว/งานเข้า"),
+    ("document", "เอกสาร/ใบงาน"),
+    ("billing", "บิล/ใบแจ้งหนี้"),
+    ("payment", "ชำระเงิน/การเงิน"),
+    ("urgent", "เร่งด่วน"),
+    ("other", "อื่น ๆ"),
 )
 
 # Vehicle check item catalog — keep in sync with UI
@@ -1067,6 +1139,14 @@ PAY_MODES = (
     ("ayu_trip",      "AYU รายเที่ยว — ค่าเที่ยวเท่านั้น (+/- การันตี)"),
     ("ayu_mao",       "AYU เหมาน้ำมัน — 55-60% ของค่าขนส่ง"),
     ("none",          "ไม่มี (ออฟฟิส/พ่อ/ช่าง/เจ้าของ)"),
+)
+
+PAY_CYCLE_POLICIES = (
+    ("site_default", "ตามรอบไซต์ของคนขับ (เดิม)"),
+    ("cut_26_25", "ตัดรอบ 26→25"),
+    ("cut_16_15", "ตัดรอบ 16→15"),
+    ("calendar", "เดือนปฏิทิน (1→สิ้นเดือน)"),
+    ("calendar_m1", "เดือนวิ่ง T-1 (เลื่อนไปเดือนก่อนหน้า)"),
 )
 
 EMPLOYEE_ROLES = (

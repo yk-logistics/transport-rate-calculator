@@ -47,6 +47,14 @@ from models import (
     PettyCashTxn,
 )
 
+KNOWN_PAY_CYCLE_POLICIES = {
+    "site_default",
+    "cut_26_25",
+    "cut_16_15",
+    "calendar",
+    "calendar_m1",
+}
+
 
 # ---------------------------------------------------------------------
 # Cycle boundary math
@@ -102,6 +110,34 @@ def compute_pay_cycle_tag(site_code: str, txn_date: date) -> str:
             return f"{ny:04d}-{nm:02d}"
         return f"{y:04d}-{m:02d}"
     return f"{y:04d}-{m:02d}"
+
+
+def normalize_pay_cycle_policy(policy: str) -> str:
+    p = (policy or "").strip().lower()
+    return p if p in KNOWN_PAY_CYCLE_POLICIES else "site_default"
+
+
+def compute_pay_cycle_tag_by_policy(policy: str, txn_date: date, site_code: str = "") -> str:
+    """Resolve payroll cycle tag by driver policy first, then site fallback."""
+    p = normalize_pay_cycle_policy(policy)
+    y, m, d = txn_date.year, txn_date.month, txn_date.day
+
+    if p == "calendar":
+        return f"{y:04d}-{m:02d}"
+    if p == "calendar_m1":
+        py, pm = (y - 1, 12) if m == 1 else (y, m - 1)
+        return f"{py:04d}-{pm:02d}"
+    if p == "cut_16_15":
+        if d >= 16:
+            ny, nm = ((y + 1, 1) if m == 12 else (y, m + 1))
+            return f"{ny:04d}-{nm:02d}"
+        return f"{y:04d}-{m:02d}"
+    if p == "cut_26_25":
+        if d >= 26:
+            ny, nm = ((y + 1, 1) if m == 12 else (y, m + 1))
+            return f"{ny:04d}-{nm:02d}"
+        return f"{y:04d}-{m:02d}"
+    return compute_pay_cycle_tag(site_code, txn_date)
 
 
 # ---------------------------------------------------------------------

@@ -179,6 +179,13 @@ Output changed files + verify commands + 1 next step.
 - `ProjectYK_System/tools/CC_LEAN_START.txt`
 - `ProjectYK_System/tools/CC_ULTRA_LEAN_5LINES.txt`
 - `ProjectYK_System/tools/CC_BENCHMARK_LOG.md` (บันทึกผลวัด 3 ตัวชี้วัด)
+- `ProjectYK_System/tools/CHAT_KNOWLEDGE_BACKUP_TEMPLATE_TH.md` (template กันความรู้หลุดจากแชต)
+
+## Daily Operation Pack (สำหรับโอใช้งานทันที)
+
+- `ProjectYK_System/docs/CURSOR_CLAUDE_DAILY_GUARDRAILS_CHECKLIST_TH.md`
+- `ProjectYK_System/docs/PERFORMANCE_FIRST_PASS_CHECKLIST_TH.md`
+- `ProjectYK_System/tools/CHAT_KNOWLEDGE_BACKUP_TEMPLATE_TH.md`
 
 ## การใช้ skills ภายนอก (เช่น arra-oracle-skills-cli) แบบประหยัด
 

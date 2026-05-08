@@ -21,14 +21,43 @@
 - [done] เพิ่มแนวทาง **Claude Code Lean Mode** ลด token: อัปเดต `AI_CURSOR_CLAUDE_WORKFLOW.md` + `CLAUDE.md` และเพิ่ม `docs/CLAUDE_CODE_LEAN_PROMPT_TEMPLATE.md`
 - [done] เพิ่ม **Ultra-Lean 5 lines** + snippet ไฟล์พร้อม copy จากเทอร์มินัล (`tools/CC_LEAN_START.txt`, `tools/CC_ULTRA_LEAN_5LINES.txt`)
 - [done] เพิ่ม `tools/CC_BENCHMARK_LOG.md` สำหรับจดผล 3 ตัวชี้วัด และล็อก default ทีม: งานเล็กเริ่ม Ultra-Lean ก่อน
-- [next] **Wave 1 Guardrail #2** — saved filter preset ต่อหน้า: `BigC เดือนนี้`, `รออนุมัติ`, `ยังไม่ผูก` — implement เป็น link row ใต้ filter form ใน `petty_list.html` / `daily_list.html` / `payroll_list.html` (URL query string, ไม่ต้องเพิ่ม DB)
+- [done] เพิ่ม Daily Guardrails checklist ใช้งานจริง: `docs/CURSOR_CLAUDE_DAILY_GUARDRAILS_CHECKLIST_TH.md`
+- [done] เพิ่ม Performance checklist รอบแรก: `docs/PERFORMANCE_FIRST_PASS_CHECKLIST_TH.md`
+- [done] เพิ่ม template backup ความรู้แชตแบบ copy-paste: `tools/CHAT_KNOWLEDGE_BACKUP_TEMPLATE_TH.md`
+- [done] แก้ `.cursor` sessionStart hook ให้ทำงานเสถียรบน Windows: ปรับ `cursor-digest.ps1` ให้ retry ได้หลัง network fail และ emit stdout JSON เสมอ + เพิ่ม timeout `hooks.json` เป็น 20 วินาที
+- [done] **Wave 1 Guardrail #2** — saved filter preset ต่อหน้า: `BigC เดือนนี้`, `รออนุมัติ`, `ยังไม่ผูก` ใช้งานจริงแล้วใน `petty_list.html` / `daily_list.html` / `payroll_list.html` (URL query string, ไม่เพิ่ม DB)
+- [done] เพิ่ม filter หน้า `/payroll` (`site/cycle/status`) + row action bar (`ดู | รอหัก | ยังไม่ผูก`) เพื่อเข้า queue รายรอบได้คลิกเดียว
+- [done] อัปเกรด `preflight_payrun.py` เป็น manager-friendly: เพิ่ม `manager_summary` (pending รวม + %share ความเสี่ยง) และ morning note ส่วน `Executive summary`
+- [done] **BigC cycle mapping audit/tool (recheck run)** — รันตรวจซ้ำเดือนจ่ายเม.ย.2026 ด้วย `cycle_tag=2026-03` และไฟล์ manual ชุดเดิม (`2564Daily Report (04.21).xlsx`, `Book1.xlsx`, `เรทน้ำมันเดือนมีนาคม69.xlsx`, `สดย่อยวังน้อย.xlsx`) ออกรายงาน `reports/audit_bigc_2026-03_recheck_mminus1/`
+- [done] **BigC preflight gate harden (phase warning)** — เพิ่ม guardrail บนหน้า `/payroll/{run_id}`: แสดง `cycle-date drift` เป็นจำนวนรายการ + ยอดเงินกระทบทันที เมื่อพบ `pay_cycle_tag` รอบนั้นแต่ `txn_date` อยู่นอกช่วงเดือนวิ่ง
+- [done] **BigC preflight gate harden (phase block)** — `POST /payroll/{run_id}/finalize` บล็อกทันทีเมื่อ `site=BIGC` และ `cycle-date drift > 0` พร้อมเขียน unresolved report ลง `reports/payroll_unresolved_queue/`
+- [done] **Safe skip + unresolved queue (audit tool)** — `audit_bigc_manual_vs_system.py` ส่งออก `unresolved_queue.json/.csv` สำหรับชื่อที่ไม่ match/กำกวม และไม่ทำให้รอบ audit ล่มทั้งก้อน
+- [done] **BigC unresolved safe reduce (pass 1)** — เพิ่มกฎ auto-resolve แบบพิสูจน์ได้เท่านั้น (single-prefix unique) + next action รายคนใน queue; rerun แล้ว unresolved ลด `8 -> 7` และ `missing_in_manual 1 -> 0`
+- [done] **LCB preflight readonly + morning queue** — `tools/preflight_payrun.py` + รายงาน `reports/preflight_payrun_*.json` และ `reports/preflight_morning_queue/PENDING_MORNING_preflight_*.md` เมื่อเจอ HIGH
+- [done] **LCB finalize drift parity** — `finalize` บล็อกเมื่อ cycle-date drift > 0 (`lcb_cycle_date_drift_block`) + refactor `_cycle_drift_predicates_for_payrun()`
+- [done] **Night handoff pack (เช้า) ล่าสุด** — รวม checklist 10 นาที + outstanding queue (`BigC -> LCB -> AYU`) + critical decisions pending + 3 คำสั่งรันจริงที่ `docs/NIGHT_HANDOFF_PACK_LATEST_TH.md`
+- [done] **AYU preflight hardening (end-to-end)** — เพิ่ม safe skip queue (`unresolved_preflight_*.json/.csv`) + quick-win queue (`quickwin_preflight_*.json`) ใน `reports/preflight_unresolved_queue/` (คง policy finalize ของ AYU แยกจาก BIGC/LCB)
+- [done] ทดสอบ `/payroll/{run_id}/finalize` เคส drift จริง 2 รอบติดผ่าน `TestClient` — BIGC/LCB ได้ `err=cycle_drift_block` ตามนโยบาย และ AYU ยังได้ `err=unlinked_pending` ตาม policy เดิม
+- [done] **Night Long-Run Coordinator (5 รอบ UX guardrail)** — `/payroll/{id}` แถบ Ops (สดย่อย/เดลี่/น้ำมัน/บิล/preflight cmd), `/payroll/.../employee/...` ลัดสดย่อยรายคน, preset เดือนนี้ที่ `/fuel` + `/billing`; verify `py_compile` + `run_payroll_test` + preflight BIGC/LCB/AYU
+- [done] **Night Autopilot loop x4 (BigC->LCB->AYU->handoff)** — รัน preflight ครบ 4 รอบติดแบบไม่เดา/skip-safe, ยืนยัน risk คงที่ (`BIGC drift 7/4,150`, `LCB drift 23/14,616`, `AYU drift 33/24,430`, ทุกไซต์ unlinked `33/23,716`) และอัปเดต morning queue ล่าสุดครบ
+- [next] AYU run 7: เคลียร์ unresolved 33 รายการ (23,716 บาท) ตาม `reports/preflight_unresolved_queue/unresolved_preflight_AYU_2026-03_run7.json` แล้ว rerun preflight เพื่อลด `cycle-date drift` และปลด finalize block
+- [done] **Plan C (cycle policy-first)** — เพิ่ม `Employee.pay_cycle_policy` + ฟอร์มตั้งค่าทันที, เปลี่ยนคำนวณแท็กรอบในเส้นทางสดย่อย/preflight เป็น driver-policy-first (fallback site_default), เพิ่มคิว review policy และ finalize gate `policy_review_block` กันเงินตกหล่นเงียบ
+- [next] ทำ data cleanup รอบแรก: ตั้งค่า `pay_cycle_policy` ให้คนขับที่ไม่ใช้ default (`cut_26_25` / `cut_16_15` / `calendar_m1`) แล้วไล่คิว `?review=1` ใน `/petty-cash` ให้เหลือศูนย์ก่อน finalize
+- [next] **Cross-site collision deep check (BigC)** — ตรวจเชิงลึก 6 คนที่มีงานข้ามไซต์ในช่วงเดือนมี.ค.2026 ว่ามีผลเข้ายอด BIGC จริงหรือเป็นประวัติประกอบ เพื่อปิดความเสี่ยงปนไซต์เงียบ ๆ
+- [next] **BigC audit residual cleanup (3 drivers)** — ปิด mismatch คงเหลือรายคน (`สมพร BIG-C`, `สมประสงค์`, `พรศักดิ์`) โดยยืนยัน rule รายการ `petty/fuel/trip` แล้ว rerun audit ให้ net_diff เข้าใกล้ศูนย์
+- [next] **BigC manual-net rule lock (สมพร)** — ยืนยันว่าค่า net ที่ถือเป็น “ยอดจ่ายจริง” ใน `Book1` ใช้ช่องไหนเป็นแหล่งจริง (แถว `ยอดรับหลังหักค่าใช้จ่าย` vs จุดสรุปอื่นในชีท) เพื่อปิด residual `net_diff` ที่ยังเหลือ
+- [done] **BigC residual close-out (pass 2)** — ปิด `พรศักดิ์ trip +1,300.00` ด้วย surgical fix แถวซ้ำ `DailyJob.id=5211` (`source=bigc_fuel_rate`, ตั้ง `trip_fee_driver=0`) + recompute `run_id=10`; rerun audit แล้ว `trip_fee_diff_total` เหลือ `0.00`
+- [next] **BigC residual close-out (pass 3)** — `สมพร net -9,999.99` ยังค้างแบบ safe-by-default: ต้องยืนยันนิยาม net ในชีท manual ว่าจะถือ `ยอดรับหลังหักค่าใช้จ่าย` (ที่รวมผลจาก `เงินประกันตน=-10000`) หรือยึด net ระบบเป็นมาตรฐานก่อน finalize
+- [next] **BigC unresolved queue pass 2 (เหลือ 7 คน)** — ยืนยัน master/alias รายคน (`แบ็งค์`, `ใหม่`, `อภิรักษ์`, `ไวพจน์`, `ธีระวัฒน์`, `สุพนธ์`, `นันทวัฒน์`) แล้ว rerun audit เพื่อกด unresolved ลงต่อ
 - [next] ทดลองใช้งาน Lean template จริง 3 งานติด แล้วเทียบ token/time ก่อน-หลัง (ถ้าเสี่ยงตกหล่นค่อยสลับโหมดรอบคอบ)
 - [next] บันทึก benchmark ลง `tools/CC_BENCHMARK_LOG.md` อย่างน้อย 3 run แล้วตัดสินใจยืนยัน default mode จากข้อมูลจริง
+- [next] ทดลอง Daily Operation Pack จริง 1 วันทำงาน แล้วจดผลใน `tools/CC_BENCHMARK_LOG.md` และ backup ด้วย `tools/CHAT_KNOWLEDGE_BACKUP_TEMPLATE_TH.md`
 - [next] ทดสอบ skills ภายนอกแบบจำกัด (เริ่ม profile ต่ำสุดเท่านั้น) กับงาน non-critical 1 งาน แล้ววัดผลเทียบ Lean baseline ก่อนตัดสินใจใช้งานถาวร
 - [next] ทำ UI guardrail ชุดที่เหลือ (เรียง `BigC -> LCB -> AYU`): 
   1) สถานะมาตรฐานเดียว `ร่าง/กำลังดำเนินการ/รอชำระ/ชำระแล้ว`
-  3) action bar ในหน้า detail ที่รวมปุ่มสำคัญไว้จุดเดียว
+  3) ~~action bar ในหน้า detail~~ → [done] หน้า `payroll_detail` + `payroll_employee_detail` + preset `/fuel` `/billing` (2026-05-08 night run)
 - [next] ออกแบบ key-link ระหว่าง `DailyJob/PettyCashTxn/PayRunItem` ให้ drill-down ข้ามหน้าได้แบบคลิกเดียว
+- [next] ตรวจพฤติกรรม hook จริงใน Cursor 1 รอบ (เปิดแชตใหม่) และยืนยันว่ามีบรรทัดล่าสุดใน `.cursor/.cache/cursor-digest.log` ตามคาด
 
 ## ⭐ Quick Status (2026-05-07 | BDT customer communication on service scope)
 
@@ -496,4 +525,47 @@ B10. Manual link/review UI สำหรับ unmatched Caltex rows [next]
   - Payroll_Summary
   - Cashflow_Summary
 - มี backup อัตโนมัติรายวันและทดสอบ restore ได้
+
+---
+
+## 2026-05-08 Email Inbox + Excel-like Grid
+
+- [done] เพิ่ม IMAP inbox foundation:
+  - schema `InboxEmail` / `InboxSyncRun`
+  - service `app/services/email_ingest.py` (sync + classify + run log)
+  - UI `/email/inbox` (read-only + filter + mark reviewed/ignored + reclassify)
+- [done] เพิ่ม AI guardrail:
+  - rule-first + optional Gemini (`EMAIL_GEMINI_ENABLED=1`)
+  - บังคับ `needs_review=True` และ `suggested_action=review_only`
+- [done] เพิ่ม Daily Excel-like POC:
+  - หน้า `/daily/grid` (Tabulator CDN)
+  - API `/api/daily/grid-data` + `/api/daily/grid-save` (batch save เฉพาะคอลัมน์ที่กำหนด)
+- [done] apply handoff `EMAIL_OAUTH_DRAFT_DAILY_GRID_V2_TH.md` ครบ:
+  - เพิ่ม OAuth service `app/services/email_oauth.py` + route `/email/oauth/start|callback`
+  - ขยาย `email_ingest` รองรับ `EMAIL_IMAP_AUTH=password|oauth2` + XOAUTH2
+  - Inbox action `สร้างร่าง Daily` + daily save link กลับ `InboxEmail.linked_daily_job_id`
+  - ขยาย Daily Grid ใกล้ parity กับ Daily form + filter `status/limit` + ซ่อน/แสดงคอลัมน์ด้วย localStorage
+- [done] ปรับ `/daily/grid` ให้พร้อมใช้งาน single-page Daily workflow มากขึ้น:
+  - เพิ่ม quick presets `BigC/LCB/AYU เดือนนี้`, `งานจริง/ลา/placeholder เดือนนี้`
+  - Save เฉพาะ field ที่แก้จริง ลดความเสี่ยง overwrite ทั้งแถว
+  - เพิ่ม unsaved warning, dirty-cell highlight, save feedback/errors, และลิงก์แก้เต็มรายแถว
+- [done] ปรับ preset `/daily` + `/daily/grid` ให้ยึดรอบ payroll ต่อไซต์แทนเดือนปฏิทิน:
+  - AYU ใช้รอบ `26->25`
+  - LCB ใช้รอบ `16->15`
+  - BIGC ใช้เดือนวิ่งแบบ `T-1` (`1->สิ้นเดือน` ของเดือนก่อนหน้า)
+  - ปรับ label ปุ่ม preset ให้สื่อชัดว่าเป็นรอบ payroll
+- [next] ทำ config จริงสำหรับ mailbox production (IMAP/OAuth2) + runbook setting env
+- [done] เพิ่มปุ่ม “สร้างร่าง Daily จากอีเมล” โดยยังคง human-confirm + preflight ก่อนบันทึก
+- [next] ทดสอบ OAuth จริงกับบัญชี Google production (consent screen + refresh token) แล้ว verify `/email/inbox/sync` ด้วย mailbox จริง
+- [next] ประเมินการขยาย grid ไป `/petty-cash` แบบคอลัมน์จำกัดและไม่ข้าม guardrail รอบเงิน
+
+## 2026-05-08 CC review follow-up (Email Inbox/OAuth/Draft Daily)
+
+- [done] รับรองบันทึกผลตรวจจาก Claude Code แล้ว: อ่านโค้ดจุดเสี่ยง Email Inbox/OAuth/Draft Daily/Grid + route ที่เกี่ยวข้องครบ
+- [done] รับรองผล verify จาก CC แล้ว: `py_compile` ผ่าน, `run_payroll_test.py` ผ่าน, `dmy_hm` filter register ถูกต้อง, และ flow `draft-daily -> daily_form -> daily/new` เชื่อม `inbox_mail_id` ได้
+- [next] รอคำตอบผู้ใช้ 2 จุดก่อนแก้โค้ดต่อ:
+  1) ต้องแสดง flash banner หลัง sync ว่า synced กี่ mails หรือไม่
+  2) หลังบันทึก daily จาก inbox ให้ auto mark linked ทันทีหรือคงให้ผู้ใช้กดยืนยันอีกขั้น
+- [next] หลังได้คำตอบ 2 ข้อด้านบน ค่อยแก้ `POST /daily/new` ให้ auto-linked ตาม policy ที่ยืนยัน (scope ไม่กระทบ payroll)
+- [next] ประเมินความเสี่ยง CDN ใน `/daily/grid` (Tabulator): ถ้าต้องรองรับ offline ให้เตรียม fallback asset ภายในโปรเจกต์หรือกำหนดนโยบายว่า online-only อย่างเป็นทางการ
 

@@ -109,6 +109,16 @@
   ปิดรอบไม่ได้: ยังมีรายการหักคนขับที่ไม่ลิงก์คนขับอยู่ กรุณาแก้รายการค้างก่อน
 </div>
 {% endif %}
+{% if err == 'cycle_drift_block' %}
+<div class="mb-3 rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-900">
+  ปิดรอบไม่ได้ (นโยบาย payroll BIGC/LCB/AYU): พบ cycle-date drift มากกว่า 0 รายการ ต้องย้ายรอบ/แก้วันที่ให้ตรงช่วงรอบก่อน finalize
+</div>
+{% endif %}
+{% if err == 'policy_review_block' %}
+<div class="mb-3 rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-900">
+  ปิดรอบไม่ได้: ยังมีรายการที่ต้องทวน policy รอบจ่าย (ยังไม่ผูกคนขับ/นโยบายไม่ชัดเจน/แท็กรอบไม่ตรง policy)
+</div>
+{% endif %}
 
 {% if stale and stale.is_stale and run.status != 'finalized' %}
 <div class="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3 flex items-start gap-3">
@@ -152,6 +162,79 @@
   </a>
 </div>
 {% endif %}
+
+{% if cycle_drift and cycle_drift.count > 0 %}
+<div class="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3 flex items-start gap-3">
+  <div class="text-amber-600 text-xl leading-none">⚠</div>
+  <div class="flex-1 text-sm">
+    <div class="font-semibold text-amber-900">พบรายการสดย่อยวันที่หลุดช่วงรอบ {{ cycle_drift.count }} รายการ ({{ '{:,.0f}'.format(cycle_drift.amount) }} บาท)</div>
+    <div class="text-amber-800 mt-0.5">รายการเหล่านี้ติด pay_cycle_tag รอบนี้ แต่วันที่จริงอยู่นอกช่วง {{ run.period_start | dmy }} - {{ run.period_end | dmy }} ควรตรวจและย้ายรอบก่อน finalize</div>
+    {% if cycle_drift.rows %}
+    <div class="mt-1 text-xs text-amber-700">
+      ตัวอย่าง:
+      {% for r in cycle_drift.rows %}
+      <span class="inline-block mr-2">{{ r.txn_date | dmy }} {{ r.requester_raw }} {{ '{:,.0f}'.format(r.deduct_amount or 0) }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  <a href="/petty-cash?cycle={{ run.pay_cycle_tag }}&dstatus=pending&deduct=1"
+     class="text-sm px-3 py-1.5 rounded bg-amber-600 hover:bg-amber-700 text-white font-semibold">
+    ไปตรวจรายการสดย่อย
+  </a>
+</div>
+{% endif %}
+
+{% if policy_review and policy_review.count > 0 %}
+<div class="mb-3 rounded-lg border border-fuchsia-300 bg-fuchsia-50 p-3 flex items-start gap-3">
+  <div class="text-fuchsia-700 text-xl leading-none">⚑</div>
+  <div class="flex-1 text-sm">
+    <div class="font-semibold text-fuchsia-900">ต้องทวน policy รอบจ่าย {{ policy_review.count }} รายการ ({{ '{:,.0f}'.format(policy_review.amount) }} บาท)</div>
+    <div class="text-fuchsia-800 mt-0.5">เพื่อกันเงินตกหล่นเงียบ ๆ ระบบจะไม่อนุญาต finalize จนกว่าจะเคลียร์รายการกลุ่มนี้</div>
+    {% if policy_review.rows %}
+    <div class="mt-1 text-xs text-fuchsia-700">
+      ตัวอย่าง:
+      {% for r in policy_review.rows %}
+      <span class="inline-block mr-2">{{ r.txn_date | dmy }} {{ r.requester_raw }} {{ '{:,.0f}'.format(r.deduct_amount or 0) }} ({{ r.reason }})</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  <a href="/petty-cash?cycle={{ run.pay_cycle_tag }}&dstatus=pending&deduct=1&review=1"
+     class="text-sm px-3 py-1.5 rounded bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-semibold">
+    ไปคิวทวน policy
+  </a>
+</div>
+{% endif %}
+
+{# Ops action bar: drill-down ตามรอบ/ไซต์ + คำสั่ง preflight (ไม่เดา mapping) #}
+<div class="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+  <div class="text-xs font-semibold text-slate-600 mb-2">แถบปฏิบัติการรอบนี้ (Ops)</div>
+  <div class="flex flex-wrap gap-2 items-center text-xs">
+    {% if run.status != 'finalized' %}
+    <form method="post" action="/payroll/{{ run.id }}/recompute" class="inline">
+      <button type="submit" class="px-2.5 py-1.5 rounded bg-white border border-slate-300 hover:bg-slate-100 font-medium">คำนวณใหม่</button>
+    </form>
+    {% endif %}
+    <a href="/petty-cash?site={{ run.site_code }}&amp;cycle={{ run.pay_cycle_tag }}&amp;dstatus=pending&amp;deduct=1"
+       class="px-2.5 py-1.5 rounded bg-white border border-slate-300 hover:bg-slate-100">สดย่อย · รอหัก (ไซต์รอบ)</a>
+    <a href="/petty-cash?cycle={{ run.pay_cycle_tag }}&amp;dstatus=pending&amp;deduct=1&amp;unlinked=1"
+       class="px-2.5 py-1.5 rounded bg-white border border-rose-200 text-rose-800 hover:bg-rose-50">สดย่อย · ยังไม่ผูก (ตาม gate)</a>
+    <a href="/daily?site={{ run.site_code }}&amp;d_from={{ run.period_start.isoformat() }}&amp;d_to={{ run.period_end.isoformat() }}"
+       class="px-2.5 py-1.5 rounded bg-white border border-slate-300 hover:bg-slate-100">เดลี่ · ช่วงรอบ</a>
+    <a href="/fuel?site={{ run.site_code }}&amp;d_from={{ run.period_start.isoformat() }}&amp;d_to={{ run.period_end.isoformat() }}"
+       class="px-2.5 py-1.5 rounded bg-white border border-slate-300 hover:bg-slate-100">น้ำมัน · ช่วงรอบ</a>
+    <a href="/billing?site={{ run.site_code }}&amp;month={{ run.pay_cycle_tag }}"
+       class="px-2.5 py-1.5 rounded bg-white border border-slate-300 hover:bg-slate-100">วางบิล · เดือนเดียวกับแท็กรอบ</a>
+    <details class="inline-block">
+      <summary class="cursor-pointer px-2.5 py-1.5 rounded bg-white border border-slate-300 hover:bg-slate-100 list-none">Rerun preflight (เทอร์มินัล)</summary>
+      <div class="mt-2 p-2 bg-white border rounded font-mono text-[11px] break-all select-all">
+        python ProjectYK_System/tools/preflight_payrun.py --site {{ run.site_code }} --run-id {{ run.id }}
+      </div>
+      <p class="mt-1 text-[11px] text-slate-500">รายงาน JSON/เช้า: ดู <code class="bg-slate-100 px-0.5 rounded">reports/preflight_payrun_*</code> และ <code class="bg-slate-100 px-0.5 rounded">NIGHT_HANDOFF_PACK_LATEST_TH.md</code></p>
+    </details>
+  </div>
+</div>
 
 <div class="grid grid-cols-4 gap-3 mb-4">
   <div class="bg-white border rounded-lg p-3">

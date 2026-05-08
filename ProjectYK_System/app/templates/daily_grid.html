@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+{% block title %}Daily Grid · แบบ Excel{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-2xl font-bold">Daily Grid (Excel-like)</h1>
+  <div class="flex items-center gap-2 flex-wrap">
+    <a href="/daily/new" class="guardedLink bg-emerald-600 text-white px-3 py-1.5 rounded text-sm hover:bg-emerald-700">+ สร้าง Daily</a>
+    <a href="/daily" class="guardedLink bg-white border px-3 py-1.5 rounded text-sm hover:bg-slate-50">กลับ List</a>
+    <div class="text-xs text-slate-500">คอลัมน์ที่มี ✎ แก้ได้ และต้องกด Save เอง</div>
+  </div>
+</div>
+
+<form id="gridFilterForm" method="get" class="bg-white rounded-lg border p-4 mb-4 grid md:grid-cols-6 gap-3 items-end">
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">ไซต์</label>
+    <select name="site" class="w-full border rounded px-2 py-1.5 text-sm">
+      <option value="">ทั้งหมด</option>
+      {% for sc in site_codes %}
+      <option value="{{ sc }}" {% if site==sc %}selected{% endif %}>{{ sc }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">ตั้งแต่</label>
+    <input type="date" name="d_from" value="{{ d_from }}" class="w-full border rounded px-2 py-1.5 text-sm" />
+  </div>
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">ถึง</label>
+    <input type="date" name="d_to" value="{{ d_to }}" class="w-full border rounded px-2 py-1.5 text-sm" />
+  </div>
+  <div class="md:col-span-2">
+    <label class="block text-xs text-slate-500 mb-1">ค้นหา</label>
+    <input name="q" value="{{ q }}" class="w-full border rounded px-2 py-1.5 text-sm" placeholder="คนขับ/ทะเบียน/ปลายทาง/ลูกค้า" />
+  </div>
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">status</label>
+    <select name="status" class="w-full border rounded px-2 py-1.5 text-sm">
+      <option value="" {% if not status %}selected{% endif %}>ทั้งหมด</option>
+      <option value="real" {% if status=='real' %}selected{% endif %}>งานจริง</option>
+      <option value="leave" {% if status=='leave' %}selected{% endif %}>ลา</option>
+      <option value="idle" {% if status=='idle' %}selected{% endif %}>idle</option>
+      <option value="placeholder" {% if status=='placeholder' %}selected{% endif %}>placeholder</option>
+    </select>
+  </div>
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">จำนวนแถว</label>
+    <input type="number" min="1" max="800" name="limit" value="{{ limit }}" class="w-full border rounded px-2 py-1.5 text-sm" />
+  </div>
+  <div class="md:col-span-6 flex gap-2 items-center flex-wrap">
+    <button class="bg-slate-200 px-4 py-1.5 rounded text-sm">โหลดข้อมูล</button>
+    <a href="/daily/grid" class="text-sm text-slate-500 underline">ล้างตัวกรอง</a>
+    <button type="button" id="columnsBtn" class="bg-indigo-100 text-indigo-800 px-4 py-1.5 rounded text-sm hover:bg-indigo-200">คอลัมน์</button>
+    <button type="button" id="saveGridBtn" class="bg-emerald-600 text-white px-4 py-1.5 rounded text-sm hover:bg-emerald-700">Save Grid</button>
+    <span id="saveMsg" class="text-xs text-slate-500"></span>
+  </div>
+  <div class="md:col-span-6 border-t pt-3">
+    <div class="text-xs text-slate-500 mb-1">Preset เร็วตามรอบ payroll (คงจำนวนแถว {{ limit }} แถว)</div>
+    <div class="flex flex-wrap gap-2 text-xs">
+      <a class="guardedLink px-2 py-1 rounded border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100"
+         href="/daily/grid?site=BIGC&amp;d_from={{ preset_cycles.BIGC.start }}&amp;d_to={{ preset_cycles.BIGC.end }}&amp;limit={{ limit }}">{{ preset_cycles.BIGC.label }}</a>
+      <a class="guardedLink px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+         href="/daily/grid?site=LCB&amp;d_from={{ preset_cycles.LCB.start }}&amp;d_to={{ preset_cycles.LCB.end }}&amp;limit={{ limit }}">{{ preset_cycles.LCB.label }}</a>
+      <a class="guardedLink px-2 py-1 rounded border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+         href="/daily/grid?site=AYU&amp;d_from={{ preset_cycles.AYU.start }}&amp;d_to={{ preset_cycles.AYU.end }}&amp;limit={{ limit }}">{{ preset_cycles.AYU.label }}</a>
+      <a class="guardedLink px-2 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+         href="/daily/grid?status=real&amp;d_from={{ preset_cycles.BIGC.start }}&amp;d_to={{ preset_cycles.BIGC.end }}&amp;limit={{ limit }}">งานจริงช่วง preset</a>
+      <a class="guardedLink px-2 py-1 rounded border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+         href="/daily/grid?status=leave&amp;d_from={{ preset_cycles.BIGC.start }}&amp;d_to={{ preset_cycles.BIGC.end }}&amp;limit={{ limit }}">ลาช่วง preset</a>
+      <a class="guardedLink px-2 py-1 rounded border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+         href="/daily/grid?status=placeholder&amp;d_from={{ preset_cycles.BIGC.start }}&amp;d_to={{ preset_cycles.BIGC.end }}&amp;limit={{ limit }}">placeholder ช่วง preset</a>
+    </div>
+  </div>
+</form>
+
+<div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3 text-sm mb-3">
+  Guardrail: Grid นี้แก้ข้อมูล Daily ได้เร็ว แต่ยังไม่สร้าง Payroll/Billing อัตโนมัติ ต้องให้คนตรวจและยืนยันต่อใน flow ปกติ
+  <span class="block text-xs mt-1">แสดง {{ shown_rows }} / {{ total_rows }} รายการตามตัวกรองปัจจุบัน · กดลิงก์ “เปิด” เพื่อแก้ในฟอร์มเต็มเป็นรายแถว</span>
+</div>
+
+<div id="saveDetails" class="hidden rounded-lg border p-3 text-xs mb-3"></div>
+
+<div class="bg-white rounded-lg border p-2">
+  <div id="dailyGridTable" class="w-full"></div>
+</div>
+
+<dialog id="columnsDialog" class="rounded-lg p-0 border w-full max-w-3xl">
+  <div class="p-4 border-b flex items-center justify-between">
+    <h3 class="font-semibold">แสดง/ซ่อนคอลัมน์</h3>
+    <button id="closeColumnsDialog" type="button" class="text-slate-500 hover:text-slate-700">ปิด</button>
+  </div>
+  <div id="columnsChecklist" class="p-4 grid md:grid-cols-3 gap-2 text-sm"></div>
+</dialog>
+
+<script src="https://unpkg.com/tabulator-tables@6.2.1/dist/js/tabulator.min.js"></script>
+<link href="https://unpkg.com/tabulator-tables@6.2.1/dist/css/tabulator.min.css" rel="stylesheet" />
+<style>
+  .yk-grid-dirty-cell {
+    background: #fef3c7 !important;
+    box-shadow: inset 0 -2px 0 #f59e0b;
+  }
+  .yk-grid-dirty-row .tabulator-cell:first-child {
+    border-left: 3px solid #f59e0b;
+  }
+</style>
+<script>
+(function(){
+  const params = new URLSearchParams(window.location.search);
+  const apiUrl = `/api/daily/grid-data?${params.toString()}`;
+  const filterForm = document.getElementById("gridFilterForm");
+  const saveBtn = document.getElementById("saveGridBtn");
+  const saveMsg = document.getElementById("saveMsg");
+  const saveDetails = document.getElementById("saveDetails");
+  const columnsBtn = document.getElementById("columnsBtn");
+  const columnsDialog = document.getElementById("columnsDialog");
+  const columnsChecklist = document.getElementById("columnsChecklist");
+  const closeColumnsDialog = document.getElementById("closeColumnsDialog");
+  const HIDDEN_KEY = "yk_daily_grid_hidden_v1";
+  let dirtyRows = new Map();
+
+  const ALL_FIELDS = [
+    ["id","ID",false], ["work_date","วันที่",true], ["site_code","ไซต์",true],
+    ["driver_id","driver_id",true], ["driver_raw_name","คนขับ(ดิบ)",true],
+    ["head_vehicle_id","head_vehicle_id",true], ["tail_vehicle_id","tail_vehicle_id",true],
+    ["plate_no_raw","ทะเบียน(ดิบ)",true], ["tail_plate_raw","หาง(ดิบ)",true],
+    ["customer_id","customer_id",true], ["customer_name_raw","ลูกค้า(ดิบ)",true],
+    ["trip_group_id","trip_group_id",true], ["trip_type_code","trip_type",true],
+    ["status_code","status",true], ["leave_status","leave_status",true],
+    ["origin","ต้นทาง",true], ["destination","ปลายทาง",true],
+    ["pickup_location","pickup_location",true], ["store_code","store_code",true], ["truck_type_raw","truck_type_raw",true],
+    ["doc_no","doc_no",true], ["job_ref","job_ref",true], ["container_no","container_no",true], ["container_size","container_size",true],
+    ["revenue_customer","ค่าขนส่ง",true], ["trip_fee_driver","ค่าเที่ยว",true],
+    ["fuel_liter","ลิตร",true], ["fuel_amount","ค่าน้ำมัน",true], ["fuel_station","ปั๊ม",true],
+    ["fuel_rate_km_per_l","km/L",true], ["mile_snapshot","ไมล์",true],
+    ["invoice_no","invoice_no",true], ["invoice_date","invoice_date",true], ["wht_53","wht_53",true],
+    ["remark","หมายเหตุ",true],
+    ["source","source",false], ["created_at","created_at",false], ["updated_at","updated_at",false]
+  ];
+
+  function getHiddenFields(){
+    try {
+      const v = JSON.parse(localStorage.getItem(HIDDEN_KEY) || "[]");
+      return Array.isArray(v) ? v : [];
+    } catch(e){
+      return [];
+    }
+  }
+  function setHiddenFields(arr){
+    localStorage.setItem(HIDDEN_KEY, JSON.stringify(arr));
+  }
+  function updateDirtyFeedback(){
+    const rowCount = dirtyRows.size;
+    const fieldCount = Array.from(dirtyRows.values()).reduce((sum, row) => sum + Math.max(0, Object.keys(row).length - 1), 0);
+    saveBtn.textContent = rowCount ? `Save Grid (${rowCount})` : "Save Grid";
+    if (rowCount){
+      saveMsg.textContent = `ยังไม่บันทึก ${rowCount} แถว / ${fieldCount} ช่อง`;
+      saveMsg.className = "text-xs text-amber-700";
+      return;
+    }
+  }
+  function hasUnsavedChanges(){
+    return dirtyRows.size > 0;
+  }
+  function confirmIfDirty(){
+    return !hasUnsavedChanges() || window.confirm("มีข้อมูลใน Grid ที่ยังไม่ได้ Save ต้องการออกจากหน้านี้หรือโหลดตัวกรองใหม่หรือไม่?");
+  }
+
+  const table = new Tabulator("#dailyGridTable", {
+    ajaxURL: apiUrl,
+    ajaxResponse: function(url, params, resp){ return resp.items || []; },
+    layout: "fitDataStretch",
+    height: "70vh",
+    movableColumns: true,
+    clipboard: true,
+    dataTree: false,
+    columns: [{
+      title: "เปิด",
+      field: "_actions",
+      frozen: true,
+      headerSort: false,
+      width: 92,
+      formatter: function(cell){
+        const id = cell.getRow().getData().id;
+        return `<a class="text-sky-700 underline" href="/daily/${id}/edit" target="_blank" rel="noopener">แก้เต็ม</a>`;
+      },
+      clipboard: false,
+    }].concat(ALL_FIELDS.map(([field, title, editable]) => ({
+      title: editable ? `${title} ✎` : title,
+      field,
+      editor: editable ? (["revenue_customer","trip_fee_driver","fuel_liter","fuel_amount","fuel_rate_km_per_l","mile_snapshot","wht_53"].includes(field) ? "number" : "input") : false,
+      headerTooltip: editable ? "แก้ได้ใน Grid แล้วกด Save" : "อ่านอย่างเดียว",
+      hozAlign: ["id","driver_id","head_vehicle_id","tail_vehicle_id","customer_id","trip_group_id","revenue_customer","trip_fee_driver","fuel_liter","fuel_amount","fuel_rate_km_per_l","mile_snapshot","wht_53"].includes(field) ? "right" : "left",
+      width: field === "id" ? 70 : undefined
+    }))),
+    cellEdited: function(cell){
+      const row = cell.getRow().getData();
+      const field = cell.getField();
+      const dirty = dirtyRows.get(row.id) || {id: row.id};
+      dirty[field] = cell.getValue();
+      dirtyRows.set(row.id, dirty);
+      cell.getElement().classList.add("yk-grid-dirty-cell");
+      cell.getRow().getElement().classList.add("yk-grid-dirty-row");
+      saveDetails.className = "hidden rounded-lg border p-3 text-xs mb-3";
+      saveDetails.innerHTML = "";
+      updateDirtyFeedback();
+    }
+  });
+
+  saveBtn.addEventListener("click", async function(){
+    if (!dirtyRows.size){
+      saveMsg.textContent = "ไม่มีข้อมูลที่แก้ไข";
+      saveMsg.className = "text-xs text-slate-500";
+      return;
+    }
+    saveBtn.disabled = true;
+    saveBtn.classList.add("opacity-60", "cursor-wait");
+    saveMsg.textContent = "กำลังบันทึก...";
+    saveMsg.className = "text-xs text-slate-500";
+    saveDetails.className = "hidden rounded-lg border p-3 text-xs mb-3";
+    saveDetails.innerHTML = "";
+    try {
+      const res = await fetch("/api/daily/grid-save", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({rows: Array.from(dirtyRows.values())}),
+      });
+      const out = await res.json();
+      if (!res.ok || !out.ok){
+        throw new Error(out.error || "save failed");
+      }
+      const errors = out.errors || [];
+      if (errors.length){
+        saveMsg.textContent = `บันทึกบางส่วน ${out.updated} แถว · ยังมี error ${errors.length} รายการ`;
+        saveMsg.className = "text-xs text-amber-700";
+        saveDetails.className = "rounded-lg border border-amber-200 bg-amber-50 text-amber-800 p-3 text-xs mb-3";
+        saveDetails.innerHTML = `<div class="font-semibold mb-1">รายการที่ต้องตรวจ</div><ul class="list-disc ml-5">${errors.slice(0, 12).map((e) => `<li>ID ${e.id || "-"}: ${e.error || "error"}</li>`).join("")}</ul><div class="mt-2">ระบบยังเก็บสถานะ unsaved ไว้ ให้แก้ช่องที่ผิดแล้วกด Save อีกครั้ง</div>`;
+      } else {
+        dirtyRows.clear();
+        saveMsg.textContent = `บันทึกแล้ว ${out.updated} แถว`;
+        saveMsg.className = "text-xs text-emerald-700";
+        table.replaceData().then(updateDirtyFeedback);
+      }
+    } catch (err){
+      saveMsg.textContent = `บันทึกไม่สำเร็จ: ${err.message || err}`;
+      saveMsg.className = "text-xs text-red-600";
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.classList.remove("opacity-60", "cursor-wait");
+      updateDirtyFeedback();
+    }
+  });
+
+  function renderColumnsChecklist(){
+    const hidden = new Set(getHiddenFields());
+    columnsChecklist.innerHTML = "";
+    ALL_FIELDS.forEach(([field, title]) => {
+      const wrap = document.createElement("label");
+      wrap.className = "flex items-center gap-2";
+      const chk = document.createElement("input");
+      chk.type = "checkbox";
+      chk.checked = !hidden.has(field);
+      if (field === "id"){ chk.disabled = true; chk.checked = true; }
+      chk.addEventListener("change", () => {
+        if (chk.checked) table.showColumn(field);
+        else table.hideColumn(field);
+        const nextHidden = ALL_FIELDS.map(([f]) => f).filter((f) => f !== "id" && !table.getColumn(f).isVisible());
+        setHiddenFields(nextHidden);
+      });
+      wrap.appendChild(chk);
+      wrap.appendChild(document.createTextNode(title));
+      columnsChecklist.appendChild(wrap);
+    });
+  }
+
+  table.on("tableBuilt", function(){
+    const hidden = new Set(getHiddenFields());
+    hidden.forEach((field) => { if (field !== "id") table.hideColumn(field); });
+    renderColumnsChecklist();
+  });
+
+  columnsBtn.addEventListener("click", function(){
+    renderColumnsChecklist();
+    columnsDialog.showModal();
+  });
+  closeColumnsDialog.addEventListener("click", function(){ columnsDialog.close(); });
+  filterForm.addEventListener("submit", function(e){
+    if (!confirmIfDirty()){
+      e.preventDefault();
+    }
+  });
+  document.querySelectorAll(".guardedLink").forEach((el) => {
+    el.addEventListener("click", function(e){
+      if (!confirmIfDirty()){
+        e.preventDefault();
+      }
+    });
+  });
+  window.addEventListener("beforeunload", function(e){
+    if (!hasUnsavedChanges()) return;
+    e.preventDefault();
+    e.returnValue = "";
+  });
+})();
+</script>
+{% endblock %}

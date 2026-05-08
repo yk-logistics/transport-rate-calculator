@@ -1,0 +1,156 @@
+{
+  "generated_at_utc": "2026-05-07T16:55:36",
+  "run_id": 9,
+  "site_code": "LCB",
+  "cycle_tag": "2026-03",
+  "reason": "lcb_cycle_date_drift_block",
+  "payload": {
+    "drift_count": 23,
+    "drift_amount": 14616.0,
+    "period_start": "2026-02-16",
+    "period_end": "2026-03-15",
+    "sample_rows": [
+      {
+        "id": 56451,
+        "txn_date": "2026-03-28",
+        "requester_raw": "เอ๊ะ",
+        "deduct_amount": 1000.0,
+        "site_code": ""
+      },
+      {
+        "id": 56449,
+        "txn_date": "2026-03-26",
+        "requester_raw": "ช่างน้อย",
+        "deduct_amount": 1000.0,
+        "site_code": ""
+      },
+      {
+        "id": 56438,
+        "txn_date": "2026-03-26",
+        "requester_raw": "สมัย อยุธยา",
+        "deduct_amount": 1000.0,
+        "site_code": ""
+      },
+      {
+        "id": 56417,
+        "txn_date": "2026-03-25",
+        "requester_raw": "ประจัก",
+        "deduct_amount": 70.0,
+        "site_code": ""
+      },
+      {
+        "id": 56416,
+        "txn_date": "2026-03-25",
+        "requester_raw": "อภิชาติ",
+        "deduct_amount": 30.0,
+        "site_code": ""
+      },
+      {
+        "id": 56415,
+        "txn_date": "2026-03-25",
+        "requester_raw": "สุรเดช",
+        "deduct_amount": 100.0,
+        "site_code": ""
+      },
+      {
+        "id": 56411,
+        "txn_date": "2026-03-25",
+        "requester_raw": "พิชิต",
+        "deduct_amount": 300.0,
+        "site_code": ""
+      },
+      {
+        "id": 56410,
+        "txn_date": "2026-03-25",
+        "requester_raw": "วิชาญ",
+        "deduct_amount": 100.0,
+        "site_code": ""
+      },
+      {
+        "id": 56409,
+        "txn_date": "2026-03-25",
+        "requester_raw": "ปกรณ์",
+        "deduct_amount": 70.0,
+        "site_code": ""
+      },
+      {
+        "id": 56408,
+        "txn_date": "2026-03-25",
+        "requester_raw": "วันชัย",
+        "deduct_amount": 70.0,
+        "site_code": ""
+      },
+      {
+        "id": 56406,
+        "txn_date": "2026-03-25",
+        "requester_raw": "นันทสิทธิ์",
+        "deduct_amount": 106.0,
+        "site_code": ""
+      },
+      {
+        "id": 56405,
+        "txn_date": "2026-03-25",
+        "requester_raw": "พชร",
+        "deduct_amount": 100.0,
+        "site_code": ""
+      },
+      {
+        "id": 56404,
+        "txn_date": "2026-03-25",
+        "requester_raw": "นิยม",
+        "deduct_amount": 70.0,
+        "site_code": ""
+      },
+      {
+        "id": 56348,
+        "txn_date": "2026-03-23",
+        "requester_raw": "ช่างน้อย",
+        "deduct_amount": 1000.0,
+        "site_code": ""
+      },
+      {
+        "id": 56337,
+        "txn_date": "2026-03-23",
+        "requester_raw": "สมัย อยุธยา",
+        "deduct_amount": 1000.0,
+        "site_code": ""
+      },
+      {
+        "id": 56292,
+        "txn_date": "2026-03-20",
+        "requester_raw": "เอ๊ะ",
+        "deduct_amount": 2000.0,
+        "site_code": ""
+      },
+      {
+        "id": 56231,
+        "txn_date": "2026-03-16",
+        "requester_raw": "ช่างน้อย",
+        "deduct_amount": 1000.0,
+        "site_code": ""
+      },
+      {
+        "id": 56221,
+        "txn_date": "2026-03-16",
+        "requester_raw": "สมัย อยุธยา",
+        "deduct_amount": 2000.0,
+        "site_code": ""
+      },
+      {
+        "id": 55731,
+        "txn_date": "2025-12-19",
+        "requester_raw": "อภิชาติ",
+        "deduct_amount": 500.0,
+        "site_code": ""
+      },
+      {
+        "id": 55730,
+        "txn_date": "2025-12-13",
+        "requester_raw": "เนื้อ",
+        "deduct_amount": 500.0,
+        "site_code": ""
+      }
+    ]
+  },
+  "next_action": "review petty rows with same cycle_tag and move drifted rows to correct cycle before finalize"
+}

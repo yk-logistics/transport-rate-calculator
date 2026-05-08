@@ -1,0 +1,8 @@
+﻿sheet_name,driver_key,reason,candidate_count,candidate_keys,next_action
+แบ็งค์,แบ็งค์,name_not_found_in_system_keys,0,,confirm driver 'แบ็งค์' in Employee master (BIGC) and rerun audit
+ใหม่,ใหม่,name_not_found_in_system_keys,0,,confirm driver 'ใหม่' in Employee master (BIGC) and rerun audit
+อภิรักษ์,อภิรักษ์,name_not_found_in_system_keys,0,,confirm driver 'อภิรักษ์' in Employee master (BIGC) and rerun audit
+ไวพจน์,ไวพจน์,name_not_found_in_system_keys,0,,confirm driver 'ไวพจน์' in Employee master (BIGC) and rerun audit
+ธีระวัฒน์,ธีระวัฒน์,name_not_found_in_system_keys,0,,confirm driver 'ธีระวัฒน์' in Employee master (BIGC) and rerun audit
+สุพนธ์,สุพนธ์,name_not_found_in_system_keys,0,,confirm driver 'สุพนธ์' in Employee master (BIGC) and rerun audit
+นันทวัฒน์,นันทวัฒน์,name_not_found_in_system_keys,0,,confirm driver 'นันทวัฒน์' in Employee master (BIGC) and rerun audit

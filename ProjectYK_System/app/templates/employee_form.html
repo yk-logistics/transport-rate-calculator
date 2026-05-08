@@ -128,6 +128,16 @@
       </select>
       <p class="text-xs text-slate-500 mt-1">BIGC ใช้ 9000 + ค่าเที่ยว, LCB รายเที่ยว 9240+3000, LCB/AYU เหมาน้ำมัน ใส่ % ด้านล่าง</p>
     </div>
+    <div class="md:col-span-3">
+      <label class="block text-sm mb-1">นโยบายรอบจ่าย (ใช้คำนวณ pay_cycle_tag)</label>
+      <select name="pay_cycle_policy" class="w-full border rounded px-3 py-2">
+        {% set current_policy = (row.pay_cycle_policy if row and row.pay_cycle_policy else 'site_default') %}
+        {% for code, label in pay_cycle_policies %}
+        <option value="{{ code }}" {% if current_policy==code %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <p class="text-xs text-slate-500 mt-1">ค่าเริ่มต้น = ตามไซต์คนขับ (พฤติกรรมเดิม) · ใช้ตอนแท็กรอบสดย่อยและ preflight</p>
+    </div>
     <div>
       <label class="block text-sm mb-1">ฐานเงินเดือน</label>
       <input type="number" step="0.01" name="base_salary" value="{{ '%g'|format(row.base_salary) if row else 0 }}" class="w-full border rounded px-3 py-2" />
