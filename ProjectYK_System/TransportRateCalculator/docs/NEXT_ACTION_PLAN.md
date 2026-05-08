@@ -588,5 +588,14 @@ B10. Manual link/review UI สำหรับ unmatched Caltex rows [next]
 - [done] ตรวจ Actions run ล่าสุดแล้วระบุ root cause ชัดเจน: fail ที่ `Checkout` ด้วยข้อความ `No url found for submodule path 'transport-rate-calculator-repo' in .gitmodules`
 - [done] แก้ใน repo `yk-logistics/transport-rate-calculator`: ลบ gitlink mode `160000` path `transport-rate-calculator-repo` และ push `main` (commit `0243b51`)
 - [done] ตรวจซ้ำ run ใหม่ `25546755229` พบว่า step `Checkout` ผ่านแล้ว (ไม่ติด error เดิม)
-- [next] รอ run `pages build and deployment` ของ commit `0243b51` จบทั้ง pipeline แล้วค่อยยืนยันหน้า live root ว่าขึ้นปุ่ม `Export CSV ตารางย้อนหลัง` จาก source ใหม่
+- [done] ยืนยันหน้า Oatside live หลัง deploy ล่าสุดแล้ว: `reports/oatside-pg-2026/index.html` แสดง pricing rules ชุดใหม่ (fuel-linked) พร้อม cache-bypass query (`?nocache=commit-e4516e9`)
+
+## 2026-05-08 Oatside publish verification (summary page)
+
+- [done] ระบุหน้า “รวมทั้งหมด” ที่ใช้งานจริง: `https://yk-logistics.github.io/transport-rate-calculator/reports/oatside-pg-2026/index.html`
+- [done] rerun build + deploy + push ใหม่ด้วย `deploy_oatside_report.ps1 -RepoPath transport-rate-calculator-repo -Push` ได้ commit `e4516e9`
+- [done] ตรวจหน้า live ทั้ง `index.html` และ `trips.html` แบบปกติและ cache-bypass แล้วว่าขึ้นราคาใหม่ชุดเดียวกับ Oatside ล่าสุด
+- [done] แก้ mapping guardrail คอลัมน์ `Downtime_50_baht`/`Downtime_100_baht` ใน `Oatside/build_oatside_reports.py` พร้อม regression check `_assert_pricing_bucket_mapping(...)` กันค่าสลับช่องเงียบๆ
+- [done] เปลี่ยนชื่อคอลัมน์ชีต `Trips_Pricing_All` ให้ตรงธุรกิจ: `Downtime_50_baht`, `Downtime_100_baht`, `Blank_run_50_baht`, `Return_job_baht`
+- [done] rebuild + publish deploy อีกครั้งสำเร็จที่ commit `a0677c7` และยืนยัน summary น้ำมัน `exact=37, carry_forward=68, base_fallback=0`
 

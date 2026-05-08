@@ -1816,6 +1816,38 @@ def _split_fifty_surcharge_50_100(frs: list[dict]) -> tuple[int, int]:
     return a50, a100
 
 
+def _assert_pricing_bucket_mapping(
+    *,
+    fifty_rows: list[dict],
+    trip_detail_rows: dict[tuple[str, date], tuple[int, int]],
+    trips_pricing_rows: dict[tuple[str, date], tuple[int, int]],
+) -> None:
+    """Regression guard: ensure +50/+100 assignment is stable across sheets."""
+    expected: dict[tuple[str, date], tuple[int, int]] = {}
+    grouped: dict[tuple[str, date], list[dict]] = defaultdict(list)
+    for fr in fifty_rows:
+        plate = str(fr.get("plate") or "")
+        dest_date = fr.get("dest_date")
+        if not plate or dest_date is None:
+            continue
+        grouped[(plate, dest_date)].append(fr)
+    for key, rows in grouped.items():
+        expected[key] = _split_fifty_surcharge_50_100(rows)
+
+    mismatches: list[str] = []
+    for key in sorted(set(expected) | set(trip_detail_rows) | set(trips_pricing_rows)):
+        exp50, exp100 = expected.get(key, (0, 0))
+        td50, td100 = trip_detail_rows.get(key, (0, 0))
+        tp50, tp100 = trips_pricing_rows.get(key, (0, 0))
+        if (exp50, exp100) != (td50, td100) or (td50, td100) != (tp50, tp100):
+            mismatches.append(
+                f"{key[0]}@{key[1]} exp=({exp50},{exp100}) trip_detail=({td50},{td100}) trips_pricing=({tp50},{tp100})"
+            )
+    if mismatches:
+        sample = "; ".join(mismatches[:5])
+        raise ValueError(f"Pricing bucket mapping mismatch (+50/+100): {sample}")
+
+
 def trip_row_pricing_cells(
     t: Trip,
     *,
@@ -2276,6 +2308,7 @@ def write_excel(
     for m in cfg.manual_return_trips:
         k = (str(m.plate), m.dest_date)
         ret_by_pd[k] = int(ret_by_pd.get(k, 0)) + manual_return_amount_baht(m, cfg)
+    td_bucket_rows: dict[tuple[str, date], tuple[int, int]] = {}
     for t in sorted(trips, key=lambda x: (x.dest_date, x.plate, x.d_in)):
         dw_c = customer_idle_clip_dest_wait_h(t, cfg)
         clip = max(0.0, t.dest_wait_h - dw_c)
@@ -2286,6 +2319,7 @@ def write_excel(
         dw50 = dw100 = 0
         if ft is not None and id(ft) == id(t):
             dw50, dw100 = _split_fifty_surcharge_50_100(frs)
+            td_bucket_rows[(str(t.plate), t.dest_date)] = (dw50, dw100)
         nw50 = trip_no_work_outbound_baht(t, first_no_work, cfg)
         ret_manual = (
             int(ret_by_pd.get((str(t.plate), t.dest_date), 0))
@@ -2307,9 +2341,10 @@ def write_excel(
     tp = wb.create_sheet("Trips_Pricing_All")
     tp.append([
         "Dest_In_date", "Plate",
-        "Trip_rate_baht", "Downtime_0_trip_baht", "Downtime_1_trip_baht",
-        "Blank_run_baht", "Return_job_baht",
+        "Trip_rate_baht", "Downtime_50_baht", "Downtime_100_baht",
+        "Blank_run_50_baht", "Return_job_baht",
     ])
+    tp_bucket_rows: dict[tuple[str, date], tuple[int, int]] = {}
     for t in sorted(trips, key=lambda x: (x.dest_date, x.plate, x.d_in)):
         rate = trip_rate_baht(t.trip_date, cfg)
         ft = firsts.get((t.plate, t.dest_date))
@@ -2317,6 +2352,7 @@ def write_excel(
         dw50 = dw100 = 0
         if ft is not None and id(ft) == id(t):
             dw50, dw100 = _split_fifty_surcharge_50_100(frs)
+            tp_bucket_rows[(str(t.plate), t.dest_date)] = (dw50, dw100)
         nw50 = trip_no_work_outbound_baht(t, first_no_work, cfg)
         ret_manual = (
             int(ret_by_pd.get((str(t.plate), t.dest_date), 0))
@@ -2328,6 +2364,12 @@ def write_excel(
             rate, dw50, dw100,
             nw50, ret_manual,
         ])
+
+    _assert_pricing_bucket_mapping(
+        fifty_rows=fifty_rows,
+        trip_detail_rows=td_bucket_rows,
+        trips_pricing_rows=tp_bucket_rows,
+    )
 
     # --- Unmatched Log ---
     um = wb.create_sheet("Unmatched_Log")

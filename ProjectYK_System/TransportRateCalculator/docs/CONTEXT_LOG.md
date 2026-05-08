@@ -4867,3 +4867,55 @@ o_work_outbound_rows ใช้เรทตาม **วัน anchor R** ไม�
 
 ### Action ถัดไป
 - ให้ผู้ใช้ตรวจรายเที่ยวที่อยู่ระหว่าง 17-20 เม.ย. ว่ายอดค่าขนส่งสมเหตุสมผลก่อนส่งลูกค้า
+
+---
+
+## 2026-05-08 (Session Summary #162 - ปิดเคสหน้ารวมทั้งหมดราคาเก่าใน publish)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้แจ้งว่า “หน้ารวมทั้งหมด ยังไม่แก้ไขราคา” หลัง deploy report และสั่งให้ทำ end-to-end รอบเดียว: ระบุ URL หน้าเป้าหมาย, ตรวจ artifact เก่า, rebuild + deploy + push, และ verify live แบบ cache-bypass
+
+### การตัดสินใจรอบนี้
+- ยืนยันว่า “หน้ารวมทั้งหมด” ของ Oatside บนระบบ publish คือ `reports/oatside-pg-2026/index.html` (path เก่า `reports/oatside-apr2026` ถูกเลิกใช้/404)
+- ใช้แนวทาง safe deploy เดิม: rebuild จาก `Oatside/build_oatside_reports.py` แล้ว publish ผ่าน `deploy_oatside_report.ps1` ไป repo `transport-rate-calculator-repo` โดยตรง เพื่อหลีกเลี่ยง artifact mismatch ระหว่างโฟลเดอร์ local
+
+### สิ่งที่ทำแล้ว
+- ตรวจ root cause แล้วพบสัญญาณที่ทำให้สับสน: มี artifact หลายตำแหน่งในเครื่อง (เช่น `reports/oatside-pg-2026` ที่เคยค้าง timestamp เก่า) แต่ deploy script ใช้ source ล่าสุดจาก `Oatside/TransportRateCalculator/reports/oatside-apr2026`
+- rerun `python Oatside/build_oatside_reports.py` สำเร็จ และยืนยัน diesel usage = `exact=37, carry_forward=68, base_fallback=0`
+- deploy + push ด้วย `deploy_oatside_report.ps1 -RepoPath transport-rate-calculator-repo -Push` สำเร็จเป็น commit `e4516e9`
+- ตรวจ live URL ทั้งแบบปกติและ cache-bypass (`?nocache=commit-e4516e9`) สำหรับ `index.html` และ `trips.html` แล้วพบ pricing rules ชุดใหม่ (fuel-linked Apr/May + step 1.5%) แสดงถูกต้อง
+- รัน verify แอปหลัก `python ProjectYK_System/tools/run_payroll_test.py` ผ่าน (ยืนยันระบบยังรันได้หลังงาน deploy report)
+
+### Action ถัดไป
+- ถ้าผู้ใช้ยังเห็นหน้าเก่า ให้เปิด URL ตรง `.../reports/oatside-pg-2026/index.html?nocache=commit-e4516e9` แล้วกด hard refresh (`Ctrl+F5`)
+- หากยัง mismatch เฉพาะฝั่งผู้ใช้ ให้ตรวจที่หน้าเดียวกันว่ามีข้อความ `สร้าง 2026-05-08 16:05` และกติกาเรท `2026-05-01–2026-05-31=6,500 @31.00-31.99, step 1.50%/฿` เพื่อยืนยันว่าอยู่บน artifact ใหม่
+
+---
+
+## 2026-05-08 (Session Summary #163 - แก้ mapping ค่าเสียเวลา 100% + เพิ่ม guardrail regression)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้สั่งแก้บั๊กชัดเจนว่า "ค่าเสียเวลา 100% ไม่ไปอยู่ช่อง 100%" และต้องทำ end-to-end: แก้ mapping, ยืนยัน step model น้ำมันรายวันแบบขั้นบันได 1.5%/บาท, rebuild + deploy + push
+- ต้องตรวจคอลัมน์ที่เกี่ยวข้องครบ (`Downtime_50_baht`, `Downtime_100_baht`, `Nw_outbound50_baht`, `Return_manual_baht`) และสรุปผล verify แบบตัวเลข
+
+### การตัดสินใจรอบนี้
+- ทำให้ mapping ชัดเจนแบบป้องกันถดถอย: เพิ่ม validation ตอน build เทียบยอด +50/+100 จากแหล่งเดียว (`fifty_rows`) กับทั้ง `Trip_Detail` และ `Trips_Pricing_All` เพื่อกันเคสค่า +100 ถูกสลับ/ทับเงียบๆ
+- ปรับชื่อคอลัมน์ชีต `Trips_Pricing_All` จาก `Downtime_0/1_trip_baht` เป็น `Downtime_50_baht` / `Downtime_100_baht` และ `Blank_run_50_baht` ให้ตรงความหมายธุรกิจ
+
+### สิ่งที่ทำแล้ว
+- แก้ `Oatside/build_oatside_reports.py`:
+  - เพิ่ม `_assert_pricing_bucket_mapping(...)` (raise error ทันทีถ้า mapping +50/+100 ไม่ตรง)
+  - เก็บ bucket map ระหว่าง build จากทั้ง `Trip_Detail` และ `Trips_Pricing_All` แล้วเทียบกับ expected จาก `Surcharge_50pct_1Trip`
+  - rename header ใน `Trips_Pricing_All` เป็นชื่อที่สื่อความหมายตรงกับ +50/+100
+- Verify:
+  - `python Oatside/build_oatside_reports.py` ผ่าน (`Trips 105 / Unmatched 15`)
+  - diesel usage summary: `exact=37, carry_forward=68, base_fallback=0`
+  - sample ตรวจคอลัมน์ 5 แถว (มีทั้งเคส +100, +50, ตีเปล่า+50, ขากลับ, และแถวปกติ) แสดงลงช่องถูกต้องทั้งหมด
+  - `python ProjectYK_System/tools/run_payroll_test.py` ผ่าน (ยืนยันแอปหลักยังรันได้)
+- Deploy publish:
+  - `deploy_oatside_report.ps1 -RepoPath transport-rate-calculator-repo -Push`
+  - push สำเร็จที่ repo publish commit `a0677c7`
+
+### Action ถัดไป
+- ให้ผู้ใช้เปิด URL publish จริงแบบ cache-bypass เพื่อตรวจรอบสุดท้าย: `https://yk-logistics.github.io/transport-rate-calculator/reports/oatside-pg-2026/index.html?nocache=commit-a0677c7`
+- ถ้าพบกรณีตัวเลขไม่คาดคิด ให้ยึดไฟล์ `09_Surcharge_50pct_1Trip.xlsx` เป็น source of truth แล้วใช้ guardrail ใหม่ตรวจย้อนกลับทันที

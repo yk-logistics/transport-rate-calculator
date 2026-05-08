@@ -2,6 +2,18 @@
 
 สรุปการตัดสินใจสำคัญระดับภาพรวมข้ามทุกโมดูล
 
+## 2026-05-08 (Oatside pricing mapping guardrail + publish deploy)
+
+- แก้ `Oatside/build_oatside_reports.py` ให้ mapping คอลัมน์ surcharge ชัดเจนขึ้น: ชีต `Trips_Pricing_All` เปลี่ยนชื่อคอลัมน์เป็น `Downtime_50_baht` / `Downtime_100_baht` / `Blank_run_50_baht` และคง `Return_job_baht`
+- เพิ่ม regression guard `_assert_pricing_bucket_mapping(...)` ตรวจเทียบยอด +50/+100 จาก `Surcharge_50pct_1Trip` เทียบกับทั้ง `Trip_Detail` และ `Trips_Pricing_All`; ถ้า mapping สลับ/ทับจะ `raise ValueError` ทันทีตอน build
+- rerun `python Oatside/build_oatside_reports.py` ได้ `Trips 105 / Unmatched 15` และ diesel usage `exact=37, carry_forward=68, base_fallback=0`; deploy ด้วย `deploy_oatside_report.ps1 -RepoPath transport-rate-calculator-repo -Push` สำเร็จที่ publish commit `a0677c7`
+
+## 2026-05-08 (Oatside publish sync — summary page uses latest pricing)
+
+- ยืนยันว่า URL หน้า “รวมทั้งหมด” ที่ใช้งานจริงคือ `https://yk-logistics.github.io/transport-rate-calculator/reports/oatside-pg-2026/index.html` (ไม่ใช่ path เก่า `oatside-apr2026`)
+- rerun `python Oatside/build_oatside_reports.py` แล้ว deploy ด้วย `deploy_oatside_report.ps1 -RepoPath transport-rate-calculator-repo -Push` ไปที่ repo publish โดยตรง
+- push สำเร็จเป็น commit `e4516e9` และตรวจหน้า live ทั้งแบบปกติ+cache-bypass (`?nocache=commit-e4516e9`) พบว่าแสดง pricing rules ชุดใหม่ (fuel-linked) แล้ว
+
 ## 2026-05-08 (GitHub Pages — remove stale submodule gitlink)
 
 - ตรวจ root cause ของ GitHub Pages failure (`actions/runs/25545958948`) แล้วพบว่า fail ที่ step `Checkout` ด้วยข้อความ `No url found for submodule path 'transport-rate-calculator-repo' in .gitmodules`
