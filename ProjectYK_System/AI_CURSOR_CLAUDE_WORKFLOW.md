@@ -13,6 +13,17 @@
 - **ความจำข้ามแชท:** ใน Cursor ไม่มี “ความจำเดียว” กับ Claude Code — ใช้ไฟล์นี้ + กฎใน `.cursor/rules/` + **Claude-Mem ใน Claude Code** แยกกัน
 - **เมื่อ context ใกล้เต็ม:** เริ่มเธรดใหม่ / compact ตามเครื่องมือ — Agent **มองไม่เห็น** % context ของผู้ใช้แบบเรียลไทม์
 
+## หนึ่งเธรด = หนึ่ง scope (ประหยัด Conversation)
+
+**Conversation** ใน UI Context ของ Cursor ≈ ประวัติแชตในเธรดเดียว + ผลลัพธ์เครื่องมือที่ฝังในแชต — ส่วนนี้โตเร็วที่สุด. **Rules / Tools / Skills** มีขนาดค่อนข้างคงที่ต่อเซสชัน
+
+แนวทาง:
+
+- จบ milestone หรือเปลี่ยนหัวข้อ → อัปเดต **`ProjectYK_System/TransportRateCalculator/docs/NEXT_ACTION_PLAN.md`** (สรุป 1 หน้า) แล้วเริ่ม**แชตใหม่**
+- ไม่แปะ log/JSON ยาวในแชต — ชี้ path หรือใช้ `@ไฟล์`
+- ความรู้บริษัทแบบยาวให้เก็บ **`ProjectYK_System/docs/DOMAIN_AND_DIRECTION.md`** แทนการพึ่งประวัติแชตทั้งก้อน
+- อธิบายถัง token แบบสั้น: **`ProjectYK_System/docs/CONTEXT_TOKENS.md`**
+
 ## แบ่งงาน (หลักการ)
 
 | ใช้ | เมื่อไหร่ |

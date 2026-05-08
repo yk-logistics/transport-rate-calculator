@@ -13,11 +13,15 @@ Before doing anything else, read these files in this order (silently, don't dump
 
 1. `ProjectYK_System/AGENT_BOOTSTRAP.md`
 2. `ProjectYK_System/MODULE_REGISTRY.md`
-3. `ProjectYK_System/CHANGELOG_MASTER.md`
-4. `ProjectYK_System/TransportRateCalculator/docs/CONTEXT_LOG.md` — latest 2-3 sessions
+3. `ProjectYK_System/CHANGELOG_MASTER.md` — **เฉพาะหัวข้อล่าสุดไม่เกิน 3 หัวข้อ** ระดับ `##` จากด้านบนหลังส่วนหัวหลัก (ไม่อ่านทั้งไฟล์); นโยบายและ archive → `ProjectYK_System/docs/CHANGELOG_POLICY.md`
+4. `ProjectYK_System/TransportRateCalculator/docs/CONTEXT_LOG.md` — **ท้ายไฟล์** latest 2-3 sessions เท่านั้น (ห้ามอ่านตั้งแต่ต้นไฟล์เพื่องานปกติ)
 5. `ProjectYK_System/TransportRateCalculator/docs/NEXT_ACTION_PLAN.md`
 
 If the user's request relates to a specific module, also read that module's `AGENT_MEMORY.md` / `DECISION_LOG.md` listed in `MODULE_REGISTRY.md`.
+
+**Optional (เมื่อเกี่ยวข้อง):** `ProjectYK_System/docs/DOMAIN_AND_DIRECTION.md` — บริบทบริษัท/ทิศทาง/รายละเอียดงานยาวที่ผู้ใช้ไม่อยากพิมพ์ซ้ำ; `ProjectYK_System/docs/CONTEXT_TOKENS.md` — อธิบายถัง token ใน Cursor สำหรับทีม
+
+**คำถาม “ให้อ่าน log ทั้งหมดแล้วสรุปเฉพาะที่เอาไปพัฒนาได้ไหม”:** ทำได้โดยอ่านตามขอบเขตด้านบน + ไฟล์โดเมน — **ไม่**ต้องโหลด CONTEXT_LOG หรือ CHANGELOG ตั้งแต่ต้นจนจบในการปกติ; ถ้าต้องสืบเหตุเฉพาะจุดให้ใช้การค้นหาใน repo แล้วสรุป
 
 ## 1b) ก่อนลงมือทำตามคำสั่งผู้ใช้ (ทุกแชท)
 

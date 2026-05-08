@@ -2,6 +2,15 @@
 
 สรุปการตัดสินใจสำคัญระดับภาพรวมข้ามทุกโมดูล
 
+> **Agent bootstrap:** อ่านเฉพาะ **3 หัวข้อ `##` แรกจากด้านบนลงมา** (ไม่รวมบรรทัดนี้) — **ห้าม**อ่านทั้งไฟล์ทุกแชต. นโยบาย/การย้าย archive: [`ProjectYK_System/docs/CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md)
+
+## 2026-05-08 (Token context — bounded reads + executive brief + domain capture)
+
+- เพิ่มกฎ `.cursor/rules/exec-brief-noncoder.mdc` — ตอบแบบ executive ภาษาคน (ไม่อธิบาย implementation โดยดีฟอลต์) คู่กับกฎเงิน/ข้อมูลเดิม
+- เพิ่มเอกสาร [`ProjectYK_System/docs/CONTEXT_TOKENS.md`](ProjectYK_System/docs/CONTEXT_TOKENS.md), [`CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md), [`CHANGELOG_ARCHIVE.md`](ProjectYK_System/docs/CHANGELOG_ARCHIVE.md), [`DOMAIN_AND_DIRECTION.md`](ProjectYK_System/docs/DOMAIN_AND_DIRECTION.md)
+- แก้ `.cursor/rules/project-yk-context.mdc` + [`ProjectYK_System/AGENT_BOOTSTRAP.md`](ProjectYK_System/AGENT_BOOTSTRAP.md) ให้ `CHANGELOG_MASTER` อ่านแค่ 3 หัวข้อล่าสุด และ `CONTEXT_LOG` อ่านท้ายไฟล์ 2–3 sessions
+- อัปเดต [`ProjectYK_System/AI_CURSOR_CLAUDE_WORKFLOW.md`](ProjectYK_System/AI_CURSOR_CLAUDE_WORKFLOW.md) หัวข้อ “หนึ่งเธรด = หนึ่ง scope”
+
 ## 2026-05-08 (Oatside UI hotfix — delay surcharge follows transport rate)
 
 - แก้ไฟล์รายงาน publish ที่ใช้งานจริง (`reports/oatside-pg-2026/trips.html` + `reports/oatside-pg-2026/plates/*.html`) ให้คอลัมน์ `เสียเวลา+50%` และ `เสียเวลา+100%` คิดจาก `ค่าขนส่ง(฿)` ต่อแถวโดยตรง (50%/100%) แทนค่าคงที่เดิม
@@ -13,6 +22,11 @@
 
 - แก้รายงาน HTML ที่ใช้งานอยู่ (`reports/oatside-pg-2026/trips.html` และ `reports/oatside-pg-2026/plates/71-5042.html`) โดยย้ายยอด `6,546.00` ของแถวทะเบียน `71-5042` (Origin In `2026-04-21 12:28:30`) จากคอลัมน์ `เสียเวลา+50%` ไป `เสียเวลา+100%` ตามที่ผู้ใช้ตรวจพบ
 - คงค่าเงินอื่นเดิมทั้งหมดในแถวเดียวกัน (`ค่าขนส่ง 6,546.17`, `ตีเปล่า+50%=—`, `ขากลับ=—`) เพื่อลดความเสี่ยงกระทบยอดรวมส่วนอื่น
+
+## 2026-05-08 (Oatside debug instrumentation cleanup)
+
+- ลบ debug instrumentation (`_agent_debug_log` และ block `# region agent log`) ออกจาก `Oatside/build_oatside_reports.py` หลังผู้ใช้ยืนยันว่า issue ถูกแก้แล้ว
+- ลบไฟล์ helper debug ชั่วคราว (`debug_instrument_oatside.py`, `debug_cleanup_oatside.py`) ออกจากราก repo
 
 ## 2026-05-08 (Oatside report cutoff — remove May from report window)
 

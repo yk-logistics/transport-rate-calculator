@@ -18,7 +18,7 @@
 
 1. `ProjectYK_System/AGENT_BOOTSTRAP.md`
 2. `ProjectYK_System/MODULE_REGISTRY.md`
-3. `ProjectYK_System/CHANGELOG_MASTER.md` (หัวข้อล่าสุด)
+3. `ProjectYK_System/CHANGELOG_MASTER.md` (เฉพาะ **3 หัวข้อ `##` ล่าสุด** — ดู `ProjectYK_System/docs/CHANGELOG_POLICY.md`)
 4. `ProjectYK_System/TransportRateCalculator/docs/NEXT_ACTION_PLAN.md`
 5. งาน Claude ↔ Cursor / ประหยัดโทเค็น: `ProjectYK_System/AI_CURSOR_CLAUDE_WORKFLOW.md`
 

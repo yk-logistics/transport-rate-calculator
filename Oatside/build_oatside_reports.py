@@ -38,6 +38,7 @@ DETAIL_KEY = re.compile(r"^\d+\.\d+$")
 _MISSING_DIESEL_ALL_WARNED: set[date] = set()
 _CARRY_FORWARD_DIESEL_WARNED: set[tuple[date, date]] = set()
 
+
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------

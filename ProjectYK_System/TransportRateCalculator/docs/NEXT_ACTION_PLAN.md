@@ -2,6 +2,13 @@
 
 แผนงานลำดับถัดไป (เรียงตามความสำคัญ)
 
+## ⭐ Quick Status (2026-05-08 | Token context — ประหยัด Conversation + ไฟล์ที่โตใน repo)
+
+- [done] เพิ่มกฎ `.cursor/rules/exec-brief-noncoder.mdc` (ตอบสั้น ภาษาคน ไม่อธิบายโค้ดโดยดีฟอลต์) คู่กับกฎเงิน/ข้อมูลเดิม
+- [done] เพิ่มเอกสาร `ProjectYK_System/docs/CONTEXT_TOKENS.md`, `CHANGELOG_POLICY.md`, `CHANGELOG_ARCHIVE.md`, `DOMAIN_AND_DIRECTION.md` และอัปเดต bootstrap / `AI_CURSOR_CLAUDE_WORKFLOW.md` / `MODULE_REGISTRY.md`
+- [next] เมื่อ `CHANGELOG_MASTER.md` ยาวเกินประมาณ 800–1000 บรรทัด — ย้ายช่วงเก่าไป `ProjectYK_System/docs/CHANGELOG_ARCHIVE/*.md` ตามนโยบายใน `CHANGELOG_POLICY.md`
+- [next] ให้โอเติม `ProjectYK_System/docs/DOMAIN_AND_DIRECTION.md` เมื่อมีบริบทบริษัท/ทิศทางยาวๆ (ไม่ต้องพิมพ์ซ้ำในแชต)
+
 ## ⭐ Quick Status (2026-05-07 | Forward Insight benchmark -> One Platform UX uplift)
 
 - [done] Oatside monetary formatting 2dp end-to-end: ปรับ `build_oatside_reports.py` ให้แสดงผลเงิน 2 ตำแหน่งใน HTML/XLSX/CSV, rerun build, verify คอลัมน์หลัก (`Trip_rate_baht`, `Downtime_50_baht`, `Downtime_100_baht`, `Blank_run_50_baht`, `Return_job_baht`), และ deploy publish commit `4d203ab`\n- [next] ตรวจหน้า live แบบ cache-bypass และสุ่มยืนยัน 2dp บน `index/trips/plate` อีก 1 รอบก่อนส่งลูกค้า\n- [done] สำรวจระบบตัวอย่างแบบลงหน้าใช้งานจริง: เมนูหลักครบ (`ขนส่ง/จัดซื้อ/บัญชี/บุคคล/ตั้งค่า`) + หน้ารายการ `Trip`, `Expense`, `Payroll` และหน้า detail เที่ยว
@@ -602,6 +609,7 @@ B10. Manual link/review UI สำหรับ unmatched Caltex rows [next]
 - [done] เปลี่ยนชื่อคอลัมน์ชีต `Trips_Pricing_All` ให้ตรงธุรกิจ: `Downtime_50_baht`, `Downtime_100_baht`, `Blank_run_50_baht`, `Return_job_baht`
 - [done] rebuild + publish deploy อีกครั้งสำเร็จที่ commit `a0677c7` และยืนยัน summary น้ำมัน `exact=37, carry_forward=68, base_fallback=0`
 - [done] hotfix หน้ารายงาน `trips.html`/`plates/71-5042.html`: ย้ายยอดแถว `71-5042` วันที่ `2026-04-21` จากคอลัมน์ `เสียเวลา+50%` ไป `เสียเวลา+100%` ตามการตรวจหน้างานของผู้ใช้ (ยอด `6,546.00`)
+- [done] ลบ debug instrumentation ชั่วคราวออกจาก `Oatside/build_oatside_reports.py` หลังผู้ใช้ยืนยัน issue fixed และลบไฟล์ helper debug ที่ราก repo
 
 
 - [done] ยืนยันกับผู้ใช้แล้วว่า policy เรท Oatside ช่วง `12-15 เม.ย. 2026` ต้องเป็น `8,000` (Base rate `50.00-50.99`) และล็อกเป็น fact ใน context เพื่อใช้ตรวจรอบถัดไป

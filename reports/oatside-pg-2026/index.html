@@ -37,4 +37,40 @@
 </tbody></table></div></details>
 <details class='section-fold'><summary class='section-sum section-sum-row'><span class='sum-main'>รายทะเบียน</span><span class='sum-dl'><a class='xlsx-dl' href='exports/02_Plate_DestDay_Daily.xlsx' download onclick='event.stopPropagation()'>ดาวน์โหลด เดลี่×ทะเบียน</a></span></summary>
 <div class='panel'><ul><li><a href='plates/71-5041.html'>71-5041</a></li><li><a href='plates/71-5042.html'>71-5042</a></li><li><a href='plates/71-6802.html'>71-6802</a></li><li><a href='plates/71-8001.html'>71-8001</a></li><li><a href='plates/71-8002.html'>71-8002</a></li><li><a href='plates/71-8003.html'>71-8003</a></li><li><a href='plates/71-8681.html'>71-8681</a></li><li><a href='plates/71-8683.html'>71-8683</a></li><li><a href='plates/71-8684.html'>71-8684</a></li><li><a href='plates/71-8967.html'>71-8967</a></li><li><a href='plates/71-9629.html'>71-9629</a></li><li><a href='plates/72-1217.html'>72-1217</a></li><li><a href='plates/72-1220.html'>72-1220</a></li></ul></div>
-</details></body></html>
+</details><script>(function(){
+// #region agent log
+fetch('http://127.0.0.1:7685/ingest/88ed0e38-71ce-4a70-af89-15f884115f35',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1d516f'},body:JSON.stringify({sessionId:'1d516f',runId:'pre-fix',hypothesisId:'H1',location:'reports/oatside-pg-2026/index.html:runtime',message:'index runtime start',data:{path:location.pathname,href:location.href,hasRecalcScript:!!window.__oatsideRecalcLoaded},timestamp:Date.now()})}).catch(()=>{});
+// #endregion
+function parseMoneyText(t){if(!t)return null;var s=String(t).replace(/[฿,\s]/g,'').trim();if(!s||s==='—'||s==='-')return null;var n=Number(s);return Number.isFinite(n)?n:null;}
+function inspectRows(){
+  var table=document.querySelector('table');
+  if(!table||!table.tHead||!table.tBodies.length){
+    // #region agent log
+    fetch('http://127.0.0.1:7685/ingest/88ed0e38-71ce-4a70-af89-15f884115f35',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1d516f'},body:JSON.stringify({sessionId:'1d516f',runId:'pre-fix',hypothesisId:'H1',location:'reports/oatside-pg-2026/index.html:runtime',message:'index table missing',data:{hasTable:false},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    return;
+  }
+  var heads=Array.from(table.tHead.rows[0].cells).map(function(c){return (c.textContent||'').trim();});
+  var iTrip=heads.findIndex(function(h){return h.indexOf('ค่าขนส่ง')>=0;});
+  var i50=heads.findIndex(function(h){return h.indexOf('เสียเวลา+50%')>=0;});
+  var i100=heads.findIndex(function(h){return h.indexOf('เสียเวลา+100%')>=0;});
+  // #region agent log
+  fetch('http://127.0.0.1:7685/ingest/88ed0e38-71ce-4a70-af89-15f884115f35',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1d516f'},body:JSON.stringify({sessionId:'1d516f',runId:'pre-fix',hypothesisId:'H2',location:'reports/oatside-pg-2026/index.html:runtime',message:'index header indexes',data:{iTrip:iTrip,i50:i50,i100:i100,headers:heads.slice(0,8)},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  var sample=null;
+  Array.from(table.tBodies[0].rows).some(function(r){
+    var tCell=r.cells[iTrip], dCell=r.cells[i50];
+    if(!tCell||!dCell) return false;
+    var trip=parseMoneyText(tCell.textContent), d50=parseMoneyText(dCell.textContent);
+    if(trip!=null && d50!=null){
+      sample={trip:trip,delay50:d50,expected50:Number((trip*0.5).toFixed(2)),rowText:r.textContent.slice(0,160)};
+      return true;
+    }
+    return false;
+  });
+  // #region agent log
+  fetch('http://127.0.0.1:7685/ingest/88ed0e38-71ce-4a70-af89-15f884115f35',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1d516f'},body:JSON.stringify({sessionId:'1d516f',runId:'pre-fix',hypothesisId:'H3',location:'reports/oatside-pg-2026/index.html:runtime',message:'index first money row sample',data:{sample:sample},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',inspectRows);else inspectRows();
+})();</script></body></html>

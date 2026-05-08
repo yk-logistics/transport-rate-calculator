@@ -44,9 +44,10 @@
 1. `.cursor/rules/project-yk-context.mdc` (bootstrap rule)
 2. `ProjectYK_System/AGENT_BOOTSTRAP.md`
 3. `ProjectYK_System/MODULE_REGISTRY.md`
-4. `ProjectYK_System/CHANGELOG_MASTER.md` (latest 100 lines)
+4. `ProjectYK_System/CHANGELOG_MASTER.md` — **เฉพาะ 3 หัวข้อล่าสุด** (ไม่อ่านทั้งไฟล์)
 5. `ProjectYK_System/TransportRateCalculator/docs/NEXT_ACTION_PLAN.md`
 6. **`ProjectYK_System/AI_CURSOR_CLAUDE_WORKFLOW.md`** — แบ่งงาน Cursor vs Claude Code, rtk/Graphify/claude-mem, บล็อกส่งต่อ (ประหยัดโทเค็น)
+7. ถามเรื่อง Context/Conversation ใน Cursor → **`ProjectYK_System/docs/CONTEXT_TOKENS.md`**
 
 ## Commit / update rules
 

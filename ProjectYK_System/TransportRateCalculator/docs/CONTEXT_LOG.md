@@ -22,6 +22,24 @@
 - ให้ผู้ใช้รีเฟรชหน้า `trips.html` และ `plates/71-5042.html` เพื่อตรวจว่าแถวดังกล่าวขึ้นคอลัมน์ `เสียเวลา+100%` แล้ว
 - รอบถัดไปแนะนำย้ายการแก้กลับเข้า generator (`build_oatside_reports.py`) พร้อม test case แถวเดียวกัน เพื่อกันการหลุดซ้ำเวลา rebuild report
 
+---
+
+## 2026-05-08 (Session Summary #167 - Cleanup instrumentation หลังยืนยันแก้สำเร็จ)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้ยืนยันว่า issue ถูกแก้แล้ว และสั่งให้ลบ instrumentation ออกทันที
+
+### การตัดสินใจรอบนี้
+- ทำ cleanup แบบตรงจุด: เอาเฉพาะ debug log code ที่เพิ่มรอบ debug ออกทั้งหมด โดยไม่แตะ business logic
+
+### สิ่งที่ทำแล้ว
+- ลบ `_agent_debug_log` และทุกบล็อก `# region agent log` ออกจาก `Oatside/build_oatside_reports.py`
+- รัน `python -m py_compile Oatside/build_oatside_reports.py` ผ่านหลัง cleanup
+- ลบไฟล์ชั่วคราวที่ใช้ inject/remove debug (`debug_instrument_oatside.py`, `debug_cleanup_oatside.py`)
+
+### Action ถัดไป
+- ถ้าจะ harden ต่อ ให้เพิ่ม regression test ถาวรสำหรับเคส `71-5042` ในเส้นทาง build report เพื่อกัน bucket สลับช่องในรอบถัดไป
+
 ## 2026-04-29 (Session Summary #68 - Transport Rate: ดึงราคาย้อนหลัง + คลุมหาเฉลี่ยแบบ Excel)
 
 ### บริบทจากผู้ใช้
@@ -5046,3 +5064,23 @@ o_work_outbound_rows ใช้เรทตาม **วัน anchor R** ไม�
 ### Action ถัดไป
 - รอบปรับปรุงถัดไปควรย้าย logic นี้กลับเข้า generator ต้นทาง (`build_oatside_reports.py`) เพื่อให้ output ถูกต้องตั้งแต่ตอน build
 - ให้ผู้ใช้ hard refresh (`Ctrl+F5`) หน้า `trips` และหน้า `plate` ที่ใช้งานอยู่เพื่อยืนยันตัวเลขหลัง push
+
+---
+
+## 2026-05-08 (Session Summary #168 - Token context / bounded reads + executive brief)
+
+### บริบทจากผู้ใช้
+- ต้องการประหยัด **Conversation** ใน Cursor มากที่สุด แยกจาก Rules/Tools/Skills; ต้องการให้คำตอบเน้นถาม+ขั้นตอนถัดไปเป็นภาษาคน (non-coder)
+- กังวลไฟล์ `CHANGELOG` / `CONTEXT_LOG` ที่โตเรื่อยๆ และต้องการที่เก็บความรู้บริษัทยาวๆ โดยไม่ต้องพิมพ์ซ้ำ
+
+### การตัดสินใจรอบนี้
+- เพิ่มกฎ `exec-brief-noncoder.mdc` โดยไม่แทนที่กฎเงิน/ข้อมูล (`oa-careful-default.mdc`)
+- จำกัดการอ่าน `CHANGELOG_MASTER` เฉพาะ 3 หัวข้อล่าสุด และ `CONTEXT_LOG` เฉพาะท้ายไฟล์ 2–3 sessions; นโยบาย archive ใน `CHANGELOG_POLICY.md`
+- เพิ่ม `DOMAIN_AND_DIRECTION.md` เป็นที่รวมบริบทบริษัท/ทิศทางยาว และ `CONTEXT_TOKENS.md` อธิบายถัง token ให้ทีม
+
+### สิ่งที่ทำแล้ว
+- สร้าง/อัปเดต: `ProjectYK_System/docs/CONTEXT_TOKENS.md`, `CHANGELOG_POLICY.md`, `CHANGELOG_ARCHIVE.md`, `DOMAIN_AND_DIRECTION.md`; `.cursor/rules/exec-brief-noncoder.mdc`; แก้ `project-yk-context.mdc`, `AGENT_BOOTSTRAP.md`, `AI_CURSOR_CLAUDE_WORKFLOW.md`, `MODULE_REGISTRY.md`, `CHANGELOG_MASTER.md`
+
+### Action ถัดไป
+- เมื่อ Master changelog ยาวมากให้ย้ายช่วงเก่าตาม `CHANGELOG_POLICY.md`
+- ให้โอเติม `DOMAIN_AND_DIRECTION.md` เมื่อมีข้อเท็จจริงธุรกิจยาวๆ; ข้อมูลโครงสร้างคอลัมน์/ไซท์ยังสรุปเข้า `DATA_DICTIONARY.md` ตามเดิม
