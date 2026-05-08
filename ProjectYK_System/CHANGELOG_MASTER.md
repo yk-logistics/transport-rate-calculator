@@ -2,6 +2,11 @@
 
 สรุปการตัดสินใจสำคัญระดับภาพรวมข้ามทุกโมดูล
 
+## 2026-05-08 (Oatside UI hotfix — delay surcharge follows transport rate)
+
+- แก้ไฟล์รายงาน publish ที่ใช้งานจริง (`reports/oatside-pg-2026/trips.html` + `reports/oatside-pg-2026/plates/*.html`) ให้คอลัมน์ `เสียเวลา+50%` และ `เสียเวลา+100%` คิดจาก `ค่าขนส่ง(฿)` ต่อแถวโดยตรง (50%/100%) แทนค่าคงที่เดิม
+- เพิ่ม client-side guardrail หลังโหลดหน้า: ถ้าแถวนั้นมีการคิดค่าเสียเวลาอยู่ ระบบจะ re-calc จากค่า `ค่าขนส่ง(฿)` แล้ว format เป็น 2 ตำแหน่งทันที เพื่อลดความเสี่ยงตัวเลขค้างจาก build ก่อนหน้า
+
 ## 2026-05-08 (Oatside money 2dp standard + CSV exports + publish)
 
 ## 2026-05-08 (Oatside trips UI hotfix — move 71-5042 surcharge to +100%)
@@ -893,3 +898,5 @@
 - **2026-05-08 (Email Inbox + Excel-like Grid POC):** เพิ่ม schema `InboxEmail/InboxSyncRun`, service `services/email_ingest.py` (IMAP sync + rule/Gemini classify with human-review guardrail), หน้า `/email/inbox` read-only workflow และหน้า `/daily/grid` (Tabulator CDN + batch save API) สำหรับแก้ข้อมูลเร็วแบบคล้าย Excel
 - **2026-05-08 (Daily Grid UX hardening):** ปรับ `/daily/grid` เป็นก้าวถัดไปของ single-page Daily workflow: quick presets รายไซต์/สถานะเดือนนี้, save เฉพาะ field ที่แก้จริง, unsaved warning/dirty feedback, และลิงก์แก้เต็มรายแถวโดยไม่เปลี่ยน route เดิม
 - **2026-05-08 (Oatside latest-price fallback):** ปรับ `Oatside/build_oatside_reports.py` ให้ fallback ราคาน้ำมันเป็น `latest prior day (<=trip_date)` ก่อน, คงกติกา Apr/May เดิมทั้งหมด, เพิ่ม warning traceable (fallback จากวันไหน/ราคาเท่าไร) และพิมพ์ summary usage `exact/carry_forward/base_fallback` หลัง build
+
+- ยืนยัน policy ราคา Oatside จากผู้ใช้: ช่วง `2026-04-12..2026-04-15` ใช้ base trip `8,000` ภายใต้ base fuel band `50.00-50.99` (กัน mapping ย้อนกลับเป็น 7,500)

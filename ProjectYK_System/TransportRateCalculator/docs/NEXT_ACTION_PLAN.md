@@ -98,6 +98,7 @@
 ## ⭐ Quick Status (2026-05-01 | Oatside — GitHub Org `yk-logistics`)
 
 - [done] **`trips.html` + ตารางรายเที่ยวต่อทะเบียน**: คอลัมน์ **ค่าขนส่ง / เสียเวลา+50% / เสียเวลา+100% / ตีเปล่า+50%**; No-work recovery รองรับข้ามคืน (`first_no_work_trip_by_plate_recovery_day` + แถวสังเคราะห์ `plate_dest_day_rows`) — `Oatside/build_oatside_reports.py` (Session #100)
+- [done] **Oatside hotfix ค่าเสียเวลาให้ยึดค่าขนส่งจริง**: หน้า `reports/oatside-pg-2026/trips.html` และ `reports/oatside-pg-2026/plates/*.html` เพิ่ม script re-calc ค่า `เสียเวลา+50%`/`เสียเวลา+100%` จาก `ค่าขนส่ง(฿)` ต่อแถว (50%/100%) แบบ 2dp
 - [done] **อธิบายคอลัมน์เงิน + dedupe `origin24h`** (สูงสุด 1 ครั้งต่อทะเบียน×วัน Dest_In) + **หัวตาราง sticky** ในกรอบเลื่อน — Session #101
 - [done] **แบ่งกลุ่มตามวันในตารางเที่ยว** — พื้นหลังสลับโทน `day-band-0`/`day-band-1` (matched ยึดวัน **Origin_In**; UM-D ใช้เวลา leg) + **เรียง matched ตาม Origin_In** — Session #102
 - [done] **`manual_extra_trips`** (เช่น 72-1217 22/4/2026 P&G→Oatside +7,500 ไม่มีใน GPS) — บวกฐาน/สรุปลูกค้า + ชีต `Manual_Extra_Trips` — Session #103
@@ -127,6 +128,7 @@
 - [done] **ปิดรวบ Origin ทั้งก้อน**: `enable_origin_chain_merge` default **false** + เอกสาร `OATSIDE_ORIGIN_CHAIN_MERGE_FIX.md` + build ชุด GPS **02.05.2026** (ตัวอย่าง `ProjectYK_System/tools/run_oatside_may02_build.py`)
 - [done] ย้าย repo `transport-rate-calculator` ไป org **`yk-logistics`** — รายงาน Oatside บน Pages (path เป้าหมายหลัง push): `https://yk-logistics.github.io/transport-rate-calculator/reports/oatside-pg-2026/index.html`
 - [next] โอรัน **`deploy_oatside_report_one_click.bat`** จากราก Project YK (ต้องมี clone + push ได้) — จึงจะย้ายรายงานไป path ใหม่และให้ลิงก์เก่า `…/oatside-apr2026/…` เป็น 404
+- [next] หากแก้ที่ source generator รอบถัดไป ให้ย้าย logic re-calc นี้กลับเข้า `build_oatside_reports.py` โดยตรง เพื่อให้ไฟล์ที่ build ออกมาถูกต้องตั้งแต่ต้นทาง (ไม่พึ่ง hotfix JS)
 - [next] บนเครื่องที่รัน deploy: ในโฟลเดอร์ clone (`transport-rate-calculator-repo` หรือชื่อที่ใช้จริง) รัน `git remote -v` ให้ชี้ `https://github.com/yk-logistics/transport-rate-calculator.git` (หรือ SSH แบบ `git@github.com:yk-logistics/transport-rate-calculator.git`) และยืนยันว่า push ผ่าน
 - [done] Billing Oatside: **`charge_min_trip_shortfall` default false** — ไม่เก็บเงินค่าชดเชยเที่ยวขาด (min trips) ในรายงานลูกค้าเมื่อใช้ชาร์จ 50% วันละ 1 เที่ยว; ตั้ง **true** ใน `Oatside/oatside_config.json` ถ้าต้องการโหมดเก็บทั้งค่าชดเชย + 50%
 
@@ -601,3 +603,5 @@ B10. Manual link/review UI สำหรับ unmatched Caltex rows [next]
 - [done] rebuild + publish deploy อีกครั้งสำเร็จที่ commit `a0677c7` และยืนยัน summary น้ำมัน `exact=37, carry_forward=68, base_fallback=0`
 - [done] hotfix หน้ารายงาน `trips.html`/`plates/71-5042.html`: ย้ายยอดแถว `71-5042` วันที่ `2026-04-21` จากคอลัมน์ `เสียเวลา+50%` ไป `เสียเวลา+100%` ตามการตรวจหน้างานของผู้ใช้ (ยอด `6,546.00`)
 
+
+- [done] ยืนยันกับผู้ใช้แล้วว่า policy เรท Oatside ช่วง `12-15 เม.ย. 2026` ต้องเป็น `8,000` (Base rate `50.00-50.99`) และล็อกเป็น fact ใน context เพื่อใช้ตรวจรอบถัดไป
