@@ -4715,3 +4715,30 @@ o_work_outbound_rows ใช้เรทตาม **วัน anchor R** ไม�
 ### Action ถัดไป
 - รอคำตอบผู้ใช้ Q1 + Q2 ก่อน แล้วค่อยแก้ `POST /daily/new` ให้ auto-linked ตาม policy ที่ยืนยัน (ไม่กระทบ payroll)
 - ถ้าต้องรองรับ offline สำหรับ daily grid ให้ตัดสินใจเรื่อง fallback asset/local bundle เพิ่มเติม
+
+---
+
+## 2026-05-08 (Session Summary #157 - Oatside diesel latest-price carry-forward fallback)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้สั่งแก้ policy Oatside เพิ่มเติม: ถ้าวันวิ่งไม่มีราคาน้ำมัน ให้ดึง “ราคาวันล่าสุดที่มีข้อมูล” ก่อน (latest available <= trip_date) แทนการกลับไป base rate ทันที
+- ต้องคง policy เดิมทั้งหมดที่เพิ่งทำไป (Apr floor 6500, May base 6500@31-31.99, step 1.5%, return trip 50%) และเพิ่ม trace log ตรวจสอบย้อนหลังได้
+
+### การตัดสินใจรอบนี้
+- ใช้ fallback 2 ชั้นแบบตรวจสอบย้อนกลับได้: `exact day -> carry-forward from latest prior day -> base rate fallback`
+- หากไม่มี prior diesel price เลย ให้ใช้ base rate ตามช่วงวันที่เหมือนเดิม และ log เป็น warning ชัดเจนว่า “ไม่มีข้อมูลก่อนหน้า”
+
+### สิ่งที่ทำแล้ว
+- แก้ `Oatside/build_oatside_reports.py`:
+  - เพิ่ม `_resolve_diesel_price_for_date()` รองรับ `exact/carry_forward/base_fallback`
+  - ปรับ `trip_rate_baht()` ให้ใช้ carry-forward ก่อน fallback base rate
+  - เพิ่ม warning แบบ traceable ระบุวันที่ fallback และราคา source (`src_date`, `price`)
+  - เพิ่มสรุปท้าย build `Diesel price usage (trip records)` เพื่อรายงานจำนวนรายการ `exact/carry_forward/base_fallback`
+- Verify:
+  - `python -m py_compile Oatside/build_oatside_reports.py` ผ่าน
+  - `python Oatside/build_oatside_reports.py` ผ่าน (`Trips 105 / Unmatched 15`)
+  - สรุป fallback ล่าสุดจากข้อมูลที่มี: `exact=0, carry_forward=0, base_fallback=105` (เพราะ `diesel_price_history` ยังว่าง)
+
+### Action ถัดไป
+- เติม `diesel_price_history` รายวันอย่างน้อย 1 วันเริ่มต้นก่อนวันวิ่งแรกใน `Oatside/oatside_config.json` เพื่อให้ carry-forward ทำงานจริง
+- rerun `python Oatside/build_oatside_reports.py` และตรวจให้ `carry_forward > 0` พร้อมทวนยอดลูกค้า Apr/May เทียบไฟล์เดิม

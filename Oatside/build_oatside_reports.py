@@ -35,7 +35,8 @@ import openpyxl
 BIGC_EXACT = frozenset({"71-5041", "71-5042"})
 PLATE_HEAD = re.compile(r"^(\d{2}-\d{4})\b")
 DETAIL_KEY = re.compile(r"^\d+\.\d+$")
-_MISSING_DIESEL_WARNED: set[date] = set()
+_MISSING_DIESEL_ALL_WARNED: set[date] = set()
+_CARRY_FORWARD_DIESEL_WARNED: set[tuple[date, date]] = set()
 
 # ---------------------------------------------------------------------------
 # Config
@@ -431,16 +432,51 @@ def _trip_rate_rule(d: date, cfg: OatsideConfig) -> dict:
     return {"rate_baht": 7500, "base_fuel_min": 50.0, "base_fuel_max": 50.99, "step_pct_per_baht": 1.5}
 
 
+def _resolve_diesel_price_for_date(d: date, cfg: OatsideConfig) -> tuple[float | None, str, date | None]:
+    exact_price = cfg.diesel_price_history.get(d)
+    if exact_price is not None:
+        return float(exact_price), "exact", d
+
+    prior_dates = [dd for dd in cfg.diesel_price_history.keys() if dd <= d]
+    if prior_dates:
+        src_date = max(prior_dates)
+        return float(cfg.diesel_price_history[src_date]), "carry_forward", src_date
+
+    return None, "base_fallback", None
+
+
+def diesel_fallback_usage_summary(trips: Iterable[Any], cfg: OatsideConfig) -> dict[str, int]:
+    summary = {"exact": 0, "carry_forward": 0, "base_fallback": 0}
+    for t in trips:
+        fuel_price, source, _src_date = _resolve_diesel_price_for_date(t.trip_date, cfg)
+        if fuel_price is None:
+            source = "base_fallback"
+        summary[source] = summary.get(source, 0) + 1
+    return summary
+
+
 def trip_rate_baht(d: date, cfg: OatsideConfig) -> int:
-    """Look up trip rate by daily run date using config rules (first match wins)."""
+    """Look up trip rate by run date with carry-forward diesel fallback."""
     rule = _trip_rate_rule(d, cfg)
     base_rate = int(rule.get("rate_baht", 7500) or 7500)
-    fuel_price = cfg.diesel_price_history.get(d)
+    fuel_price, source, src_date = _resolve_diesel_price_for_date(d, cfg)
     if fuel_price is None:
-        if d not in _MISSING_DIESEL_WARNED:
-            _MISSING_DIESEL_WARNED.add(d)
-            print(f"[WARN] ไม่พบราคาน้ำมันไฮดีเซลวันที่ {d.isoformat()} — ใช้ base rate ตามช่วงวันที่")
+        if d not in _MISSING_DIESEL_ALL_WARNED:
+            _MISSING_DIESEL_ALL_WARNED.add(d)
+            print(
+                f"[WARN] ไม่พบราคาน้ำมันไฮดีเซลสำหรับ {d.isoformat()} (ไม่มีข้อมูลวันนั้นและไม่มีวันก่อนหน้า) "
+                "— ใช้ base rate ตามช่วงวันที่"
+            )
         return base_rate
+
+    if source == "carry_forward" and src_date is not None:
+        warn_key = (d, src_date)
+        if warn_key not in _CARRY_FORWARD_DIESEL_WARNED:
+            _CARRY_FORWARD_DIESEL_WARNED.add(warn_key)
+            print(
+                f"[WARN] ไม่พบราคาน้ำมันวันที่ {d.isoformat()} — ใช้ราคาล่าสุดย้อนหลัง "
+                f"{src_date.isoformat()} = {fuel_price:.2f} บาท/ลิตร"
+            )
     try:
         base_fuel_min = float(rule.get("base_fuel_min", 50.0))
     except (TypeError, ValueError):
@@ -458,7 +494,6 @@ def trip_rate_baht(d: date, cfg: OatsideConfig) -> int:
         except (TypeError, ValueError):
             pass
     return adjusted
-
 
 def manual_return_amount_baht(m: ManualExtraTrip, cfg: OatsideConfig) -> int:
     if m.amount_baht > 0:
@@ -3300,6 +3335,13 @@ def main() -> None:
 
     print(f"Config:  {_config_path()}")
     print(f"Trips: {len(trips)} | Unmatched legs: {len(unmatched)}")
+    fallback_summary = diesel_fallback_usage_summary(trips, cfg)
+    print(
+        "Diesel price usage (trip records): "
+        f"exact={fallback_summary.get('exact', 0)}, "
+        f"carry_forward={fallback_summary.get('carry_forward', 0)}, "
+        f"base_fallback={fallback_summary.get('base_fallback', 0)}"
+    )
     print(f"Excel:   {xlsx_out}")
     print(f"HTML:    {report_dir}")
 
