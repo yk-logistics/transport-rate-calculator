@@ -4658,6 +4658,38 @@ o_work_outbound_rows ใช้เรทตาม **วัน anchor R** ไม�
 
 ---
 
+## 2026-05-08 (Session Summary #156 - Oatside run-date fuel pricing + return 50%)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้สั่งแก้ Oatside แบบ end-to-end: คง base เดิม 7,500/8,000 ตามช่วงวันที่, ให้ราคาผันแปรตามน้ำมันไฮดีเซลรายวันโดยยึด “วันที่วิ่งงาน”, ปรับงานขากลับให้เก็บ 50%, ล็อก floor 6,500 เฉพาะเมษายน, และเพิ่ม policy เดือนถัดไป (May base 6,500 ที่ช่วง 31.00-31.99 + step 1.5% ต่อ 1 บาท)
+- กำชับว่า cutoff date ถ้ากำกวมให้ค้นจากโค้ดเดิมก่อน; ถ้ายังไม่ชัดให้ใช้ safe-default ที่ย้อนกลับได้
+
+### การตัดสินใจรอบนี้
+- ยืนยัน cutoff date เดิมจากโค้ด/คอนฟิกที่ encode แล้ว: `2026-04-12..2026-04-15 = 8,000` และนอกช่วงเป็น 7,500 (ไม่เดาสุ่มใหม่)
+- ขยายคอนฟิกให้แก้ย้อนหลังได้ (`trip_rates` + `diesel_price_history`) แทน hardcode logic ตายตัว
+- ใช้ safe-default แบบ traceable: ถ้าไม่มีราคาน้ำมันรายวันของวันที่วิ่ง จะ fallback base rate ตามช่วงวันที่พร้อม log warning ชัดเจน
+
+### สิ่งที่ทำแล้ว
+- แก้ `Oatside/build_oatside_reports.py`:
+  - `trip_rate_baht` เปลี่ยนเป็นคำนวณตามวันที่วิ่ง (`trip_date`) และรองรับ price ladder จากน้ำมันรายวัน
+  - เพิ่มโครงคอนฟิกสำหรับ base fuel range, step `%/บาท`, และ floor รายช่วงวันที่
+  - เพิ่ม warning เมื่อขาดราคาน้ำมันวันที่วิ่ง (safe-default: ใช้ base rate)
+  - ขยาย `manual_return_trips` ให้รองรับ `percent_of_trip_rate` เพื่อเคสขากลับ 50%
+- อัปเดต `Oatside/oatside_config.json`:
+  - ใส่กติกา Apr/May ตาม requirement
+  - เปลี่ยนตัวอย่างงานขากลับเป็น `percent_of_trip_rate: 50`
+  - เพิ่มช่อง `diesel_price_history` สำหรับข้อมูลย้อนหลังไฮดีเซล
+- Verify:
+  - `python -m py_compile Oatside/build_oatside_reports.py` ผ่าน
+  - `python Oatside/build_oatside_reports.py` รันจบ (Trips 105 / Unmatched 15) พร้อม warning วันที่ยังไม่มีน้ำมัน
+  - `start.bat` ขึ้นแอปได้และ `GET /health` ตอบ `{\"ok\":true,...}` บน `:8010`
+
+### Action ถัดไป
+- เติม `diesel_price_history` รายวันใน `Oatside/oatside_config.json` จากชุดย้อนหลังที่ผู้ใช้ยืนยัน แล้ว rerun build เพื่อให้ยอดผันแปรเป็นข้อมูลจริง 100%
+- ให้ผู้ใช้เทียบยอดหลังปรับใหม่กับไฟล์ลูกค้าเดิมเฉพาะช่วง Apr และ May
+
+---
+
 ## 2026-05-08 (Session Summary #155 - บันทึกผลตรวจ CC: Email Inbox/OAuth/Draft Daily/Grid)
 
 ### บริบทจากผู้ใช้

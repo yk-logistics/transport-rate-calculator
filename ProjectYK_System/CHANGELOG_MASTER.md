@@ -4,6 +4,8 @@
 
 ## 2026-05-08 (Claude Code review log: Email Inbox/OAuth/Draft Daily/Grid)
 
+- ปรับ `Oatside/build_oatside_reports.py` ให้คำนวณ `trip_rate_baht` ตาม **วันที่วิ่งงาน (trip_date)** + รองรับ `diesel_price_history` รายวันจาก config, ปรับกติกาฐานราคา Apr/May (Apr floor 6,500, May base 6,500 @ 31.xx, step 1.5%/บาท), และเพิ่ม `manual_return_trips` แบบ `percent_of_trip_rate` (งานขากลับ 50%)
+
 - บันทึกผลตรวจจากเซสชัน Claude Code: ตรวจไฟล์ `app/services/email_oauth.py`, `app/services/email_ingest.py`, `app/templates/email_inbox.html`, `app/templates/daily_grid.html` และ route ที่เกี่ยวข้องใน `app/main.py`
 - ยืนยันผล verify จาก CC: ผ่าน `python -m py_compile main.py services/email_ingest.py services/email_oauth.py`, ผ่าน `run_payroll_test.py`, และยืนยัน `dmy_hm` filter ยัง register ถูกต้อง
 - ยืนยัน flow จาก CC: `draft-daily -> daily_form -> daily/new` มีการ link `inbox_mail_id` แล้ว และไม่พบผลกระทบกับ payroll regression

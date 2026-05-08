@@ -35,6 +35,7 @@ import openpyxl
 BIGC_EXACT = frozenset({"71-5041", "71-5042"})
 PLATE_HEAD = re.compile(r"^(\d{2}-\d{4})\b")
 DETAIL_KEY = re.compile(r"^\d+\.\d+$")
+_MISSING_DIESEL_WARNED: set[date] = set()
 
 # ---------------------------------------------------------------------------
 # Config
@@ -43,6 +44,7 @@ DETAIL_KEY = re.compile(r"^\d+\.\d+$")
 @dataclass
 class OatsideConfig:
     trip_rates: list[dict]
+    diesel_price_history: dict[date, float]
     one_trip_surcharge_pct: float
     min_trips_per_truck: int
     max_travel_h: float
@@ -90,6 +92,7 @@ class ManualExtraTrip:
     plate: str
     amount_baht: int
     note: str = ""
+    percent_of_trip_rate: float | None = None
 
 
 
@@ -111,9 +114,35 @@ _DEFAULT_OUTBOUND_HALF_DATES: frozenset[date] = _recovery_dest_dates_from_no_wor
 
 _DEFAULT_CONFIG = OatsideConfig(
     trip_rates=[
-        {"from": "2026-04-12", "to": "2026-04-15", "rate_baht": 8000},
-        {"rate_baht": 7500},
+        {
+            "from": "2026-05-01",
+            "to": "2026-05-31",
+            "rate_baht": 6500,
+            "base_fuel_min": 31.00,
+            "base_fuel_max": 31.99,
+            "step_pct_per_baht": 1.5,
+        },
+        {
+            "from": "2026-04-12",
+            "to": "2026-04-15",
+            "rate_baht": 8000,
+            "base_fuel_min": 50.00,
+            "base_fuel_max": 50.99,
+            "step_pct_per_baht": 1.5,
+            "floor_rate_baht": 6500,
+        },
+        {
+            "from": "2026-04-01",
+            "to": "2026-04-30",
+            "rate_baht": 7500,
+            "base_fuel_min": 50.00,
+            "base_fuel_max": 50.99,
+            "step_pct_per_baht": 1.5,
+            "floor_rate_baht": 6500,
+        },
+        {"rate_baht": 7500, "base_fuel_min": 50.00, "base_fuel_max": 50.99, "step_pct_per_baht": 1.5},
     ],
+    diesel_price_history={},
     one_trip_surcharge_pct=50.0,
     min_trips_per_truck=2,
     max_travel_h=48.0,
@@ -146,9 +175,39 @@ _DEFAULT_CONFIG_JSON = {
     "version": 1,
     "_help": "แก้ไฟล์นี้เพื่อเปลี่ยนกฎการคิดเงิน แล้วรัน build_oatside_reports.py ใหม่",
     "trip_rates": [
-        {"_note": "ช่วงวันที่พิเศษ (สงกรานต์ 2026)", "from": "2026-04-12", "to": "2026-04-15", "rate_baht": 8000},
-        {"_note": "เรทปกติ (ใช้เมื่อไม่ตรงช่วงไหนข้างบน)", "rate_baht": 7500},
+        {
+            "_note": "May 2026: base 6,500 ที่ช่วงน้ำมัน 31.00-31.99 และผันแปร 1.5% ต่อ 1 บาท",
+            "from": "2026-05-01",
+            "to": "2026-05-31",
+            "rate_baht": 6500,
+            "base_fuel_min": 31.00,
+            "base_fuel_max": 31.99,
+            "step_pct_per_baht": 1.5
+        },
+        {
+            "_note": "April high window: base 8,000 ที่ช่วงน้ำมัน 50.00-50.99",
+            "from": "2026-04-12",
+            "to": "2026-04-15",
+            "rate_baht": 8000,
+            "base_fuel_min": 50.00,
+            "base_fuel_max": 50.99,
+            "step_pct_per_baht": 1.5,
+            "floor_rate_baht": 6500
+        },
+        {
+            "_note": "April normal window: base 7,500 ที่ช่วงน้ำมัน 50.00-50.99",
+            "from": "2026-04-01",
+            "to": "2026-04-30",
+            "rate_baht": 7500,
+            "base_fuel_min": 50.00,
+            "base_fuel_max": 50.99,
+            "step_pct_per_baht": 1.5,
+            "floor_rate_baht": 6500
+        },
+        {"_note": "fallback", "rate_baht": 7500, "base_fuel_min": 50.00, "base_fuel_max": 50.99, "step_pct_per_baht": 1.5}
     ],
+    "diesel_price_history": [],
+    "_note_diesel_price_history": "ราคาน้ำมันรายวัน (ไฮดีเซล) สำหรับคำนวณเรทตามวันที่วิ่ง; ตัวอย่าง: {\"date\":\"2026-04-01\",\"price\":50.5}",
     "one_trip_surcharge_pct": 50,
     "min_trips_per_truck_per_day": 2,
     "max_travel_h": 48,
@@ -217,6 +276,7 @@ def load_oatside_config() -> OatsideConfig:
     trip_rates = raw.get("trip_rates", _DEFAULT_CONFIG.trip_rates)
     if not isinstance(trip_rates, list) or not trip_rates:
         trip_rates = _DEFAULT_CONFIG.trip_rates
+    diesel_price_history = _parse_diesel_price_history(raw.get("diesel_price_history"))
 
     surcharge_pct = float(raw.get("one_trip_surcharge_pct", _DEFAULT_CONFIG.one_trip_surcharge_pct))
     min_trips = int(raw.get("min_trips_per_truck_per_day", _DEFAULT_CONFIG.min_trips_per_truck))
@@ -293,23 +353,13 @@ def load_oatside_config() -> OatsideConfig:
         for e in raw_rt:
             if not isinstance(e, dict):
                 continue
-            ds = str(e.get("dest_date", "")).strip()[:10]
-            pl = str(e.get("plate", "")).strip()
-            try:
-                amt = int(e.get("amount_baht", 0) or 0)
-            except (TypeError, ValueError):
-                amt = 0
-            note = str(e.get("note", "")).strip()
-            if len(ds) < 10 or not pl or amt <= 0:
-                continue
-            try:
-                dd = datetime.strptime(ds, "%Y-%m-%d").date()
-            except ValueError:
-                continue
-            return_list.append(ManualExtraTrip(dest_date=dd, plate=pl, amount_baht=amt, note=note))
+            item = _load_manual_return_entry(e)
+            if item:
+                return_list.append(item)
 
     return OatsideConfig(
         trip_rates=trip_rates,
+        diesel_price_history=diesel_price_history,
         one_trip_surcharge_pct=surcharge_pct,
         min_trips_per_truck=min_trips,
         max_travel_h=max_travel,
@@ -341,25 +391,87 @@ def load_oatside_config() -> OatsideConfig:
     )
 
 
-def trip_rate_baht(d: date, cfg: OatsideConfig) -> int:
-    """Look up trip rate for a given Dest_In date using config rules (first match wins)."""
+def _parse_diesel_price_history(raw_prices: Any) -> dict[date, float]:
+    prices: dict[date, float] = {}
+    if not isinstance(raw_prices, list):
+        return prices
+    for row in raw_prices:
+        if not isinstance(row, dict):
+            continue
+        ds = str(row.get("date", "")).strip()[:10]
+        if not ds:
+            continue
+        try:
+            dd = datetime.strptime(ds, "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        try:
+            px = float(row.get("price", 0) or 0)
+        except (TypeError, ValueError):
+            continue
+        if px > 0:
+            prices[dd] = px
+    return prices
+
+
+def _trip_rate_rule(d: date, cfg: OatsideConfig) -> dict:
     for rule in cfg.trip_rates:
         frm = rule.get("from")
         to = rule.get("to")
-        rate = rule.get("rate_baht")
-        if rate is None:
-            continue
         if frm and to:
             try:
                 d_from = datetime.strptime(str(frm), "%Y-%m-%d").date()
                 d_to = datetime.strptime(str(to), "%Y-%m-%d").date()
                 if d_from <= d <= d_to:
-                    return int(rate)
+                    return rule
             except ValueError:
                 continue
         else:
-            return int(rate)
-    return 7500
+            return rule
+    return {"rate_baht": 7500, "base_fuel_min": 50.0, "base_fuel_max": 50.99, "step_pct_per_baht": 1.5}
+
+
+def trip_rate_baht(d: date, cfg: OatsideConfig) -> int:
+    """Look up trip rate by daily run date using config rules (first match wins)."""
+    rule = _trip_rate_rule(d, cfg)
+    base_rate = int(rule.get("rate_baht", 7500) or 7500)
+    fuel_price = cfg.diesel_price_history.get(d)
+    if fuel_price is None:
+        if d not in _MISSING_DIESEL_WARNED:
+            _MISSING_DIESEL_WARNED.add(d)
+            print(f"[WARN] ไม่พบราคาน้ำมันไฮดีเซลวันที่ {d.isoformat()} — ใช้ base rate ตามช่วงวันที่")
+        return base_rate
+    try:
+        base_fuel_min = float(rule.get("base_fuel_min", 50.0))
+    except (TypeError, ValueError):
+        base_fuel_min = 50.0
+    try:
+        step_pct = float(rule.get("step_pct_per_baht", 1.5))
+    except (TypeError, ValueError):
+        step_pct = 1.5
+    step_delta = math.floor((fuel_price - base_fuel_min) + 1e-9)
+    adjusted = int(round(base_rate * (1 + (step_pct / 100.0) * step_delta)))
+    floor_raw = rule.get("floor_rate_baht")
+    if floor_raw is not None:
+        try:
+            adjusted = max(adjusted, int(floor_raw))
+        except (TypeError, ValueError):
+            pass
+    return adjusted
+
+
+def manual_return_amount_baht(m: ManualExtraTrip, cfg: OatsideConfig) -> int:
+    if m.amount_baht > 0:
+        return int(m.amount_baht)
+    if m.percent_of_trip_rate and m.percent_of_trip_rate > 0:
+        return int(round(trip_rate_baht(m.dest_date, cfg) * (float(m.percent_of_trip_rate) / 100.0)))
+    return 0
+
+
+def manual_return_label(m: ManualExtraTrip) -> str:
+    if m.percent_of_trip_rate and m.percent_of_trip_rate > 0:
+        return f"ค่าขนส่งขากลับ ({m.percent_of_trip_rate:.0f}% ของเที่ยวหลัก)"
+    return "ค่าขนส่งขากลับ (manual)"
 
 
 def config_rate_summary(cfg: OatsideConfig) -> str:
@@ -371,11 +483,50 @@ def config_rate_summary(cfg: OatsideConfig) -> str:
         to = rule.get("to")
         if rate is None:
             continue
+        try:
+            fuel_min = float(rule.get("base_fuel_min", 50.0))
+            fuel_max = float(rule.get("base_fuel_max", fuel_min + 0.99))
+            step_pct = float(rule.get("step_pct_per_baht", 1.5))
+        except (TypeError, ValueError):
+            fuel_min, fuel_max, step_pct = 50.0, 50.99, 1.5
+        floor_rate = rule.get("floor_rate_baht")
+        fuel_info = f"@{fuel_min:.2f}-{fuel_max:.2f}, step {step_pct:.2f}%/฿"
+        if floor_rate is not None:
+            try:
+                fuel_info += f", floor {int(floor_rate):,}"
+            except (TypeError, ValueError):
+                pass
         if frm and to:
-            parts.append(f"{frm}–{to}={rate:,}")
+            parts.append(f"{frm}–{to}={int(rate):,} {fuel_info}")
         else:
-            parts.append(f"ปกติ={rate:,}")
+            parts.append(f"ปกติ={int(rate):,} {fuel_info}")
     return " / ".join(parts) if parts else "7,500"
+
+
+def _load_manual_return_entry(e: dict[str, Any]) -> ManualExtraTrip | None:
+    ds = str(e.get("dest_date", "")).strip()[:10]
+    pl = str(e.get("plate", "")).strip()
+    note = str(e.get("note", "")).strip()
+    if len(ds) < 10 or not pl:
+        return None
+    try:
+        dd = datetime.strptime(ds, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+    try:
+        amt = int(e.get("amount_baht", 0) or 0)
+    except (TypeError, ValueError):
+        amt = 0
+    pct_raw = e.get("percent_of_trip_rate")
+    pct_val: float | None = None
+    if pct_raw is not None:
+        try:
+            pct_val = float(pct_raw)
+        except (TypeError, ValueError):
+            pct_val = None
+    if amt <= 0 and (pct_val is None or pct_val <= 0):
+        return None
+    return ManualExtraTrip(dest_date=dd, plate=pl, amount_baht=max(0, amt), note=note, percent_of_trip_rate=pct_val)
 
 
 # ---------------------------------------------------------------------------
@@ -960,7 +1111,7 @@ def build_trips(
 
 def base_trips_revenue_baht(trips: list[Trip], cfg: OatsideConfig) -> int:
     """Sum per-trip rate by Dest_In calendar day."""
-    return sum(trip_rate_baht(t.dest_date, cfg) for t in trips)
+    return sum(trip_rate_baht(t.trip_date, cfg) for t in trips)
 
 
 def one_trip_fifty_pct_details_origin24h(
@@ -1333,7 +1484,7 @@ def supplement_long_dest_wait_midnight_fifty(
         ov = overrides.get(key, {})
         if ov.get("action") == "exclude_50":
             continue
-        rate = trip_rate_baht(t.dest_date, cfg)
+        rate = trip_rate_baht(t.trip_date, cfg)
         if full_trip:
             sur = int(rate)
             pct_note = "เต็ม 1 เที่ยว (เรทวัน Dest_In)"
@@ -1640,7 +1791,7 @@ def trip_row_pricing_cells(
     return_baht: int = 0,
 ) -> str:
     """HTML <td>…×4 after wait columns: base rate, downtime+50, downtime+100, blank(no-work)+50."""
-    rate = trip_rate_baht(t.dest_date, cfg)
+    rate = trip_rate_baht(t.trip_date, cfg)
     ft = firsts.get((t.plate, t.dest_date))
     frs = fifty_by_lists.get((str(t.plate), t.dest_date), [])
     dw50 = dw100 = 0
@@ -2089,12 +2240,12 @@ def write_excel(
     ret_by_pd: dict[tuple[str, date], int] = {}
     for m in cfg.manual_return_trips:
         k = (str(m.plate), m.dest_date)
-        ret_by_pd[k] = int(ret_by_pd.get(k, 0)) + int(m.amount_baht)
+        ret_by_pd[k] = int(ret_by_pd.get(k, 0)) + manual_return_amount_baht(m, cfg)
     for t in sorted(trips, key=lambda x: (x.dest_date, x.plate, x.d_in)):
         dw_c = customer_idle_clip_dest_wait_h(t, cfg)
         clip = max(0.0, t.dest_wait_h - dw_c)
         cyc_c = max(0.0, t.total_cycle_h - clip)
-        rate = trip_rate_baht(t.dest_date, cfg)
+        rate = trip_rate_baht(t.trip_date, cfg)
         ft = firsts.get((t.plate, t.dest_date))
         frs = fifty_by_lists.get((str(t.plate), t.dest_date), [])
         dw50 = dw100 = 0
@@ -2125,7 +2276,7 @@ def write_excel(
         "Blank_run_baht", "Return_job_baht",
     ])
     for t in sorted(trips, key=lambda x: (x.dest_date, x.plate, x.d_in)):
-        rate = trip_rate_baht(t.dest_date, cfg)
+        rate = trip_rate_baht(t.trip_date, cfg)
         ft = firsts.get((t.plate, t.dest_date))
         frs = fifty_by_lists.get((str(t.plate), t.dest_date), [])
         dw50 = dw100 = 0
@@ -2234,7 +2385,7 @@ def write_excel(
     mr = wb.create_sheet("Manual_Return_Trips")
     mr.append(["Dest_In_date", "Plate", "Amount_baht", "Note"])
     for m in cfg.manual_return_trips:
-        mr.append([m.dest_date, m.plate, m.amount_baht, m.note])
+        mr.append([m.dest_date, m.plate, manual_return_amount_baht(m, cfg), m.note or manual_return_label(m)])
     nw = wb.create_sheet("NoWork_Outbound_50pct")
     nw.append(
         ["Dest_In_date", "Plate", "Site", "Dest_Row", "Trip_rate_baht", "Surcharge_baht_50pct", "Note"]
@@ -2533,7 +2684,7 @@ def apply_manual_extra_to_cpd(cpd_rows: list[dict], cfg: OatsideConfig) -> None:
 
 
 def sum_manual_return_baht(cfg: OatsideConfig) -> int:
-    return sum(m.amount_baht for m in cfg.manual_return_trips)
+    return sum(manual_return_amount_baht(m, cfg) for m in cfg.manual_return_trips)
 
 
 def merge_manual_return_into_pday(pday_rows: list[dict], cfg: OatsideConfig) -> None:
@@ -2555,10 +2706,11 @@ def merge_manual_return_into_pday(pday_rows: list[dict], cfg: OatsideConfig) -> 
                 break
         if not found:
             rate = trip_rate_baht(m.dest_date, cfg)
-            tag = esc(m.note) if m.note else "ค่าขนส่งขากลับ (manual)"
+            amt = manual_return_amount_baht(m, cfg)
+            tag = esc(m.note) if m.note else manual_return_label(m)
             badge = (
                 f"<span class='badge return-trip' title='{tag}'>"
-                f"ขากลับ +{m.amount_baht:,}฿</span>"
+                f"ขากลับ +{amt:,}฿</span>"
             )
             pday_rows.append(
                 {
@@ -2570,8 +2722,8 @@ def merge_manual_return_into_pday(pday_rows: list[dict], cfg: OatsideConfig) -> 
                     "base_line_baht": 0,
                     "fifty_pct_baht": 0,
                     "fifty_badge_html": badge,
-                    "return_trip_baht": int(m.amount_baht),
-                    "customer_day_baht": int(m.amount_baht),
+                    "return_trip_baht": int(amt),
+                    "customer_day_baht": int(amt),
                 }
             )
     pday_rows.sort(key=lambda r: (r["dest_date"], str(r["plate"])))
@@ -2584,10 +2736,11 @@ def merge_manual_return_into_audit(audit_rows: list[dict], cfg: OatsideConfig) -
             if str(r["plate"]) != m.plate or r.get("dest_date") != m.dest_date:
                 continue
             prev = int(r.get("return_trip_baht", 0) or 0)
-            r["return_trip_baht"] = prev + int(m.amount_baht)
-            r["customer_day_baht"] = int(r["customer_day_baht"]) + int(m.amount_baht)
+            amt = manual_return_amount_baht(m, cfg)
+            r["return_trip_baht"] = prev + int(amt)
+            r["customer_day_baht"] = int(r["customer_day_baht"]) + int(amt)
             extra = (
-                f" | ขากลับ (manual): {m.note} (+{m.amount_baht:,}฿)"
+                f" | ขากลับ (manual): {m.note} (+{amt:,}฿)"
                 if m.note
                 else f" | ขากลับ (manual) +{m.amount_baht:,}฿"
             )
@@ -2713,7 +2866,7 @@ def write_html(
     ret_by_pd: dict[tuple[str, date], int] = {}
     for m in cfg.manual_return_trips:
         k = (str(m.plate), m.dest_date)
-        ret_by_pd[k] = int(ret_by_pd.get(k, 0)) + int(m.amount_baht)
+        ret_by_pd[k] = int(ret_by_pd.get(k, 0)) + manual_return_amount_baht(m, cfg)
     _um_rows: list[str] = []
     for src, leg, _ in sorted(unmatched, key=lambda x: x[1].t_in):
         _dwell, _gap = um_leg_dwell_gap_h(leg, leg_timeline_by_plate.get(leg.plate))
