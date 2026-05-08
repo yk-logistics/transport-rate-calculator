@@ -251,6 +251,7 @@ tr.highlight-current.highlight-base{background:#d1fae5 !important}
       <div class="mini-actions" style="margin-top:8px">
         <button class="btn btn-sm btn-secondary" onclick="useHistoricalAverage()" id="useHistoryAverageBtn" disabled>ใช้ค่าเฉลี่ยที่คลุม</button>
         <button class="btn btn-sm btn-secondary" onclick="clearHistorySelection()" id="clearHistorySelectionBtn" disabled>ล้างการคลุม</button>
+        <button class="btn btn-sm btn-accent" onclick="exportHistoricalCsv()" id="exportHistoryCsvBtn" disabled>Export CSV ตารางย้อนหลัง</button>
       </div>
       <div class="history-fallback">
         <label class="field-label">ทางสำรอง: วางข้อมูลที่คัดลอกจากหน้าเว็บ</label>
@@ -2275,7 +2276,9 @@ function renderHistorySelectionInfo() {
   const box = document.getElementById('historyAvgBox');
   const btnUse = document.getElementById('useHistoryAverageBtn');
   const btnClear = document.getElementById('clearHistorySelectionBtn');
-  if (!box || !btnUse || !btnClear) return;
+  const btnExport = document.getElementById('exportHistoryCsvBtn');
+  if (!box || !btnUse || !btnClear || !btnExport) return;
+  btnExport.disabled = !historicalRows.length;
   const selected = Array.from(historicalSelection).sort(function(a, b) { return a - b; });
   if (!selected.length) {
     box.style.display = 'none';
@@ -2314,6 +2317,59 @@ function useHistoricalAverage() {
   }
   document.getElementById('fuelPrice').value = avg.toFixed(2);
   updateHistoryStatus('ใส่ราคาน้ำมันจากค่าเฉลี่ยที่คลุมแล้ว: ' + fmt(avg) + ' บ./ล.');
+}
+
+function csvEscape(value) {
+  const text = String(value == null ? '' : value);
+  if (/[",\n\r]/.test(text)) return '"' + text.replace(/"/g, '""') + '"';
+  return text;
+}
+
+function historyRangeForFilename() {
+  const dates = historicalRows
+    .map(function(r) { return thDateToDate(r.dateText); })
+    .filter(Boolean)
+    .sort(function(a, b) { return a - b; });
+  if (!dates.length) return null;
+  return {
+    from: dateToIso(dates[0]).replace(/-/g, ''),
+    to: dateToIso(dates[dates.length - 1]).replace(/-/g, '')
+  };
+}
+
+function exportHistoricalCsv() {
+  if (!historicalRows.length) {
+    alert('ยังไม่มีข้อมูลย้อนหลังให้ส่งออก');
+    return;
+  }
+  const cfg = fuelTypeConfig();
+  const range = historyRangeForFilename();
+  const selectedSet = new Set(Array.from(historicalSelection));
+  const lines = [
+    ['date', 'fuel_type', 'price_baht_per_liter', 'imputed', 'selected']
+  ];
+  historicalRows.forEach(function(row, idx) {
+    const d = thDateToDate(row.dateText);
+    lines.push([
+      d ? dateToIso(d) : row.dateText,
+      cfg.key,
+      Number.isFinite(row.value) ? row.value.toFixed(2) : '',
+      row.imputed ? '1' : '0',
+      selectedSet.has(idx) ? '1' : '0'
+    ]);
+  });
+  const csv = lines.map(function(cols) {
+    return cols.map(csvEscape).join(',');
+  }).join('\r\n');
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const suffix = range ? ('_' + range.from + '-' + range.to) : '';
+  a.href = url;
+  a.download = 'historical_oil_price_' + cfg.key + suffix + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function selectHistoryByDateRange() {

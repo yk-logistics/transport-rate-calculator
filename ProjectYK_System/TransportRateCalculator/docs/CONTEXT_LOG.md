@@ -4769,3 +4769,24 @@ o_work_outbound_rows ใช้เรทตาม **วัน anchor R** ไม�
 ### Action ถัดไป
 - ให้ผู้ใช้ทดสอบหน้าเครื่องคิดเรทจริง: ดึงย้อนหลัง -> คลุมช่วง -> กด Export CSV แล้วเปิดใน Excel เพื่อยืนยัน encoding ไทยและช่วงวันที่ในชื่อไฟล์
 - หากต้องใช้ส่งต่อทีมบัญชี ให้พิจารณาเพิ่มปุ่ม export เฉพาะ “ช่วงที่คลุม” เป็นไฟล์แยกในรอบถัดไป (ยังไม่ทำรอบนี้เพื่อคง behavior เดิม)
+
+---
+
+## 2026-05-08 (Session Summary #159 - Sync deploy index + publish GitHub Pages)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้แจ้งว่าหน้า `https://yk-logistics.github.io/transport-rate-calculator/` ยังไม่เห็นปุ่ม `Export CSV ตารางย้อนหลัง` แม้โค้ดใน `ProjectYK_System/TransportRateCalculator/transport_rate_calculator.html` มีแล้ว
+- ผู้ใช้ระบุว่า deploy path ต้อง sync ไป root `index.html` ก่อน push จึงจะอัปเดต GitHub Pages ถูกไฟล์
+
+### การตัดสินใจรอบนี้
+- ใช้แนวทาง deploy แบบปลอดภัยโดย sync ไฟล์ต้นทางไป root `index.html` ก่อน commit/push และไม่แตะไฟล์อื่นที่แก้ค้างใน working tree
+- ตรวจยืนยันผลทั้งระดับ git (commit แตะ `index.html`) และระดับ source string ว่ามีข้อความปุ่ม/ฟังก์ชัน export อยู่จริง
+
+### สิ่งที่ทำแล้ว
+- sync ไฟล์ deploy: คัดลอก `ProjectYK_System/TransportRateCalculator/transport_rate_calculator.html` -> `index.html`
+- commit + push ขึ้น `origin/main` เฉพาะไฟล์ที่เกี่ยวกับงานนี้ (`index.html`) พร้อม context docs ตามกติกาโปรเจกต์
+- ตรวจยืนยันว่า `index.html` มีทั้งข้อความ `Export CSV ตารางย้อนหลัง` และฟังก์ชัน `exportHistoricalCsv()` แล้ว
+
+### Action ถัดไป
+- รอ GitHub Pages deploy/caching ประมาณ 1-5 นาที หลัง push จากนั้น hard refresh (`Ctrl+F5`) เพื่อเคลียร์ cache browser
+- ถ้ายังไม่ขึ้น ให้ตรวจ source ของหน้าเว็บอีกครั้งว่ามี `exportHistoricalCsv` หรือไม่ก่อนสรุปว่าเป็นปัญหา cache/deploy lag

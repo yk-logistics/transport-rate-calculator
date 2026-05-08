@@ -575,3 +575,9 @@ B10. Manual link/review UI สำหรับ unmatched Caltex rows [next]
 - [next] หลังได้คำตอบ 2 ข้อด้านบน ค่อยแก้ `POST /daily/new` ให้ auto-linked ตาม policy ที่ยืนยัน (scope ไม่กระทบ payroll)
 - [next] ประเมินความเสี่ยง CDN ใน `/daily/grid` (Tabulator): ถ้าต้องรองรับ offline ให้เตรียม fallback asset ภายในโปรเจกต์หรือกำหนดนโยบายว่า online-only อย่างเป็นทางการ
 
+## 2026-05-08 Transport Rate Calculator deploy sync (GitHub Pages)
+
+- [done] sync ไฟล์ deploy path: คัดลอก `ProjectYK_System/TransportRateCalculator/transport_rate_calculator.html` -> root `index.html` เพื่อให้หน้า Pages ใช้โค้ดล่าสุด (มีปุ่ม `Export CSV ตารางย้อนหลัง` + `exportHistoricalCsv()`)
+- [done] push `origin/main` สำหรับ commit ที่แตะ `index.html` เพื่อแก้เคสหน้าเว็บไม่เห็นปุ่ม Export CSV ตารางย้อนหลัง
+- [next] หลัง push รอ GitHub Pages deploy/cdn cache ประมาณ 1-5 นาที แล้ว hard refresh (`Ctrl+F5`) หน้า `https://yk-logistics.github.io/transport-rate-calculator/`
+

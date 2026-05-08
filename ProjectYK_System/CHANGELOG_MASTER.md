@@ -2,6 +2,11 @@
 
 สรุปการตัดสินใจสำคัญระดับภาพรวมข้ามทุกโมดูล
 
+## 2026-05-08 (Transport Rate Calculator — sync deploy index + publish Export CSV button)
+
+- sync หน้า deploy โดยคัดลอก `ProjectYK_System/TransportRateCalculator/transport_rate_calculator.html` ไปที่ root `index.html` เพื่อให้ GitHub Pages ใช้ไฟล์ล่าสุดที่มีปุ่ม `Export CSV ตารางย้อนหลัง` และฟังก์ชัน `exportHistoricalCsv()`
+- push ขึ้น `origin/main` แล้วสำหรับ commit ที่แตะ `index.html` โดยตรง เพื่อแก้ปัญหาหน้าเว็บจริงไม่เห็นปุ่ม export
+
 ## 2026-05-08 (Transport Rate Calculator — export fuel history CSV)
 
 - เพิ่มปุ่ม `Export CSV ตารางย้อนหลัง` ใน `TransportRateCalculator/transport_rate_calculator.html` (Step 1 historical panel) เพื่อให้ผู้ใช้ดาวน์โหลดตารางราคาน้ำมันย้อนหลังจากข้อมูลที่โหลด/วางได้ทันที
