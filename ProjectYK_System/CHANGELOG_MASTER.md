@@ -2,6 +2,12 @@
 
 สรุปการตัดสินใจสำคัญระดับภาพรวมข้ามทุกโมดูล
 
+## 2026-05-08 (Oatside money 2dp standard + CSV exports + publish)
+
+- ปรับ `Oatside/build_oatside_reports.py` ให้ monetary presentation เป็น 2dp ทั้ง HTML และ Excel (`#,##0.00`) โดยคง logic คำนวณเดิมไม่ round ซ้ำหลายชั้น
+- เพิ่มการส่งออก `exports/*.csv` คู่กับ split Excel tables โดย format monetary columns เป็น 2dp (UTF-8 BOM) ครอบคลุมชุดคอลัมน์เงินหลัก (`Trip_rate_baht`, `Downtime_50_baht`, `Downtime_100_baht`, `Blank_run_50_baht`, `Return_job_baht`)
+- rerun `python Oatside/build_oatside_reports.py` แล้ว deploy publish ด้วย `deploy_oatside_report.ps1 -RepoPath transport-rate-calculator-repo -Push` สำเร็จที่ commit `4d203ab`
+
 ## 2026-05-08 (Oatside pricing mapping guardrail + publish deploy)
 
 - แก้ `Oatside/build_oatside_reports.py` ให้ mapping คอลัมน์ surcharge ชัดเจนขึ้น: ชีต `Trips_Pricing_All` เปลี่ยนชื่อคอลัมน์เป็น `Downtime_50_baht` / `Downtime_100_baht` / `Blank_run_50_baht` และคง `Return_job_baht`

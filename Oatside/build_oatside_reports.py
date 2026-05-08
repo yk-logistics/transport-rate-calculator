@@ -528,14 +528,14 @@ def config_rate_summary(cfg: OatsideConfig) -> str:
         fuel_info = f"@{fuel_min:.2f}-{fuel_max:.2f}, step {step_pct:.2f}%/฿"
         if floor_rate is not None:
             try:
-                fuel_info += f", floor {int(floor_rate):,}"
+                fuel_info += f", floor {fmt_money(floor_rate)}"
             except (TypeError, ValueError):
                 pass
         if frm and to:
-            parts.append(f"{frm}–{to}={int(rate):,} {fuel_info}")
+            parts.append(f"{frm}–{to}={fmt_money(rate)} {fuel_info}")
         else:
-            parts.append(f"ปกติ={int(rate):,} {fuel_info}")
-    return " / ".join(parts) if parts else "7,500"
+            parts.append(f"ปกติ={fmt_money(rate)} {fuel_info}")
+    return " / ".join(parts) if parts else "7,500.00"
 
 
 def _load_manual_return_entry(e: dict[str, Any]) -> ManualExtraTrip | None:
@@ -1867,10 +1867,10 @@ def trip_row_pricing_cells(
     nw_amt = trip_no_work_outbound_baht(t, first_no_work, cfg)
 
     def money_td(n: int) -> str:
-        return f"<td class='money'>{n:,}</td>" if n else "<td>—</td>"
+        return f"<td class='money'>{fmt_money(n)}</td>" if n else "<td>—</td>"
 
     return (
-        f"<td class='money'>{rate:,}</td>"
+        f"<td class='money'>{fmt_money(rate)}</td>"
         + money_td(dw50)
         + money_td(dw100)
         + money_td(nw_amt)
@@ -2064,13 +2064,14 @@ def beautify_oatside_workbook(wb) -> None:
                     cell.fill = fill
                 cell.alignment = Alignment(vertical="top", wrap_text=True)
                 if c in money_cols and isinstance(cell.value, (int, float)):
-                    cell.number_format = "#,##0"
+                    cell.number_format = "#,##0.00"
         ws.freeze_panes = f"A{hdr_row + 1}"
         ws.auto_filter.ref = f"A{hdr_row}:{get_column_letter(last_c)}{last_r}"
 
 
 def write_split_excel_exports(wb_path: Path, report_dir: Path, *, built_at: str) -> None:
     """Write one .xlsx per customer-facing table under report_dir/exports/."""
+    import csv
     from openpyxl import Workbook, load_workbook
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
@@ -2142,10 +2143,27 @@ def write_split_excel_exports(wb_path: Path, report_dir: Path, *, built_at: str)
                     cell.fill = fill
                 cell.alignment = Alignment(vertical="top", wrap_text=True)
                 if c in money_cols and isinstance(cell.value, (int, float)):
-                    cell.number_format = "#,##0"
+                    cell.number_format = "#,##0.00"
         tws.freeze_panes = f"A{hdr_r + 1}"
         tws.auto_filter.ref = f"A{hdr_r}:{get_column_letter(last_c)}{last_r}"
         nb.save(exp / fname)
+
+        csv_name = Path(fname).with_suffix(".csv").name
+        csv_path = exp / csv_name
+        with csv_path.open("w", newline="", encoding="utf-8-sig") as fcsv:
+            writer = csv.writer(fcsv)
+            for r in range(hdr_r, last_r + 1):
+                row_vals = []
+                for c in range(1, last_c + 1):
+                    v = tws.cell(r, c).value
+                    if c in money_cols and isinstance(v, (int, float)):
+                        row_vals.append(f"{float(v):.2f}")
+                    elif v is None:
+                        row_vals.append("")
+                    else:
+                        row_vals.append(v)
+                writer.writerow(row_vals)
+
         nb.close()
     src.close()
 
@@ -2512,6 +2530,14 @@ def esc(x) -> str:
     return html_module.escape(str(x), quote=True)
 
 
+def fmt_money(v: Any) -> str:
+    """Format monetary values as #,##0.00 for presentation only."""
+    try:
+        return f"{float(v):,.2f}"
+    except (TypeError, ValueError):
+        return "0.00"
+
+
 _TRIPS_FILTER_JS = (
     "<script>(function(){"
     "var sel=document.getElementById('tripsPlateFilter');"
@@ -2599,7 +2625,7 @@ def html_fifty_surcharge_badge(fr: dict, cfg: OatsideConfig) -> str:
         else:
             label = f"ค่าเสียเวลา +{pct:.0f}%"
             cls = "dwell"
-    return f"<span class='badge {cls}'>{label} ฿{amt:,}</span>"
+    return f"<span class='badge {cls}'>{label} ฿{fmt_money(amt)}</span>"
 
 
 def fmt_h(x: float) -> str:
@@ -2674,7 +2700,7 @@ def merge_manual_extra_into_pday(pday_rows: list[dict], cfg: OatsideConfig) -> N
                 tag = esc(m.note) if m.note else "เที่ยวเพิ่ม (ไม่มีใน GPS)"
                 badge = (
                     f"<span class='badge manual-extra' title='{tag}'>"
-                    f"เที่ยวเพิ่ม +{m.amount_baht:,}฿</span>"
+                    f"เที่ยวเพิ่ม +{fmt_money(m.amount_baht)}฿</span>"
                 )
                 prev = (r.get("fifty_badge_html") or "").strip()
                 r["fifty_badge_html"] = (prev + " " + badge).strip() if prev else badge
@@ -2685,7 +2711,7 @@ def merge_manual_extra_into_pday(pday_rows: list[dict], cfg: OatsideConfig) -> N
             tag = esc(m.note) if m.note else "เที่ยวเพิ่ม (ไม่มีใน GPS)"
             badge = (
                 f"<span class='badge manual-extra' title='{tag}'>"
-                f"เที่ยวเพิ่ม +{m.amount_baht:,}฿</span>"
+                f"เที่ยวเพิ่ม +{fmt_money(m.amount_baht)}฿</span>"
             )
             pday_rows.append(
                 {
@@ -2713,9 +2739,9 @@ def merge_manual_extra_into_audit(audit_rows: list[dict], cfg: OatsideConfig) ->
             r["customer_day_baht"] = int(r["customer_day_baht"]) + m.amount_baht
             r["matched_trips"] = int(r["matched_trips"]) + 1
             extra = (
-                f" | เที่ยวเพิ่ม (ไม่มีใน GPS): {m.note} (+{m.amount_baht:,}฿)"
+                f" | เที่ยวเพิ่ม (ไม่มีใน GPS): {m.note} (+{fmt_money(m.amount_baht)}฿)"
                 if m.note
-                else f" | เที่ยวเพิ่ม (ไม่มีใน GPS) +{m.amount_baht:,}฿"
+                else f" | เที่ยวเพิ่ม (ไม่มีใน GPS) +{fmt_money(m.amount_baht)}฿"
             )
             r["billing_note"] = str(r.get("billing_note", "")) + extra
             hit = True
@@ -2724,9 +2750,9 @@ def merge_manual_extra_into_audit(audit_rows: list[dict], cfg: OatsideConfig) ->
             continue
         rate = trip_rate_baht(m.dest_date, cfg)
         note = (
-            f"เที่ยวเพิ่ม (ไม่มีใน GPS): {m.note} (+{m.amount_baht:,}฿)"
+            f"เที่ยวเพิ่ม (ไม่มีใน GPS): {m.note} (+{fmt_money(m.amount_baht)}฿)"
             if m.note
-            else f"เที่ยวเพิ่ม (ไม่มีใน GPS) +{m.amount_baht:,}฿"
+            else f"เที่ยวเพิ่ม (ไม่มีใน GPS) +{fmt_money(m.amount_baht)}฿"
         )
         audit_rows.append(
             {
@@ -2775,7 +2801,7 @@ def merge_manual_return_into_pday(pday_rows: list[dict], cfg: OatsideConfig) -> 
                 tag = esc(m.note) if m.note else "ค่าขนส่งขากลับ (manual)"
                 badge = (
                     f"<span class='badge return-trip' title='{tag}'>"
-                    f"ขากลับ +{m.amount_baht:,}฿</span>"
+                    f"ขากลับ +{fmt_money(m.amount_baht)}฿</span>"
                 )
                 prev_b = (r.get("fifty_badge_html") or "").strip()
                 r["fifty_badge_html"] = (prev_b + " " + badge).strip() if prev_b else badge
@@ -2787,7 +2813,7 @@ def merge_manual_return_into_pday(pday_rows: list[dict], cfg: OatsideConfig) -> 
             tag = esc(m.note) if m.note else manual_return_label(m)
             badge = (
                 f"<span class='badge return-trip' title='{tag}'>"
-                f"ขากลับ +{amt:,}฿</span>"
+                f"ขากลับ +{fmt_money(amt)}฿</span>"
             )
             pday_rows.append(
                 {
@@ -2817,9 +2843,9 @@ def merge_manual_return_into_audit(audit_rows: list[dict], cfg: OatsideConfig) -
             r["return_trip_baht"] = prev + int(amt)
             r["customer_day_baht"] = int(r["customer_day_baht"]) + int(amt)
             extra = (
-                f" | ขากลับ (manual): {m.note} (+{amt:,}฿)"
+                f" | ขากลับ (manual): {m.note} (+{fmt_money(amt)}฿)"
                 if m.note
-                else f" | ขากลับ (manual) +{m.amount_baht:,}฿"
+                else f" | ขากลับ (manual) +{fmt_money(m.amount_baht)}฿"
             )
             r["billing_note"] = str(r.get("billing_note", "")) + extra
             hit = True
@@ -2828,9 +2854,9 @@ def merge_manual_return_into_audit(audit_rows: list[dict], cfg: OatsideConfig) -
             continue
         rate = trip_rate_baht(m.dest_date, cfg)
         note = (
-            f"ขากลับ (manual): {m.note} (+{m.amount_baht:,}฿)"
+            f"ขากลับ (manual): {m.note} (+{fmt_money(m.amount_baht)}฿)"
             if m.note
-            else f"ขากลับ (manual) +{m.amount_baht:,}฿"
+            else f"ขากลับ (manual) +{fmt_money(m.amount_baht)}฿"
         )
         audit_rows.append(
             {
@@ -3069,7 +3095,7 @@ def write_html(
         f"<td>{r['trips_that_day']}</td><td>{'Y' if r['auto_1trip'] else 'N'}</td>"
         f"<td>{esc(r.get('override_action',''))}</td><td>{esc(r.get('override_note',''))}</td>"
         f"<td>{esc(r.get('window_anchor',''))}</td><td>{esc(r.get('window_end',''))}</td>"
-        f"<td>{r['trip_rate_baht']:,}</td><td class='money'>{r['surcharge_baht']:,}</td>"
+        f"<td>{fmt_money(r['trip_rate_baht'])}</td><td class='money'>{fmt_money(r['surcharge_baht'])}</td>"
         f"<td>{html_fifty_surcharge_badge(r, cfg)}</td></tr>"
         for r in fifty_rows
     )
@@ -3079,11 +3105,11 @@ def write_html(
         f"<tr><td>{r.get('origin_day', r['dest_date'])}</td>"
         f"<td><a href='plates/{esc(r['plate'])}.html'>{esc(r['plate'])}</a></td>"
         f"<td><span class='badge {'bigc' if r['site']=='BigC' else 'lcb'}'>{r['site']}</span></td>"
-        f"<td>{r['matched_trips']}</td><td>{r['trip_rate_baht']:,}</td>"
-        f"<td>{r['base_line_baht']:,}</td>"
-        f"<td class='{'money' if r['fifty_pct_baht'] else ''}'>{r['fifty_pct_baht']:,}</td>"
-        f"<td class='money'>{int(r.get('return_trip_baht',0) or 0):,}</td>"
-        f"<td class='money'>{r['customer_day_baht']:,}</td>"
+        f"<td>{r['matched_trips']}</td><td>{fmt_money(r['trip_rate_baht'])}</td>"
+        f"<td>{fmt_money(r['base_line_baht'])}</td>"
+        f"<td class='{'money' if r['fifty_pct_baht'] else ''}'>{fmt_money(r['fifty_pct_baht'])}</td>"
+        f"<td class='money'>{fmt_money(int(r.get('return_trip_baht',0) or 0))}</td>"
+        f"<td class='money'>{fmt_money(r['customer_day_baht'])}</td>"
         f"<td class='note'>{esc(r['billing_note'])}</td></tr>"
         for r in audit_rows
     )
@@ -3124,10 +3150,10 @@ def write_html(
 <div class='sub'>{sub}</div>
 <div class='hero-trips'><div class='hero-copy'><div class='hero-tag'>แนะนำสำหรับลูกค้า</div><div class='hero-title'>เริ่มจากรายการเที่ยวทั้งหมด</div><div class='hero-sub'>เวลาเข้า-ออกครบ · ค่าขนส่ง / ส่วนเพิ่ม / ขากลับ — กรองทะเบียนได้ · ดาวน์โหลด Excel รายเที่ยวละเอียดได้จากปุ่มขวาบนหัวตารางในหน้าเที่ยวทั้งหมด</div></div><a class='btn-primary' href='trips.html'>เปิดเที่ยวทั้งหมด</a></div><div class='nav-secondary'><a href='trips.html'>ดูเที่ยวทั้งหมด</a> · <a href='exports/00_Full_Workbook.xlsx'>ดาวน์โหลด Excel รวมทุกชีต</a></div>
 <div class='grid'>
-<div class='card'><div class='label'>ค่าเที่ยวปกติ (A)</div><div class='value money'>{base_baht:,}</div></div>
-<div class='card'><div class='label'>ชาร์จเสริม ตีเปล่า/เสียเวลา/ข้ามคืน (C)</div><div class='value money'>{fifty_total_baht:,}</div></div>
-<div class='card'><div class='label'>No-work Recovery +50% (D)</div><div class='value money'>{nw_total_baht:,}</div></div>
-<div class='card'><div class='label'>รวมลูกค้า</div><div class='value money'>{customer_grand_baht:,}</div></div>
+<div class='card'><div class='label'>ค่าเที่ยวปกติ (A)</div><div class='value money'>{fmt_money(base_baht)}</div></div>
+<div class='card'><div class='label'>ชาร์จเสริม ตีเปล่า/เสียเวลา/ข้ามคืน (C)</div><div class='value money'>{fmt_money(fifty_total_baht)}</div></div>
+<div class='card'><div class='label'>No-work Recovery +50% (D)</div><div class='value money'>{fmt_money(nw_total_baht)}</div></div>
+<div class='card'><div class='label'>รวมลูกค้า</div><div class='value money'>{fmt_money(customer_grand_baht)}</div></div>
 </div>
 <details class='section-fold'><summary class='section-sum section-sum-row'><span class='sum-main'>(1) จำนวนเที่ยวต่อวัน (matched Dest_In)</span><span class='sum-dl'>{_xlsx_dl('01_CPD_MatchedTripsPerDay.xlsx', 'ตาราง (1)')}</span></summary>
 <div class='panel'>
@@ -3140,7 +3166,7 @@ def write_html(
 <div class='panel'>
 <p class='sub'>เรท: {config_rate_summary(cfg)} ฿/เที่ยว · คอลัมน์ส่วนเพิ่มแสดงได้หลายป้ายในวันเดียวกัน (เว้นวรรค) — ตีเปล่า = No-work recovery หรือ mark override; ค่าเสียเวลา = fifty; ข้ามคืนเต็มเที่ยว = +100% (หลัง override) · Policy: recovery-day บวกคู่กับ fifty หากมี (2026-05-01){'<br>ตาราง (2) นับตาม Dest_In · <b>Audit Log ด้านล่างคิดตาม วันงาน (Origin_In)</b>' if cfg.use_origin_day_fifty else ''}</p>
 <table><thead><tr><th>วันที่</th><th>ทะเบียน</th><th>Site</th><th>เที่ยว</th><th>เรท(฿)</th><th>ค่าเที่ยว(฿)</th><th>ส่วนเพิ่ม (฿)</th><th>ขากลับ(฿)</th><th>รวมวัน(฿)</th></tr></thead><tbody>
-{"".join(f"<tr><td>{r['dest_date']}</td><td><a href='plates/{esc(r['plate'])}.html'>{esc(r['plate'])}</a></td><td><span class='badge {'bigc' if r['site']=='BigC' else 'lcb'}'>{r['site']}</span></td><td>{r['matched_trips']}</td><td>{r['trip_rate_baht']:,}</td><td>{r['base_line_baht']:,}</td><td>{(r['fifty_badge_html'] if r.get('fifty_badge_html') else f"<span class='money'>{r['fifty_pct_baht']:,}</span>")}</td><td class='money'>{int(r.get('return_trip_baht',0) or 0):,}</td><td class='money'>{r['customer_day_baht']:,}</td></tr>" for r in pday_rows) or "<tr><td colspan=9>ไม่มีข้อมูล</td></tr>"}
+{"".join(f"<tr><td>{r['dest_date']}</td><td><a href='plates/{esc(r['plate'])}.html'>{esc(r['plate'])}</a></td><td><span class='badge {'bigc' if r['site']=='BigC' else 'lcb'}'>{r['site']}</span></td><td>{r['matched_trips']}</td><td>{fmt_money(r['trip_rate_baht'])}</td><td>{fmt_money(r['base_line_baht'])}</td><td>{(r['fifty_badge_html'] if r.get('fifty_badge_html') else f"<span class='money'>{fmt_money(r['fifty_pct_baht'])}</span>")}</td><td class='money'>{fmt_money(int(r.get('return_trip_baht',0) or 0))}</td><td class='money'>{fmt_money(r['customer_day_baht'])}</td></tr>" for r in pday_rows) or "<tr><td colspan=9>ไม่มีข้อมูล</td></tr>"}
 </tbody></table></div>
 </details>
 <details class='section-fold'><summary class='section-sum section-sum-row'><span class='sum-main'>(3) Unmatched — {len(unmatched)} legs เรียงตามเวลา</span><span class='sum-dl'>{_xlsx_dl('03_Unmatched_Legs.xlsx', 'ตาราง (3)')}</span></summary>

@@ -4919,3 +4919,32 @@ o_work_outbound_rows ใช้เรทตาม **วัน anchor R** ไม�
 ### Action ถัดไป
 - ให้ผู้ใช้เปิด URL publish จริงแบบ cache-bypass เพื่อตรวจรอบสุดท้าย: `https://yk-logistics.github.io/transport-rate-calculator/reports/oatside-pg-2026/index.html?nocache=commit-a0677c7`
 - ถ้าพบกรณีตัวเลขไม่คาดคิด ให้ยึดไฟล์ `09_Surcharge_50pct_1Trip.xlsx` เป็น source of truth แล้วใช้ guardrail ใหม่ตรวจย้อนกลับทันที
+
+
+---
+
+## 2026-05-08 (Session Summary #164 - Oatside monetary 2dp standardization end-to-end)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้สั่งให้ปรับราคาใน Oatside reports เป็นทศนิยม 2 ตำแหน่งแบบครบวงจร และย้ำให้แยกชัดระหว่าง logic คำนวณกับ formatting แสดงผล
+- ต้องครอบคลุมคอลัมน์เงินหลัก (trip rate, downtime 50/100, blank run 50, return job, total summary) พร้อม build ใหม่, deploy path จริง `reports/oatside-pg-2026`, และ push
+
+### การตัดสินใจรอบนี้
+- ล็อก policy ว่า **คำนวณคง precision เดิม** (ไม่บังคับ round กลางทาง) และทำ **2dp เฉพาะชั้นแสดงผล/ส่งออก** เพื่อกันยอดเพี้ยนจากการ round ซ้ำ
+- เพิ่ม CSV export ชุดเดียวกับตาราง XLSX (`exports/*.csv`) และบังคับ monetary columns เป็น `#.##` 2 ตำแหน่งแบบ UTF-8 BOM
+
+### สิ่งที่ทำแล้ว
+- แก้ `Oatside/build_oatside_reports.py`:
+  - เพิ่ม `fmt_money()` เป็น formatter กลาง (`#,##0.00`) สำหรับ HTML badges/tables/cards/summary
+  - เปลี่ยน Excel `number_format` ของคอลัมน์เงินเป็น `#,##0.00` ทั้ง workbook หลักและ split exports
+  - เพิ่มการปล่อยไฟล์ `exports/*.csv` ทุกตารางจาก `OATSIDE_EXPORT_TABLES` และ format monetary columns เป็น 2dp
+- รัน `python -m py_compile Oatside/build_oatside_reports.py` และ `python Oatside/build_oatside_reports.py` ผ่าน (`Trips 105 / Unmatched 15`, `exact=37, carry_forward=68, base_fallback=0`)
+- verify output จริง:
+  - HTML money cells ที่ตรวจ (`index.html`, `trips.html`, `plates/71-6802.html`) แสดง 2dp ครบ
+  - XLSX `exports/15_Trips_Pricing_All.xlsx` คอลัมน์ `Trip_rate_baht`, `Downtime_50_baht`, `Downtime_100_baht`, `Blank_run_50_baht`, `Return_job_baht` เป็น `#,##0.00`
+  - CSV `exports/15_Trips_Pricing_All.csv` แถวข้อมูลออกเป็น `7275.00,0.00,...` ตามมาตรฐาน
+- deploy publish สำเร็จด้วย `deploy_oatside_report.ps1 -RepoPath transport-rate-calculator-repo -Push` และ push ไป publish repo commit `4d203ab`
+
+### Action ถัดไป
+- ให้ผู้ใช้ตรวจหน้า live พร้อม cache-bypass ที่ `reports/oatside-pg-2026/index.html` และสุ่มเปิด `trips.html`/หน้า plate เพื่อ confirm 2dp ฝั่ง UI จริง
+- ถ้าจะบังคับ 2dp ต่อ reconciliation CSV ด้วย policy เดียวกัน ให้แยก task ปรับตัว generator ของ `reconciliation_*` เพิ่มในรอบถัดไป

@@ -4,7 +4,7 @@
 
 ## ⭐ Quick Status (2026-05-07 | Forward Insight benchmark -> One Platform UX uplift)
 
-- [done] สำรวจระบบตัวอย่างแบบลงหน้าใช้งานจริง: เมนูหลักครบ (`ขนส่ง/จัดซื้อ/บัญชี/บุคคล/ตั้งค่า`) + หน้ารายการ `Trip`, `Expense`, `Payroll` และหน้า detail เที่ยว
+- [done] Oatside monetary formatting 2dp end-to-end: ปรับ `build_oatside_reports.py` ให้แสดงผลเงิน 2 ตำแหน่งใน HTML/XLSX/CSV, rerun build, verify คอลัมน์หลัก (`Trip_rate_baht`, `Downtime_50_baht`, `Downtime_100_baht`, `Blank_run_50_baht`, `Return_job_baht`), และ deploy publish commit `4d203ab`\n- [next] ตรวจหน้า live แบบ cache-bypass และสุ่มยืนยัน 2dp บน `index/trips/plate` อีก 1 รอบก่อนส่งลูกค้า\n- [done] สำรวจระบบตัวอย่างแบบลงหน้าใช้งานจริง: เมนูหลักครบ (`ขนส่ง/จัดซื้อ/บัญชี/บุคคล/ตั้งค่า`) + หน้ารายการ `Trip`, `Expense`, `Payroll` และหน้า detail เที่ยว
 - [done] สกัด pattern ที่นำกลับมาใช้ได้ทันที: mega-menu รวมเมนูย่อย, action bar ระดับรายการ, workflow status เดียวข้ามโมดูล, table + filter หนาแน่นพร้อม export/report
 - [done] สร้าง checklist ปิดงานเมนู demo: `TransportRateCalculator/docs/FORWARD_INSIGHT_MENU_CHECKLIST.md` (สถานะ `[done]/[partial]/[todo]`)
 - [done] ปิดหมวด `การจัดซื้อ` ใน checklist ครบทุกหน้า (รอ loading overlay ก่อนคลิกทุกครั้ง): `expense`, `expense-item`, `stock`, `refuel`, `fuel-card`, `fuel-station`
