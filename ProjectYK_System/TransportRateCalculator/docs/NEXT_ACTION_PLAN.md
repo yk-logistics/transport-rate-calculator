@@ -108,6 +108,7 @@
 - [done] **ไฟล์ราคาแยกทั้งชุด**: `exports/15_Trips_Pricing_All.xlsx` (วันที่, ทะเบียน, ค่าขนส่ง, ค่าเสียเวลา 0/1 เที่ยว, ค่าตีเปล่า, ค่างานขากลับ) — Session #114
 - [done] **Oatside pricing run-date + fuel-linked**: `Oatside/build_oatside_reports.py` คิดเรทตาม `trip_date` โดยรองรับ `diesel_price_history` ใน `oatside_config.json`, ล็อก Apr base 7,500/8,000 (ฐานน้ำมัน 50.00-50.99 + floor 6,500), เพิ่ม May base 6,500 (ฐานน้ำมัน 31.00-31.99 + step 1.5%/บาท), และงานขากลับรองรับ `percent_of_trip_rate=50`
 - [done] **Oatside diesel fallback carry-forward**: ถ้าวันวิ่งไม่มีราคาน้ำมัน เปลี่ยนเป็นดึงราคาล่าสุดย้อนหลัง (`latest <= trip_date`) ก่อน; ถ้าไม่มีข้อมูลก่อนหน้าเลยค่อยใช้ base rate พร้อม warning traceable ระบุวัน/ราคา source และพิมพ์สรุปจำนวน `exact/carry_forward/base_fallback` ตอนจบ build
+- [done] **Oatside diesel history applied**: เติม `diesel_price_history` จาก user-provided historical table (Bangchak ไฮดีเซล S ปี 2569) จำนวน 19 anchor dates แล้ว rerun รายงานได้ `exact=22, carry_forward=83, base_fallback=0`
 - [done] **UX ลูกค้า**: hero ชี้ `trips.html` + Excel ขวาหัวแต่ละ `<details>` + ตัดบล็อกคำอธิบายสี — `patch_oatside_hero_xlsx_inline.py` — Session #107
 - [done] **`trips.html` + หน้า plate**: แถบ **แสดง/ซ่อนคอลัมน์** (checkbox + `localStorage`) สำหรับจอแคบ — `build_oatside_reports.py` + `apply_oatside_col_toggle.py` — Session #111
 - [done] **HTML Oatside — หลายป้าย/เซลล์ + ตีเปล่า (No-work recovery)**: รวม `nw_rows` ในคอลัมน์ส่วนเพิ่มตาราง (2); หน้า plate รองรับหลาย fifty ต่อวัน — `patch_oatside_multi_badge_nw.py`
@@ -117,8 +118,8 @@
 - [done] **default `use_origin_24h_fifty`: true** + **`customer_no_work` / recovery outbound 50%** (บรรทัด D + ชีต `NoWork_Outbound_50pct`) + **`Phantom_Trip_Candidates`** + **`Hints_DoubleOrigin`** + คอลัมน์ **`Nw_outbound50_baht`** — merge `oatside_config.json` แล้ว (Session #93)
 - [done] นโยบายวัน recovery + fifty: โอยืนยัน **เก็บคู่** (บวกทั้ง fifty ดาวน์ไทม์กับ No-work outbound 50% ได้) — แถว `Policy_recovery_plus_fifty` ในชีต Info ของรายงาน Excel
 - [next] โอเทียบยอดกับ Excel ชุดเดิมหลัง default origin24h + บรรทัด D
-- [next] เติม `diesel_price_history` รายวันใน `Oatside/oatside_config.json` จากข้อมูลย้อนหลังไฮดีเซลที่ยืนยันแล้ว แล้ว rerun `python Oatside/build_oatside_reports.py` เพื่อล็อกยอดผันแปรจริง
-- [next] หลังเติมน้ำมันย้อนหลังรอบแรก ให้ตรวจว่า output build มี `carry_forward > 0` (ไม่ใช่ `base_fallback` ทั้งหมด) แล้วค่อยยืนยันยอดลูกค้า Apr/May รอบปิดงาน
+- [done] เติม `diesel_price_history` ใน `Oatside/oatside_config.json` จากข้อมูลย้อนหลังไฮดีเซลที่ยืนยันแล้ว และ rerun `python Oatside/build_oatside_reports.py` เพื่อล็อกยอดผันแปรจริง
+- [done] หลังเติมน้ำมันย้อนหลังรอบแรก ตรวจแล้ว output build มี `carry_forward > 0` และ `base_fallback=0` (`exact=22, carry_forward=83, base_fallback=0`)
 - [done] **จำนวนเที่ยวต่อวัน (ลูกค้า)**: ชีต Excel **`Customer_Trips_Per_Day`** + ตารางบน **`index.html`** (matched ตามวัน `Dest_In` + จำนวนรถ) — `build_oatside_reports.py`
 - [done] **`match_plate` แบบปลายทางก่อน** (ต้นทางล่าสุดก่อน `Dest_In`) — ลด UM ผิดพลาด / ลดชน `demote_chronology_violations`; build ล่าสุด **105 / 15** + เอกสาร `OATSIDE_TRIP_PAIRING_MERGE_HANDOFF.md` §4
 - [done] **ปิดรวบ Origin ทั้งก้อน**: `enable_origin_chain_merge` default **false** + เอกสาร `OATSIDE_ORIGIN_CHAIN_MERGE_FIX.md` + build ชุด GPS **02.05.2026** (ตัวอย่าง `ProjectYK_System/tools/run_oatside_may02_build.py`)

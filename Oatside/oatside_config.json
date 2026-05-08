@@ -79,6 +79,102 @@
       "note": "ค่าขนส่งงานขากลับ 50% ของราคาเที่ยวหลัก"
     }
   ],
-  "diesel_price_history": [],
+  "diesel_price_history": [
+    {
+      "date": "2026-01-09",
+      "price": 29.94,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-02-18",
+      "price": 29.94,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-03-10",
+      "price": 29.94,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-03-18",
+      "price": 30.44,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-03-21",
+      "price": 31.14,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-03-24",
+      "price": 32.94,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-03-26",
+      "price": 38.94,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-03-31",
+      "price": 40.74,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-04-02",
+      "price": 44.24,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-04-03",
+      "price": 47.74,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-04-04",
+      "price": 47.74,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-04-05",
+      "price": 50.54,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-04-09",
+      "price": 48.4,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-04-11",
+      "price": 44.4,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-04-17",
+      "price": 42.9,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-04-21",
+      "price": 41.7,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-04-24",
+      "price": 40.2,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-05-01",
+      "price": 40.8,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-05-08",
+      "price": 39.95,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    }
+  ],
   "_note_diesel_price_history": "ราคาน้ำมันรายวัน (ไฮดีเซล) สำหรับคำนวณเรทตามวันที่วิ่ง; เติมจากข้อมูลย้อนหลังที่ผู้ใช้ให้"
 }

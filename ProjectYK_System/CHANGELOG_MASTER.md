@@ -2,6 +2,11 @@
 
 สรุปการตัดสินใจสำคัญระดับภาพรวมข้ามทุกโมดูล
 
+## 2026-05-08 (Oatside — user-provided diesel history applied)
+
+- เติม `Oatside/oatside_config.json` ช่อง `diesel_price_history` ด้วย anchor dates 19 จุดจาก user-provided historical table (Bangchak ไฮดีเซล S ปี 2569) เพื่อให้รายงาน Oatside คำนวณค่าขนส่งตามราคาน้ำมันจริงและใช้ carry-forward เมื่อไม่มี exact day
+- rerun `python Oatside/build_oatside_reports.py` แล้ว diesel usage เปลี่ยนเป็น `exact=22, carry_forward=83, base_fallback=0` จากทั้งหมด 105 trip records ยืนยันว่าไม่มีรายการกลับไปใช้ base fallback
+
 ## 2026-05-08 (Transport Rate Calculator — sync deploy index + publish Export CSV button)
 
 - sync หน้า deploy โดยคัดลอก `ProjectYK_System/TransportRateCalculator/transport_rate_calculator.html` ไปที่ root `index.html` เพื่อให้ GitHub Pages ใช้ไฟล์ล่าสุดที่มีปุ่ม `Export CSV ตารางย้อนหลัง` และฟังก์ชัน `exportHistoricalCsv()`

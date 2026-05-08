@@ -4790,3 +4790,28 @@ o_work_outbound_rows ใช้เรทตาม **วัน anchor R** ไม�
 ### Action ถัดไป
 - รอ GitHub Pages deploy/caching ประมาณ 1-5 นาที หลัง push จากนั้น hard refresh (`Ctrl+F5`) เพื่อเคลียร์ cache browser
 - ถ้ายังไม่ขึ้น ให้ตรวจ source ของหน้าเว็บอีกครั้งว่ามี `exportHistoricalCsv` หรือไม่ก่อนสรุปว่าเป็นปัญหา cache/deploy lag
+
+---
+
+## 2026-05-08 (Session Summary #160 - Oatside เติมราคาน้ำมันย้อนหลังจริง)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้ยืนยันว่า “ราคาค่าน้ำมันตามนี้น่าจะถูก” จากชุดข้อมูลย้อนหลังที่ส่งก่อนหน้าและภาพล่าสุด ให้ใช้คำนวณรายงาน Oatside ต่อทันที
+- ต้องใช้ราคาจาก user-provided historical table เท่านั้น และถ้าวันวิ่งไม่มี exact day ให้ใช้ carry-forward ตาม logic ล่าสุด ไม่เดาราคาเพิ่มจากแหล่งอื่น
+
+### การตัดสินใจรอบนี้
+- ใช้คอลัมน์ `ไฮดีเซล S` จากข้อมูล Bangchak ปี 2569 ที่ผู้ใช้ให้มา โดยแปลง พ.ศ. เป็น ค.ศ. (`yyyy-mm-dd`)
+- เติมเฉพาะ anchor dates ที่มีในตารางผู้ใช้ 19 จุด แล้วปล่อย `_resolve_diesel_price_for_date()` ทำ `exact -> carry_forward -> base_fallback`
+
+### สิ่งที่ทำแล้ว
+- แก้ `Oatside/oatside_config.json`:
+  - เติม `diesel_price_history` จำนวน 19 records พร้อม `source=user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)`
+- Rerun report:
+  - `python -m py_compile Oatside/build_oatside_reports.py` ผ่าน
+  - `python Oatside/build_oatside_reports.py` ผ่าน (`Trips 105 / Unmatched 15`)
+  - Diesel price usage: `exact=22, carry_forward=83, base_fallback=0`
+- ผลเชิง guardrail: มีการใช้ราคาน้ำมันจริงครบ 105 trip records และไม่มีรายการตกกลับไป base fallback
+
+### Action ถัดไป
+- ให้ผู้ใช้เทียบยอดรายงาน Oatside รอบใหม่กับ Excel ลูกค้าเดิมเฉพาะค่าขนส่ง/50%/ขากลับก่อนส่งลูกค้า
+- ถ้าพบยอดที่อยากล็อกต่างจากสูตรน้ำมัน ให้เพิ่มเป็น override รายวันที่ trace ได้ใน config แทนการแก้สูตรรวม
