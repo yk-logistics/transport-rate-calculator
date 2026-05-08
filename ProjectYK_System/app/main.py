@@ -1604,7 +1604,7 @@ def petty_list(
                 stmt_ = stmt_.where(
                     or_(
                         PettyCashTxn.driver_id.is_(None),
-                        ~PettyCashTxn.driver_id.in_(unknown_policy_driver_ids),
+                        PettyCashTxn.driver_id.in_(unknown_policy_driver_ids),
                     )
                 )
             if cycle:
