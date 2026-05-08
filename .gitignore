@@ -65,7 +65,7 @@ AccidentCases/*.jpg
 AccidentCases/*.png
 
 # Nested git repos (deployable subfolders — keep separate)
-transport-rate-calculator-repo/.git/
+transport-rate-calculator-repo/
 
 # Backups
 *.bak
