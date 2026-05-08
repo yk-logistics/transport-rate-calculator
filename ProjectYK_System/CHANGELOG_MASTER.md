@@ -4,6 +4,11 @@
 
 ## 2026-05-08 (Oatside money 2dp standard + CSV exports + publish)
 
+## 2026-05-08 (Oatside trips UI hotfix — move 71-5042 surcharge to +100%)
+
+- แก้รายงาน HTML ที่ใช้งานอยู่ (`reports/oatside-pg-2026/trips.html` และ `reports/oatside-pg-2026/plates/71-5042.html`) โดยย้ายยอด `6,546.00` ของแถวทะเบียน `71-5042` (Origin In `2026-04-21 12:28:30`) จากคอลัมน์ `เสียเวลา+50%` ไป `เสียเวลา+100%` ตามที่ผู้ใช้ตรวจพบ
+- คงค่าเงินอื่นเดิมทั้งหมดในแถวเดียวกัน (`ค่าขนส่ง 6,546.17`, `ตีเปล่า+50%=—`, `ขากลับ=—`) เพื่อลดความเสี่ยงกระทบยอดรวมส่วนอื่น
+
 ## 2026-05-08 (Oatside report cutoff — remove May from report window)
 
 - เพิ่ม config ช่วงรายงานใน `Oatside/build_oatside_reports.py` (`report_start_date` / `report_end_date`) และใช้กรองทั้ง matched trips + unmatched legs ตาม `trip_date`/วันของ leg เพื่อกันข้อมูลนอกช่วงไหลเข้ารายงาน

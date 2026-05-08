@@ -599,4 +599,5 @@ B10. Manual link/review UI สำหรับ unmatched Caltex rows [next]
 - [done] แก้ mapping guardrail คอลัมน์ `Downtime_50_baht`/`Downtime_100_baht` ใน `Oatside/build_oatside_reports.py` พร้อม regression check `_assert_pricing_bucket_mapping(...)` กันค่าสลับช่องเงียบๆ
 - [done] เปลี่ยนชื่อคอลัมน์ชีต `Trips_Pricing_All` ให้ตรงธุรกิจ: `Downtime_50_baht`, `Downtime_100_baht`, `Blank_run_50_baht`, `Return_job_baht`
 - [done] rebuild + publish deploy อีกครั้งสำเร็จที่ commit `a0677c7` และยืนยัน summary น้ำมัน `exact=37, carry_forward=68, base_fallback=0`
+- [done] hotfix หน้ารายงาน `trips.html`/`plates/71-5042.html`: ย้ายยอดแถว `71-5042` วันที่ `2026-04-21` จากคอลัมน์ `เสียเวลา+50%` ไป `เสียเวลา+100%` ตามการตรวจหน้างานของผู้ใช้ (ยอด `6,546.00`)
 
