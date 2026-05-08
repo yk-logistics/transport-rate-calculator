@@ -153,7 +153,22 @@
     {
       "date": "2026-04-17",
       "price": 42.9,
-      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569) — Apr17-20 corrected from typo 429 -> 42.90"
+    },
+    {
+      "date": "2026-04-18",
+      "price": 42.9,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569) — Apr17-20 corrected from typo 429 -> 42.90"
+    },
+    {
+      "date": "2026-04-19",
+      "price": 42.9,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569) — Apr17-20 corrected from typo 429 -> 42.90"
+    },
+    {
+      "date": "2026-04-20",
+      "price": 42.9,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569) — Apr17-20 corrected from typo 429 -> 42.90"
     },
     {
       "date": "2026-04-21",

@@ -2,10 +2,17 @@
 
 สรุปการตัดสินใจสำคัญระดับภาพรวมข้ามทุกโมดูล
 
+## 2026-05-08 (GitHub Pages — remove stale submodule gitlink)
+
+- ตรวจ root cause ของ GitHub Pages failure (`actions/runs/25545958948`) แล้วพบว่า fail ที่ step `Checkout` ด้วยข้อความ `No url found for submodule path 'transport-rate-calculator-repo' in .gitmodules`
+- แก้ใน repo `yk-logistics/transport-rate-calculator` โดยลบ gitlink mode `160000` ที่ path `transport-rate-calculator-repo` (ไม่มี `.gitmodules` อยู่แล้ว) และ push ขึ้น `main` เป็น commit `0243b51`
+- ยืนยันรอบใหม่ว่า workflow `pages build and deployment` run `25546755229` ผ่านจุด `Checkout` แล้ว (ไม่ติด error เดิม)
+
 ## 2026-05-08 (Oatside — user-provided diesel history applied)
 
 - เติม `Oatside/oatside_config.json` ช่อง `diesel_price_history` ด้วย anchor dates 19 จุดจาก user-provided historical table (Bangchak ไฮดีเซล S ปี 2569) เพื่อให้รายงาน Oatside คำนวณค่าขนส่งตามราคาน้ำมันจริงและใช้ carry-forward เมื่อไม่มี exact day
 - rerun `python Oatside/build_oatside_reports.py` แล้ว diesel usage เปลี่ยนเป็น `exact=22, carry_forward=83, base_fallback=0` จากทั้งหมด 105 trip records ยืนยันว่าไม่มีรายการกลับไปใช้ base fallback
+- แก้ typo ราคาช่วง 2026-04-17..2026-04-20 (ในตารางผู้ใช้พิมพ์ `429` เพราะลืมจุดทศนิยม) เป็น `42.90` ตามค่าจริงในแหล่งอ้างอิง แล้ว rerun รายงานได้ `exact=37, carry_forward=68, base_fallback=0`
 
 ## 2026-05-08 (Transport Rate Calculator — sync deploy index + publish Export CSV button)
 

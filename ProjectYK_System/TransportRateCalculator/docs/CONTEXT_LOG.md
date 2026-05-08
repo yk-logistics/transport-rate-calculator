@@ -4815,3 +4815,55 @@ o_work_outbound_rows ใช้เรทตาม **วัน anchor R** ไม�
 ### Action ถัดไป
 - ให้ผู้ใช้เทียบยอดรายงาน Oatside รอบใหม่กับ Excel ลูกค้าเดิมเฉพาะค่าขนส่ง/50%/ขากลับก่อนส่งลูกค้า
 - ถ้าพบยอดที่อยากล็อกต่างจากสูตรน้ำมัน ให้เพิ่มเป็น override รายวันที่ trace ได้ใน config แทนการแก้สูตรรวม
+
+---
+
+## 2026-05-08 (Session Summary #161 - ปิดบั๊ก GitHub Pages submodule path ค้าง)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้แจ้งว่าเว็บยังไม่อัปเดต และขอให้ตรวจครบลูปทั้งหน้า live + สถานะ Actions/Pages พร้อมแก้ให้จบถ้ายังติด error เดิมเรื่อง submodule path `transport-rate-calculator-repo`
+- ต้องยืนยันด้วยหลักฐานชัดเจนว่าหน้า live อัปเดตหรือยัง และถ้ายังไม่อัปเดตให้ตามจนรู้จุดค้าง
+
+### การตัดสินใจรอบนี้
+- ใช้ GitHub REST API แทน `gh` เนื่องจากเครื่องนี้ไม่มีคำสั่ง `gh` และตรวจสอบ run/job/annotations ได้ครบ
+- แก้เชิงโครงสร้างแบบปลอดภัยโดยลบเฉพาะ gitlink mode `160000` ที่ค้าง (`transport-rate-calculator-repo`) โดยไม่ force push และไม่แตะไฟล์โค้ดอื่น
+
+### สิ่งที่ทำแล้ว
+- ตรวจหน้า live root `https://yk-logistics.github.io/transport-rate-calculator/` และหน้า Oatside `.../reports/oatside-pg-2026/index.html`:
+  - root ยังไม่สะท้อนปุ่มข้อความ `Export CSV ตารางย้อนหลัง` ใน content ที่ดึงได้
+  - หน้า Oatside โหลดได้ปกติ (มีข้อมูลสรุป+ตาราง+ลิงก์ exports)
+- ตรวจ Actions:
+  - run `25545958948` (`head_sha=12e25e3`) fail ที่ job `build` step `Checkout`
+  - annotation ชี้สาเหตุชัดเจน `No url found for submodule path 'transport-rate-calculator-repo' in .gitmodules`
+- ตรวจ git tree ของ `origin/main` ใน repo pages แล้วพบ gitlink ค้างจริง:
+  - `160000 ... transport-rate-calculator-repo`
+- แก้และ push:
+  - ลบ gitlink ค้างด้วย `git rm --cached transport-rate-calculator-repo`
+  - commit `0243b51` แล้ว push ไป `main` (ไม่ force)
+- ตรวจรอบใหม่หลัง push:
+  - run `25546755229` ถูก trigger จาก `head_sha=0243b51`
+  - step `Checkout` ผ่านแล้ว (ปัญหาเดิมหาย)
+
+### Action ถัดไป
+- รอ workflow `pages build and deployment` ของ run `25546755229` จบทั้ง pipeline แล้ว recheck หน้า root อีกครั้งเพื่อยืนยันว่าขึ้นปุ่ม `Export CSV ตารางย้อนหลัง`
+- หลัง deploy เสร็จ ให้ hard refresh (`Ctrl+F5`) และตรวจ source อีกครั้งถ้าหน้ายังไม่เปลี่ยน เพื่อแยกเคส cache กับ deploy lag
+
+---
+
+## 2026-05-08 (Session Summary #161 - Oatside diesel typo fix Apr17-20)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้แจ้ง typo ในตารางย้อนหลังที่ส่งให้ก่อนหน้า: ช่วง `2026-04-17..2026-04-20` ค่าที่ถูกต้องคือ `42.90` ไม่ใช่ `429` (ลืมจุดทศนิยม)
+- ต้อง rerun build/verify ตามแผนเดิมก่อน commit/push และไม่สรุปงานเก่าซ้ำ
+
+### การตัดสินใจรอบนี้
+- เติม anchor date 4 จุด (`2026-04-17/18/19/20 = 42.90`) ลง `diesel_price_history` พร้อม source note ระบุว่าเป็นการแก้ typo `429 -> 42.90` เพื่อ trace ย้อนกลับได้
+- ไม่แตะวันอื่นที่ผู้ใช้ไม่ได้ระบุ ป้องกันการเดาราคาเพิ่ม
+
+### สิ่งที่ทำแล้ว
+- แก้ `Oatside/oatside_config.json` ขยาย `diesel_price_history` จาก 19 -> 22 records (เพิ่ม Apr 18/19/20 และคง Apr 17 พร้อม source note ใหม่)
+- rerun `python Oatside/build_oatside_reports.py` ผ่าน (`Trips 105 / Unmatched 15`)
+- Diesel price usage หลังแก้ typo: `exact=37, carry_forward=68, base_fallback=0`
+
+### Action ถัดไป
+- ให้ผู้ใช้ตรวจรายเที่ยวที่อยู่ระหว่าง 17-20 เม.ย. ว่ายอดค่าขนส่งสมเหตุสมผลก่อนส่งลูกค้า
