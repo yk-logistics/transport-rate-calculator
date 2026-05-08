@@ -455,10 +455,10 @@ def diesel_fallback_usage_summary(trips: Iterable[Any], cfg: OatsideConfig) -> d
     return summary
 
 
-def trip_rate_baht(d: date, cfg: OatsideConfig) -> int:
+def trip_rate_baht(d: date, cfg: OatsideConfig) -> float:
     """Look up trip rate by run date with carry-forward diesel fallback."""
     rule = _trip_rate_rule(d, cfg)
-    base_rate = int(rule.get("rate_baht", 7500) or 7500)
+    base_rate = float(rule.get("rate_baht", 7500) or 7500)
     fuel_price, source, src_date = _resolve_diesel_price_for_date(d, cfg)
     if fuel_price is None:
         if d not in _MISSING_DIESEL_ALL_WARNED:
@@ -486,7 +486,12 @@ def trip_rate_baht(d: date, cfg: OatsideConfig) -> int:
     except (TypeError, ValueError):
         step_pct = 1.5
     step_delta = math.floor((fuel_price - base_fuel_min) + 1e-9)
-    adjusted = int(round(base_rate * (1 + (step_pct / 100.0) * step_delta)))
+    if step_delta == 0:
+        adjusted = base_rate
+    elif step_delta > 0:
+        adjusted = round(base_rate * ((1 + step_pct / 100.0) ** step_delta), 2)
+    else:
+        adjusted = round(base_rate * ((1 - step_pct / 100.0) ** abs(step_delta)), 2)
     floor_raw = rule.get("floor_rate_baht")
     if floor_raw is not None:
         try:
@@ -499,7 +504,7 @@ def manual_return_amount_baht(m: ManualExtraTrip, cfg: OatsideConfig) -> int:
     if m.amount_baht > 0:
         return int(m.amount_baht)
     if m.percent_of_trip_rate and m.percent_of_trip_rate > 0:
-        return int(round(trip_rate_baht(m.dest_date, cfg) * (float(m.percent_of_trip_rate) / 100.0)))
+        return round(trip_rate_baht(m.dest_date, cfg) * (float(m.percent_of_trip_rate) / 100.0), 2)
     return 0
 
 
@@ -1294,7 +1299,7 @@ def plate_dest_day_rows(
                 synth = {
                     "plate": plate,
                     "dest_date": d,
-                    "trip_rate_baht": int(nr.get("trip_rate_baht", 0) or 0),
+                    "trip_rate_baht": float(nr.get("trip_rate_baht", 0) or 0),
                     "surcharge_baht": ns,
                     "fifty_kind": "no_work_outbound",
                 }
@@ -1339,7 +1344,7 @@ def plate_dest_day_rows(
                 synth = {
                     "plate": plate,
                     "dest_date": d,
-                    "trip_rate_baht": int(nr.get("trip_rate_baht", 0) or 0),
+                    "trip_rate_baht": float(nr.get("trip_rate_baht", 0) or 0),
                     "surcharge_baht": ns,
                     "fifty_kind": "no_work_outbound",
                 }
@@ -1808,7 +1813,7 @@ def _split_fifty_surcharge_50_100(frs: list[dict]) -> tuple[int, int]:
         elif k in ("downtime_dest", "downtime_origin_day", "origin24h"):
             a50 += sur
         else:
-            rate = int(r.get("trip_rate_baht", 0) or 0)
+            rate = float(r.get("trip_rate_baht", 0) or 0)
             if rate > 0 and sur >= rate:
                 a100 += sur
             else:
