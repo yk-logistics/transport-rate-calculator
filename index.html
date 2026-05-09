@@ -127,9 +127,26 @@ tr.highlight-current.highlight-base{background:#d1fae5 !important}
 .history-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
 .history-controls .input-group{margin-bottom:0;min-width:130px;flex:1}
 .history-date-range{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:end}
-.history-date-range .input-group{margin-bottom:0;min-width:150px;flex:1}
+.history-date-range .input-group{margin-bottom:0;min-width:220px;flex:1}
 .history-status{margin-top:8px;font-size:.8rem;color:var(--text-light)}
-.history-wrap{margin-top:10px;max-height:240px;overflow:auto;border:1px solid var(--border);border-radius:8px}
+.history-range-trigger{width:100%;border:1.5px solid var(--border);background:#fff;color:var(--text);border-radius:8px;padding:10px 12px;text-align:left;cursor:pointer;font-weight:500}
+.history-range-trigger:hover{border-color:var(--primary-light);background:#f8fafc}
+.history-range-help{margin-top:5px;font-size:.74rem;color:var(--text-light)}
+.history-calendar{width:100%;border:1px solid var(--border);border-radius:10px;padding:10px;background:#f8fafc}
+.history-calendar-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.history-calendar-title{font-weight:700;color:var(--primary);font-size:.9rem;text-align:center;flex:1}
+.history-calendar-nav{border:1px solid var(--border);background:#fff;border-radius:8px;padding:6px 9px;cursor:pointer}
+.history-calendar-nav:disabled{opacity:.4;cursor:not-allowed}
+.history-calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.history-calendar-dow{font-size:.72rem;color:var(--text-light);text-align:center;padding:4px 0}
+.history-calendar-day{border:1px solid transparent;background:#fff;border-radius:8px;padding:7px 0;font-size:.78rem;cursor:pointer;text-align:center}
+.history-calendar-day:hover{border-color:var(--primary-light);background:#eef6ff}
+.history-calendar-day.outside{opacity:.35}
+.history-calendar-day.disabled{color:#cbd5e1;background:#f1f5f9;cursor:not-allowed}
+.history-calendar-day.range{background:#dbeafe}
+.history-calendar-day.range-start,.history-calendar-day.range-end{background:var(--primary);color:#fff;font-weight:700}
+.history-wrap{margin-top:10px;height:240px;min-height:150px;max-height:520px;overflow:auto;resize:vertical;border:1px solid var(--border);border-radius:8px}
+.history-resize-hint{margin-top:4px;font-size:.72rem;color:var(--text-light);text-align:right}
 .history-fallback{margin-top:10px;border-top:1px dashed var(--border);padding-top:10px}
 .history-fallback textarea{width:100%;min-height:90px;padding:9px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:.8rem;resize:vertical}
 .history-table{width:100%;border-collapse:collapse;font-size:.82rem}
@@ -230,15 +247,17 @@ tr.highlight-current.highlight-base{background:#d1fae5 !important}
       <div class="history-status" id="historyStatus">กด "ดึงข้อมูลย้อนหลัง" เพื่อโหลดข้อมูลรายวันจากเว็บ</div>
       <div class="history-date-range">
         <div class="input-group">
-          <label class="field-label">ตั้งแต่ (ค.ศ.)</label>
-          <input type="date" id="historyDateFrom">
+          <label class="field-label">ช่วงวันที่ (ค.ศ.)</label>
+          <button type="button" class="history-range-trigger" id="historyRangeTrigger" onclick="toggleHistoryCalendar()">เลือกวันเริ่ม แล้วเลือกวันถึง</button>
+          <div class="history-range-help" id="historyRangeHelp">โหลดข้อมูลก่อน แล้วคลิกวันที่เริ่มและวันที่ถึงในปฏิทินเดียว</div>
         </div>
-        <div class="input-group">
-          <label class="field-label">ถึง (ค.ศ.)</label>
-          <input type="date" id="historyDateTo">
-        </div>
-        <div class="input-group" style="flex:0 0 auto;min-width:unset">
-          <button class="btn btn-sm btn-secondary" onclick="selectHistoryByDateRange()">เลือกช่วงแล้วเฉลี่ย</button>
+        <div class="history-calendar" id="historyCalendar" style="display:none">
+          <div class="history-calendar-head">
+            <button type="button" class="history-calendar-nav" id="historyCalendarPrev" onclick="moveHistoryCalendarMonth(-1)">ก่อนหน้า</button>
+            <div class="history-calendar-title" id="historyCalendarTitle">-</div>
+            <button type="button" class="history-calendar-nav" id="historyCalendarNext" onclick="moveHistoryCalendarMonth(1)">ถัดไป</button>
+          </div>
+          <div class="history-calendar-grid" id="historyCalendarGrid"></div>
         </div>
       </div>
       <div class="history-wrap" id="historyWrap" style="display:none">
@@ -247,6 +266,7 @@ tr.highlight-current.highlight-base{background:#d1fae5 !important}
           <tbody id="historyTableBody"></tbody>
         </table>
       </div>
+      <div class="history-resize-hint" id="historyResizeHint" style="display:none">ลากมุมล่างขวาของตารางเพื่อปรับความสูง</div>
       <div class="avg-box" id="historyAvgBox" style="display:none"></div>
       <div class="mini-actions" style="margin-top:8px">
         <button class="btn btn-sm btn-secondary" onclick="useHistoricalAverage()" id="useHistoryAverageBtn" disabled>ใช้ค่าเฉลี่ยที่คลุม</button>
@@ -638,6 +658,9 @@ let historicalRows = [];
 let historicalSelection = new Set();
 let historyDragStart = null;
 let historyDragging = false;
+let historyRangeStartIso = '';
+let historyRangeEndIso = '';
+let historyCalendarMonth = null;
 
 const OIL_SOURCES = [
   function(yearBe) {
@@ -2023,9 +2046,9 @@ function parsePriceCell(raw) {
 function fuelTypeConfig() {
   const type = document.getElementById('historyFuelType').value || 'diesel_s';
   if (type === 'premium_diesel') {
-    return { header: 'ไฮพรีเมียมดีเซล S (บาท/ลิตร)', index: 1 };
+    return { key: 'premium_diesel', header: 'ไฮพรีเมียมดีเซล S (บาท/ลิตร)', index: 1 };
   }
-  return { header: 'ไฮดีเซล S (บาท/ลิตร)', index: 2 };
+  return { key: 'diesel_s', header: 'ไฮดีเซล S (บาท/ลิตร)', index: 2 };
 }
 
 function extractRowsFromHistoricalMarkdown(md, cfg, yearBe) {
@@ -2182,25 +2205,165 @@ function fillMissingHistoricalDates(rows) {
 }
 
 function resetHistoryDateRangeInputs() {
-  const fromEl = document.getElementById('historyDateFrom');
-  const toEl = document.getElementById('historyDateTo');
-  if (!fromEl || !toEl || !historicalRows.length) return;
   const ds = historicalRows.map(function(r) { return thDateToDate(r.dateText); }).filter(Boolean).sort(function(a, b) { return a - b; });
   if (!ds.length) return;
-  fromEl.value = dateToIso(ds[0]);
-  toEl.value = dateToIso(ds[ds.length - 1]);
+  historyRangeStartIso = '';
+  historyRangeEndIso = '';
+  historyCalendarMonth = new Date(ds[ds.length - 1].getFullYear(), ds[ds.length - 1].getMonth(), 1);
+  updateHistoryRangeLabel();
+  renderHistoryCalendar();
 }
 
 function clearHistorySelection() {
   historicalSelection = new Set();
   historyDragStart = null;
   historyDragging = false;
+  historyRangeStartIso = '';
+  historyRangeEndIso = '';
+  updateHistoryRangeLabel();
+  renderHistoryCalendar();
   renderHistorySelectionInfo();
 }
 
 function updateHistoryStatus(msg) {
   const el = document.getElementById('historyStatus');
   if (el) el.textContent = msg;
+}
+
+function historyAvailableDateBounds() {
+  const dates = historicalRows
+    .map(function(r) { return thDateToDate(r.dateText); })
+    .filter(Boolean)
+    .sort(function(a, b) { return a - b; });
+  if (!dates.length) return null;
+  return { min: dates[0], max: dates[dates.length - 1] };
+}
+
+function historyAvailableIsoSet() {
+  return new Set(historicalRows.map(function(r) {
+    const d = thDateToDate(r.dateText);
+    return d ? dateToIso(d) : '';
+  }).filter(Boolean));
+}
+
+function formatHistoryRangeIso(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return dateToDisplayText(d);
+}
+
+function updateHistoryRangeLabel() {
+  const trigger = document.getElementById('historyRangeTrigger');
+  const help = document.getElementById('historyRangeHelp');
+  if (!trigger || !help) return;
+  if (!historicalRows.length) {
+    trigger.textContent = 'เลือกวันเริ่ม แล้วเลือกวันถึง';
+    help.textContent = 'โหลดข้อมูลก่อน แล้วคลิกวันที่เริ่มและวันที่ถึงในปฏิทินเดียว';
+    return;
+  }
+  const bounds = historyAvailableDateBounds();
+  const boundsText = bounds ? (dateToDisplayText(bounds.min) + ' ถึง ' + dateToDisplayText(bounds.max)) : '';
+  if (historyRangeStartIso && historyRangeEndIso) {
+    trigger.textContent = formatHistoryRangeIso(historyRangeStartIso) + ' ถึง ' + formatHistoryRangeIso(historyRangeEndIso);
+    help.textContent = 'เลือกครบแล้ว ระบบคลุมแถวและคำนวณเฉลี่ยให้ทันที';
+  } else if (historyRangeStartIso) {
+    trigger.textContent = 'เริ่ม ' + formatHistoryRangeIso(historyRangeStartIso) + ' — เลือกวันถึงต่อ';
+    help.textContent = 'ปฏิทินยังเปิดอยู่ คลิกวันที่ปลายทางเพื่อจบช่วง';
+  } else {
+    trigger.textContent = 'เลือกวันเริ่ม แล้วเลือกวันถึง';
+    help.textContent = boundsText ? ('ข้อมูลที่มี: ' + boundsText) : 'คลิกวันที่เริ่มและวันที่ถึงในปฏิทินเดียว';
+  }
+}
+
+function toggleHistoryCalendar() {
+  const cal = document.getElementById('historyCalendar');
+  if (!cal) return;
+  if (!historicalRows.length) {
+    alert('กรุณาดึงข้อมูลย้อนหลัง หรือวางข้อมูลแล้วแปลงก่อน');
+    return;
+  }
+  const willOpen = cal.style.display === 'none';
+  cal.style.display = willOpen ? '' : 'none';
+  if (willOpen) renderHistoryCalendar();
+}
+
+function moveHistoryCalendarMonth(delta) {
+  if (!historyCalendarMonth) {
+    const bounds = historyAvailableDateBounds();
+    if (!bounds) return;
+    historyCalendarMonth = new Date(bounds.max.getFullYear(), bounds.max.getMonth(), 1);
+  }
+  historyCalendarMonth = new Date(historyCalendarMonth.getFullYear(), historyCalendarMonth.getMonth() + delta, 1);
+  renderHistoryCalendar();
+}
+
+function sameIsoMonth(a, b) {
+  return a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+}
+
+function renderHistoryCalendar() {
+  const grid = document.getElementById('historyCalendarGrid');
+  const title = document.getElementById('historyCalendarTitle');
+  const prev = document.getElementById('historyCalendarPrev');
+  const next = document.getElementById('historyCalendarNext');
+  if (!grid || !title) return;
+  const bounds = historyAvailableDateBounds();
+  if (!bounds) {
+    grid.innerHTML = '';
+    title.textContent = '-';
+    return;
+  }
+  if (!historyCalendarMonth) historyCalendarMonth = new Date(bounds.max.getFullYear(), bounds.max.getMonth(), 1);
+  const monthNames = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  const shown = new Date(historyCalendarMonth.getFullYear(), historyCalendarMonth.getMonth(), 1);
+  title.textContent = monthNames[shown.getMonth()] + ' ' + shown.getFullYear();
+  if (prev) prev.disabled = sameIsoMonth(shown, new Date(bounds.min.getFullYear(), bounds.min.getMonth(), 1)) || shown < new Date(bounds.min.getFullYear(), bounds.min.getMonth(), 1);
+  if (next) next.disabled = sameIsoMonth(shown, new Date(bounds.max.getFullYear(), bounds.max.getMonth(), 1)) || shown > new Date(bounds.max.getFullYear(), bounds.max.getMonth(), 1);
+
+  const available = historyAvailableIsoSet();
+  const dow = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+  const cells = dow.map(function(d) { return '<div class="history-calendar-dow">' + d + '</div>'; });
+  const start = new Date(shown);
+  start.setDate(1 - start.getDay());
+  const rangeStart = historyRangeStartIso || '';
+  const rangeEnd = historyRangeEndIso || '';
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+    const iso = dateToIso(d);
+    const outside = d.getMonth() !== shown.getMonth();
+    const disabled = !available.has(iso);
+    const inRange = rangeStart && rangeEnd && iso >= rangeStart && iso <= rangeEnd;
+    let cls = 'history-calendar-day';
+    if (outside) cls += ' outside';
+    if (disabled) cls += ' disabled';
+    if (inRange) cls += ' range';
+    if (iso === rangeStart) cls += ' range-start';
+    if (iso === rangeEnd) cls += ' range-end';
+    const onclick = disabled ? '' : ' onclick="pickHistoryCalendarDate(\'' + iso + '\')"';
+    cells.push('<button type="button" class="' + cls + '"' + onclick + '>' + d.getDate() + '</button>');
+  }
+  grid.innerHTML = cells.join('');
+}
+
+function pickHistoryCalendarDate(iso) {
+  if (!historyRangeStartIso || (historyRangeStartIso && historyRangeEndIso)) {
+    historyRangeStartIso = iso;
+    historyRangeEndIso = '';
+    selectHistoryByDateRange(iso, iso, false);
+    updateHistoryStatus('เลือกวันเริ่มแล้ว: ' + formatHistoryRangeIso(iso) + ' — เลือกวันถึงต่อในปฏิทินเดียว');
+  } else {
+    if (iso < historyRangeStartIso) {
+      historyRangeEndIso = historyRangeStartIso;
+      historyRangeStartIso = iso;
+    } else {
+      historyRangeEndIso = iso;
+    }
+    selectHistoryByDateRange(historyRangeStartIso, historyRangeEndIso, true);
+    const cal = document.getElementById('historyCalendar');
+    if (cal) cal.style.display = 'none';
+  }
+  updateHistoryRangeLabel();
+  renderHistoryCalendar();
 }
 
 function renderHistoryTable() {
@@ -2213,6 +2376,8 @@ function renderHistoryTable() {
   if (!historicalRows.length) {
     body.innerHTML = '';
     wrap.style.display = 'none';
+    const resizeHintEmpty = document.getElementById('historyResizeHint');
+    if (resizeHintEmpty) resizeHintEmpty.style.display = 'none';
     renderHistorySelectionInfo();
     return;
   }
@@ -2225,6 +2390,8 @@ function renderHistoryTable() {
       '</tr>';
   }).join('');
   wrap.style.display = '';
+  const resizeHint = document.getElementById('historyResizeHint');
+  if (resizeHint) resizeHint.style.display = '';
   bindHistoryTableEvents();
   renderHistorySelectionInfo();
 }
@@ -2372,13 +2539,9 @@ function exportHistoricalCsv() {
   URL.revokeObjectURL(url);
 }
 
-function selectHistoryByDateRange() {
-  const fromEl = document.getElementById('historyDateFrom');
-  const toEl = document.getElementById('historyDateTo');
-  const fromIso = fromEl ? fromEl.value : '';
-  const toIso = toEl ? toEl.value : '';
+function selectHistoryByDateRange(fromIso, toIso, showStatus) {
   if (!fromIso || !toIso) {
-    alert('กรุณาเลือกวันที่ตั้งแต่-ถึงก่อน');
+    alert('กรุณาเลือกวันเริ่มและวันถึงก่อน');
     return;
   }
   const fromD = new Date(fromIso + 'T00:00:00');
@@ -2397,6 +2560,9 @@ function selectHistoryByDateRange() {
     alert('ไม่พบข้อมูลในช่วงวันที่ที่เลือก');
   }
   renderHistoryTable();
+  if (showStatus && historicalSelection.size) {
+    updateHistoryStatus('เลือกช่วงวันที่แล้ว: ' + formatHistoryRangeIso(fromIso) + ' ถึง ' + formatHistoryRangeIso(toIso) + ' (' + historicalSelection.size + ' วัน)');
+  }
 }
 
 async function loadHistoricalOilPrices() {
@@ -2432,7 +2598,7 @@ async function loadHistoricalOilPrices() {
   historicalRows = normalized.rows;
   renderHistoryTable();
   resetHistoryDateRangeInputs();
-  updateHistoryStatus('โหลดสำเร็จ ' + rows.length + ' วัน และเติมวันที่หายเพิ่ม ' + normalized.filledCount + ' วัน — คลุมช่วงหรือเลือกตั้งแต่-ถึงเพื่อหาเฉลี่ย');
+  updateHistoryStatus('โหลดสำเร็จ ' + rows.length + ' วัน และเติมวันที่หายเพิ่ม ' + normalized.filledCount + ' วัน — คลุมช่วงในตารางหรือเลือกช่วงวันที่ในปฏิทินเพื่อหาเฉลี่ย');
 }
 
 function parseHistoricalFromPaste() {
@@ -2451,7 +2617,7 @@ function parseHistoricalFromPaste() {
   clearHistorySelection();
   renderHistoryTable();
   resetHistoryDateRangeInputs();
-  updateHistoryStatus('แปลงข้อมูลสำเร็จ ' + rows.length + ' วัน และเติมวันที่หายเพิ่ม ' + normalized.filledCount + ' วัน — คลุมช่วงหรือเลือกตั้งแต่-ถึงเพื่อหาเฉลี่ย');
+  updateHistoryStatus('แปลงข้อมูลสำเร็จ ' + rows.length + ' วัน และเติมวันที่หายเพิ่ม ' + normalized.filledCount + ' วัน — คลุมช่วงในตารางหรือเลือกช่วงวันที่ในปฏิทินเพื่อหาเฉลี่ย');
 }
 
 document.getElementById('adjustPercent').addEventListener('input', function() {
