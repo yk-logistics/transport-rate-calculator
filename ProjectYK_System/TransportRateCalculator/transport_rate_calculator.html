@@ -2140,7 +2140,7 @@ function sortHistoricalRows(rows) {
   rows.sort(function(a, b) {
     const aa = thDateToIso(a.dateText);
     const bb = thDateToIso(b.dateText);
-    return aa < bb ? 1 : aa > bb ? -1 : 0;
+    return aa < bb ? -1 : aa > bb ? 1 : 0;
   });
 }
 
@@ -2459,11 +2459,15 @@ function renderHistorySelectionInfo() {
   const avg = sum / values.length;
   const min = Math.min.apply(null, values);
   const max = Math.max.apply(null, values);
-  const first = historicalRows[selected[0]];
-  const last = historicalRows[selected[selected.length - 1]];
+  const selectedDates = selected
+    .map(function(i) { return thDateToDate(historicalRows[i].dateText); })
+    .filter(Boolean)
+    .sort(function(a, b) { return a - b; });
+  const firstText = selectedDates.length ? dateToDisplayText(selectedDates[0]) : historicalRows[selected[0]].dateText;
+  const lastText = selectedDates.length ? dateToDisplayText(selectedDates[selectedDates.length - 1]) : historicalRows[selected[selected.length - 1]].dateText;
   box.style.display = '';
   box.innerHTML =
-    '<div><strong>สรุปช่วงที่คลุม:</strong> ' + first.dateText + ' ถึง ' + last.dateText + ' (' + values.length + ' วัน)</div>' +
+    '<div><strong>สรุปช่วงที่คลุม:</strong> ' + firstText + ' ถึง ' + lastText + ' (' + values.length + ' วัน)</div>' +
     '<div>ค่าเฉลี่ย: <strong>' + fmt(avg) + '</strong> บ./ล. | ต่ำสุด: ' + fmt(min) + ' | สูงสุด: ' + fmt(max) + '</div>';
   btnUse.disabled = false;
   btnClear.disabled = false;
