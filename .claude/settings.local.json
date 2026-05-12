@@ -9,7 +9,12 @@
       "Bash(python -c \"import sys; sys.stdout.buffer.write\\(sys.stdin.buffer.read\\(\\)\\)\")",
       "mcp__plugin_claude-mem_mcp-search__get_observations",
       "Bash(python -m py_compile main.py services/email_ingest.py services/email_oauth.py)",
-      "Bash(python \"c:\\\\Users\\\\Home\\\\Desktop\\\\Project YK\\\\ProjectYK_System\\\\tools\\\\run_payroll_test.py\")"
+      "Bash(python \"c:\\\\Users\\\\Home\\\\Desktop\\\\Project YK\\\\ProjectYK_System\\\\tools\\\\run_payroll_test.py\")",
+      "Bash(python \"ProjectYK_System/dev_scripts/reconcile_book3_vs_customer_summary.py\")",
+      "Bash(python -c \"import sys; [print\\(l\\) for l in sys.stdin.buffer.read\\(\\).decode\\('utf-8'\\).splitlines\\(\\)]\")",
+      "Bash(python tools/preflight_payrun.py --site AYU --run-id 7)",
+      "Bash(powershell -Command \"Get-WmiObject -Class Win32_OperatingSystem | Select-Object Caption, Version, TotalVisibleMemorySize, FreePhysicalMemory | Format-List\")",
+      "Bash(powershell -Command \"Get-WmiObject -Class Win32_VideoController | Select-Object Name, DriverVersion, AdapterRAM | Format-List\")"
     ]
   }
 }

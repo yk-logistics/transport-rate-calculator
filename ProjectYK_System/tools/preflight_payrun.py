@@ -104,9 +104,13 @@ def _build_employee_name_index(s: Session) -> dict[str, list[Employee]]:
     emps = s.exec(select(Employee).where(Employee.status != "deleted")).all()
     for e in emps:
         key = normalize_person_name(e.full_name or "")
-        if not key:
-            continue
-        idx[key].append(e)
+        if key:
+            idx[key].append(e)
+        # Also index by nickname so short names like "เอ๊ะ" match "บรรเจิด คุ้มพงษ์ (เอ๊ะ)"
+        if e.nickname:
+            nick_key = normalize_person_name(e.nickname)
+            if nick_key and nick_key != key:
+                idx[nick_key].append(e)
     return idx
 
 

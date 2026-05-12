@@ -2,12 +2,30 @@
 
 แผนงานลำดับถัดไป (เรียงตามความสำคัญ)
 
+## ⭐ Quick Status (2026-05-12 | Dev — paste คอลัมน์เฉพาะแถวมองเห็น)
+
+- [done] สคริปต์ `ProjectYK_System/dev_scripts/paste_visible_column.py` สำหรับคัดลอกคอลัมน์ระหว่างสอง `.xlsx` โดยข้ามแถว `hidden` (ใช้หลังบันทึกไฟล์ที่มี Filter/ซ่อนแถวแล้ว)
+- [next] ถ้าโอใช้บ่อยและอยากไม่พิมพ์ path ยาว ให้เพิ่ม preset JSON หรือ batch `.bat` สำหรับชุดไฟล์ประจำ
+
+## ⭐ Quick Status (2026-05-09 | Transport Rate Calculator date-range UX)
+
+- [done] ปรับ Step 1 หน้าเครื่องคิดเรท: เลือกช่วงวันที่น้ำมันย้อนหลังด้วยปฏิทินเดียว (`วันเริ่ม -> วันถึง`) แทนช่องแยก `ตั้งแต่/ถึง`
+- [done] ตารางย้อนหลัง `วันที่ / เรทน้ำมัน` ลากปรับความสูงขึ้นลงได้เอง และยังใช้ค่าเฉลี่ย/ล้าง/Export CSV ต่อได้
+- [done] sync ไฟล์ deploy path: `ProjectYK_System/TransportRateCalculator/transport_rate_calculator.html` -> root `index.html`
+- [done] แก้ summary วันที่ให้เรียงวันเริ่มก่อนวันสิ้นสุดเสมอ แม้ตารางย้อนหลังเรียงจากวันใหม่ไปวันเก่า
+- [done] แก้ตารางย้อนหลังให้เรียงวันเก่าอยู่บน / วันใหม่อยู่ล่าง
+- [next] ถ้าต้องให้หน้า live เห็นทันที ให้ push ขึ้น remote แล้วรอ GitHub Pages deploy/cache 1-5 นาที จากนั้น hard refresh
+
 ## ⭐ Quick Status (2026-05-08 | Token context — ประหยัด Conversation + ไฟล์ที่โตใน repo)
 
 - [done] เพิ่มกฎ `.cursor/rules/exec-brief-noncoder.mdc` (ตอบสั้น ภาษาคน ไม่อธิบายโค้ดโดยดีฟอลต์) คู่กับกฎเงิน/ข้อมูลเดิม
 - [done] เพิ่มเอกสาร `ProjectYK_System/docs/CONTEXT_TOKENS.md`, `CHANGELOG_POLICY.md`, `CHANGELOG_ARCHIVE.md`, `DOMAIN_AND_DIRECTION.md` และอัปเดต bootstrap / `AI_CURSOR_CLAUDE_WORKFLOW.md` / `MODULE_REGISTRY.md`
+- [done] Book3 (โฟลเดอร์ Downloads): ปรับคอลัมน์วันที่ให้ตรง `Trip_Date` + เรทน้ำมันตามตารางเม.ย. (ลำแถวคู่ Trip_Detail, guardrail ทะเบียน) — ใช้ `ProjectYK_System/dev_scripts/book3_align_date_fuel.py` + ไฟล์สำรอง `Book3.before_date_fuel_backup.xlsx`
+- [done] **รวบรวมความรู้โดเมน** — [`ProjectYK_System/docs/DOMAIN_AND_DIRECTION.md`](../../docs/DOMAIN_AND_DIRECTION.md) เขียนเติมจาก `CONTEXT_LOG` (session หลัก #7–10, #50–56, #74–94, #119–121) + อ้าง `SITE_PAYROLL_RULES.md` / กฎโปรเจกต์
 - [next] เมื่อ `CHANGELOG_MASTER.md` ยาวเกินประมาณ 800–1000 บรรทัด — ย้ายช่วงเก่าไป `ProjectYK_System/docs/CHANGELOG_ARCHIVE/*.md` ตามนโยบายใน `CHANGELOG_POLICY.md`
-- [next] ให้โอเติม `ProjectYK_System/docs/DOMAIN_AND_DIRECTION.md` เมื่อมีบริบทบริษัท/ทิศทางยาวๆ (ไม่ต้องพิมพ์ซ้ำในแชต)
+- [done] โอยืนยันข้อ **§13** ใน `DOMAIN_AND_DIRECTION.md` (2026-05-08): LCB ไม่แบ่ง = manual+จำครั้งถัดไป, SSO ฐานรายคน, 1DH อธิบาย+ล็อกใน `SITE_PAYROLL_RULES`, Line OA = โครงเดียวกับ One Platform
+- [done] Oatside reconcile Book3 — ถอด debug instrumentation: `reconcile_book3_vs_customer_summary.py` (ไม่ NDJSON), `reports/oatside-pg-2026/trips.html` + `plates/71-5042.html` (ไม่ `fetch` ingest), ลบ `debug-93be42.log`
+- [next] implement: ฟิลด์ Employee (ฐานประกันสังคม) + UI รายการไม่แบ่ง LCB + preset จำค่า
 
 ## ⭐ Quick Status (2026-05-07 | Forward Insight benchmark -> One Platform UX uplift)
 

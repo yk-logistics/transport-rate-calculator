@@ -5084,3 +5084,175 @@ o_work_outbound_rows ใช้เรทตาม **วัน anchor R** ไม�
 ### Action ถัดไป
 - เมื่อ Master changelog ยาวมากให้ย้ายช่วงเก่าตาม `CHANGELOG_POLICY.md`
 - ให้โอเติม `DOMAIN_AND_DIRECTION.md` เมื่อมีข้อเท็จจริงธุรกิจยาวๆ; ข้อมูลโครงสร้างคอลัมน์/ไซท์ยังสรุปเข้า `DATA_DICTIONARY.md` ตามเดิม
+
+---
+
+## 2026-05-08 (Session Summary #169 - Book3: วันที่ตาม Trip_Date + เรทน้ำมันปฏิทินเม.ย.)
+
+### บริบทจากผู้ใช้
+- ให้ปรับ `Book3.xlsx` ให้คอลัมน์วันที่ตรงกับ `Trip_Date` ในรายงาน Oatside (`05_Trip_Detail.xlsx`)
+- ให้ `Fuel rate` ตามตารางเรทดีเซลรายวันเดือนเม.ย. ที่ผู้ใช้แนบ — ถ้าวันที่/เรทตรงแล้วอย่าแตะเซลล์นั้น
+
+### การตัดสินใจรอบนี้
+- ใช้ลำแถวคู่กันระหว่าง Book3 และ Trip_Detail (103 แถว) และ **บังคับเช็ก `Plate`** แถวต่อแถว — ถ้าไม่ตรงให้หยุดไม่แก้
+- เปลี่ยนเฉพาะ A/C เมื่อค่าวันที่ (calendar) ไม่ตรง `Trip_Date` หรือ `Fuel rate` ต่างจาก lookup เกิน 0.02 — เซลล์ที่แตะได้พื้นเหลือง + เติม/ต่อข้อความคอมเมนต์
+- เก็บสำรอง `c:\Users\Home\Downloads\Book3.before_date_fuel_backup.xlsx` และเพิ่มสคริปต์เติม `ProjectYK_System/dev_scripts/book3_align_date_fuel.py`
+
+### สิ่งที่ทำแล้ว
+- รัน script ผ่าน: `rows book 103`, `trip_detail 103`, ไม่พบ Plate mismatch
+- ผลลัพธ์: แก้คอลัมน์ A **39 เซลล์**, แก้คอลัมน์ C (**Fuel rate**) **11 เซลล์**
+- ตัวอย่าง verify สุ่มวัน: วัน 9 → `48.4`, วัน 11 → `44.4`, วัน 21 → `41.7`, วัน 26 → `40.2`
+
+### Action ถัดไป
+- ถ้ายังเห็นป็อปอัพ Excel **Repairs / external links** ให้เปิด `Data → Edit Links` แล้ว **Break Links** หากไม่ใช้ลิงก์ภายนอกแล้ว
+- ถ้ามีเรทเม.ย. เกินระยะ 30 วันหรือปีถัดไป ให้อัปเดตตาราง `FUEL_BY_DAY` ใน `book3_align_date_fuel.py` หรือย้ายไป JSON config
+
+---
+
+## 2026-05-08 (Session Summary #170 - รวบรวมความรู้เก่าเข้า DOMAIN_AND_DIRECTION)
+
+### บริบทจากผู้ใช้
+- ขอให้จัดการรวบรวมข้อมูลเก่าจาก `CONTEXT_LOG` และแหล่งใน repo แทนการพิมพ์ซ้ำ — อนุญาตให้อ่าน log ยาวเพื่อเรียบเรียง
+
+### การตัดสินใจรอบนี้
+- สรุปเฉพาะ **โดเมน/ธุรกิจ** (3 ไซท์, payroll, ลูกค้า Oatside/BDT, เคส Direct-to-store, พื้นที่เช่าลาน, UX benchmark) — ไม่ใส่รายละเอียด hotfix HTML/deploy
+- ชี้ไป `SITE_PAYROLL_RULES.md`, `BIGC_BRANCH_RATE_SPEC.md`, กฎ `project-yk-context.mdc` แทนการคัดลอกตารางทีม/สถานการณ์เงินสดยาว
+- เก็บ **คำถามที่ยังเปิด** จาก Session #8 ไว้เป็นส่วน 13 ใน `DOMAIN_AND_DIRECTION.md` จนกว่าโอยืนยัน
+
+### สิ่งที่ทำแล้ว
+- เขียน [`ProjectYK_System/docs/DOMAIN_AND_DIRECTION.md`](../../docs/DOMAIN_AND_DIRECTION.md) ฉบับเต็ม พร้อมตารางอ้างอิง session
+- อัปเดต `CHANGELOG_MASTER.md`, `NEXT_ACTION_PLAN.md`
+
+### Action ถัดไป
+- โอเก็บทบทวนหมายข้อ **§13 คำถามที่ยังเปิด** และเติมรายละเอียดลูกค้าใหม่เมื่อต้องการล็อกในระบบ
+
+---
+
+## 2026-05-08 (Session Summary #171 - DOMAIN_AND_DIRECTION เติม §15 ทิศทางระยะยาว)
+
+### บริบทจากผู้ใช้
+- สั่ง **ต่อเลย** หลังแผนรวบรวมโดเมน — ต้องการให้งานสมบูรณ์ตามแผนรวมถึงหัวข้อทิศทางระบบ
+
+### การตัดสินใจรอบนี้
+- เพิ่ม **§15 ทิศทางผลิตภัณฑ์ระยะยาว** ใน `docs/DOMAIN_AND_DIRECTION.md` แบบสรุป + ลิงก์ไปกฎ/ `AGENTS.md` — ไม่ดึงข้อความยาวมาซ้ำ
+
+### สิ่งที่ทำแล้ว
+- อัปเดต `DOMAIN_AND_DIRECTION.md`, `CHANGELOG_MASTER.md`, `CONTEXT_LOG.md` (session นี้)
+
+### Action ถัดไป
+- ไม่บังคับ — เมื่อมี milestone ใหม่ (เช่น Line OA go-live) ให้เติม bullet ใน §15 หรืออ้าง session ใหม่ใน `CONTEXT_LOG`
+
+---
+
+## 2026-05-08 (Session Summary #172 - ปิดคำถาม §13: LCB / SSO / 1DH / Line OA)
+
+### บริบทจากผู้ใช้
+- ตอบชุดคำถามที่ค้างใน `DOMAIN_AND_DIRECTION.md` §13
+
+### การตัดสินใจรอบนี้
+- **LCB Mode B รายการไม่แบ่ง:** ไม่บังคับลิสต์ตายตัว — **manual** ต่อสถานการณ์; **ครั้งถัดไประบบจำ** preset/ค่าที่เคยเลือก
+- **ประกันสังคม:** ฐานคำนวณ **แล้วแต่คน** — ให้ **เลือกตอนลงทะเบียนคนขับ/สัญญา** (9,000 คงที่ vs ตามฐานจ่ายจริง) — รอฟิลด์ใน Employee
+- **BIGC `1DH`:** คำถามเดิมหมายถึงการคิดค่าขนส่งลูกค้าในแถวประเภทนี้ — สอดคล้องที่ล็อกใน Session #9 / ตาราง `SITE_PAYROLL_RULES`: **เรทสาขาปลายทาง เหมือนสาขาเดียว**
+- **Line OA:** **ไม่แยกโครงการ** — รวม One Platform เดียวกัน ใช้เฟสในแผน (เช่น Phase 5)
+
+### สิ่งที่ทำแล้ว
+- แทนที่ §13 ใน `DOMAIN_AND_DIRECTION.md` เป็นการตัดสินใจ + คำอธิบาย `1DH`
+- อัปเดต `SITE_PAYROLL_RULES.md` (§1.2, §3.2 Mode B, แถวตาราง `1DH`)
+
+### Action ถัดไป
+- เฟส implement: ฟิลด์ Employee สำหรับโหมดฐานประกันสังคม + UI สำหรับรายการไม่แบ่ง LCB + memory preset
+
+---
+
+## 2026-05-08 (Session Summary #173 - BIGC 1DH ยืนยันคำว่า «สาขาเดียว»)
+
+### บริบทจากผู้ใช้
+- ข้อความสั้น: **1DH สาขาเดียว**
+
+### การตัดสินใจรอบนี้
+- บันทึกเป็นคำยืนยันของผู้จัดการต่อกฎที่มีอยู่แล้ว — ใช้เรียกสั้นๆ ใน Daily/คุยทีมได้
+
+### สิ่งที่ทำแล้ว
+- เพิ่ม bullet ใน `DOMAIN_AND_DIRECTION.md` §13 และข้อความในแถว `1DH` ของ `SITE_PAYROLL_RULES.md`; `CHANGELOG_MASTER.md`
+
+### Action ถัดไป
+- ไม่บังคับ
+
+---
+
+## 2026-05-08 (Session Summary #174 - ลบ debug instrumentation หลังยืนยัน reconcile Book3)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้ยืนยันว่าเรื่องต่างกันระหว่างระบบกับ Book3 ชัดแล้ว และขอให้ถอด instrumentation
+
+### การตัดสินใจรอบนี้
+- เก็บสคริปต์ `reconcile_book3_vs_customer_summary.py` เป็นเครื่องมือ CLI พิมพ์ผลทาง stdout — ตัด NDJSON / session logging ออกทั้งหมด
+- ลบ `fetch` ไป ingest server ออกจาก `reports/oatside-pg-2026/trips.html` และ `reports/oatside-pg-2026/plates/71-5042.html` — คง logic `tuneTable` / `tuneDailyBadges` เดิม
+- ลบไฟล์ `debug-93be42.log` ในราก repo
+
+### สิ่งที่ทำแล้ว
+- ทำความสะอาดโค้ดตามด้านบน + grep ยืนยันไม่เหลือ `7685/ingest` ในโค้ด workspace
+
+### Action ถัดไป
+- ถ้า deploy Oatside report อีกครั้ง ให้ sync HTML ที่แก้ไป repo publish ตาม workflow เดิม
+
+---
+
+## 2026-05-09 (Session Summary #175 - Transport Rate Calculator date-range UX)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้ต้องการให้หน้าเครื่องคิดเรทราคาน้ำมันย้อนหลังเลือกวันที่แบบต่อเนื่อง: เลือกวันเริ่มแล้วปฏิทินไม่ปิด เพื่อเลือกวันถึงในชุดเดียว
+- ต้องการให้ตาราง `วันที่ / เรทน้ำมัน` ปรับความสูงเองได้ เพื่อเห็นแถวมากหรือน้อยตามหน้าจอ
+
+### การตัดสินใจรอบนี้
+- ใช้ custom mini calendar ในหน้าเดียวแทน `input type=date` สองช่อง (`ตั้งแต่` / `ถึง`) เพื่อคุม flow `วันเริ่ม -> วันถึง` ได้ตรงตาม UX ที่ต้องการ
+- คง selection/average/export เดิมไว้ และเพิ่มตารางแบบ `resize: vertical` โดยไม่แตะสูตรคำนวณค่าขนส่งหรือข้อมูลเงินเดือน
+
+### สิ่งที่ทำแล้ว
+- แก้ `ProjectYK_System/TransportRateCalculator/transport_rate_calculator.html` และ sync ไป root `index.html`
+- เพิ่ม state เลือกช่วงวันที่ (`historyRangeStartIso` / `historyRangeEndIso`) + calendar month navigation
+- เมื่อเลือกวันถึงครบ ระบบคลุมแถวในตารางและอัปเดตค่าเฉลี่ยทันที; ตารางย้อนหลังลากปรับความสูงได้
+- Verify ผ่าน local browser: วางข้อมูลตัวอย่าง, แปลงข้อมูล, เลือก `30/03/2026 -> 05/04/2026` ในปฏิทินเดียวได้; `ReadLints` ไม่พบ error
+
+### Action ถัดไป
+- ถ้าต้องเผยแพร่หน้า live ให้ push ขึ้น GitHub Pages แล้ว hard refresh หลัง deploy/cache ประมาณ 1-5 นาที
+
+---
+
+## 2026-05-09 (Session Summary #176 - Date summary order fix)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้ตรวจพบว่ากล่อง `สรุปช่วงที่คลุม` แสดงวันที่กลับด้าน เช่น `14/04/2026 ถึง 08/04/2026`
+- ต้องการให้แสดงวันที่เริ่มก่อนเสมอ
+- ผู้ใช้ขอเพิ่มให้ตารางย้อนหลังเรียงจากวันเก่าอยู่บนด้วย และให้ push หน้าเว็บ
+
+### การตัดสินใจรอบนี้
+- ปรับเฉพาะ logic แสดงผล summary ให้เรียงวันที่จริงจากเก่าไปใหม่ก่อนแสดงข้อความ โดยไม่เปลี่ยนลำดับตารางและไม่แตะสูตรคำนวณค่าเฉลี่ย
+- เปลี่ยน sort ตารางย้อนหลังเป็นเก่าไปใหม่ เพื่อให้การอ่านต่อเนื่องตามวันที่จริง
+
+### สิ่งที่ทำแล้ว
+- แก้ `renderHistorySelectionInfo()` ใน `ProjectYK_System/TransportRateCalculator/transport_rate_calculator.html` และ sync ไป root `index.html`
+- แก้ `sortHistoricalRows()` ให้เรียงวันที่เก่าอยู่บน / วันใหม่อยู่ล่าง
+- ตรวจ `ReadLints` แล้วไม่พบ error
+
+### Action ถัดไป
+- ถ้าต้องให้หน้า live เห็น fix นี้ ให้ commit/push `index.html` และไฟล์ต้นทางขึ้น GitHub Pages
+
+---
+
+## 2026-05-12 (Session Summary #177 - สคริปต์ Paste คอลัมน์เฉพาะแถวมองเห็น)
+
+### บริบทจากผู้ใช้
+- ต้องการโปรแกรมคล้าย Kutools: คัดลอกจากไฟล์หนึ่งไปอีกไฟล์ โดยวางเฉพาะช่องที่มองเห็น (แถวที่ถูก Filter/ซ่อนไม่ถูกแก้)
+
+### การตัดสินใจรอบนี้
+- ใช้ `openpyxl` (มีใน `app/requirements.txt` แล้ว) อ่าน/เขียน `.xlsx` โดยใช้ `row_dimensions.hidden` เป็นตัวแทน "แถวมองไม่เห็น"
+- จับคู่แบบลำดับแถวมองเห็นบน→ล่าง (ไม่ทำ key match วันที่/ทะเบียน) — โอต้องให้ Filter/ลำดับต้นทาง-ปลายทางสอดคล้องกันก่อนรัน
+- ข้อความ `argparse --help` เป็นภาษาอังกฤษเพื่อกันคอนโซล Windows cp1252 error; คู่มือภาษาไทยอยู่ใน docstring ไฟล์สคริปต์
+
+### สิ่งที่ทำแล้ว
+- เพิ่ม `ProjectYK_System/dev_scripts/paste_visible_column.py` (`--dry-run`, `--out`, `--inplace`, `--backup`, ช่วงแถว start/end)
+- ทดสอบด้วยไฟล์สังเคราะห์ + `--dst-end-row` เมื่อชีตปลายทางตัดแถวว่างท้ายชีต
+
+### Action ถัดไป
+- โอลอง `--dry-run` กับไฟล์จริงก่อนเสมอ; ถ้าปลายทางคอลัมน์ว่างจนสุดท้ายหลุดจากไฟล์ ให้ใส่ `--dst-end-row` / `--src-end-row` ชัดเจน

@@ -4,6 +4,47 @@
 
 > **Agent bootstrap:** อ่านเฉพาะ **3 หัวข้อ `##` แรกจากด้านบนลงมา** (ไม่รวมบรรทัดนี้) — **ห้าม**อ่านทั้งไฟล์ทุกแชต. นโยบาย/การย้าย archive: [`ProjectYK_System/docs/CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md)
 
+## 2026-05-12 (Dev tool — Paste คอลัมน์เฉพาะแถวมองเห็นระหว่างสอง .xlsx)
+
+- เพิ่ม `ProjectYK_System/dev_scripts/paste_visible_column.py` — อ่านค่าจากคอลัมน์ต้นทางเฉพาะแถวที่ไม่ `row hidden` แล้วเขียนลงคอลัมน์ปลายทางตามลำดับแถวมองเห็น; รองรับ `--dry-run`, `--out`, `--inplace` + `--backup`; ข้อความ `--help` เป็นภาษาอังกฤษเพื่อหลีกเลี่ยง encoding บน Windows console
+
+## 2026-05-09 (Transport Rate Calculator — fuel date-range UX)
+
+- ปรับหน้าเครื่องคิดเรทราคาน้ำมันย้อนหลัง: เปลี่ยน `ตั้งแต่/ถึง` สองช่องเป็นปฏิทินเลือกช่วงเดียว (`วันเริ่ม -> วันถึง`) และทำตารางวันที่/เรทน้ำมันให้ลากปรับความสูงได้เอง; sync `ProjectYK_System/TransportRateCalculator/transport_rate_calculator.html` -> root `index.html`
+- Fix เพิ่ม: กล่อง `สรุปช่วงที่คลุม` เรียงวันที่เริ่มก่อนวันที่สิ้นสุดเสมอ และตารางย้อนหลังเรียงวันเก่าอยู่บน / วันใหม่อยู่ล่าง
+
+## 2026-05-09 (AYU run7 — nickname index fix, 33→5 unresolved)
+
+- **root cause:** `_build_employee_name_index` ใน `tools/preflight_payrun.py` index แค่ `full_name` ไม่รวม `nickname` → ทำให้ชื่อสั้นอย่าง "เอ๊ะ" / "ช่างน้อย" / "ข้าวฟ่าง" หาไม่เจอแม้ employee มีอยู่ใน DB
+- **fix:** เพิ่ม nickname index ใน `_build_employee_name_index` + เพิ่ม AYU aliases ใน `app/services/alias_map.py` (เอ๊ะ, ช่างน้อย, ข้าวฟ่าง)
+- **ผล:** unresolved 33 → 5, quick_win 0 → 28 (฿18,666)
+- **เหลือ:** 5 รายการ "สมัย อยุธยา" (฿5,050) — ไม่เจอในระบบ ต้องสร้าง employee ใหม่; 13 quick_win เป็น LCB cross-site ต้องให้โอยืนยัน
+- **decision doc:** `reports/preflight_unresolved_queue/AYU_run7_decision_needed.md`
+
+## 2026-05-08 (BIGC 1DH — โอยืนยันคำว่า «สาขาเดียว»)
+
+- บันทึกใน [`DOMAIN_AND_DIRECTION.md`](ProjectYK_System/docs/DOMAIN_AND_DIRECTION.md) และ [`SITE_PAYROLL_RULES.md`](ProjectYK_System/TransportRateCalculator/docs/SITE_PAYROLL_RULES.md)
+
+## 2026-05-08 (Oatside — ถอด debug instrumentation หลัง reconcile Book3)
+
+- ทำความสะอาด `ProjectYK_System/dev_scripts/reconcile_book3_vs_customer_summary.py` (ไม่เขียน NDJSON) + ลบ `fetch` ingest จาก `reports/oatside-pg-2026/trips.html` และ `reports/oatside-pg-2026/plates/71-5042.html` — คง client-side recalc เดิม
+
+## 2026-05-08 (Payroll domain — LCB ไม่แบ่ง manual + SSO base รายคน + BIGC 1DH + Line OA scope)
+
+- โอยืนยัน: LCB Mode B รายการไม่แบ่ง — **manual + ระบบจำครั้งถัดไป** (ไม่ล็อกลิสต์ตายตัว); ประกันสังคม — **เลือกได้รายคนตอนลงทะเบียนคนขับ**; BIGC `1DH` — อธิบายความหมายคำถาม + ล็อกว่าคิดเรทปลายทางเหมือนสาขาเดียว; Line OA — **โครงเดียวกับ One Platform** (เฟส 5) — อัปเดต [`DOMAIN_AND_DIRECTION.md`](ProjectYK_System/docs/DOMAIN_AND_DIRECTION.md) §13 และ [`SITE_PAYROLL_RULES.md`](ProjectYK_System/TransportRateCalculator/docs/SITE_PAYROLL_RULES.md)
+
+## 2026-05-08 (DOMAIN_AND_DIRECTION — เติม §15 ทิศทางผลิตภัณฑ์ระยะยาว)
+
+- [`ProjectYK_System/docs/DOMAIN_AND_DIRECTION.md`](ProjectYK_System/docs/DOMAIN_AND_DIRECTION.md): เพิ่มหัวข้อ **§15** สรุปสั้น CFO / Driver PWA / LINE Messaging / Open-Book พร้อมชี้ `.cursor/rules/project-yk-context.mdc` และ `AGENTS.md` — ไม่ซ้ำข้อความยาว
+
+## 2026-05-08 (DOMAIN_AND_DIRECTION — รวบรวมความรู้โดเมนจาก CONTEXT_LOG)
+
+- เขียน [`ProjectYK_System/docs/DOMAIN_AND_DIRECTION.md`](ProjectYK_System/docs/DOMAIN_AND_DIRECTION.md) ใหม่แบบมีโครงสร้าง: 3 ไซท์, payroll/cycle, BIGC/Oatside/BDT, เคสเสนอราคา Direct-to-store, พื้นที่เช่าลาน, ความเสี่ยงข้อมูล — อ้างอิง session ใน `CONTEXT_LOG.md` เป็นต้นทาง ไม่เดาข้อเท็จจริงนอก log
+
+## 2026-05-08 (Oatside — Book3 alignment: Trip_Date + ตารางเรทน้ำมันเม.ย.)
+
+- สคริปต์ `ProjectYK_System/dev_scripts/book3_align_date_fuel.py` — ปรับ `c:\Users\Home\Downloads\Book3.xlsx` ชีท `Daily Report ` ให้คอลัมน์วันที่ตรง `Trip_Date` จาก `reports/oatside-pg-2026/exports/05_Trip_Detail.xlsx` (ลำแถว + เช็ก Plate) และเติม `Fuel rate` จากตารางรายวัน 1–30 เม.ย. 2026 เฉพาะเซลล์ที่ต่าง พร้อมพื้นเหลือง/คอมเมนต์; สำรอง `Book3.before_date_fuel_backup.xlsx`
+
 ## 2026-05-08 (Token context — bounded reads + executive brief + domain capture)
 
 - เพิ่มกฎ `.cursor/rules/exec-brief-noncoder.mdc` — ตอบแบบ executive ภาษาคน (ไม่อธิบาย implementation โดยดีฟอลต์) คู่กับกฎเงิน/ข้อมูลเดิม

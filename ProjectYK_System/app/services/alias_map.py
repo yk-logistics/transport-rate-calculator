@@ -64,6 +64,10 @@ PERSON_ALIASES_BY_SITE: dict[str, dict[str, str]] = {
         # legacy data sometimes only writes 'สมัย' for AYU rows; canonicalize it
         # so dedup logic can match cross-source rows correctly.
         normalize_person_name("สมัย"): "สมัย อยุธยา",
+        # short nicknames used in book2 that don't match full_name lookup
+        normalize_person_name("เอ๊ะ"): "บรรเจิด คุ้มพงษ์ (เอ๊ะ)",
+        normalize_person_name("ช่างน้อย"): "วิชัย ชื่นชม (ช่างน้อย)",
+        normalize_person_name("ข้าวฟ่าง"): "พิชญา บุญชู (ข้าวฟ่าง)",
     },
 }
 
