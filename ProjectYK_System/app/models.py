@@ -1218,6 +1218,24 @@ PETTY_TXN_STATUS = (
     ("locked", "ปิดรอบแล้ว (แก้ไม่ได้)"),
 )
 
+class ImportLog(SQLModel, table=True):
+    """Audit log for every import batch run through the Import Wizard."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    import_type: str = Field(index=True)   # daily|petty|fuel|rm|pm|rate|master
+    site_code: str = Field(default="", index=True)
+    source_tag: str = Field(index=True)    # e.g. "lcb_daily_20251216_a1b2"
+    file_name: str = ""
+    sheet_name: str = ""
+    period_start: Optional[date] = None
+    period_end: Optional[date] = None
+    row_count: int = 0
+    fee_count: int = 0
+    fuel_count: int = 0
+    status: str = Field(default="done", index=True)  # done|dry_run|rolled_back|failed
+    note: str = ""
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 TRIP_TYPE_CODES_BY_SITE: dict[str, tuple[tuple[str, str], ...]] = {
     "AYU": (
         ("",         "— ไม่ระบุ —"),

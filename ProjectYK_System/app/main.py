@@ -13,7 +13,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -37,6 +37,7 @@ from models import (
     FuelPriceIndex,
     FuelSurchargeBand,
     FuelTxn,
+    ImportLog,
     InboxEmail,
     InboxSyncRun,
     LeaveRecord,
@@ -72,7 +73,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 17
+SCHEMA_VERSION = 18
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 if IS_SQLITE:
     engine = create_engine(
@@ -6584,6 +6585,207 @@ def _open_browser_when_ready(port: int, path: str = "/daily", delay: float = 1.5
             pass
 
     threading.Timer(delay, _launch).start()
+
+
+# ==========================================================================
+# IMPORT WIZARD  (/import)
+# Web UI for uploading Excel files and importing Daily, PettyCash, Fuel, etc.
+# ==========================================================================
+from services import import_wizard as iwiz  # noqa: E402
+
+
+@app.get("/import")
+async def import_hub(request: Request):
+    with Session(engine) as s:
+        logs = s.exec(
+            select(ImportLog).order_by(ImportLog.created_at.desc()).limit(50)  # type: ignore[arg-type]
+        ).all()
+    return templates.TemplateResponse("import_hub.html", {
+        "request": request,
+        "logs": logs,
+    })
+
+
+@app.post("/import/sheets")
+async def import_sheets(
+    file: UploadFile = File(...),
+):
+    """Step 1: receive file, return sheet picker HTML fragment."""
+    data = await file.read()
+    temp_id = iwiz.save_upload(data, file.filename or "upload.xlsx")
+    sheets = iwiz.read_sheets(temp_id)
+    options = "".join(f'<option value="{s}">{s}</option>' for s in sheets)
+    html = f"""
+<div id="sheet-picker" class="mt-4 space-y-3">
+  <input type="hidden" name="temp_id" value="{temp_id}">
+  <input type="hidden" name="file_name" value="{file.filename or ''}">
+  <div>
+    <label class="block text-sm font-medium text-gray-700 mb-1">เลือก Sheet</label>
+    <select name="sheet_name" class="border rounded px-3 py-2 w-full"
+            hx-post="/import/preview"
+            hx-include="#import-form"
+            hx-target="#preview-area"
+            hx-trigger="change">
+      <option value="">— เลือก Sheet —</option>
+      {options}
+    </select>
+  </div>
+</div>
+"""
+    return HTMLResponse(html)
+
+
+@app.post("/import/preview")
+async def import_preview(
+    temp_id: str = Form(...),
+    sheet_name: str = Form(...),
+    file_name: str = Form(""),
+):
+    """Step 2: show first 8 rows + date-range fields."""
+    headers, rows = iwiz.preview_rows(temp_id, sheet_name, max_rows=8)
+    if not headers:
+        return HTMLResponse('<p class="text-red-600">ไม่พบข้อมูลในชีทนี้</p>')
+
+    th = "".join(f"<th class='px-2 py-1 border text-xs'>{h}</th>" for h in headers[:20])
+    tbody = ""
+    for r in rows:
+        tds = "".join(f"<td class='px-2 py-1 border text-xs'>{c}</td>" for c in r[:20])
+        tbody += f"<tr>{tds}</tr>"
+
+    html = f"""
+<div id="preview-area" class="mt-4 space-y-4">
+  <div class="overflow-x-auto border rounded">
+    <table class="text-left w-max">
+      <thead class="bg-gray-100"><tr>{th}</tr></thead>
+      <tbody>{tbody}</tbody>
+    </table>
+  </div>
+  <div class="grid grid-cols-2 gap-3">
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">ไซท์</label>
+      <select name="site_code" class="border rounded px-3 py-2 w-full">
+        <option value="LCB">LCB</option>
+        <option value="AYU">AYU</option>
+        <option value="BIGC">BIGC</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">ประเภท Import</label>
+      <select name="import_type" class="border rounded px-3 py-2 w-full">
+        <option value="daily">Daily Jobs</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">วันเริ่มรอบ</label>
+      <input type="date" name="cycle_start" class="border rounded px-3 py-2 w-full">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">วันสิ้นรอบ</label>
+      <input type="date" name="cycle_end" class="border rounded px-3 py-2 w-full">
+    </div>
+  </div>
+  <div class="flex gap-3">
+    <button type="button"
+            hx-post="/import/run"
+            hx-include="#import-form"
+            hx-target="#result-area"
+            hx-vals='{{"dry_run":"1"}}'
+            class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">
+      Dry Run
+    </button>
+    <button type="button"
+            hx-post="/import/run"
+            hx-include="#import-form"
+            hx-target="#result-area"
+            hx-confirm="นำเข้าข้อมูลจริง — ยืนยัน?"
+            class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+      Import จริง
+    </button>
+  </div>
+  <div id="result-area"></div>
+</div>
+"""
+    return HTMLResponse(html)
+
+
+@app.post("/import/run")
+async def import_run(
+    temp_id: str = Form(...),
+    sheet_name: str = Form(...),
+    file_name: str = Form(""),
+    site_code: str = Form("LCB"),
+    import_type: str = Form("daily"),
+    cycle_start: str = Form(...),
+    cycle_end: str = Form(...),
+    dry_run: str = Form("0"),
+):
+    from datetime import date as _date_cls
+    try:
+        cs = _date_cls.fromisoformat(cycle_start)
+        ce = _date_cls.fromisoformat(cycle_end)
+    except ValueError:
+        return HTMLResponse('<p class="text-red-600">วันที่ไม่ถูกต้อง</p>')
+
+    is_dry = dry_run not in ("0", "", "false", "False")
+    source_tag = f"{site_code.lower()}_{import_type}_{cs.strftime('%Y%m%d')}_{temp_id[:6]}"
+
+    with Session(engine) as s:
+        log = iwiz.import_daily(
+            session=s,
+            temp_id=temp_id,
+            sheet_name=sheet_name,
+            site_code=site_code,
+            cycle_start=cs,
+            cycle_end=ce,
+            source_tag=source_tag,
+            file_name=file_name,
+            dry_run=is_dry,
+        )
+
+    color = "yellow" if is_dry else "green"
+    label = "Dry Run" if is_dry else "Import สำเร็จ"
+    rollback_btn = ""
+    if not is_dry and log.id:
+        rollback_btn = f"""
+<button hx-post="/import/{log.id}/rollback"
+        hx-target="#result-area"
+        hx-confirm="ย้อนกลับ import นี้?"
+        class="mt-2 px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600">
+  Rollback
+</button>"""
+
+    html = f"""
+<div class="mt-3 p-4 bg-{color}-50 border border-{color}-300 rounded" hx-trigger="load" hx-get="/import/history-partial" hx-target="#history-table">
+  <p class="font-semibold text-{color}-800">{label}</p>
+  <ul class="text-sm mt-1 space-y-0.5">
+    <li>Jobs: <strong>{log.row_count}</strong></li>
+    <li>Fees: <strong>{log.fee_count}</strong></li>
+    <li>Fuel: <strong>{log.fuel_count}</strong></li>
+    <li class="text-gray-500">{log.note}</li>
+  </ul>
+  {rollback_btn}
+</div>
+"""
+    return HTMLResponse(html)
+
+
+@app.post("/import/{log_id}/rollback")
+async def import_rollback(log_id: int):
+    with Session(engine) as s:
+        msg = iwiz.rollback_import(s, log_id)
+    return HTMLResponse(f'<p class="text-red-700 font-medium mt-2">{msg}</p>')
+
+
+@app.get("/import/history-partial")
+async def import_history_partial(request: Request):
+    with Session(engine) as s:
+        logs = s.exec(
+            select(ImportLog).order_by(ImportLog.created_at.desc()).limit(50)  # type: ignore[arg-type]
+        ).all()
+    return templates.TemplateResponse("import_history_rows.html", {
+        "request": request,
+        "logs": logs,
+    })
 
 
 if __name__ == "__main__":
