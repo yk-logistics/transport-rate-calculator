@@ -4,6 +4,15 @@
 
 > **Agent bootstrap:** อ่านเฉพาะ **3 หัวข้อ `##` แรกจากด้านบนลงมา** (ไม่รวมบรรทัดนี้) — **ห้าม**อ่านทั้งไฟล์ทุกแชต. นโยบาย/การย้าย archive: [`ProjectYK_System/docs/CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md)
 
+## 2026-05-14 (LCB Jan 2026 — import รอบ pay_cycle_tag=2026-01 สำเร็จ)
+
+- **ช่วงงาน:** `work_date 2025-12-16 – 2026-01-15` (LCB ตัด 16–15 จ่ายวันที่ 1 ก.พ. 2569)
+- **แหล่งข้อมูล:** `data/Salary/LCB/2026-01/วางบิล YK VOLVO Jan.xlsx` ชีท `Daily 16.12.68 - 15.01.69` — column layout ต่างจาก Book2 (driver=col4, extra BL./Booking, ค่ายกตู้=col15, revenue=col24, trip_fee=col34)
+- **script ใหม่:** `ProjectYK_System/tools/import_lcb_jan2026.py` — header-name mapping, source=`lcb_jan2026`, รองรับ `--wipe-prior` / `--dry-run`
+- **ผล:** DailyJob 694 แถว, DailyJobFee 272 รายการ (฿124,078), trip_fee รวม ฿13,450, revenue รวม ฿333,880
+- **ขั้นตอนถัดไป:** สร้าง PayRun `pay_cycle_tag=2026-01` ผ่าน UI `/payroll` (period_start=2025-12-16, period_end=2026-01-15) แล้วรัน preflight; fuel ใช้ `import_caltex_fuel.py` แยก
+- **safety gap บันทึก:** `import_daily.py` ไม่มี `--to-date` flag; preflight ไม่มี zero-rows guard ต่อ cycle — รอ harden รอบถัดไป
+
 ## 2026-05-12 (Dev tool — Paste คอลัมน์เฉพาะแถวมองเห็นระหว่างสอง .xlsx)
 
 - เพิ่ม `ProjectYK_System/dev_scripts/paste_visible_column.py` — อ่านค่าจากคอลัมน์ต้นทางเฉพาะแถวที่ไม่ `row hidden` แล้วเขียนลงคอลัมน์ปลายทางตามลำดับแถวมองเห็น; รองรับ `--dry-run`, `--out`, `--inplace` + `--backup`; ข้อความ `--help` เป็นภาษาอังกฤษเพื่อหลีกเลี่ยง encoding บน Windows console
