@@ -41,7 +41,7 @@
     <h2 class="font-semibold text-lg mb-4">ประวัติ Import</h2>
     <div id="history-table"
          hx-get="/import/history-partial"
-         hx-trigger="load"
+         hx-trigger="load, refreshHistory from:body"
          hx-swap="innerHTML">
       <p class="text-gray-400 text-sm">กำลังโหลด…</p>
     </div>

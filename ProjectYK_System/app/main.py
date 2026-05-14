@@ -6755,7 +6755,7 @@ async def import_run(
 </button>"""
 
     html = f"""
-<div class="mt-3 p-4 bg-{color}-50 border border-{color}-300 rounded" hx-trigger="load" hx-get="/import/history-partial" hx-target="#history-table">
+<div class="mt-3 p-4 bg-{color}-50 border border-{color}-300 rounded">
   <p class="font-semibold text-{color}-800">{label}</p>
   <ul class="text-sm mt-1 space-y-0.5">
     <li>Jobs: <strong>{log.row_count}</strong></li>
@@ -6766,14 +6766,22 @@ async def import_run(
   {rollback_btn}
 </div>
 """
-    return HTMLResponse(html)
+    resp = HTMLResponse(html)
+    resp.headers["HX-Trigger"] = "refreshHistory"
+    return resp
 
 
 @app.post("/import/{log_id}/rollback")
-async def import_rollback(log_id: int):
+async def import_rollback(request: Request, log_id: int):
     with Session(engine) as s:
-        msg = iwiz.rollback_import(s, log_id)
-    return HTMLResponse(f'<p class="text-red-700 font-medium mt-2">{msg}</p>')
+        iwiz.rollback_import(s, log_id)
+        logs = s.exec(
+            select(ImportLog).order_by(ImportLog.created_at.desc()).limit(50)  # type: ignore[arg-type]
+        ).all()
+    return templates.TemplateResponse("import_history_rows.html", {
+        "request": request,
+        "logs": logs,
+    })
 
 
 @app.get("/import/history-partial")
