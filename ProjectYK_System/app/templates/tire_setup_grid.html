@@ -1,0 +1,62 @@
+<div class="p-4 bg-white border rounded-lg">
+  <h2 class="font-semibold mb-3 text-slate-700">3. ข้อมูลรายตำแหน่ง
+    <span class="text-xs text-slate-400 font-normal ml-2">{{ positions|length }} ตำแหน่ง ({{ vehicle.plate_no }} · {{ vehicle.truck_type or '-' }})</span>
+  </h2>
+
+  {% if not positions %}
+  <p class="text-amber-600 text-sm">ไม่พบประเภทรถ — ตั้ง truck_type ให้รถก่อน</p>
+  {% else %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-xs text-slate-500">
+        <tr>
+          <th class="text-left py-2 px-2 w-20">ตำแหน่ง</th>
+          <th class="text-left py-2 px-2">Serial / DOT</th>
+          <th class="text-left py-2 px-2 w-32">ดอกยาง (mm)</th>
+          <th class="text-left py-2 px-2">ยี่ห้อ (ถ้าต่างจาก default)</th>
+          <th class="text-left py-2 px-2">รุ่น</th>
+          <th class="text-left py-2 px-2">ขนาด</th>
+          <th class="text-left py-2 px-2">หมายเหตุ</th>
+          <th class="text-center py-2 px-2 w-16">ใส่ยาง</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pos in positions %}
+        <tr class="border-t hover:bg-slate-50">
+          <td class="py-2 px-2 font-mono font-bold text-orange-700">{{ pos }}</td>
+          <td class="py-1 px-2">
+            <input type="text" name="serial_{{ pos }}" placeholder="DOT / serial"
+                   class="border rounded px-2 py-1 w-full font-mono text-sm">
+          </td>
+          <td class="py-1 px-2">
+            <input type="number" step="0.1" min="0" max="30" name="tread_{{ pos }}" placeholder="mm"
+                   class="border rounded px-2 py-1 w-full text-sm">
+          </td>
+          <td class="py-1 px-2">
+            <input type="text" name="brand_{{ pos }}" placeholder="(ใช้ default)"
+                   class="border rounded px-2 py-1 w-full text-sm">
+          </td>
+          <td class="py-1 px-2">
+            <input type="text" name="model_{{ pos }}" placeholder="(ใช้ default)"
+                   class="border rounded px-2 py-1 w-full text-sm">
+          </td>
+          <td class="py-1 px-2">
+            <input type="text" name="spec_{{ pos }}" placeholder="(ใช้ default)"
+                   class="border rounded px-2 py-1 w-full text-sm">
+          </td>
+          <td class="py-1 px-2">
+            <input type="text" name="note_{{ pos }}" placeholder=""
+                   class="border rounded px-2 py-1 w-full text-sm">
+          </td>
+          <td class="py-1 px-2 text-center">
+            <input type="checkbox" name="include_{{ pos }}" value="1" checked
+                   class="w-4 h-4 accent-orange-600">
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="text-xs text-slate-400 mt-2">ยกเลิกเครื่องหมายถูกที่ตำแหน่งที่ยังไม่มียาง / ไม่ต้องการบันทึก</p>
+  {% endif %}
+</div>

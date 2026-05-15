@@ -15,10 +15,15 @@
     <div class="text-3xl font-bold text-orange-700">{{ stats.records_total }}</div>
     <div class="text-xs text-slate-500 mt-1">เดือนนี้: {{ stats.records_this_month }} รายการ</div>
   </a>
-  <a href="/maint/tires" class="p-4 bg-white border rounded-lg hover:shadow-md transition">
+  <a href="/maint/tires" class="p-4 bg-white border rounded-lg hover:shadow-md transition {% if low_tread_rows %}border-red-300{% endif %}">
     <div class="text-xs text-slate-500">ยาง</div>
     <div class="text-3xl font-bold text-emerald-700">{{ stats.tires_in_use }}<span class="text-base text-slate-400">/{{ stats.tires_total }}</span></div>
-    <div class="text-xs text-slate-500 mt-1">ใช้งาน / ทั้งหมด</div>
+    <div class="text-xs mt-1">
+      <span class="text-slate-500">ใช้งาน / ทั้งหมด</span>
+      {% if low_tread_rows %}
+      <span class="ml-2 text-red-600 font-semibold">⚠️ ดอกต่ำ {{ low_tread_rows|length }} เส้น</span>
+      {% endif %}
+    </div>
   </a>
   <a href="/maint/pm" class="p-4 bg-white border rounded-lg hover:shadow-md transition">
     <div class="text-xs text-slate-500">PM Plan</div>
@@ -84,7 +89,11 @@
       </a>
       <a href="/maint/tires" class="p-3 border rounded hover:bg-slate-50">
         🛞 <strong>ยาง</strong><br>
-        <span class="text-xs text-slate-500">lifecycle + ตำแหน่ง (wave 2)</span>
+        <span class="text-xs text-slate-500">lifecycle + ตำแหน่ง</span>
+      </a>
+      <a href="/maint/tires/setup" class="p-3 border border-orange-200 bg-orange-50 rounded hover:bg-orange-100">
+        ⚡ <strong>ติดตั้งยางชุดแรก</strong><br>
+        <span class="text-xs text-slate-500">Quick Setup ทุกตำแหน่งในหน้าเดียว</span>
       </a>
       <a href="/maint/pm" class="p-3 border rounded hover:bg-slate-50">
         📅 <strong>PM Plan</strong><br>
@@ -182,6 +191,37 @@
     </table>
   </div>
 </div>
+
+{% if low_tread_rows %}
+<div class="mt-6 p-4 bg-red-50 border border-red-300 rounded-lg">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="font-semibold text-red-700">⚠️ ยางดอกต่ำกว่า 3mm — ต้องเปลี่ยน</h2>
+    <a href="/maint/tires?status_filter=in_use" class="text-xs text-red-600 hover:underline">ดูยางทั้งหมด →</a>
+  </div>
+  <table class="w-full text-sm">
+    <thead class="text-xs text-red-600 bg-red-100">
+      <tr>
+        <th class="text-left py-1 px-2">รหัสยาง</th>
+        <th class="text-left py-1 px-2">รถ</th>
+        <th class="text-left py-1 px-2">ตำแหน่ง</th>
+        <th class="text-left py-1 px-2">ยี่ห้อ/รุ่น</th>
+        <th class="text-right py-1 px-2">ดอกยาง (mm)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in low_tread_rows %}
+      <tr class="border-t border-red-200">
+        <td class="py-1 px-2 font-mono"><a href="/maint/tires/{{ r.id }}" class="text-red-700 hover:underline">{{ r.code }}</a></td>
+        <td class="py-1 px-2 font-mono">{{ r.plate }}</td>
+        <td class="py-1 px-2 font-mono text-orange-700">{{ r.position }}</td>
+        <td class="py-1 px-2">{{ r.brand_model }}</td>
+        <td class="py-1 px-2 text-right font-bold text-red-700">{{ "%.1f"|format(r.tread) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
 
 <div class="mt-6 p-4 bg-white border rounded-lg">
   <h2 class="font-semibold mb-3">บันทึกซ่อมล่าสุด 10 รายการ</h2>

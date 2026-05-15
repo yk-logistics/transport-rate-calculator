@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}ติดตั้งยางชุดแรก{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">🛞 ติดตั้งยางชุดแรก (Quick Setup)</h1>
+  <a href="/maint/tires" class="btn bg-slate-200 hover:bg-slate-300">← รายการยาง</a>
+</div>
+
+{% if not vehicles %}
+<div class="p-6 bg-amber-50 border border-amber-300 rounded-lg text-center text-amber-800">
+  ยังไม่มีรถในระบบ — <a href="/vehicles/new" class="underline font-semibold">เพิ่มรถก่อน</a> แล้วค่อยกลับมาตั้งค่ายาง
+</div>
+{% else %}
+
+<form method="post" action="/maint/tires/setup" id="setup-form">
+
+  {{# shared header fields }}
+  <div class="p-4 bg-white border rounded-lg mb-4">
+    <h2 class="font-semibold mb-3 text-slate-700">1. เลือกรถ</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div>
+        <label class="text-xs text-slate-500">รถ <span class="text-red-500">*</span></label>
+        <select name="vehicle_id" id="vehicle-select" required
+                class="border rounded px-2 py-1 w-full"
+                hx-get="/maint/tires/setup/grid"
+                hx-target="#position-grid"
+                hx-trigger="change"
+                hx-include="[name='vehicle_id']">
+          <option value="">— เลือกรถ —</option>
+          {% for v in vehicles %}
+          <option value="{{ v.id }}" data-type="{{ v.truck_type or '' }}">{{ v.plate_no }}{% if v.truck_type %} ({{ v.truck_type }}){% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-slate-500">วันที่ติดตั้ง <span class="text-red-500">*</span></label>
+        <input type="date" name="mount_date" required value="{{ today }}" class="border rounded px-2 py-1 w-full">
+      </div>
+      <div>
+        <label class="text-xs text-slate-500">เลขไมล์ตอนติดตั้ง</label>
+        <input type="number" name="mount_mile" placeholder="กม." class="border rounded px-2 py-1 w-full">
+      </div>
+    </div>
+  </div>
+
+  <div class="p-4 bg-white border rounded-lg mb-4">
+    <h2 class="font-semibold mb-3 text-slate-700">2. ข้อมูลร่วม (ใส่ไว้ก่อน — แก้ได้ทีละตำแหน่ง)</h2>
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+      <div>
+        <label class="text-xs text-slate-500">ยี่ห้อ</label>
+        <input type="text" name="default_brand" placeholder="Bridgestone / Zextour" class="border rounded px-2 py-1 w-full">
+      </div>
+      <div>
+        <label class="text-xs text-slate-500">รุ่น</label>
+        <input type="text" name="default_model" placeholder="R150" class="border rounded px-2 py-1 w-full">
+      </div>
+      <div>
+        <label class="text-xs text-slate-500">ขนาด (spec)</label>
+        <input type="text" name="default_spec" placeholder="11R22.5" class="border rounded px-2 py-1 w-full">
+      </div>
+      <div>
+        <label class="text-xs text-slate-500">วันที่ซื้อ</label>
+        <input type="date" name="default_purchase_date" class="border rounded px-2 py-1 w-full">
+      </div>
+      <div>
+        <label class="text-xs text-slate-500">ราคาซื้อ / เส้น (฿)</label>
+        <input type="number" step="0.01" name="default_purchase_price" placeholder="0" class="border rounded px-2 py-1 w-full">
+      </div>
+    </div>
+    <p class="text-xs text-slate-400 mt-2">ถ้าแต่ละตำแหน่งยี่ห้อ/รุ่นต่างกัน ให้กรอกทับในตารางด้านล่าง</p>
+  </div>
+
+  <div id="position-grid">
+    <div class="p-8 bg-slate-50 border rounded-lg text-center text-slate-400">
+      เลือกรถด้านบนเพื่อแสดงตำแหน่งยาง
+    </div>
+  </div>
+
+  <div class="mt-4 flex justify-end gap-3" id="submit-bar" style="display:none!important">
+    <a href="/maint/tires" class="btn bg-slate-200 hover:bg-slate-300">ยกเลิก</a>
+    <button type="submit" class="btn bg-orange-600 text-white hover:bg-orange-700">
+      💾 บันทึกยางทั้งหมด
+    </button>
+  </div>
+</form>
+
+<script>
+document.getElementById('vehicle-select').addEventListener('change', function() {
+  const bar = document.getElementById('submit-bar');
+  if (this.value) {
+    bar.style.removeProperty('display');
+  } else {
+    bar.style.display = 'none';
+  }
+});
+</script>
+{% endif %}
+{% endblock %}

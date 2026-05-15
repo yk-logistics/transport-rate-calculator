@@ -3250,6 +3250,23 @@ def maint_dashboard(request: Request):
         stock_map = _stock_map_for_parts(s, [p.id for p in parts])
         parts_low = [p for p in parts if stock_map.get(p.id, 0) < (p.min_stock_qty or 0) and (p.min_stock_qty or 0) > 0]
 
+        # Low tread depth alert: in_use tires with tread < 3mm (and tread recorded)
+        low_tread_tires = [
+            t for t in tires
+            if t.status == "in_use" and t.tread_depth_mm and 0 < t.tread_depth_mm < 3.0
+        ]
+        low_tread_rows = [
+            {
+                "id": t.id,
+                "code": t.code,
+                "plate": (v_map_full.get(t.current_vehicle_id).plate_no if t.current_vehicle_id and v_map_full.get(t.current_vehicle_id) else "-"),
+                "position": t.current_position or "-",
+                "brand_model": f"{t.brand} {t.model}".strip() or "-",
+                "tread": t.tread_depth_mm,
+            }
+            for t in sorted(low_tread_tires, key=lambda x: x.tread_depth_mm)
+        ]
+
         by_vehicle: dict[str, dict] = {}
         for r in this_month:
             key = r.plate_raw or "-"
@@ -3320,6 +3337,7 @@ def maint_dashboard(request: Request):
             "pm_items": pm_items,
             "recent_stock": recent_stock,
             "part_name_map": part_name_map,
+            "low_tread_rows": low_tread_rows,
         },
     )
 
@@ -5274,6 +5292,97 @@ async def maint_pm_mark_done(plan_id: int, request: Request):
 # =====================================================================
 # Maintenance — Tires (Wave 2)
 # =====================================================================
+
+
+@app.get("/maint/tires/setup", response_class=HTMLResponse)
+def maint_tire_setup_form(request: Request):
+    with Session(engine) as s:
+        vehicles = s.exec(select(Vehicle).order_by(Vehicle.plate_no)).all()
+    return templates.TemplateResponse("tire_setup.html", {
+        "request": request,
+        "vehicles": vehicles,
+        "today": date.today().isoformat(),
+    })
+
+
+@app.get("/maint/tires/setup/grid", response_class=HTMLResponse)
+def maint_tire_setup_grid(request: Request, vehicle_id: int = 0):
+    with Session(engine) as s:
+        v = s.get(Vehicle, vehicle_id) if vehicle_id else None
+    positions = _tire_positions_for_vehicle(v) if v else ()
+    return templates.TemplateResponse("tire_setup_grid.html", {
+        "request": request,
+        "vehicle": v,
+        "positions": positions,
+    })
+
+
+@app.post("/maint/tires/setup")
+async def maint_tire_setup_save(request: Request):
+    """Bulk-create tires + mount events for all checked positions."""
+    form = await request.form()
+    vehicle_id = int(form.get("vehicle_id") or 0)
+    mount_date = _parse_date(form.get("mount_date") or "") or date.today()
+    mount_mile = _parse_float(form.get("mount_mile") or "0")
+    default_brand = (form.get("default_brand") or "").strip()
+    default_model = (form.get("default_model") or "").strip()
+    default_spec = (form.get("default_spec") or "").strip()
+    default_purchase_date = _parse_date(form.get("default_purchase_date") or "")
+    default_purchase_price = _parse_float(form.get("default_purchase_price") or "0")
+
+    with Session(engine) as s:
+        v = s.get(Vehicle, vehicle_id)
+        if not v:
+            raise HTTPException(404, "Vehicle not found")
+        positions = _tire_positions_for_vehicle(v)
+
+        created = 0
+        for pos in positions:
+            if not form.get(f"include_{pos}"):
+                continue
+            brand = (form.get(f"brand_{pos}") or "").strip() or default_brand
+            model = (form.get(f"model_{pos}") or "").strip() or default_model
+            spec = (form.get(f"spec_{pos}") or "").strip() or default_spec
+            serial_no = (form.get(f"serial_{pos}") or "").strip()
+            tread = _parse_float(form.get(f"tread_{pos}") or "0")
+            note = (form.get(f"note_{pos}") or "").strip()
+
+            t = Tire(
+                code=_gen_code(s, Tire, "T", 4),
+                brand=brand,
+                model=model,
+                spec=spec,
+                serial_no=serial_no,
+                purchase_date=default_purchase_date,
+                purchase_price=default_purchase_price,
+                status="in_use",
+                current_vehicle_id=vehicle_id,
+                current_position=pos,
+                mounted_at=mount_date,
+                mounted_mile=mount_mile,
+                tread_depth_mm=tread,
+                notes=note,
+            )
+            s.add(t)
+            s.flush()
+
+            ev = TireEvent(
+                tire_id=t.id,
+                event_date=mount_date,
+                event_type="mount",
+                to_vehicle_id=vehicle_id,
+                to_position=pos,
+                mile=mount_mile,
+                tread_before_mm=tread,
+                tread_after_mm=tread,
+                note=f"Quick Setup{' — ' + note if note else ''}",
+            )
+            s.add(ev)
+            created += 1
+
+        s.commit()
+
+    return RedirectResponse(f"/maint/tires/by-vehicle/{vehicle_id}", status_code=303)
 
 def _tire_positions_for_vehicle(v: Optional[Vehicle]) -> tuple:
     """Return list of position codes for a vehicle based on its truck_type."""
