@@ -4,8 +4,18 @@
 
 > **Agent bootstrap:** อ่านเฉพาะ **3 หัวข้อ `##` แรกจากด้านบนลงมา** (ไม่รวมบรรทัดนี้) — **ห้าม**อ่านทั้งไฟล์ทุกแชต. นโยบาย/การย้าย archive: [`ProjectYK_System/docs/CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md)
 
+## 2026-05-15 (Import Wizard — web UI รองรับ Daily / Employee / Vehicle)
+
+- **Import Wizard Phase 1+2:** `/import` รองรับ 3 ประเภท — Daily Jobs (header-name mapping, LCB-style), Employees, Vehicles
+- **Safety:** Employee/Vehicle ใช้ collision-skip (code/plate_no ซ้ำ → unresolved list, ไม่ merge อัตโนมัติ); Daily รองรับ rollback ด้วย source_tag; Employee/Vehicle rollback ไม่รองรับ bulk (แจ้งผู้ใช้ไปที่ UI)
+- **ImportLog model** (schema v18): บันทึกทุก batch — import_type, site_code, source_tag, row/fee/fuel count, status (done/dry_run/rolled_back/failed), note รวม conflict list
+- **HTMX flow:** type selector → upload → sheet picker → preview (field set ตาม type) → dry-run → import จริง → history refresh อัตโนมัติ
+- **ถัดไป:** import ข้อมูลจริงผ่าน UI (Employees + Vehicles ก่อน แล้ว Daily LCB Jan 2026)
+
 ## 2026-05-14 (LCB Jan 2026 — import รอบ pay_cycle_tag=2026-01 สำเร็จ)
 
+- **Import Wizard (/import):** ข้อความแยกชัด "รอบจ่าย (กรอง work_date)" vs "เดือนปฏิทิน CFO" + ตัวอย่าง LCB 16–15 + บล็อกเมื่อวันเริ่มรอบมากกว่าวันสิ้นรอบ
+- **CFO `/finance`:** แถบอธิบายขอบเขตวันที่ปฏิทิน (รายได้/ต้นทุนส่วนใหญ่) แยกจาก `pay_cycle_tag` ของ Payroll
 - **ช่วงงาน:** `work_date 2025-12-16 – 2026-01-15` (LCB ตัด 16–15 จ่ายวันที่ 1 ก.พ. 2569)
 - **แหล่งข้อมูล:** `data/Salary/LCB/2026-01/วางบิล YK VOLVO Jan.xlsx` ชีท `Daily 16.12.68 - 15.01.69` — column layout ต่างจาก Book2 (driver=col4, extra BL./Booking, ค่ายกตู้=col15, revenue=col24, trip_fee=col34)
 - **script ใหม่:** `ProjectYK_System/tools/import_lcb_jan2026.py` — header-name mapping, source=`lcb_jan2026`, รองรับ `--wipe-prior` / `--dry-run`

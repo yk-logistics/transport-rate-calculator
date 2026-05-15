@@ -1,5 +1,32 @@
 ---
 
+## 2026-05-15 (Session — Import Wizard Phase 1+2)
+
+### บริบทจากผู้ใช้
+- ต้องการระบบ import ที่แข็งแรง: อัพโหลดไฟล์ผ่าน Web UI, ถามชีท, preview, dry-run, import จริง
+- DB ถูกล้างทั้งหมด (full wipe ทุกตาราง) เพื่อเริ่มต้นใหม่สะอาด
+- ขยาย Import Wizard ให้รองรับ Employee + Vehicle ด้วย safety pattern เดิม
+
+### การตัดสินใจรอบนี้
+- เพิ่ม `ImportLog` model (SCHEMA_VERSION 17→18) สำหรับ audit trail ทุก batch
+- สร้าง `app/services/import_wizard.py` — save_upload, read_sheets, preview_rows, import_daily, import_employees, import_vehicles, rollback_import
+- collision rule: Employee(code ซ้ำ) / Vehicle(plate_no ซ้ำ) → skip + unresolved list; ไม่ silent merge
+- Daily rollback ด้วย source_tag; Employee/Vehicle แจ้งให้ใช้ UI แทน bulk rollback
+
+### สิ่งที่ทำแล้ว
+- `app/models.py`: เพิ่ม ImportLog, SCHEMA_VERSION→18
+- `app/main.py`: 6 routes (/import, /import/sheets, /import/preview, /import/run, /import/{id}/rollback, /import/history-partial)
+- `app/services/import_wizard.py`: service layer ครบทุก type
+- `app/templates/import_hub.html` + `import_history_rows.html`: HTMX wizard UI
+- `app/templates/base.html`: เพิ่ม nav link "⬆ Import"
+- Commits: 82944bd, 8eeb06d + commit รอบนี้
+
+### ถัดไป
+- Import ข้อมูลจริงผ่าน UI: Employees → Vehicles → Daily (LCB Jan 2026)
+- สร้าง PayRun LCB 2026-01 ผ่าน `/payroll`
+
+---
+
 ## 2026-05-08 (Session Summary #166 - Hotfix ย้ายค่า 71-5042 ไปเสียเวลา+100%)
 
 ### บริบทจากผู้ใช้
@@ -5256,3 +5283,41 @@ o_work_outbound_rows ใช้เรทตาม **วัน anchor R** ไม�
 
 ### Action ถัดไป
 - โอลอง `--dry-run` กับไฟล์จริงก่อนเสมอ; ถ้าปลายทางคอลัมน์ว่างจนสุดท้ายหลุดจากไฟล์ ให้ใส่ `--dst-end-row` / `--src-end-row` ชัดเจน
+
+---
+
+## 2026-05-14 (Session Summary #178 - Import Wizard แยกรอบจ่าย vs CFO)
+
+### บริบทจากผู้ใช้
+- ข้อความสั้น "change claude code import" — ตีความร่วมกับบริบทก่อนหน้า: ต้องการปรับหน้า Import ที่มาจาก Claude Code ให้สอดคล้องกับความต่าง **รอบจ่ายของไซท์** กับ **เดือนปฏิทิน CFO (1–31)**
+
+### การตัดสินใจรอบนี้
+- ไม่เดา scope ใหญ่ (เช่น เพิ่มประเภท import ใหม่) — ทำ UX + validation เล็กที่ลดความเข้าใจผิด
+- ช่องวันที่รอบใน wizard คือกรอง `work_date` เท่านั้น; มุมมอง CFO แยกตามที่ออกแบบใน Finance
+
+### สิ่งที่ทำแล้ว
+- `import_hub.html`: กล่องคำอธิบายภาษาไทยแยกรอบจ่าย vs เดือนปฏิทิน CFO
+- `main.py` (`/import/preview`): ป้ายกำกับวันที่ + ตัวอย่าง LCB ม.ค. 2026 (2025-12-16 ถึง 2026-01-15); `/import/run`: บล็อกเมื่อ `cycle_start > cycle_end`
+- `CHANGELOG_MASTER.md`: bullet ใต้หัวข้อ 2026-05-14
+
+### Action ถัดไป
+- ถ้าโอต้องการ filter รายงาน CFO แบบ 1–31 ใน UI โดยตรง ให้ระบุหน้าเป้าหมาย (`/finance` หรืออื่น) แล้วค่อยออกแบบ query แยกจาก pay cycle
+
+---
+
+## 2026-05-14 (Session Summary #179 - CFO banner + handoff CC master import)
+
+### บริบทจากผู้ใช้
+- ให้ CC ทำ **import พนักงาน/รถจากไฟล์** แทนการกรอก master ทาง UI
+- ยืนยันให้ต่อ **หน้า `/finance` เดือนปฏิทิน** — OK
+- ขอเปรียบเทียบกับเว็บ Demo (Forward Insight) ว่าควรเพิ่มอะไร และขอ prompt สำหรับ CC
+
+### การตัดสินใจรอบนี้
+- `monthly_pnl` ใช้ขอบเขตปฏิทินสำหรับรายได้/ต้นทุนส่วนใหญ่ แต่ **payroll ยังผูก `pay_cycle_tag`** — แสดงบน CFO dashboard แยกสองชั้น
+- Demo เป็น TMS+บัญชีเต็ม — YK โฟกัส ops→เงิน; ฟีเจอร์บัญชีลึกค่อยดึงตามความจำเป็นจริง
+
+### สิ่งที่ทำแล้ว
+- `finance_dashboard.html`: แถบอธิบายช่วงวันที่ปฏิทิน + หมายเหตุ `pay_cycle_tag` ของ payroll
+
+### Action ถัดไป
+- CC: master import (Employee/Vehicle) ใน Import Wizard + dry-run/rollback; ทบทวน finance ย่อย/หน้าอื่นตาม handoff

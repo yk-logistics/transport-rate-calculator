@@ -6,6 +6,12 @@
   <span class="text-sm text-gray-500">อัพโหลดไฟล์ Excel → เลือก Sheet → Preview → Import</span>
 </div>
 
+<p class="mb-4 p-3 rounded border border-amber-200 bg-amber-50 text-sm text-amber-900">
+  <strong>รอบจ่าย (วันเริ่มรอบ / วันสิ้นรอบ)</strong> ใช้กรองแถวในไฟล์ตาม <code class="text-xs">work_date</code> เท่านั้น
+  — ไม่ใช่เดือนปฏิทินของ CFO โดยอัตโนมัติ<br>
+  <strong>เดือนปฏิทิน CFO (เช่น 1–31 ม.ค.)</strong> ดูสรุปทางการเงินแยกที่หน้า Finance / รายงานที่ออกแบบให้ใช้ขอบเขตปฏิทิน
+</p>
+
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
   <!-- ── LEFT: Upload form ── -->
@@ -13,8 +19,16 @@
     <h2 class="font-semibold text-lg mb-4">1. เลือกไฟล์ & ชีท</h2>
 
     <form id="import-form" class="space-y-4">
-      <!-- hidden fields populated by sub-steps -->
-      <div id="hidden-fields"></div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">ประเภทข้อมูล</label>
+        <select name="import_type" id="import_type_sel"
+                class="border rounded px-3 py-2 w-full text-sm">
+          <option value="daily">Daily Jobs (งานรายวัน)</option>
+          <option value="employee">Employees (คนขับ / พนักงาน)</option>
+          <option value="vehicle">Vehicles (รถ)</option>
+        </select>
+      </div>
 
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">ไฟล์ Excel (.xlsx / .xlsm)</label>

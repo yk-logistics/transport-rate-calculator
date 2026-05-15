@@ -6640,8 +6640,9 @@ async def import_preview(
     temp_id: str = Form(...),
     sheet_name: str = Form(...),
     file_name: str = Form(""),
+    import_type: str = Form("daily"),
 ):
-    """Step 2: show first 8 rows + date-range fields."""
+    """Step 2: show first 8 rows + type-specific config fields."""
     headers, rows = iwiz.preview_rows(temp_id, sheet_name, max_rows=8)
     if not headers:
         return HTMLResponse('<p class="text-red-600">ไม่พบข้อมูลในชีทนี้</p>')
@@ -6652,6 +6653,52 @@ async def import_preview(
         tds = "".join(f"<td class='px-2 py-1 border text-xs'>{c}</td>" for c in r[:20])
         tbody += f"<tr>{tds}</tr>"
 
+    site_select = """
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">ไซท์ (default)</label>
+      <select name="site_code" class="border rounded px-3 py-2 w-full">
+        <option value="LCB">LCB</option>
+        <option value="AYU">AYU</option>
+        <option value="BIGC">BIGC</option>
+      </select>
+    </div>"""
+
+    if import_type == "daily":
+        extra_fields = site_select + """
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">วันเริ่มรอบ (กรอง work_date)</label>
+      <input type="date" name="cycle_start" class="border rounded px-3 py-2 w-full">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">วันสิ้นรอบ (กรอง work_date)</label>
+      <input type="date" name="cycle_end" class="border rounded px-3 py-2 w-full">
+    </div>"""
+        hint = """<p class="text-xs text-gray-600">ตัวอย่าง LCB ม.ค. 2026 (รอบ 16–15):
+          <code>2025-12-16</code> ถึง <code>2026-01-15</code></p>"""
+    elif import_type == "employee":
+        extra_fields = site_select + """
+    <div class="col-span-1">
+      <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mt-1">
+        ชนะชน (code ซ้ำ) → ข้ามแถวนั้น ไม่ merge อัตโนมัติ — ดูรายการ conflicts ในผลลัพธ์
+      </p>
+    </div>"""
+        hint = """<p class="text-xs text-gray-600">หัว column ที่รู้จัก: code/รหัส, full_name/ชื่อ-สกุล,
+          nickname/ชื่อเล่น, phone/เบอร์โทร, id_card/เลขบัตร, site_code/ไซท์,
+          start_date/วันเริ่มงาน, role/ตำแหน่ง, pay_mode, base_salary/เงินเดือน</p>"""
+    elif import_type == "vehicle":
+        extra_fields = site_select + """
+    <div class="col-span-1">
+      <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mt-1">
+        ทะเบียนซ้ำ → ข้ามแถวนั้น ไม่อัพเดทอัตโนมัติ — ดูรายการ conflicts ในผลลัพธ์
+      </p>
+    </div>"""
+        hint = """<p class="text-xs text-gray-600">หัว column ที่รู้จัก: plate_no/ทะเบียน,
+          vehicle_kind/ประเภท, truck_type/ชนิดรถ, site_code/ไซท์, nickname/ชื่อเล่น,
+          brand/ยี่ห้อ, model/รุ่น, engine_no/เลขเครื่อง, chassis_no/เลขถัง</p>"""
+    else:
+        extra_fields = site_select
+        hint = ""
+
     html = f"""
 <div id="preview-area" class="mt-4 space-y-4">
   <div class="overflow-x-auto border rounded">
@@ -6661,29 +6708,9 @@ async def import_preview(
     </table>
   </div>
   <div class="grid grid-cols-2 gap-3">
-    <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">ไซท์</label>
-      <select name="site_code" class="border rounded px-3 py-2 w-full">
-        <option value="LCB">LCB</option>
-        <option value="AYU">AYU</option>
-        <option value="BIGC">BIGC</option>
-      </select>
-    </div>
-    <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">ประเภท Import</label>
-      <select name="import_type" class="border rounded px-3 py-2 w-full">
-        <option value="daily">Daily Jobs</option>
-      </select>
-    </div>
-    <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">วันเริ่มรอบ</label>
-      <input type="date" name="cycle_start" class="border rounded px-3 py-2 w-full">
-    </div>
-    <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">วันสิ้นรอบ</label>
-      <input type="date" name="cycle_end" class="border rounded px-3 py-2 w-full">
-    </div>
+    {extra_fields}
   </div>
+  {hint}
   <div class="flex gap-3">
     <button type="button"
             hx-post="/import/run"
@@ -6715,37 +6742,59 @@ async def import_run(
     file_name: str = Form(""),
     site_code: str = Form("LCB"),
     import_type: str = Form("daily"),
-    cycle_start: str = Form(...),
-    cycle_end: str = Form(...),
+    cycle_start: str = Form(""),
+    cycle_end: str = Form(""),
     dry_run: str = Form("0"),
 ):
     from datetime import date as _date_cls
-    try:
-        cs = _date_cls.fromisoformat(cycle_start)
-        ce = _date_cls.fromisoformat(cycle_end)
-    except ValueError:
-        return HTMLResponse('<p class="text-red-600">วันที่ไม่ถูกต้อง</p>')
 
     is_dry = dry_run not in ("0", "", "false", "False")
-    source_tag = f"{site_code.lower()}_{import_type}_{cs.strftime('%Y%m%d')}_{temp_id[:6]}"
+    ts = datetime.utcnow().strftime("%Y%m%d%H%M")
+    source_tag = f"{site_code.lower()}_{import_type}_{ts}_{temp_id[:6]}"
 
-    with Session(engine) as s:
-        log = iwiz.import_daily(
-            session=s,
-            temp_id=temp_id,
-            sheet_name=sheet_name,
-            site_code=site_code,
-            cycle_start=cs,
-            cycle_end=ce,
-            source_tag=source_tag,
-            file_name=file_name,
-            dry_run=is_dry,
-        )
+    try:
+        with Session(engine) as s:
+            if import_type == "daily":
+                try:
+                    cs = _date_cls.fromisoformat(cycle_start)
+                    ce = _date_cls.fromisoformat(cycle_end)
+                except ValueError:
+                    return HTMLResponse('<p class="text-red-600">วันที่ไม่ถูกต้อง กรุณาใส่ วันเริ่มรอบ และ วันสิ้นรอบ</p>')
+                if cs > ce:
+                    return HTMLResponse('<p class="text-red-600">วันเริ่มรอบต้องไม่เกินวันสิ้นรอบ</p>')
+                log = iwiz.import_daily(
+                    session=s, temp_id=temp_id, sheet_name=sheet_name,
+                    site_code=site_code, cycle_start=cs, cycle_end=ce,
+                    source_tag=source_tag, file_name=file_name, dry_run=is_dry,
+                )
+            elif import_type == "employee":
+                log = iwiz.import_employees(
+                    session=s, temp_id=temp_id, sheet_name=sheet_name,
+                    default_site=site_code, source_tag=source_tag,
+                    file_name=file_name, dry_run=is_dry,
+                )
+            elif import_type == "vehicle":
+                log = iwiz.import_vehicles(
+                    session=s, temp_id=temp_id, sheet_name=sheet_name,
+                    default_site=site_code, source_tag=source_tag,
+                    file_name=file_name, dry_run=is_dry,
+                )
+            else:
+                return HTMLResponse(f'<p class="text-red-600">ประเภท import ไม่รองรับ: {import_type}</p>')
+    except Exception as exc:
+        return HTMLResponse(f'<p class="text-red-600">เกิดข้อผิดพลาด: {exc}</p>')
 
     color = "yellow" if is_dry else "green"
     label = "Dry Run" if is_dry else "Import สำเร็จ"
+
+    stat_rows = f"<li>แถว: <strong>{log.row_count}</strong></li>"
+    if log.fee_count:
+        stat_rows += f"<li>Fees: <strong>{log.fee_count}</strong></li>"
+    if log.fuel_count:
+        stat_rows += f"<li>Fuel: <strong>{log.fuel_count}</strong></li>"
+
     rollback_btn = ""
-    if not is_dry and log.id:
+    if not is_dry and log.id and import_type == "daily":
         rollback_btn = f"""
 <button hx-post="/import/{log.id}/rollback"
         hx-target="#result-area"
@@ -6756,12 +6805,10 @@ async def import_run(
 
     html = f"""
 <div class="mt-3 p-4 bg-{color}-50 border border-{color}-300 rounded">
-  <p class="font-semibold text-{color}-800">{label}</p>
+  <p class="font-semibold text-{color}-800">{label} — {import_type}</p>
   <ul class="text-sm mt-1 space-y-0.5">
-    <li>Jobs: <strong>{log.row_count}</strong></li>
-    <li>Fees: <strong>{log.fee_count}</strong></li>
-    <li>Fuel: <strong>{log.fuel_count}</strong></li>
-    <li class="text-gray-500">{log.note}</li>
+    {stat_rows}
+    <li class="text-gray-500 text-xs break-all">{log.note}</li>
   </ul>
   {rollback_btn}
 </div>
