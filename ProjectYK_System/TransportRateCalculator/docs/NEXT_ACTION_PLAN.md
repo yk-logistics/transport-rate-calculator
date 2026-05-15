@@ -2,6 +2,16 @@
 
 แผนงานลำดับถัดไป (เรียงตามความสำคัญ)
 
+## ⭐ Quick Status (2026-05-14 | CFO `/finance` — ปฏิทิน vs payroll tag)
+
+- [done] หน้า `/finance`: แถบอธิบายช่วงวันที่ปฏิทิน (รายได้/ต้นทุนส่วนใหญ่) แยกจาก `pay_cycle_tag` ของ Payroll
+- [next] CC: master import Employee/Vehicle ใน Import Wizard (dry-run/rollback) ตาม handoff
+
+## ⭐ Quick Status (2026-05-14 | Import Wizard — รอบจ่าย vs CFO)
+
+- [done] หน้า `/import`: ข้อความแยกรอบจ่าย (กรอง `work_date`) กับเดือนปฏิทิน CFO + ตัวอย่าง LCB 16–15 + บล็อกวันเริ่มรอบมากกว่าวันสิ้นรอบ
+- [next] ถ้าต้องการตัวเลข CFO เดือนปฏิทินใน UI โดยตรง ให้ระบุหน้า `/finance` (หรือ route) แล้วออกแบบ filter 1–สิ้นเดือน แยกจาก pay cycle
+
 ## ⭐ Quick Status (2026-05-12 | Dev — paste คอลัมน์เฉพาะแถวมองเห็น)
 
 - [done] สคริปต์ `ProjectYK_System/dev_scripts/paste_visible_column.py` สำหรับคัดลอกคอลัมน์ระหว่างสอง `.xlsx` โดยข้ามแถว `hidden` (ใช้หลังบันทึกไฟล์ที่มี Filter/ซ่อนแถวแล้ว)

@@ -21,6 +21,18 @@
   </form>
 </div>
 
+<p class="text-xs text-slate-600 mb-3 max-w-4xl leading-relaxed border-l-4 border-sky-400 pl-3">
+  <strong>เดือนปฏิทิน CFO</strong>
+  — รายรับจากเที่ยว ค่าธรรมเนียม น้ำมัน สดย่อย ซ่อม ฯลฯ ใช้วันที่ธุรกรรมในช่วง
+  <strong>{{ pnl.period_start.strftime('%d/%m/%Y') }}</strong>
+  ถึง
+  <strong>{{ pnl.period_end.strftime('%d/%m/%Y') }}</strong>
+  <br>
+  <strong>Payroll</strong>
+  — ดึงจากรอบจ่าย <code class="bg-slate-100 px-1 rounded text-[11px]">pay_cycle_tag = {{ pnl.period }}</code>
+  (อาจไม่ตรงกับปฏิทินเดียวกันถ้าไซท์ตัดรอบ เช่น 16–15)
+</p>
+
 <div class="flex gap-2 mb-4 text-sm flex-wrap">
   <a href="/finance/loans" class="bg-rose-600 text-white px-3 py-1 rounded">จัดการหนี้ ({{ loans_info.count }})</a>
   <a href="/finance/pnl?year={{ month[:4] }}&site={{ site }}" class="bg-emerald-600 text-white px-3 py-1 rounded">กำไรขาดทุนรายเดือน</a>
