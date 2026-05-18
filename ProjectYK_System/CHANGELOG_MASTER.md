@@ -4,6 +4,12 @@
 
 > **Agent bootstrap:** อ่านเฉพาะ **3 หัวข้อ `##` แรกจากด้านบนลงมา** (ไม่รวมบรรทัดนี้) — **ห้าม**อ่านทั้งไฟล์ทุกแชต. นโยบาย/การย้าย archive: [`ProjectYK_System/docs/CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md)
 
+## 2026-05-18 (DLT Log Book form — Excel A4 portrait)
+
+- เพิ่มแบบฟอร์ม `แบบบันทึกผลการบำรุงรักษารถ (Log Book)` เป็น Excel A4 แนวตั้งหน้าเดียวตามรูปตัวอย่างจริง: `ProjectYK_System/docs/forms/DLT_LogBook_Maintenance.xlsx`
+- เพิ่ม generator `ProjectYK_System/tools/generate_dlt_logbook_exact.py` และให้ `generate_dlt_logbook_form.py` เรียก layout ใหม่เพื่อกันสร้างแบบ landscape เก่าทับ
+- เพิ่ม blank export ไม่มีข้อมูล/ลายเซ็น: `ProjectYK_System/docs/forms/DLT_LogBook_Blank.pdf` และ `ProjectYK_System/docs/forms/DLT_LogBook_Blank.png`
+
 ## 2026-05-15 (Import Wizard — web UI รองรับ Daily / Employee / Vehicle)
 
 - **Import Wizard Phase 1+2:** `/import` รองรับ 3 ประเภท — Daily Jobs (header-name mapping, LCB-style), Employees, Vehicles

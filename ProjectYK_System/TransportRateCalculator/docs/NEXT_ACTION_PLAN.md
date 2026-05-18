@@ -2,6 +2,13 @@
 
 แผนงานลำดับถัดไป (เรียงตามความสำคัญ)
 
+## ⭐ Quick Status (2026-05-18 | DLT Log Book form)
+
+- [done] สร้างแบบฟอร์ม `แบบบันทึกผลการบำรุงรักษารถ (Log Book)` เป็น Excel A4 แนวตั้งหน้าเดียวตามรูปตัวอย่างจริง: `ProjectYK_System/docs/forms/DLT_LogBook_Maintenance.xlsx`
+- [done] เพิ่ม generator `ProjectYK_System/tools/generate_dlt_logbook_exact.py` และให้คำสั่งเก่า `generate_dlt_logbook_form.py` เรียก layout ใหม่
+- [done] เพิ่มแบบฟอร์มเปล่าไม่มีข้อมูล/ลายเซ็น เป็น `ProjectYK_System/docs/forms/DLT_LogBook_Blank.pdf` และ `ProjectYK_System/docs/forms/DLT_LogBook_Blank.png`
+- [next] โอลอง Print Preview/พิมพ์จริง 1 แผ่น แล้วแจ้งถ้าต้องบีบ/ขยายช่องให้ตรงกระดาษจริงมากขึ้น
+
 ## ⭐ Quick Status (2026-05-14 | CFO `/finance` — ปฏิทิน vs payroll tag)
 
 - [done] หน้า `/finance`: แถบอธิบายช่วงวันที่ปฏิทิน (รายได้/ต้นทุนส่วนใหญ่) แยกจาก `pay_cycle_tag` ของ Payroll

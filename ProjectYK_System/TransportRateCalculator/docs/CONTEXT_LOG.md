@@ -5321,3 +5321,23 @@ o_work_outbound_rows ใช้เรทตาม **วัน anchor R** ไม�
 
 ### Action ถัดไป
 - CC: master import (Employee/Vehicle) ใน Import Wizard + dry-run/rollback; ทบทวน finance ย่อย/หน้าอื่นตาม handoff
+
+---
+
+## 2026-05-18 (Session Summary #180 - DLT Log Book form)
+
+### บริบทจากผู้ใช้
+- ผู้ใช้ต้องการแบบฟอร์ม `แบบบันทึกผลการบำรุงรักษารถ (Log Book)` ให้พิมพ์ได้เหมือนรูปตัวอย่างจริง ไม่ใช่ PDF ประกาศทั่วไป
+
+### การตัดสินใจรอบนี้
+- ทำเป็น Excel A4 แนวตั้งหน้าเดียว เพราะแก้หัวแบบ/ทะเบียน/วันที่ได้ง่าย และยังพิมพ์เก็บเอกสารได้เหมือนกระดาษ
+- เก็บไฟล์หลักชื่อ ASCII `DLT_LogBook_Maintenance.xlsx` เพื่อเปิดง่ายบน Windows และมีไฟล์ชื่อไทยคู่กัน
+
+### สิ่งที่ทำแล้ว
+- เพิ่ม `ProjectYK_System/tools/generate_dlt_logbook_exact.py` สำหรับสร้างฟอร์ม Log Book แนวตั้งตามรูป: 10 หมวด, 40k/80k/120k/160k, ช่อง `ตรวจสอบ/ปรับตั้ง/เปลี่ยนใหม่`, ลายเซ็นและหมายเหตุ
+- ปรับ `ProjectYK_System/tools/generate_dlt_logbook_form.py` ให้เรียก generator ใหม่ เพื่อไม่ให้คำสั่งเดิมสร้างแบบ landscape เก่าทับ
+- สร้างไฟล์ `ProjectYK_System/docs/forms/DLT_LogBook_Maintenance.xlsx` และ `ProjectYK_System/docs/forms/แบบบันทึกผลการบำรุงรักษารถ_LogBook.xlsx`
+- เพิ่ม `ProjectYK_System/tools/generate_dlt_logbook_blank_assets.py` สำหรับออกไฟล์แบบฟอร์มเปล่าเป็น `DLT_LogBook_Blank.png` และ `DLT_LogBook_Blank.pdf` โดยไม่มีข้อมูลตัวอย่าง/วันที่/ขีดตรวจ/ลายเซ็น
+
+### Action ถัดไป
+- ให้โอเปิดไฟล์ PDF/PNG หรือ Excel แล้วลอง Print Preview/พิมพ์จริง 1 แผ่น; ถ้าช่อง/ฟอนต์ยังไม่ตรงรูป ให้ปรับระยะคอลัมน์/แถวรอบถัดไป
