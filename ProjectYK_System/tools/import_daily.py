@@ -426,56 +426,174 @@ def import_bigc(ws, stats, cutoff: Optional[date], session: Session) -> None:
 
 # ---------- LCB importer ----------
 
-LCB_FEE_MAP = [
-    (14, "lift"),          # ค่ายกตู้
-    (15, "yard"),          # ค่าผ่านลาน
-    (16, "clean"),         # ค่าคลีน
-    (17, "shore"),         # ค่าชอร์
-    (18, "port_entry"),    # เข้าท่า
-    (19, "weighing"),      # ค่าชั่ง
-    (30, "pickup_return"), # รับตู้/คืนตู้แทน
-    (31, "special"),       # พิเศษ
-    (32, "ot"),            # OT
-    (36, "mflow"),         # M-Flow
-]
+# Maps field name → list of possible header strings (exact match tried first, then substring).
+# Edit this dict whenever a column is renamed in the Excel — no code changes needed.
+LCB_HEADER_MAP: dict[str, list[str]] = {
+    "date":             ["วันที่"],
+    "status":           ["Status"],
+    "plate":            ["ทะเบียนรถ"],
+    "truck_type":       ["ประเภท"],
+    "driver":           ["พนักงานขับรถ"],
+    "driver_phone":     ["เบอร์โทร"],
+    "trip_type":        ["Type"],
+    "starting_point":   ["STARTDING"],
+    "loading_point":    ["Loading"],
+    "destination":      ["Destination"],
+    "job_ref":          ["Job."],
+    "container_no":     ["เบอร์ตู้"],
+    "container_size":   ["ขนาด"],
+    "revenue_customer": ["ค่าขนส่ง"],
+    "revenue_total":    ["รวมเก็บค่าขนส่ง"],
+    "wht_53":           ["หัก ณ ที่จ่าย"],
+    "invoice_no":       ["ออกอินวอย"],
+    "invoice_date":     ["ลงวันที่"],
+    "mile":             ["ไมล์"],
+    "fuel_l":           ["น้ำมัน(ลิตร)"],
+    "fuel_amt":         ["น้ำมัน(บาท)"],
+    "fuel_rate":        ["เรท กม/ล"],
+    "trip_fee":         ["ค่าเที่ยวพขร."],
+    "shared_vehicle":   ["ใช้รถร่วม"],
+    "receive_invno":    ["Receive/Inv.No."],
+    "remark":           ["หมายเหตุ"],
+    "fee:lift":         ["ค่ายกตู้"],
+    "fee:yard":         ["ค่าผ่านลาน"],
+    "fee:clean":        ["ค่าคลีน"],
+    "fee:shore":        ["ค่าชอร์"],
+    "fee:port_entry":   ["เข้าท่า"],
+    "fee:weighing":     ["ค่าชั่งน้ำหนัก"],
+    "fee:pickup_return":["รับตู้/คืนตู้แทน"],
+    "fee:ot":           ["OT"],
+    "fee:special":      ["พิเศษ"],
+    "fee:mflow":        ["M-Flow"],
+}
+
+# These must be found or import is blocked.
+LCB_CRITICAL_FIELDS = {"date", "plate", "driver", "revenue_total", "trip_fee"}
 
 
-def import_lcb(ws, stats, cutoff: Optional[date], session: Session) -> None:
+def _detect_lcb_columns(header_row: tuple) -> dict[str, Optional[int]]:
+    """Return {field: col_index} by matching LCB_HEADER_MAP against the actual header row."""
+    headers = [(i, str(h).strip() if h is not None else "") for i, h in enumerate(header_row)]
+    colmap: dict[str, Optional[int]] = {}
+    for field, candidates in LCB_HEADER_MAP.items():
+        found = None
+        for candidate in candidates:
+            # 1) exact match (case-insensitive)
+            for i, h in headers:
+                if h.lower() == candidate.lower():
+                    found = i
+                    break
+            if found is not None:
+                break
+            # 2) substring fallback
+            for i, h in headers:
+                if h and candidate.lower() in h.lower():
+                    found = i
+                    break
+            if found is not None:
+                break
+        colmap[field] = found
+    return colmap
+
+
+def _confirm_lcb_colmap(colmap: dict[str, Optional[int]], header_row: tuple, *, yes: bool = False) -> bool:
+    """Print the detected column map and ask the user to confirm before importing."""
+    hdr = {i: (str(h).strip() if h else "") for i, h in enumerate(header_row)}
+
+    print("\n" + "=" * 65)
+    print("LCB Column Map — auto-detected from header row")
+    print("=" * 65)
+    print(f"  {'Field':<22} {'Col':>4}  Header text in file")
+    print("  " + "-" * 60)
+
+    missing: list[str] = []
+    for field, col_idx in colmap.items():
+        if col_idx is None:
+            missing.append(field)
+            marker = "  *** NOT FOUND ***" if field in LCB_CRITICAL_FIELDS else "  (optional — will skip)"
+            print(f"  {field:<22} {'?':>4}  {marker}")
+        else:
+            print(f"  {field:<22} {col_idx:>4}  {hdr.get(col_idx, '')}")
+
+    print("  " + "-" * 60)
+
+    critical_missing = [f for f in missing if f in LCB_CRITICAL_FIELDS]
+    if critical_missing:
+        print(f"\n[BLOCKED] Critical field(s) not found in header: {critical_missing}")
+        print("  Check that your sheet has a header row in row 2.")
+        return False
+
+    if missing:
+        print(f"\n[WARN] {len(missing)} optional field(s) not found — will import without them.")
+
+    print(f"\nTotal data columns detected: {len([v for v in colmap.values() if v is not None])}/{len(colmap)}")
+
+    if yes:
+        print("\n--yes flag set — proceeding automatically.\n")
+        return True
+
+    print()
+    ans = input("Proceed with import? [y/N]: ").strip().lower()
+    return ans in ("y", "yes")
+
+
+def _cget(r: list, colmap: dict[str, Optional[int]], field: str):
+    """Read a cell value using colmap; returns None if field not mapped or out of range."""
+    idx = colmap.get(field)
+    if idx is None or idx >= len(r):
+        return None
+    return r[idx]
+
+
+def import_lcb(ws, stats, cutoff: Optional[date], session: Session, *, yes: bool = False) -> None:
     """LCB sheet — R2=header, data from R3.
 
-    40 columns. See IMPORT_MAPPING_SPEC for full list.
+    Column positions are auto-detected from the header row so the script
+    keeps working when the admin adds, removes, or renames columns.
     """
     all_rows = list(ws.iter_rows(values_only=True))
+    if len(all_rows) < 2:
+        print("[LCB] Sheet has fewer than 2 rows — nothing to import.")
+        return
+
+    colmap = _detect_lcb_columns(all_rows[1])
+    if not _confirm_lcb_colmap(colmap, all_rows[1], yes=yes):
+        print("[LCB] Import cancelled.")
+        return
+
+    fee_fields = [(colmap[f], f[4:]) for f in colmap if f.startswith("fee:") and colmap[f] is not None]
+
     for idx, r in enumerate(all_rows[2:], start=3):
         if not r:
             continue
-        r = list(r) + [None] * max(0, 40 - len(r))
-        work_date = _to_date(r[0])
-        status_raw = _to_str(r[1])
-        plate = _to_str(r[2])
-        truck_type = _to_str(r[3])
-        driver = _to_str(r[5])
-        driver_phone = _to_str(r[6])
-        trip_type = _to_str(r[7])
-        starting_point = _to_str(r[8])
-        loading_point = _to_str(r[9])
-        destination = _to_str(r[10])
-        job_ref = _to_str(r[11])
-        container_no = _to_str(r[12])
-        container_size = _to_str(r[13])
-        revenue_customer = _to_float(r[20])
-        revenue_total = _to_float(r[21])
-        invoice_no = _to_str(r[22])
-        invoice_date = _to_date(r[23])
-        wht_53 = _to_float(r[24])
-        mile = _to_float(r[25])
-        fuel_l = _to_float(r[26])
-        fuel_amt = _to_float(r[27])
-        fuel_rate = _to_float(r[28])
-        trip_fee = _to_float(r[29])
-        shared_vehicle = _to_str(r[33])
-        receive_invno = _to_str(r[34])
-        remark = _to_str(r[35])
+        r = list(r)
+
+        work_date    = _to_date(_cget(r, colmap, "date"))
+        status_raw   = _to_str(_cget(r, colmap, "status"))
+        plate        = _to_str(_cget(r, colmap, "plate"))
+        truck_type   = _to_str(_cget(r, colmap, "truck_type"))
+        driver       = _to_str(_cget(r, colmap, "driver"))
+        driver_phone = _to_str(_cget(r, colmap, "driver_phone"))
+        trip_type    = _to_str(_cget(r, colmap, "trip_type"))
+        starting_point = _to_str(_cget(r, colmap, "starting_point"))
+        loading_point  = _to_str(_cget(r, colmap, "loading_point"))
+        destination    = _to_str(_cget(r, colmap, "destination"))
+        job_ref        = _to_str(_cget(r, colmap, "job_ref"))
+        container_no   = _to_str(_cget(r, colmap, "container_no"))
+        container_size = _to_str(_cget(r, colmap, "container_size"))
+        revenue_customer = _to_float(_cget(r, colmap, "revenue_customer"))
+        revenue_total    = _to_float(_cget(r, colmap, "revenue_total"))
+        wht_53        = _to_float(_cget(r, colmap, "wht_53"))
+        invoice_no    = _to_str(_cget(r, colmap, "invoice_no"))
+        invoice_date  = _to_date(_cget(r, colmap, "invoice_date"))
+        mile          = _to_float(_cget(r, colmap, "mile"))
+        fuel_l        = _to_float(_cget(r, colmap, "fuel_l"))
+        fuel_amt      = _to_float(_cget(r, colmap, "fuel_amt"))
+        fuel_rate     = _to_float(_cget(r, colmap, "fuel_rate"))
+        trip_fee      = _to_float(_cget(r, colmap, "trip_fee"))
+        shared_vehicle = _to_str(_cget(r, colmap, "shared_vehicle"))
+        receive_invno  = _to_str(_cget(r, colmap, "receive_invno"))
+        remark         = _to_str(_cget(r, colmap, "remark"))
 
         if not work_date and not any([plate, driver, revenue_total, trip_fee]):
             stats["empty"] += 1
@@ -489,7 +607,6 @@ def import_lcb(ws, stats, cutoff: Optional[date], session: Session) -> None:
 
         status_code, leave_status = _classify_status(status_raw, loading_point, remark)
         if not status_code and status_raw:
-            # Use raw status (MOL, KLND, DHL, etc.) as customer indicator via status_code
             status_code = status_raw
 
         note_bits = []
@@ -521,11 +638,11 @@ def import_lcb(ws, stats, cutoff: Optional[date], session: Session) -> None:
         session.flush()
         stats["jobs"] += 1
         if status_code == "leave": stats["leaves"] += 1
-        if status_code == "idle": stats["idle"] += 1
+        if status_code == "idle":  stats["idle"] += 1
 
         fee_count = 0
-        for col, fee_type in LCB_FEE_MAP:
-            amt = _to_float(r[col])
+        for col_idx, fee_type in fee_fields:
+            amt = _to_float(r[col_idx] if col_idx < len(r) else None)
             if amt:
                 session.add(DailyJobFee(
                     daily_job_id=dj.id, fee_type=fee_type, amount=amt, remark=""
@@ -571,6 +688,8 @@ def main() -> None:
                     help="override workbook path (default: ProjectYK_System/Daily.xlsx)")
     ap.add_argument("--sheet", default=None,
                     help="when --site is set: Excel sheet name (default: same as site code, e.g. BIGC)")
+    ap.add_argument("--yes", "-y", action="store_true",
+                    help="skip the LCB column-map confirmation prompt (for scripted runs)")
     args = ap.parse_args()
 
     cutoff = None
@@ -637,7 +756,10 @@ def main() -> None:
             stats = {k: 0 for k in grand.keys()}
             handler = SITE_HANDLERS[site]
             print(f"\n=== Importing site={site} ({ws.max_row} rows) ===")
-            handler(ws, stats, cutoff, s)
+            if site == "LCB":
+                handler(ws, stats, cutoff, s, yes=args.yes)
+            else:
+                handler(ws, stats, cutoff, s)
             s.commit()
             print(f"  jobs={stats['jobs']}  fees={stats['fees']}  fuel={stats['fuel']}  "
                   f"leaves={stats['leaves']}  idle={stats['idle']}  placeholder={stats['placeholder']}  "
