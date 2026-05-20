@@ -44,7 +44,18 @@ from parse_lcb_plan_txt import (  # noqa: E402
 
 OUT_HTML = ROOT / "docs" / "print" / "lcb_fuel_dispatch_plan.html"
 REPORTS_DIR = ROOT / "reports"
+GPS_INBOX = REPORTS_DIR / "gps_inbox"
 DEFAULT_FUEL_CSV = REPORTS_DIR / "fuel_level_latest_LCB_2026-05-20.csv"
+
+GPS_XLSX_GLOBS = (
+    "*Fuel_Level*LCB*.xlsx",
+    "*LCB*Fuel*Level*.xlsx",
+    "*Fuel*Level*LCB*.xlsx",
+    "*tracking_report*Group*.xlsx",
+    "*หัวลาก*LCB*.xlsx",
+    "*หัวลาก*Fuel*.xlsx",
+    "*.xlsx",
+)
 
 PAGES_SLUG = "lcb-fuel-dispatch"
 GITHUB_PAGES_BASE = "https://yk-logistics.github.io/transport-rate-calculator"
@@ -81,16 +92,53 @@ EXCLUDED_DEFAULT = [
 ]
 
 
+def _gps_search_dirs() -> list[Path]:
+    home = Path.home()
+    dirs = [
+        GPS_INBOX,
+        REPORTS_DIR,
+        home / "Downloads",
+        home / "Desktop",
+        home / "Documents",
+    ]
+    return [d for d in dirs if d.is_dir()]
+
+
 def _find_default_xlsx() -> Path | None:
-    downloads = Path.home() / "Downloads"
-    if not downloads.exists():
+    """ไฟล์ Wialon .xlsx ล่าสุด — ห้ามใช้ CSV เก่าแทนโดยไม่รู้ตัว"""
+    seen: set[str] = set()
+    candidates: list[Path] = []
+    for folder in _gps_search_dirs():
+        for pattern in GPS_XLSX_GLOBS:
+            for p in folder.glob(pattern):
+                key = str(p.resolve()).lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                name = p.name.lower()
+                if "fuel_dispatch_assign" in name:
+                    continue
+                if "fuel" not in name and "lcb" not in name and "tracking" not in name:
+                    if folder != GPS_INBOX:
+                        continue
+                candidates.append(p)
+    if not candidates:
         return None
-    candidates = sorted(
-        downloads.glob("*Fuel_Level*LCB*.xlsx"),
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
-    )
-    return candidates[0] if candidates else None
+    return max(candidates, key=lambda p: p.stat().st_mtime)
+
+
+PLATE_IN_GROUP_RE = re.compile(r"(\d{2}-\d{4}|บษ-\d{4})")
+
+
+def plate_from_wialon_group(val) -> str | None:
+    """ดึงทะเบียนจากคอลัมน์ การจัดกลุ่ม (แถวหัวกลุ่ม); แถวย่อย 7.1 ไม่มีทะเบียน"""
+    if pd.isna(val):
+        return None
+    s = str(val).strip()
+    if not s or s == "รวมทั้งหมด":
+        return None
+    m = PLATE_IN_GROUP_RE.search(s)
+    return m.group(1) if m else None
 
 
 def parse_fuel_cell(val) -> float | None:
@@ -125,25 +173,34 @@ def load_fuel_csv(path: Path) -> dict[str, dict]:
 
 
 def load_fuel_xlsx(path: Path) -> dict[str, dict]:
+    """Wialon Group export: แถวย่อย (7.1) สืบทะเบียนจากแถวหัวกลุ่ม — ใช้ Time ล่าสุดจริง"""
     df = pd.read_excel(path, sheet_name="Fuel Level Sensor (L)")
     by: dict[str, dict] = {}
+    current_plate: str | None = None
+    loc_col = "Location" if "Location" in df.columns else None
     for _, r in df.iterrows():
-        grp = str(r["การจัดกลุ่ม"]).split()[0] if pd.notna(r["การจัดกลุ่ม"]) else ""
-        if not grp or grp == "รวมทั้งหมด":
+        p = plate_from_wialon_group(r.get("การจัดกลุ่ม"))
+        if p:
+            current_plate = p
+        plate = current_plate
+        if not plate:
             continue
         fuel = parse_fuel_cell(r["Fuel Level Sensor (L)"])
         ts = pd.to_datetime(r["Time"], errors="coerce")
         if fuel is None or pd.isna(ts):
             continue
+        loc = ""
+        if loc_col and pd.notna(r.get(loc_col)):
+            loc = str(r[loc_col]).strip()
         row = {
             "fuel": fuel,
             "time_th": ts.strftime("%d/%m/%Y %H:%M"),
             "time_iso": ts.strftime("%Y-%m-%dT%H:%M:%S"),
-            "location": "",
+            "location": loc,
         }
-        if grp not in by or ts > pd.to_datetime(by[grp].get("_ts", ts), errors="coerce"):
+        if plate not in by or ts > pd.to_datetime(by[plate].get("_ts", ts), errors="coerce"):
             row["_ts"] = ts
-            by[grp] = row
+            by[plate] = row
     for v in by.values():
         v.pop("_ts", None)
     return by
@@ -218,14 +275,26 @@ def _render_table_row(r: dict, n: int, job: str) -> str:
         flags.append('<span class="badge badge-warn">ข้อมูลเก่า</span>')
     flag_html = " ".join(flags)
     gps_col = f'{r["fuel_gps"]:.0f}' if r["fuel_gps"] is not None else "—"
+    added = int(r.get("fuel_added") or 0)
     suggest = int(r.get("suggested_refill_l") or 0)
     row_cls = f"job-{job}" + (" row-must-refuel" if r["needs_refuel"] else "")
-    if suggest > 0:
+    if added > 0:
+        val_attr = f' value="{added}"'
+        already_attr = f' data-already-fueled="{added}"'
+        title = f"เติมแล้ว +{added} ล. (แก้ได้)"
+    elif suggest > 0:
         val_attr = f' value="{suggest}"'
+        already_attr = ''
         title = f"แนะนำ ~{suggest} ล. (ถึง buffer {REFUEL_BUFFER_L:.0f} ล.)"
     else:
         val_attr = ""
+        already_attr = ''
         title = "ไม่บังคับเติม — ใส่ 0 ถ้าไม่เติม"
+    fuel_gps_val = r["fuel_gps"] if r["fuel_gps"] is not None else 0.0
+    plan_refill = added if added > 0 else suggest
+    after_refill_plan = fuel_gps_val + plan_refill
+    after_trip_plan = after_refill_plan - r["need"]
+    low_plan = after_trip_plan < REFUEL_BUFFER_L
     return f"""<tr class="{row_cls}" data-plate="{r['plate']}">
   <td class="c-num">{n}</td>
   <td class="c-plate"><strong>{r['plate']}</strong><div class="sub">{r.get('driver','')}</div></td>
@@ -234,7 +303,9 @@ def _render_table_row(r: dict, n: int, job: str) -> str:
   <td class="c-num">{gps_col}</td>
   <td class="c-num">{r['fuel']:.0f}</td>
   <td class="c-num {'low' if r['left'] < REFUEL_BUFFER_L else ''}">{r['left']:.0f}</td>
-  <td class="c-refill"><input type="number" class="refill-in" min="0" step="1" data-plate="{r['plate']}"{val_attr} title="{title}" aria-label="เติมลิตร {r['plate']}" /></td>
+  <td class="c-refill"><input type="number" class="refill-in" min="0" step="1" data-plate="{r['plate']}" data-need="{r['need']:.0f}" data-fuel-base="{fuel_gps_val:.0f}"{val_attr}{already_attr} title="{title}" aria-label="เติมลิตร {r['plate']}" /></td>
+  <td class="c-num after-refill-plan" data-plate="{r['plate']}">{after_refill_plan:.0f}</td>
+  <td class="c-num after-trip-plan {'low' if low_plan else ''}" data-plate="{r['plate']}">{after_trip_plan:.0f}</td>
   <td class="c-num refill-cost" data-plate="{r['plate']}">0</td>
   <td class="c-flags">{flag_html}</td>
   <td class="c-updated">{r['time_th']}</td>
@@ -365,6 +436,12 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
       <label class="price-box">Diesel price (฿/L)
         <input type="number" id="diesel-price" min="0" step="0.01" value="{diesel_default:.2f}" />
       </label>
+      <label class="price-box">งบต่ำสุด (฿)
+        <input type="number" id="budget-low" min="0" step="100" value="{int(budget_low)}" />
+      </label>
+      <label class="price-box">งบสูงสุด (฿)
+        <input type="number" id="budget-high" min="0" step="100" value="{int(budget_high)}" />
+      </label>
       <div class="btn-row">
         <button type="button" class="btn btn-print" onclick="window.print()">Print / PDF</button>
         <button type="button" class="btn btn-png" onclick="exportPng()">Save PNG</button>
@@ -393,8 +470,8 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
       <div class="sum-card"><div class="lbl">งบรวม (เติมแล้ว+แผน)</div><div class="val" id="sum-total-baht">{meta.get('total_spend_baht', 0):,.0f} ฿</div></div>
     </div>
     <div class="budget-wrap">
-      <h3>Budget helper ({budget_low:,} – {budget_high:,} ฿)</h3>
-      <div class="budget-labels"><span>{budget_low:,} ฿</span><span>{budget_high:,} ฿</span></div>
+      <h3>Budget helper (<span id="budget-range-label">{budget_low:,} – {budget_high:,}</span> ฿)</h3>
+      <div class="budget-labels"><span id="budget-label-low">{budget_low:,} ฿</span><span id="budget-label-high">{budget_high:,} ฿</span></div>
       <div class="budget-track"><div class="budget-marker" id="budget-marker" style="left:0%"></div></div>
       <p class="budget-status" id="budget-status">—</p>
     </div>
@@ -403,7 +480,10 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
       <thead><tr>
         <th class="c-num">#</th><th>ทะเบียน</th><th>งาน</th>
         <th class="c-num">ใช้(ล.)</th><th class="c-num">GPS</th><th class="c-num">หลังเติม</th>
-        <th class="c-num">หลังวิ่ง</th><th class="c-num">เติมวันนี้(ล.)</th><th class="c-num">ค่าเติม(฿)</th>
+        <th class="c-num">หลังวิ่ง</th><th class="c-num">เติมวันนี้(ล.)</th>
+        <th class="c-num" title="GPS+เติมแล้ว+ที่กรอก">หลังเติม(แผน)</th>
+        <th class="c-num" title="หลังเติม(แผน)−ใช้(ล.)">หลังวิ่ง(แผน)</th>
+        <th class="c-num">ค่าเติม(฿)</th>
         <th>สถานะ</th><th class="c-updated">GPS อัปเดต</th>
       </tr></thead>
       <tbody>
@@ -412,15 +492,30 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
     </table>
     {refuel_html}
     <section class="excluded"><h3>ไม่จัด / พิเศษ</h3><ul>{excluded_html}</ul></section>
-    <p class="foot-note">สูตร: KAO/Conti/Lacation 50·Haier 100·คลังวาฬ 25/เที่ยว·Oatside ~110/วัน · Project YK</p>
+    <p class="foot-note">สูตร: KAO/Conti/Lacation 50·Haier 100·คลังวาฬ 25/เที่ยว·Oatside ~110/วัน · หลังเติม/หลังวิ่ง(แผน) = หลังเติมระบบ + ลิตรที่กรอก · Project YK</p>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script>
     const REPORT_DATA = {data_json};
     const REFUEL_BUFFER_L = {REFUEL_BUFFER_L};
-    const BUDGET_LOW = {budget_low};
-    const BUDGET_HIGH = {budget_high};
+    let BUDGET_LOW = {budget_low};
+    let BUDGET_HIGH = {budget_high};
     const TONIGHT_BAHT = {meta.get('tonight_refuel_baht', 0)};
+
+    function getBudgetCaps() {{
+      const lo = parseFloat(document.getElementById('budget-low')?.value);
+      const hi = parseFloat(document.getElementById('budget-high')?.value);
+      if (Number.isFinite(lo) && lo >= 0) BUDGET_LOW = lo;
+      if (Number.isFinite(hi) && hi > 0) BUDGET_HIGH = hi;
+      if (BUDGET_HIGH < BUDGET_LOW) BUDGET_HIGH = BUDGET_LOW + 1000;
+      const lbl = document.getElementById('budget-range-label');
+      const ll = document.getElementById('budget-label-low');
+      const lh = document.getElementById('budget-label-high');
+      const fmt = n => Math.round(n).toLocaleString('th-TH');
+      if (lbl) lbl.textContent = fmt(BUDGET_LOW) + ' – ' + fmt(BUDGET_HIGH);
+      if (ll) ll.textContent = fmt(BUDGET_LOW) + ' ฿';
+      if (lh) lh.textContent = fmt(BUDGET_HIGH) + ' ฿';
+    }}
 
     function getDieselPrice() {{
       const el = document.getElementById('diesel-price');
@@ -437,17 +532,41 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
       return Math.round(n).toLocaleString('th-TH');
     }}
 
+    function fmtLiters(n) {{
+      return Math.round(n).toLocaleString('th-TH');
+    }}
+
+    function setPlanFuelCells(inp, planL) {{
+      const plate = inp.dataset.plate;
+      const base = parseFloat(inp.dataset.fuelBase) || 0;
+      const need = parseFloat(inp.dataset.need) || 0;
+      const afterRefill = base + planL;
+      const afterTrip = afterRefill - need;
+      const low = afterTrip < REFUEL_BUFFER_L;
+      const ar = document.querySelector('.after-refill-plan[data-plate="' + plate + '"]');
+      const at = document.querySelector('.after-trip-plan[data-plate="' + plate + '"]');
+      if (ar) ar.textContent = fmtLiters(afterRefill);
+      if (at) {{
+        at.textContent = fmtLiters(afterTrip);
+        at.classList.toggle('low', low);
+      }}
+    }}
+
     function recalcAll() {{
+      getBudgetCaps();
       const price = getDieselPrice();
       let plannedL = 0;
       let plannedB = 0;
       document.querySelectorAll('.refill-in').forEach(inp => {{
         const L = refillLiters(inp);
-        const cost = L * price;
-        plannedL += L;
+        const alreadyFueled = parseFloat(inp.dataset.alreadyFueled || 0);
+        const extraL = Math.max(0, L - alreadyFueled);
+        const cost = extraL * price;
+        plannedL += extraL;
         plannedB += cost;
+        setPlanFuelCells(inp, L);
         const cell = document.querySelector('.refill-cost[data-plate="' + inp.dataset.plate + '"]');
-        if (cell) cell.textContent = L > 0 ? fmtBaht(cost) : '0';
+        if (cell) cell.textContent = extraL > 0 ? fmtBaht(cost) : '0';
       }});
       const totalB = TONIGHT_BAHT + plannedB;
       const elL = document.getElementById('sum-planned-liters');
@@ -473,6 +592,8 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
     }}
 
     document.getElementById('diesel-price').addEventListener('input', recalcAll);
+    document.getElementById('budget-low')?.addEventListener('input', recalcAll);
+    document.getElementById('budget-high')?.addEventListener('input', recalcAll);
     document.querySelectorAll('.refill-in').forEach(inp => inp.addEventListener('input', recalcAll));
     recalcAll();
 
@@ -487,7 +608,7 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
 
     function exportExcel() {{
       const price = getDieselPrice();
-      const header = ['ลำดับ','ทะเบียน','งาน','เที่ยว','ใช้(ล.)','GPS(ล.)','หลังเติม(ล.)','หลังวิ่ง(ล.)','เติมวันนี้(ล.)','ค่าเติม(฿)','แนะนำเติม(ล.)','สถานะ','GPSอัปเดต'];
+      const header = ['ลำดับ','ทะเบียน','งาน','เที่ยว','ใช้(ล.)','GPS(ล.)','หลังเติม(ล.)','หลังวิ่ง(ล.)','เติมวันนี้(ล.)','หลังเติม(แผน)','หลังวิ่ง(แผน)','ค่าเติม(฿)','แนะนำเติม(ล.)','สถานะ','GPSอัปเดต'];
       const lines = [header.join(',')];
       const byPlate = Object.fromEntries(REPORT_DATA.assignments.map(r => [r.plate, r]));
       document.querySelectorAll('#dispatch-table tbody tr').forEach((tr, i) => {{
@@ -500,9 +621,13 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
         if (r.needs_refuel) notes.push('ต้องเติม');
         if (r.stale) notes.push('ข้อมูลเก่า');
         const gps = r.fuel_gps != null ? r.fuel_gps : '';
+        const baseGps = r.fuel_gps != null ? r.fuel_gps : 0;
+        const afterRefill = baseGps + L;
+        const afterTrip = afterRefill - (r.need || 0);
         lines.push([
           i + 1, plate, r.job || '', r.trips || '', r.need || '', gps, r.fuel || '', r.left || '',
-          L, Math.round(L * price), r.suggested_refill_l || 0, notes.join(' '), r.time_th || ''
+          L, Math.round(afterRefill), Math.round(afterTrip),
+          Math.round(L * price), r.suggested_refill_l || 0, notes.join(' '), r.time_th || ''
         ].join(','));
       }});
       const blob = new Blob(['\\ufeff' + lines.join('\\n')], {{ type: 'text/csv;charset=utf-8' }});
@@ -541,6 +666,13 @@ def main() -> int:
     ap.add_argument("--fuel-xlsx", type=Path, default=None)
     ap.add_argument("--add-fuel", action="append", default=[], metavar="PLATE=L")
     ap.add_argument("--diesel-price", type=float, default=DEFAULT_DIESEL_BAHT)
+    ap.add_argument("--budget-low", type=float, default=5000, help="งบขั้นต่ำ (฿)")
+    ap.add_argument("--budget-high", type=float, default=10000, help="งบสูงสุด (฿)")
+    ap.add_argument(
+        "--allow-stale-csv",
+        action="store_true",
+        help="อนุญาตใช้ fuel_level_latest_*.csv ใน reports (ไม่แนะนำ)",
+    )
     ap.add_argument("--no-open", action="store_true")
     args = ap.parse_args()
     args.fuel_csv, args.fuel_xlsx = _apply_fuel_path(
@@ -562,16 +694,21 @@ def main() -> int:
     elif args.fuel_csv and args.fuel_csv.exists():
         fuel_by = load_fuel_csv(args.fuel_csv)
         fuel_source = args.fuel_csv.name
-    elif DEFAULT_FUEL_CSV.exists():
-        fuel_by = load_fuel_csv(DEFAULT_FUEL_CSV)
-        fuel_source = DEFAULT_FUEL_CSV.name
     else:
         xlsx = _find_default_xlsx()
         if xlsx:
             fuel_by = load_fuel_xlsx(xlsx)
-            fuel_source = xlsx.name
+            fuel_source = f"{xlsx.name} ({xlsx.parent.name})"
+            print(f"GPS: {xlsx}")
+        elif args.allow_stale_csv and DEFAULT_FUEL_CSV.exists():
+            fuel_by = load_fuel_csv(DEFAULT_FUEL_CSV)
+            fuel_source = f"{DEFAULT_FUEL_CSV.name} (CSV เก่า)"
+            print(f"[WARN] ใช้ CSV เก่า: {DEFAULT_FUEL_CSV.name}")
         else:
-            print("ไม่พบ fuel CSV/xlsx — ใช้ --fuel-csv หรือวาง CSV ใน reports/")
+            print("ไม่พบไฟล์ GPS .xlsx")
+            print(f"  วางไฟล์ Wialon ลง: {GPS_INBOX}")
+            print("  หรือลาก .xlsx มาวางบน build_lcb_fuel_dispatch.bat")
+            print("  หรือรัน: python ... plan.txt \"C:\\path\\to\\report.xlsx\"")
             return 1
 
     rows = build_rows(plan, fuel_by, add_fuel)
@@ -625,9 +762,9 @@ def main() -> int:
         "refuel_buffer_total_l": refuel_buffer_l,
         "refuel_buffer_total_baht": refuel_buffer_baht,
         "total_spend_baht": total_spend,
-        "budget_cap_low": 5000,
-        "budget_cap_high": 10000,
-        "within_budget": total_spend <= 10000,
+        "budget_cap_low": args.budget_low,
+        "budget_cap_high": args.budget_high,
+        "within_budget": args.budget_low <= total_spend <= args.budget_high,
     }
 
     html = render_html(rows, meta, excluded)
