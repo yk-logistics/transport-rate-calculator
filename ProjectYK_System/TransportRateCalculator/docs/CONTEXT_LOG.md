@@ -5341,3 +5341,141 @@ o_work_outbound_rows ใช้เรทตาม **วัน anchor R** ไม�
 
 ### Action ถัดไป
 - ให้โอเปิดไฟล์ PDF/PNG หรือ Excel แล้วลอง Print Preview/พิมพ์จริง 1 แผ่น; ถ้าช่อง/ฟอนต์ยังไม่ตรงรูป ให้ปรับระยะคอลัมน์/แถวรอบถัดไป
+
+---
+
+## 2026-05-20 (Session Summary #181 - LCB fuel dispatch HTML)
+
+### บริบทจากผู้ใช้
+- อ่านรายงาน GPS น้ำมันในถัง LCB หัวลาก จัดคัน 15 เที่ยว (860 ล.) โดยไม่เติมเพิ่ม
+- ตัด 71-8681 / 72-1219 (เสีย), 72-1217 (Oatside ประจำ)
+- ขอหน้า HTML สวย + คอลัมน์อัปเดต GPS + ปุ่มพิมพ์/รูป/Excel ส่งทีม; ครั้งต่อไปโยนไฟล์ .xlsx มาอัปเดตได้
+
+### การตัดสินใจรอบนี้
+- แผนจัดคัน = greedy งานกินมากสุดกับถังมากสุด (ไม่ผูก FastAPI ก่อน — เป็นเครื่องมือ ops แยก)
+- สูตรงานคงที่: Haier 100×3, Conti 50×5, KAO 50×4, Lacation 50×1, คลังวาฬ 30×2
+
+### สิ่งที่ทำแล้ว
+- `tools/build_lcb_fuel_dispatch_html.py` + `build_lcb_fuel_dispatch.bat`
+- `docs/print/lcb_fuel_dispatch_plan.html` (พิมพ์, PNG html2canvas, CSV)
+- `reports/fuel_dispatch_assign_YYYY-MM-DD.xlsx`
+
+### Action ถัดไป
+- โอทดสอบพิมพ์/ส่งไลน์ทีม; รอบถัดไปโยน .xlsx ใหม่แล้วดับเบิลคลิก bat
+
+---
+
+## 2026-05-20 (Session Summary #182 - LCB fuel จากแผน LINE + เติมคืนนี้)
+
+### บริบทจากผู้ใช้
+- ล็อกสูตร/กติกา: Lacation 71-8683 นับ 1 เที่ยวใน 16, Oatside 72-1217 ~110 ล./วัน, เติมเมื่อหลังวิ่ง &lt; 10–15 ล., MVP = bat + HTML ก่อน
+- แผน `21.05.26.txt` + GPS `fuel_level_latest_LCB_2026-05-20.csv`; เติมคืนนี้ 0420 +30 ล., 6803 +20 ล.; งบคืนนี้ไม่เกิน 5,000–10,000 บาทถ้าเป็นไปได้
+- 8681 เสีย → 8684; 1219 เสีย; แผนจูเนียร์ส่งเป็น .txt จาก LINE เสมอ
+
+### การตัดสินใจรอบนี้
+- จัดคันตามแผน LINE (ไม่ greedy จากถังอย่างเดียว); นับเที่ยวคลังวาฬจาก `Bol.` 2 ต่อหัว; Lacation เริ่มหลังบรรทัด Closing/Booking
+- ราคา diesel คืนนี้ใช้ **32 บาท/ล.** (สมมติ — ในแอปมี `FuelPriceIndex` ปรับ `--diesel-price` ได้)
+- buffer เตือนเติม = **12.5 ล.** หลังหักเที่ยว (กลาง 10–15)
+
+### สิ่งที่ทำแล้ว
+- `tools/parse_lcb_plan_txt.py`, `tools/build_lcb_fuel_dispatch_from_plan.py`, อัปเดต `build_lcb_fuel_dispatch.bat`
+- รันแผน 21.05.26: เติมคืนนี้ **50 ล. ≈ 1,600 บาท**; หลังเติมแล้วยังต้องเติมถึง buffer **71-9628, 72-0419** (KAO คนละ ~14 ล. ≈ 864 บาทรวม) — **งบรวมคืนนี้ ≈ 2,464 บาท** (อยู่ในงบ)
+- อัปเดต `docs/print/lcb_fuel_dispatch_plan.html` + `reports/fuel_dispatch_assign_2026-05-20.xlsx`
+- นับเที่ยวจาก parser = **17** (ไม่รวม Oatside) — หัวแผน LINE บอก 16; ให้โอเช็ค 1 เที่ยวซ้ำ/สลับถ้าต้องการตรงหัวแผน
+
+### Action ถัดไป
+- โอดับเบิลคลิก bat ด้วยแผน .txt วันใหม่; ยืนยันราคาปั๊มจริงแล้วส่ง `--diesel-price`; สั่งเติม KAO 0419/9628 ~14 ล./คัน
+- รอบถัดไป: ผูก route ในแอป หรือดึงราคาจาก `FuelPriceIndex` อัตโนมัติ
+
+---
+
+## 2026-05-20 (Session Summary #183 - LCB fuel 42.20 + bat UX + route)
+
+### บริบทจากผู้ใช้
+- ราคาดีเซล **42.20 บาท/ล.**; เติมแล้ว 0420 +30 ล., 6803 +20 ล.; ยังต้อง 9628/0419 ~14 ล./คัน
+- ยืนยัน **16 งาน / 2 คันซ่อม (8681, 1219)**; Oatside 1217 นอกชุด 16
+
+### การตัดสินใจรอบนี้
+- หัวแผน LINE **วิ่ง16 = 16 คัน** (15 dispatch + Oatside 1); **เที่ยวตู้ 17** = คลังวาฬ 2 หัว×2 ตู้ (งบน้ำมันนับตู้จริง)
+- `DEFAULT_DIESEL_BAHT` / bat = **42.20**; route **`/ops/lcb-fuel-dispatch`** อ่าน HTML ใน repo
+
+### สิ่งที่ทำแล้ว
+- อัปเดต `build_lcb_fuel_dispatch_from_plan.py`, `parse_lcb_plan_txt.py` (header stats), `build_lcb_fuel_dispatch.bat` (ถาม path + หา xlsx Downloads)
+- รันใหม่: เติมคืนนี้ **2,110 บาท** + buffer KAO **1,139 บาท** ≈ **3,249 บาท** รวม
+
+### Action ถัดไป
+- โอเปิด `http://localhost:8000/ops/lcb-fuel-dispatch` หลังรัน bat; สั่งเติม 9628/0419
+
+---
+
+## 2026-05-20 (Session Summary #184 - LCB fuel GitHub Pages path)
+
+### บริบทจากผู้ใช้
+- ต้องการลิงก์เว็บแบบ Oatside (`yk-logistics.github.io/transport-rate-calculator/reports/...`) ไม่ใช่แค่ localhost
+
+### การตัดสินใจรอบนี้
+- คัดลอก HTML ไป `reports/lcb-fuel-dispatch/index.html` (repo root = GitHub Pages) และ `TransportRateCalculator/reports/lcb-fuel-dispatch/` ทุกครั้งที่รัน build
+- ลิงก์หลัง push: `https://yk-logistics.github.io/transport-rate-calculator/reports/lcb-fuel-dispatch/`
+
+### สิ่งที่ทำแล้ว
+- `build_lcb_fuel_dispatch_from_plan.py` + bat พิมพ์ URL Pages; README ใน `TransportRateCalculator/reports/lcb-fuel-dispatch/`
+
+### Action ถัดไป
+- โอรัน bat → `git add` + commit + push → แชร์ลิงก์ Pages; localhost 8011 ยังใช้ทดสอบก่อน push
+
+---
+
+## 2026-05-20 (Session Summary #185 - LCB fuel Pages push bat)
+
+### บริบทจากผู้ใช้
+- ต้องการ push GitHub Pages ให้หรือมี .bat คลิก push หลัง build
+
+### การตัดสินใจรอบนี้
+- แยก `push_lcb_fuel_dispatch_pages.bat` (commit เฉพาะ `reports/lcb-fuel-dispatch/` + README ใน TransportRateCalculator)
+- `build_lcb_fuel_dispatch.bat` ถาม Y/N push ค่าเริ่มต้น N
+
+### สิ่งที่ทำแล้ว
+- push สำเร็จ commit `9f7112c` → origin main (รวม 9 commit ค้างก่อนหน้าด้วย)
+- URL: https://yk-logistics.github.io/transport-rate-calculator/reports/lcb-fuel-dispatch/
+
+### Action ถัดไป
+- รอ 1–2 นาที แล้วเปิด URL ตรวจ; ครั้งถัดไปใช้ build bat แล้วตอบ Y หรือดับเบิลคลิก push bat
+
+---
+
+## 2026-05-20 (Session Summary #186 - LCB fuel bat encoding + Python in Git)
+
+### บริบทจากผู้ใช้
+- cmd.exe แสดงข้อความไทยใน bat เป็นกล่องสี่เหลี่ยม; ถามว่าทำไมต้อง commit สคริปต์ Python; 9 commit push พร้อมกันโอเคไหม
+
+### การตัดสินใจรอบนี้
+- bat ใช้ `chcp 65001` + **ข้อความภาษาอังกฤษ** สำหรับ echo/set /p (หลีกเลี่ยง encoding cmd)
+- Enter ว่าง → หา `*05.26*.txt` ล่าสุดใน Downloads; รองรับลากไฟล์เป็น `%1`
+- commit แยกเฉพาะ tools/*.py + bat — ไม่รวม HTML/report ที่ generate
+
+### สิ่งที่ทำแล้ว
+- แก้ `build_lcb_fuel_dispatch.bat`, `push_lcb_fuel_dispatch_pages.bat`
+- push commit `c20ba58` tools: LCB fuel dispatch build scripts
+
+### Action ถัดไป
+- โอดับเบิลคลิก bat ตรวจว่าข้อความอ่านได้; รันแผนวันใหม่แล้ว push Pages ถ้าต้องการอัปเดตลิงก์สาธารณะ
+
+---
+
+## 2026-05-20 (Session Summary #187 - LCB fuel HTML refill planner)
+
+### บริบทจากผู้ใช้
+- ต้องการหน้าแผน LCB แก้ราคาดีเซลได้, กรอกลิตรเติมต่อคัน, สรุปยอดเติมวันนี้ + เทียบงบ 5,000–10,000 ฿, pre-fill คันต้องเติม, Export รวมคอลัมน์เติม
+
+### การตัดสินใจรอบนี้
+- คำนวณฝั่ง browser (GitHub Pages ไม่ต้องมี server); ค่าเริ่มต้น diesel 42.20 จาก build + แก้บนหน้าได้
+- คันหลังวิ่ง &lt; buffer ~12.5 ล. → pre-fill ลิตรถึง buffer (ปัดเป็นจำนวนเต็ม); คันอื่นว่าง
+- งบรวม live = เติมคืนนี้ (จาก `--add-fuel`) + ผลรวมลิตรที่กรอก × ราคา
+
+### สิ่งที่ทำแล้ว
+- อัปเดต `build_lcb_fuel_dispatch_from_plan.py` (คอลัมน์เติม, toolbar EN, budget bar, html2canvas PNG, CSV export)
+- build ทดด้วย `fixtures/lcb_plan_sample.txt` + CSV; bat ยัง default `--diesel-price 42.20`
+
+### Action ถัดไป
+- โอรัน bat กับแผน `21.05.26.txt` จริง → เปิด HTML กรอกลิตรที่สั่งเติม → push Pages
+

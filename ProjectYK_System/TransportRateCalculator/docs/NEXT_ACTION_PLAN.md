@@ -2,6 +2,18 @@
 
 แผนงานลำดับถัดไป (เรียงตามความสำคัญ)
 
+## ⭐ Quick Status (2026-05-20 | LCB fuel — แผน LINE + GPS)
+
+- [done] HTML แก้ราคาดีเซล + กรอกลิตรเติมต่อคัน + งบ 5k–10k + Export PNG/CSV (client-side)
+- [next] โอรัน bat แผนจริง `21.05.26.txt` แล้ว push Pages; ทดบนมือถือว่าค่าเติม/งบรวมตรงที่สั่งเติมจริง
+- [done] build คัดลอก HTML → `reports/lcb-fuel-dispatch/` สำหรับ GitHub Pages (`…/reports/lcb-fuel-dispatch/`)
+- [done] commit + push สคริปต์ Python สร้าง HTML (`tools: LCB fuel dispatch build scripts`); bat ภาษาอังกฤษแก้ encoding cmd
+- [next] โอรัน bat แล้ว push `reports/lcb-fuel-dispatch/` เมื่อมีแผนวันใหม่ (หรือตอบ Y ใน bat)
+- [done] diesel **42.20** บาท/ล.; bat ถาม path + auto xlsx Downloads; `/ops/lcb-fuel-dispatch`
+- [done] รัน 21.05.26 @42.20: เติมคืนนี้ **2,110 บาท** + buffer KAO **1,139 บาท** ≈ **3,249 บาท** รวม
+- [done] นับคัน **16** ตรงหัวแผน (รวม Oatside); เที่ยวตู้ **17** สำหรับงบน้ำมัน (คลังวาฬ 2 ตู้/หัว)
+- [next] สั่งเติม KAO 9628/0419 ~14 ล./คัน; โอทด bat ลากแผน + เปิด route บนมือถือใน LAN
+
 ## ⭐ Quick Status (2026-05-18 | DLT Log Book form)
 
 - [done] สร้างแบบฟอร์ม `แบบบันทึกผลการบำรุงรักษารถ (Log Book)` เป็น Excel A4 แนวตั้งหน้าเดียวตามรูปตัวอย่างจริง: `ProjectYK_System/docs/forms/DLT_LogBook_Maintenance.xlsx`

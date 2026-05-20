@@ -3,6 +3,7 @@
 LCB fuel dispatch from LINE plan .txt + GPS fuel (CSV or Wialon .xlsx).
 
   python ProjectYK_System/tools/build_lcb_fuel_dispatch_from_plan.py plan.txt
+  python ... plan.txt fuel_gps.xlsx
   python ... plan.txt --fuel-csv reports/fuel_level_latest_LCB_2026-05-20.csv
   python ... plan.txt --add-fuel 72-0420=30 --add-fuel 71-6803=20 --diesel-price 42.20
 
@@ -19,6 +20,12 @@ import json
 import re
 import sys
 from datetime import datetime
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 from pathlib import Path
 
 import pandas as pd
@@ -187,6 +194,7 @@ def build_rows(
                 "needs_refuel": needs_refuel,
                 "refuel_min_l": min_refuel,
                 "refuel_buffer_l": refuel_to_buffer,
+                "suggested_refill_l": round(refuel_to_buffer) if needs_refuel else 0,
                 "driver": a.driver,
                 "time_th": gps.get("time_th", "-"),
                 "time_iso": gps.get("time_iso", ""),
@@ -198,6 +206,41 @@ def build_rows(
     return rows
 
 
+def _render_table_row(r: dict, n: int, job: str) -> str:
+    flags = []
+    if r.get("fuel_added", 0) > 0:
+        flags.append(
+            f'<span class="badge badge-ok">เติมแล้ว +{r["fuel_added"]:.0f}ล.</span>'
+        )
+    if r["needs_refuel"]:
+        flags.append('<span class="badge badge-risk">ต้องเติม</span>')
+    if r.get("stale"):
+        flags.append('<span class="badge badge-warn">ข้อมูลเก่า</span>')
+    flag_html = " ".join(flags)
+    gps_col = f'{r["fuel_gps"]:.0f}' if r["fuel_gps"] is not None else "—"
+    suggest = int(r.get("suggested_refill_l") or 0)
+    row_cls = f"job-{job}" + (" row-must-refuel" if r["needs_refuel"] else "")
+    if suggest > 0:
+        val_attr = f' value="{suggest}"'
+        title = f"แนะนำ ~{suggest} ล. (ถึง buffer {REFUEL_BUFFER_L:.0f} ล.)"
+    else:
+        val_attr = ""
+        title = "ไม่บังคับเติม — ใส่ 0 ถ้าไม่เติม"
+    return f"""<tr class="{row_cls}" data-plate="{r['plate']}">
+  <td class="c-num">{n}</td>
+  <td class="c-plate"><strong>{r['plate']}</strong><div class="sub">{r.get('driver','')}</div></td>
+  <td class="c-job"><span class="job-pill" style="background:{JOB_COLORS.get(job,'#334155')}">{job}</span> <span class="trips">{r['trips']} เที่ยว</span></td>
+  <td class="c-num">{r['need']:.0f}</td>
+  <td class="c-num">{gps_col}</td>
+  <td class="c-num">{r['fuel']:.0f}</td>
+  <td class="c-num {'low' if r['left'] < REFUEL_BUFFER_L else ''}">{r['left']:.0f}</td>
+  <td class="c-refill"><input type="number" class="refill-in" min="0" step="1" data-plate="{r['plate']}"{val_attr} title="{title}" aria-label="เติมลิตร {r['plate']}" /></td>
+  <td class="c-num refill-cost" data-plate="{r['plate']}">0</td>
+  <td class="c-flags">{flag_html}</td>
+  <td class="c-updated">{r['time_th']}</td>
+</tr>"""
+
+
 def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -> str:
     data_json = json.dumps(
         {"assignments": rows, "meta": meta, "excluded": excluded},
@@ -207,33 +250,9 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
     job_order = ["Haier", "KAO", "Conti", "Lacation", "คลังวาฬ", "Oatside"]
     n = 0
     for job in job_order:
-        job_rows = [r for r in rows if r["job"] == job]
-        for r in job_rows:
+        for r in [x for x in rows if x["job"] == job]:
             n += 1
-            flags = []
-            if r.get("fuel_added", 0) > 0:
-                flags.append(
-                    f'<span class="badge badge-ok">เติมแล้ว +{r["fuel_added"]:.0f}ล.</span>'
-                )
-            if r["needs_refuel"]:
-                flags.append('<span class="badge badge-risk">ต้องเติม</span>')
-            if r.get("stale"):
-                flags.append('<span class="badge badge-warn">ข้อมูลเก่า</span>')
-            flag_html = " ".join(flags)
-            gps_col = f'{r["fuel_gps"]:.0f}' if r["fuel_gps"] is not None else "—"
-            body_rows.append(
-                f"""<tr class="job-{job}">
-  <td class="c-num">{n}</td>
-  <td class="c-plate"><strong>{r['plate']}</strong><div class="sub">{r.get('driver','')}</div></td>
-  <td class="c-job"><span class="job-pill" style="background:{JOB_COLORS.get(job,'#334155')}">{job}</span> <span class="trips">{r['trips']} เที่ยว</span></td>
-  <td class="c-num">{r['need']:.0f}</td>
-  <td class="c-num">{gps_col}</td>
-  <td class="c-num">{r['fuel']:.0f}</td>
-  <td class="c-num {'low' if r['left'] < REFUEL_BUFFER_L else ''}">{r['left']:.0f}</td>
-  <td class="c-flags">{flag_html}</td>
-  <td class="c-updated">{r['time_th']}</td>
-</tr>"""
-            )
+            body_rows.append(_render_table_row(r, n, job))
 
     refuel_rows = [r for r in rows if r["needs_refuel"]]
     refuel_html = ""
@@ -247,8 +266,8 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
     <section class="refuel-box">
       <h3>ยังต้องเติม (หลังวิ่ง &lt; {REFUEL_BUFFER_L:.0f} ล.)</h3>
       <ul>{''.join(refuel_lines)}</ul>
-      <p class="cost-line">ประมาณเติมถึง buffer: <strong>{meta.get('refuel_buffer_total_l', 0):.0f} ล.</strong>
-        ≈ <strong>{meta.get('refuel_buffer_total_baht', 0):,.0f} บาท</strong> (@ {meta.get('diesel_price', 32):.2f} บาท/ล.)</p>
+      <p class="cost-line">ประมาณเติมถึง buffer (ราคาเริ่มต้น): <strong id="buffer-liters-hint">{meta.get('refuel_buffer_total_l', 0):.0f} ล.</strong>
+        ≈ <strong id="buffer-baht-hint">{meta.get('refuel_buffer_total_baht', 0):,.0f} บาท</strong></p>
     </section>"""
 
     tonight_html = ""
@@ -258,12 +277,16 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
       <h3>เติมคืนนี้แล้ว (ตามที่โอแจ้ง)</h3>
       <p>{meta.get('tonight_refuel_detail', '')}</p>
       <p class="cost-line">รวม <strong>{meta['tonight_refuel_l']:.0f} ล.</strong>
-        ≈ <strong>{meta['tonight_refuel_baht']:,.0f} บาท</strong></p>
+        ≈ <strong id="tonight-baht">{meta['tonight_refuel_baht']:,.0f} บาท</strong></p>
     </section>"""
 
     excluded_html = "".join(
         f"<li><strong>{p}</strong> — {note}</li>" for p, note in excluded
     )
+
+    diesel_default = meta.get("diesel_price", DEFAULT_DIESEL_BAHT)
+    budget_low = meta.get("budget_cap_low", 5000)
+    budget_high = meta.get("budget_cap_high", 10000)
 
     return f"""<!DOCTYPE html>
 <html lang="th">
@@ -276,11 +299,19 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
     body {{ font-family: "Sarabun", "Tahoma", sans-serif; font-size: 14px; color: #0f172a; background: #f1f5f9; line-height: 1.45;
       -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
-    .toolbar {{ max-width: 1140px; margin: 12px auto; padding: 14px 18px; background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }}
+    .toolbar {{ max-width: 1200px; margin: 12px auto; padding: 14px 18px; background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }}
     .toolbar h2 {{ font-size: 1rem; margin-bottom: 8px; }}
     .toolbar p {{ font-size: 0.85rem; color: #475569; margin-bottom: 8px; }}
-    .btn {{ border: none; border-radius: 8px; padding: 9px 16px; font-family: inherit; font-weight: 600; cursor: pointer; background: #1e40af; color: #fff; }}
-    #report {{ max-width: 1140px; margin: 0 auto 24px; background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.1); overflow: hidden; }}
+    .toolbar-row {{ display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 10px; }}
+    .price-box {{ display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }}
+    .price-box input {{ width: 88px; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-weight: 700; }}
+    .btn-row {{ display: flex; flex-wrap: wrap; gap: 8px; }}
+    .btn {{ border: none; border-radius: 8px; padding: 9px 16px; font-family: inherit; font-weight: 600; cursor: pointer; color: #fff; }}
+    .btn-print {{ background: #1e40af; }}
+    .btn-png {{ background: #0f766e; }}
+    .btn-xlsx {{ background: #166534; }}
+    .btn:hover {{ filter: brightness(1.08); }}
+    #report {{ max-width: 1200px; margin: 0 auto 24px; background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.1); overflow: hidden; }}
     .report-head {{ padding: 20px 22px 14px; border-bottom: 3px solid #1e3a8a; background: linear-gradient(135deg, #eff6ff 0%, #fff 60%); }}
     .report-head h1 {{ font-size: 1.4rem; font-weight: 800; color: #1e3a8a; }}
     .report-head .sub {{ color: #64748b; font-size: 0.88rem; margin-top: 4px; }}
@@ -288,6 +319,15 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
     .sum-card {{ background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; }}
     .sum-card .lbl {{ font-size: 0.75rem; color: #64748b; }}
     .sum-card .val {{ font-size: 1.15rem; font-weight: 800; }}
+    .sum-card .val.live {{ color: #1d4ed8; }}
+    .sum-card.highlight {{ border-color: #93c5fd; background: #eff6ff; }}
+    .budget-wrap {{ padding: 12px 22px 6px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }}
+    .budget-wrap h3 {{ font-size: 0.85rem; color: #64748b; margin-bottom: 8px; font-weight: 700; }}
+    .budget-labels {{ display: flex; justify-content: space-between; font-size: 0.72rem; color: #64748b; margin-bottom: 4px; }}
+    .budget-track {{ position: relative; height: 14px; border-radius: 999px; background: linear-gradient(90deg, #dcfce7 0%, #fef9c3 50%, #fee2e2 100%); overflow: visible; }}
+    .budget-marker {{ position: absolute; top: -4px; width: 4px; height: 22px; background: #1e3a8a; border-radius: 2px; transform: translateX(-50%); box-shadow: 0 0 0 2px #fff; }}
+    .budget-status {{ margin-top: 6px; font-size: 0.82rem; color: #475569; }}
+    .budget-status strong {{ color: #0f172a; }}
     table {{ width: 100%; border-collapse: collapse; font-size: 0.9rem; }}
     thead th {{ background: #1e3a8a; color: #fff; padding: 10px 8px; text-align: left; }}
     tbody td {{ padding: 9px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }}
@@ -301,6 +341,9 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
     .badge-risk {{ background: #fee2e2; color: #991b1b; }}
     .badge-warn {{ background: #fef3c7; color: #92400e; }}
     .badge-ok {{ background: #dcfce7; color: #166534; }}
+    .c-refill input.refill-in {{ width: 64px; padding: 5px 6px; border: 1px solid #cbd5e1; border-radius: 6px; text-align: right; font-variant-numeric: tabular-nums; font-family: inherit; }}
+    tr.row-must-refuel .c-refill input {{ border-color: #f97316; background: #fff7ed; }}
+    tr.row-must-refuel td {{ background: #fffbeb; }}
     .refuel-box, .tonight-box, .excluded {{ padding: 14px 22px; border-top: 1px solid #e2e8f0; }}
     .refuel-box {{ background: #fff7ed; }}
     .tonight-box {{ background: #ecfdf5; }}
@@ -312,9 +355,18 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
 </head>
 <body>
   <div class="toolbar no-print">
-    <h2>แผน LCB — จากแผน LINE + GPS</h2>
-    <p>รัน <code>build_lcb_fuel_dispatch.bat</code> พร้อม path แผน .txt และ (ถ้ามี) ไฟล์ fuel .csv / .xlsx</p>
-    <button type="button" class="btn" onclick="window.print()">พิมพ์ / PDF</button>
+    <h2>LCB fuel dispatch — LINE plan + GPS</h2>
+    <p>Build: <code>build_lcb_fuel_dispatch.bat</code> · Edit diesel price and liters per truck below (saved in export only).</p>
+    <div class="toolbar-row">
+      <label class="price-box">Diesel price (฿/L)
+        <input type="number" id="diesel-price" min="0" step="0.01" value="{diesel_default:.2f}" />
+      </label>
+      <div class="btn-row">
+        <button type="button" class="btn btn-print" onclick="window.print()">Print / PDF</button>
+        <button type="button" class="btn btn-png" onclick="exportPng()">Save PNG</button>
+        <button type="button" class="btn btn-xlsx" onclick="exportExcel()">Download Excel (CSV)</button>
+      </div>
+    </div>
   </div>
   <div id="report">
     <header class="report-head">
@@ -328,14 +380,23 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
       <div class="sum-card"><div class="lbl">ใช้ตามสูตร</div><div class="val">{meta.get('fuel_need', 0):.0f} ล.</div></div>
       <div class="sum-card"><div class="lbl">เติมคืนนี้</div><div class="val">{meta.get('tonight_refuel_baht', 0):,.0f} ฿</div></div>
       <div class="sum-card"><div class="lbl">ยังต้องเติม (buffer)</div><div class="val">{meta.get('refuel_buffer_total_baht', 0):,.0f} ฿</div></div>
-      <div class="sum-card"><div class="lbl">งบรวมคืนนี้</div><div class="val">{meta.get('total_spend_baht', 0):,.0f} ฿</div></div>
+      <div class="sum-card highlight"><div class="lbl">แผนเติมวันนี้ (ที่กรอก)</div><div class="val live" id="sum-planned-liters">0 ล.</div></div>
+      <div class="sum-card highlight"><div class="lbl">ค่าแผนเติมวันนี้</div><div class="val live" id="sum-planned-baht">0 ฿</div></div>
+      <div class="sum-card"><div class="lbl">งบรวม (เติมแล้ว+แผน)</div><div class="val" id="sum-total-baht">{meta.get('total_spend_baht', 0):,.0f} ฿</div></div>
+    </div>
+    <div class="budget-wrap">
+      <h3>Budget helper ({budget_low:,} – {budget_high:,} ฿)</h3>
+      <div class="budget-labels"><span>{budget_low:,} ฿</span><span>{budget_high:,} ฿</span></div>
+      <div class="budget-track"><div class="budget-marker" id="budget-marker" style="left:0%"></div></div>
+      <p class="budget-status" id="budget-status">—</p>
     </div>
     {tonight_html}
-    <table>
+    <table id="dispatch-table">
       <thead><tr>
         <th class="c-num">#</th><th>ทะเบียน</th><th>งาน</th>
         <th class="c-num">ใช้(ล.)</th><th class="c-num">GPS</th><th class="c-num">หลังเติม</th>
-        <th class="c-num">หลังวิ่ง</th><th>สถานะ</th><th class="c-updated">GPS อัปเดต</th>
+        <th class="c-num">หลังวิ่ง</th><th class="c-num">เติมวันนี้(ล.)</th><th class="c-num">ค่าเติม(฿)</th>
+        <th>สถานะ</th><th class="c-updated">GPS อัปเดต</th>
       </tr></thead>
       <tbody>
 {chr(10).join(body_rows)}
@@ -345,20 +406,138 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
     <section class="excluded"><h3>ไม่จัด / พิเศษ</h3><ul>{excluded_html}</ul></section>
     <p class="foot-note">สูตร: KAO/Conti/Lacation 50·Haier 100·คลังวาฬ 25/เที่ยว·Oatside ~110/วัน · Project YK</p>
   </div>
-  <script>const REPORT_DATA = {data_json};</script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script>
+    const REPORT_DATA = {data_json};
+    const REFUEL_BUFFER_L = {REFUEL_BUFFER_L};
+    const BUDGET_LOW = {budget_low};
+    const BUDGET_HIGH = {budget_high};
+    const TONIGHT_BAHT = {meta.get('tonight_refuel_baht', 0)};
+
+    function getDieselPrice() {{
+      const el = document.getElementById('diesel-price');
+      const v = parseFloat(el && el.value);
+      return Number.isFinite(v) && v >= 0 ? v : {diesel_default};
+    }}
+
+    function refillLiters(inp) {{
+      const v = parseFloat(inp && inp.value);
+      return Number.isFinite(v) && v > 0 ? v : 0;
+    }}
+
+    function fmtBaht(n) {{
+      return Math.round(n).toLocaleString('th-TH');
+    }}
+
+    function recalcAll() {{
+      const price = getDieselPrice();
+      let plannedL = 0;
+      let plannedB = 0;
+      document.querySelectorAll('.refill-in').forEach(inp => {{
+        const L = refillLiters(inp);
+        const cost = L * price;
+        plannedL += L;
+        plannedB += cost;
+        const cell = document.querySelector('.refill-cost[data-plate="' + inp.dataset.plate + '"]');
+        if (cell) cell.textContent = L > 0 ? fmtBaht(cost) : '0';
+      }});
+      const totalB = TONIGHT_BAHT + plannedB;
+      const elL = document.getElementById('sum-planned-liters');
+      const elB = document.getElementById('sum-planned-baht');
+      const elT = document.getElementById('sum-total-baht');
+      if (elL) elL.textContent = plannedL.toFixed(0) + ' ล.';
+      if (elB) elB.textContent = fmtBaht(plannedB) + ' ฿';
+      if (elT) elT.textContent = fmtBaht(totalB) + ' ฿';
+      const marker = document.getElementById('budget-marker');
+      const status = document.getElementById('budget-status');
+      const pct = Math.min(100, Math.max(0, (totalB / BUDGET_HIGH) * 100));
+      if (marker) marker.style.left = pct + '%';
+      let msg = 'รวมงบ <strong>' + fmtBaht(totalB) + ' ฿</strong> (เติมคืนนี้ ' + fmtBaht(TONIGHT_BAHT) + ' + แผนเติม ' + fmtBaht(plannedB) + ')';
+      if (totalB < BUDGET_LOW) msg += ' · ต่ำกว่าเป้า ' + fmtBaht(BUDGET_LOW);
+      else if (totalB <= BUDGET_HIGH) msg += ' · <span style="color:#166534">อยู่ในช่วง ' + fmtBaht(BUDGET_LOW) + '–' + fmtBaht(BUDGET_HIGH) + '</span>';
+      else msg += ' · <span style="color:#b91c1c">เกิน ' + fmtBaht(BUDGET_HIGH) + ' ฿</span>';
+      if (status) status.innerHTML = msg;
+      const bufL = REPORT_DATA.assignments.filter(r => r.needs_refuel).reduce((s, r) => s + (r.refuel_buffer_l || 0), 0);
+      const hintL = document.getElementById('buffer-liters-hint');
+      const hintB = document.getElementById('buffer-baht-hint');
+      if (hintL) hintL.textContent = bufL.toFixed(0) + ' ล.';
+      if (hintB) hintB.textContent = fmtBaht(bufL * price) + ' บาท';
+    }}
+
+    document.getElementById('diesel-price').addEventListener('input', recalcAll);
+    document.querySelectorAll('.refill-in').forEach(inp => inp.addEventListener('input', recalcAll));
+    recalcAll();
+
+    async function exportPng() {{
+      const el = document.getElementById('report');
+      const canvas = await html2canvas(el, {{ scale: 2, backgroundColor: '#ffffff', useCORS: true }});
+      const a = document.createElement('a');
+      a.download = 'LCB_fuel_dispatch_' + new Date().toISOString().slice(0, 10) + '.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+    }}
+
+    function exportExcel() {{
+      const price = getDieselPrice();
+      const header = ['ลำดับ','ทะเบียน','งาน','เที่ยว','ใช้(ล.)','GPS(ล.)','หลังเติม(ล.)','หลังวิ่ง(ล.)','เติมวันนี้(ล.)','ค่าเติม(฿)','แนะนำเติม(ล.)','สถานะ','GPSอัปเดต'];
+      const lines = [header.join(',')];
+      const byPlate = Object.fromEntries(REPORT_DATA.assignments.map(r => [r.plate, r]));
+      document.querySelectorAll('#dispatch-table tbody tr').forEach((tr, i) => {{
+        const plate = tr.dataset.plate;
+        const r = byPlate[plate] || {{}};
+        const inp = tr.querySelector('.refill-in');
+        const L = refillLiters(inp);
+        const notes = [];
+        if (r.fuel_added > 0) notes.push('เติมแล้ว+' + r.fuel_added);
+        if (r.needs_refuel) notes.push('ต้องเติม');
+        if (r.stale) notes.push('ข้อมูลเก่า');
+        const gps = r.fuel_gps != null ? r.fuel_gps : '';
+        lines.push([
+          i + 1, plate, r.job || '', r.trips || '', r.need || '', gps, r.fuel || '', r.left || '',
+          L, Math.round(L * price), r.suggested_refill_l || 0, notes.join(' '), r.time_th || ''
+        ].join(','));
+      }});
+      const blob = new Blob(['\\ufeff' + lines.join('\\n')], {{ type: 'text/csv;charset=utf-8' }});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'LCB_fuel_dispatch_' + new Date().toISOString().slice(0, 10) + '.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }}
+  </script>
 </body>
 </html>"""
+
+
+def _apply_fuel_path(path: Path | None, *, fuel_csv: Path | None, fuel_xlsx: Path | None) -> tuple[Path | None, Path | None]:
+    """Map positional fuel file or keep explicit --fuel-* flags."""
+    if path is None or not path.exists():
+        return fuel_csv, fuel_xlsx
+    suffix = path.suffix.lower()
+    if suffix in (".xlsx", ".xls"):
+        return fuel_csv, path
+    return path, fuel_xlsx
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="LCB fuel dispatch from LINE plan + GPS")
     ap.add_argument("plan_txt", type=Path, help="Junior plan .txt from LINE")
+    ap.add_argument(
+        "fuel_file",
+        nargs="?",
+        type=Path,
+        default=None,
+        help="GPS fuel .xlsx/.csv (optional; same as --fuel-xlsx/--fuel-csv)",
+    )
     ap.add_argument("--fuel-csv", type=Path, default=None)
     ap.add_argument("--fuel-xlsx", type=Path, default=None)
     ap.add_argument("--add-fuel", action="append", default=[], metavar="PLATE=L")
     ap.add_argument("--diesel-price", type=float, default=DEFAULT_DIESEL_BAHT)
     ap.add_argument("--no-open", action="store_true")
     args = ap.parse_args()
+    args.fuel_csv, args.fuel_xlsx = _apply_fuel_path(
+        args.fuel_file, fuel_csv=args.fuel_csv, fuel_xlsx=args.fuel_xlsx
+    )
 
     if not args.plan_txt.exists():
         print(f"ไม่พบแผน: {args.plan_txt}")
@@ -465,6 +644,8 @@ def main() -> int:
                 "ต้องเติม": "ใช่" if r["needs_refuel"] else "",
                 "เติมขั้นต่ำ(ล.)": r["refuel_min_l"],
                 "เติมถึงbuffer(ล.)": r["refuel_buffer_l"],
+                "แนะนำเติม(ล.)": r.get("suggested_refill_l", 0),
+                "เติมวันนี้(ล.)": "",
                 "GPSอัปเดต": r["time_th"],
             }
             for r in rows
@@ -474,10 +655,7 @@ def main() -> int:
 
     print(f"OK HTML: {OUT_HTML}")
     print(f"OK Pages: {pages_index}")
-    print(
-        f"GitHub (หลัง commit + push): "
-        f"{GITHUB_PAGES_BASE}/reports/{PAGES_SLUG}/"
-    )
+    print(f"GitHub Pages (after commit + push): {GITHUB_PAGES_BASE}/reports/{PAGES_SLUG}/")
     print(f"OK XLSX: {snap_xlsx}")
     print(
         f"เที่ยวตู้ (ไม่รวม Oatside): {trip_count} | หัวแผน LINE วิ่ง: {plan.header_running or '—'}"

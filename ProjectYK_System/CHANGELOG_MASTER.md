@@ -4,6 +4,37 @@
 
 > **Agent bootstrap:** อ่านเฉพาะ **3 หัวข้อ `##` แรกจากด้านบนลงมา** (ไม่รวมบรรทัดนี้) — **ห้าม**อ่านทั้งไฟล์ทุกแชต. นโยบาย/การย้าย archive: [`ProjectYK_System/docs/CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md)
 
+## 2026-05-20 (LCB fuel dispatch — editable refill + diesel on HTML)
+
+- `build_lcb_fuel_dispatch_from_plan.py` — หน้า HTML แก้ราคาดีเซล (ค่าเริ่มต้น 42.20), กรอกลิตรเติมต่อคัน, สรุปงบ 5k–10k, pre-fill คันต้องเติม (~buffer 12.5 ล.), Export PNG/CSV รวมคอลัมน์เติม
+
+## 2026-05-20 (LCB fuel dispatch — build scripts in Git + bat English)
+
+- commit `tools: LCB fuel dispatch build scripts` — `parse_lcb_plan_txt.py`, `build_lcb_fuel_dispatch_from_plan.py`, `build_lcb_fuel_dispatch_html.py` + bat ข้อความภาษาอังกฤษ (แก้กล่องสี่เหลี่ยมใน cmd)
+- bat: Enter ว่าง → หา `*05.26*.txt` ใน Downloads; แสดง path เต็มของ HTML หลัง build
+
+## 2026-05-20 (LCB fuel dispatch — GitHub Pages static path)
+
+- build คัดลอก HTML ไป `reports/lcb-fuel-dispatch/index.html` — ลิงก์หลัง push: `https://yk-logistics.github.io/transport-rate-calculator/reports/lcb-fuel-dispatch/`
+- bat พิมพ์ URL Pages; README ที่ `TransportRateCalculator/reports/lcb-fuel-dispatch/`
+
+## 2026-05-20 (LCB fuel dispatch — diesel 42.20 + bat + route)
+
+- ราคาดีเซลค่าเริ่มต้น **42.20 บาท/ล.**; bat ถาม path แผน + หา `*Fuel_Level*LCB*.xlsx` ใน Downloads อัตโนมัติ
+- `GET /ops/lcb-fuel-dispatch` เสิร์ฟ `docs/print/lcb_fuel_dispatch_plan.html` หลังรัน bat
+- Parser อ่านหัวแผน `งาน16วิ่ง16` — **16 คัน** ตรงหัวแผน; **17 เที่ยวตู้** (คลังวาฬ 2 ตู้/หัว) สำหรับงบน้ำมัน
+
+## 2026-05-20 (LCB fuel dispatch — แผน LINE .txt + GPS + เติมคืนนี้)
+
+- เพิ่ม `parse_lcb_plan_txt.py` + `build_lcb_fuel_dispatch_from_plan.py` — อ่านแผนจูเนียร์จาก LINE (เช่น `21.05.26.txt`) ผูก GPS CSV/xlsx, `--add-fuel`, กติกาเติมเมื่อหลังวิ่ง &lt; ~12.5 ล.
+- อัปเดต `build_lcb_fuel_dispatch.bat` — รับ `plan.txt` + fuel file; default เติมคืนนี้ 0420 +30 ล. / 6803 +20 ล.
+- สูตรล็อก: KAO/Conti/Lacation 50, Haier 100 (8684 แทน 8681), คลังวาฬ 25×เที่ยว, Oatside ~110/วัน; Lacation 71-8683 นับ 1 เที่ยวใน 16
+
+## 2026-05-20 (LCB fuel dispatch — HTML แผนจัดคันจาก GPS)
+
+- เพิ่ม `ProjectYK_System/docs/print/lcb_fuel_dispatch_plan.html` — ตารางจัดคัน LCB ตามน้ำมันในถัง + คอลัมน์ GPS อัปเดต + พิมพ์/PNG/CSV
+- เพิ่ม `ProjectYK_System/tools/build_lcb_fuel_dispatch_html.py` + `build_lcb_fuel_dispatch.bat` — อ่านรายงาน Wialon `.xlsx` แล้วสร้าง HTML/CSV/XLSX ใหม่ (ตัด 72-1217 Oatside, 8681/1219 เสีย)
+
 ## 2026-05-18 (DLT Log Book form — Excel A4 portrait)
 
 - เพิ่มแบบฟอร์ม `แบบบันทึกผลการบำรุงรักษารถ (Log Book)` เป็น Excel A4 แนวตั้งหน้าเดียวตามรูปตัวอย่างจริง: `ProjectYK_System/docs/forms/DLT_LogBook_Maintenance.xlsx`
