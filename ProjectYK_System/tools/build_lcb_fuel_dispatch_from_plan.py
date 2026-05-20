@@ -173,11 +173,17 @@ def load_fuel_csv(path: Path) -> dict[str, dict]:
 
 
 def load_fuel_xlsx(path: Path) -> dict[str, dict]:
-    """Wialon Group export: แถวย่อย (7.1) สืบทะเบียนจากแถวหัวกลุ่ม — ใช้ Time ล่าสุดจริง"""
+    """Wialon Group export: แถวย่อย สืบทะเบียนจากแถวหัวกลุ่ม
+    ใช้ค่าเฉลี่ยน้ำมัน 60 วินาทีก่อนรถหยุด (Speed→0) ป้องกัน sensor drift หลังดับเครื่อง
+    fallback: ค่าล่าสุดถ้าไม่มีแถว Speed > 0
+    """
     df = pd.read_excel(path, sheet_name="Fuel Level Sensor (L)")
-    by: dict[str, dict] = {}
-    current_plate: str | None = None
+    has_speed = "Speed" in df.columns
     loc_col = "Location" if "Location" in df.columns else None
+
+    # รวบทุกแถวต่อทะเบียน
+    rows_by_plate: dict[str, list[dict]] = {}
+    current_plate: str | None = None
     for _, r in df.iterrows():
         p = plate_from_wialon_group(r.get("การจัดกลุ่ม"))
         if p:
@@ -189,20 +195,43 @@ def load_fuel_xlsx(path: Path) -> dict[str, dict]:
         ts = pd.to_datetime(r["Time"], errors="coerce")
         if fuel is None or pd.isna(ts):
             continue
+        speed = None
+        if has_speed:
+            try:
+                speed = float(r["Speed"])
+            except (TypeError, ValueError):
+                speed = None
         loc = ""
         if loc_col and pd.notna(r.get(loc_col)):
             loc = str(r[loc_col]).strip()
-        row = {
-            "fuel": fuel,
+        rows_by_plate.setdefault(plate, []).append(
+            {"ts": ts, "fuel": fuel, "speed": speed, "loc": loc}
+        )
+
+    by: dict[str, dict] = {}
+    for plate, rows in rows_by_plate.items():
+        rows.sort(key=lambda x: x["ts"])
+
+        # หา t_stop = timestamp ล่าสุดที่ speed > 0
+        moving = [x for x in rows if x["speed"] is not None and x["speed"] > 0]
+        if moving:
+            t_stop = moving[-1]["ts"]
+            window_start = t_stop - pd.Timedelta(seconds=60)
+            window = [x for x in rows if window_start <= x["ts"] <= t_stop]
+            fuel_val = sum(x["fuel"] for x in window) / len(window)
+            ref_row = moving[-1]
+        else:
+            # fallback: ใช้แถวล่าสุด
+            ref_row = rows[-1]
+            fuel_val = ref_row["fuel"]
+
+        ts = ref_row["ts"]
+        by[plate] = {
+            "fuel": round(fuel_val, 1),
             "time_th": ts.strftime("%d/%m/%Y %H:%M"),
             "time_iso": ts.strftime("%Y-%m-%dT%H:%M:%S"),
-            "location": loc,
+            "location": ref_row["loc"],
         }
-        if plate not in by or ts > pd.to_datetime(by[plate].get("_ts", ts), errors="coerce"):
-            row["_ts"] = ts
-            by[plate] = row
-    for v in by.values():
-        v.pop("_ts", None)
     return by
 
 
