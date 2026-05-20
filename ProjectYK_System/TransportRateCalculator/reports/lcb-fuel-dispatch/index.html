@@ -25,6 +25,8 @@
     .report-head { padding: 20px 22px 14px; border-bottom: 3px solid #1e3a8a; background: linear-gradient(135deg, #eff6ff 0%, #fff 60%); }
     .report-head h1 { font-size: 1.4rem; font-weight: 800; color: #1e3a8a; }
     .report-head .sub { color: #64748b; font-size: 0.88rem; margin-top: 4px; }
+    .pages-url-note { background: #eff6ff; border: 1px solid #93c5fd; border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
+    .pages-url-note a { color: #1d4ed8; font-weight: 700; }
     .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; padding: 14px 22px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
     .sum-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; }
     .sum-card .lbl { font-size: 0.75rem; color: #64748b; }
@@ -66,7 +68,9 @@
 <body>
   <div class="toolbar no-print">
     <h2>LCB fuel dispatch — LINE plan + GPS</h2>
-    <p>Build: <code>build_lcb_fuel_dispatch.bat</code> · Edit diesel price and liters per truck below (saved in export only).</p>
+    <p>Build: <code>build_lcb_fuel_dispatch.bat</code> · ตารางแสดง<strong>ทุกคันในแผน</strong> (ไม่กรองเฉพาะต้องเติม) · แถวส้ม = ต้องเติม</p>
+    <p>Pages: <a href="https://yk-logistics.github.io/transport-rate-calculator/reports/lcb-fuel-dispatch/" target="_blank" rel="noopener">https://yk-logistics.github.io/transport-rate-calculator/reports/lcb-fuel-dispatch/</a>
+      (ไม่ใช่หน้าแรก transport-rate-calculator)</p>
     <div class="toolbar-row">
       <label class="price-box">Diesel price (฿/L)
         <input type="number" id="diesel-price" min="0" step="0.01" value="42.20" />
@@ -81,18 +85,22 @@
   <div id="report">
     <header class="report-head">
       <h1>แผนจัดคัน LCB — แผน LINE + น้ำมัน GPS</h1>
-      <p class="sub">แผน lcb_plan_sample.txt · สร้าง 20/05/2026 18:59</p>
-      <p class="sub">แหล่งน้ำมัน: fuel_level_latest_LCB_2026-05-20.csv · เที่ยวตู้ (ไม่รวม Oatside): 2 · หัวแผน LINE วิ่ง: 16</p>
+      <p class="sub">แผน 21.05.26.txt · สร้าง 20/05/2026 19:09</p>
+      <p class="sub">แหล่งน้ำมัน: fuel_level_latest_LCB_2026-05-20.csv · เที่ยวตู้ (ไม่รวม Oatside): 17 · หัวแผน LINE วิ่ง: 16</p>
       <p class="sub">กติกาเติม: แจ้งเมื่อหลังวิ่งเหลือ &lt; 12 ล. · ราคา diesel สมมติ 42.20 บาท/ล. (ค่าเริ่มต้น — ปรับด้วย --diesel-price หรือดู FuelPriceIndex ในแอป)</p>
+      <p class="sub pages-url-note"><strong>ลิงก์สาธารณะ (GitHub Pages):</strong>
+        <a href="https://yk-logistics.github.io/transport-rate-calculator/reports/lcb-fuel-dispatch/">https://yk-logistics.github.io/transport-rate-calculator/reports/lcb-fuel-dispatch/</a>
+        — ไม่ใช่หน้า <a href="https://yk-logistics.github.io/transport-rate-calculator/">https://yk-logistics.github.io/transport-rate-calculator/</a> (เครื่องคิดเรทขนส่ง)
+        · ไฟล์ HTML ในเครื่อง/โฟลเดอร์โปรเจกต์ = สำเนาหลัง build — ต้อง push ถึงจะอัปเดตบนเน็ต</p>
     </header>
     <div class="summary">
-      <div class="sum-card"><div class="lbl">เที่ยวตู้ / หัวแผนวิ่ง</div><div class="val">2 / 16</div></div>
-      <div class="sum-card"><div class="lbl">ใช้ตามสูตร</div><div class="val">100 ล.</div></div>
-      <div class="sum-card"><div class="lbl">เติมคืนนี้</div><div class="val">0 ฿</div></div>
+      <div class="sum-card"><div class="lbl">เที่ยวตู้ / หัวแผนวิ่ง</div><div class="val">17 / 16</div></div>
+      <div class="sum-card"><div class="lbl">ใช้ตามสูตร</div><div class="val">900 ล.</div></div>
+      <div class="sum-card"><div class="lbl">เติมคืนนี้</div><div class="val">2,110 ฿</div></div>
       <div class="sum-card"><div class="lbl">ยังต้องเติม (buffer)</div><div class="val">1,139 ฿</div></div>
       <div class="sum-card highlight"><div class="lbl">แผนเติมวันนี้ (ที่กรอก)</div><div class="val live" id="sum-planned-liters">0 ล.</div></div>
       <div class="sum-card highlight"><div class="lbl">ค่าแผนเติมวันนี้</div><div class="val live" id="sum-planned-baht">0 ฿</div></div>
-      <div class="sum-card"><div class="lbl">งบรวม (เติมแล้ว+แผน)</div><div class="val" id="sum-total-baht">1,139 ฿</div></div>
+      <div class="sum-card"><div class="lbl">งบรวม (เติมแล้ว+แผน)</div><div class="val" id="sum-total-baht">3,249 ฿</div></div>
     </div>
     <div class="budget-wrap">
       <h3>Budget helper (5,000 – 10,000 ฿)</h3>
@@ -101,6 +109,12 @@
       <p class="budget-status" id="budget-status">—</p>
     </div>
     
+    <section class="tonight-box">
+      <h3>เติมคืนนี้แล้ว (ตามที่โอแจ้ง)</h3>
+      <p>71-6803 +20 ล., 72-0420 +30 ล.</p>
+      <p class="cost-line">รวม <strong>50 ล.</strong>
+        ≈ <strong id="tonight-baht">2,110 บาท</strong></p>
+    </section>
     <table id="dispatch-table">
       <thead><tr>
         <th class="c-num">#</th><th>ทะเบียน</th><th>งาน</th>
@@ -109,9 +123,61 @@
         <th>สถานะ</th><th class="c-updated">GPS อัปเดต</th>
       </tr></thead>
       <tbody>
-<tr class="job-KAO row-must-refuel" data-plate="71-9628">
+<tr class="job-Haier" data-plate="71-8684">
   <td class="c-num">1</td>
-  <td class="c-plate"><strong>71-9628</strong><div class="sub"></div></td>
+  <td class="c-plate"><strong>71-8684</strong><div class="sub">นายพัฒิยะ พิริยะตระกูล 095-407-9798</div></td>
+  <td class="c-job"><span class="job-pill" style="background:#7c3aed">Haier</span> <span class="trips">1 เที่ยว</span></td>
+  <td class="c-num">100</td>
+  <td class="c-num">186</td>
+  <td class="c-num">186</td>
+  <td class="c-num ">86</td>
+  <td class="c-refill"><input type="number" class="refill-in" min="0" step="1" data-plate="71-8684" title="ไม่บังคับเติม — ใส่ 0 ถ้าไม่เติม" aria-label="เติมลิตร 71-8684" /></td>
+  <td class="c-num refill-cost" data-plate="71-8684">0</td>
+  <td class="c-flags"></td>
+  <td class="c-updated">20/05/2026 14:26</td>
+</tr>
+<tr class="job-Haier" data-plate="71-8967">
+  <td class="c-num">2</td>
+  <td class="c-plate"><strong>71-8967</strong><div class="sub">นายณัฐวุฒิ ศิริรัตนะกิตติโชติ 096-752-8494</div></td>
+  <td class="c-job"><span class="job-pill" style="background:#7c3aed">Haier</span> <span class="trips">1 เที่ยว</span></td>
+  <td class="c-num">100</td>
+  <td class="c-num">196</td>
+  <td class="c-num">196</td>
+  <td class="c-num ">96</td>
+  <td class="c-refill"><input type="number" class="refill-in" min="0" step="1" data-plate="71-8967" title="ไม่บังคับเติม — ใส่ 0 ถ้าไม่เติม" aria-label="เติมลิตร 71-8967" /></td>
+  <td class="c-num refill-cost" data-plate="71-8967">0</td>
+  <td class="c-flags"></td>
+  <td class="c-updated">20/05/2026 14:55</td>
+</tr>
+<tr class="job-Haier" data-plate="71-9629">
+  <td class="c-num">3</td>
+  <td class="c-plate"><strong>71-9629</strong><div class="sub">นายพิชิต แซ่อึง 084-991-1780</div></td>
+  <td class="c-job"><span class="job-pill" style="background:#7c3aed">Haier</span> <span class="trips">1 เที่ยว</span></td>
+  <td class="c-num">100</td>
+  <td class="c-num">155</td>
+  <td class="c-num">155</td>
+  <td class="c-num ">55</td>
+  <td class="c-refill"><input type="number" class="refill-in" min="0" step="1" data-plate="71-9629" title="ไม่บังคับเติม — ใส่ 0 ถ้าไม่เติม" aria-label="เติมลิตร 71-9629" /></td>
+  <td class="c-num refill-cost" data-plate="71-9629">0</td>
+  <td class="c-flags"></td>
+  <td class="c-updated">20/05/2026 14:59</td>
+</tr>
+<tr class="job-KAO" data-plate="71-9627">
+  <td class="c-num">4</td>
+  <td class="c-plate"><strong>71-9627</strong><div class="sub">นายสุภาพ สมบูรณ์ 080-812-4295</div></td>
+  <td class="c-job"><span class="job-pill" style="background:#0369a1">KAO</span> <span class="trips">1 เที่ยว</span></td>
+  <td class="c-num">50</td>
+  <td class="c-num">143</td>
+  <td class="c-num">143</td>
+  <td class="c-num ">93</td>
+  <td class="c-refill"><input type="number" class="refill-in" min="0" step="1" data-plate="71-9627" title="ไม่บังคับเติม — ใส่ 0 ถ้าไม่เติม" aria-label="เติมลิตร 71-9627" /></td>
+  <td class="c-num refill-cost" data-plate="71-9627">0</td>
+  <td class="c-flags"></td>
+  <td class="c-updated">20/05/2026 14:57</td>
+</tr>
+<tr class="job-KAO row-must-refuel" data-plate="71-9628">
+  <td class="c-num">5</td>
+  <td class="c-plate"><strong>71-9628</strong><div class="sub">นายพชร ทุมเชียงเข้ม 089-525-9174</div></td>
   <td class="c-job"><span class="job-pill" style="background:#0369a1">KAO</span> <span class="trips">1 เที่ยว</span></td>
   <td class="c-num">50</td>
   <td class="c-num">49</td>
@@ -123,8 +189,8 @@
   <td class="c-updated">20/05/2026 14:58</td>
 </tr>
 <tr class="job-KAO row-must-refuel" data-plate="72-0419">
-  <td class="c-num">2</td>
-  <td class="c-plate"><strong>72-0419</strong><div class="sub">นายพชร ทดสอบ</div></td>
+  <td class="c-num">6</td>
+  <td class="c-plate"><strong>72-0419</strong><div class="sub">นายนันทสิทธิ์ งามสวรรค์ 098-538-2434</div></td>
   <td class="c-job"><span class="job-pill" style="background:#0369a1">KAO</span> <span class="trips">1 เที่ยว</span></td>
   <td class="c-num">50</td>
   <td class="c-num">49</td>
@@ -134,6 +200,136 @@
   <td class="c-num refill-cost" data-plate="72-0419">0</td>
   <td class="c-flags"><span class="badge badge-risk">ต้องเติม</span></td>
   <td class="c-updated">20/05/2026 14:59</td>
+</tr>
+<tr class="job-KAO" data-plate="72-1220">
+  <td class="c-num">7</td>
+  <td class="c-plate"><strong>72-1220</strong><div class="sub">นายปกรณ์ ศรีปุญเรือง 063-379-3511</div></td>
+  <td class="c-job"><span class="job-pill" style="background:#0369a1">KAO</span> <span class="trips">1 เที่ยว</span></td>
+  <td class="c-num">50</td>
+  <td class="c-num">121</td>
+  <td class="c-num">121</td>
+  <td class="c-num ">71</td>
+  <td class="c-refill"><input type="number" class="refill-in" min="0" step="1" data-plate="72-1220" title="ไม่บังคับเติม — ใส่ 0 ถ้าไม่เติม" aria-label="เติมลิตร 72-1220" /></td>
+  <td class="c-num refill-cost" data-plate="72-1220">0</td>
+  <td class="c-flags"></td>
+  <td class="c-updated">20/05/2026 14:59</td>
+</tr>
+<tr class="job-Conti" data-plate="71-6802">
+  <td class="c-num">8</td>
+  <td class="c-plate"><strong>71-6802</strong><div class="sub">นายนิพล สีโนนม่วง 080-003-0340</div></td>
+  <td class="c-job"><span class="job-pill" style="background:#0d9488">Conti</span> <span class="trips">1 เที่ยว</span></td>
+  <td class="c-num">50</td>
+  <td class="c-num">88</td>
+  <td class="c-num">88</td>
+  <td class="c-num ">38</td>
+  <td class="c-refill"><input type="number" class="refill-in" min="0" step="1" data-plate="71-6802" title="ไม่บังคับเติม — ใส่ 0 ถ้าไม่เติม" aria-label="เติมลิตร 71-6802" /></td>
+  <td class="c-num refill-cost" data-plate="71-6802">0</td>
+  <td class="c-flags"></td>
+  <td class="c-updated">20/05/2026 14:58</td>
+</tr>
+<tr class="job-Conti" data-plate="71-6804">
+  <td class="c-num">9</td>
+  <td class="c-plate"><strong>71-6804</strong><div class="sub">นายชยุต วิโล 093-552-8187</div></td>
+  <td class="c-job"><span class="job-pill" style="background:#0d9488">Conti</span> <span class="trips">1 เที่ยว</span></td>
+  <td class="c-num">50</td>
+  <td class="c-num">75</td>
+  <td class="c-num">75</td>
+  <td class="c-num ">25</td>
+  <td class="c-refill"><input type="number" class="refill-in" min="0" step="1" data-plate="71-6804" title="ไม่บังคับเติม — ใส่ 0 ถ้าไม่เติม" aria-label="เติมลิตร 71-6804" /></td>
+  <td class="c-num refill-cost" data-plate="71-6804">0</td>
+  <td class="c-flags"></td>
+  <td class="c-updated">20/05/2026 14:58</td>
+</tr>
+<tr class="job-Conti" data-plate="71-8682">
+  <td class="c-num">10</td>
+  <td class="c-plate"><strong>71-8682</strong><div class="sub">นายอภิชาติ อุทาหงษ์ 092-603-1056</div></td>
+  <td class="c-job"><span class="job-pill" style="background:#0d9488">Conti</span> <span class="trips">1 เที่ยว</span></td>
+  <td class="c-num">50</td>
+  <td class="c-num">73</td>
+  <td class="c-num">73</td>
+  <td class="c-num ">23</td>
+  <td class="c-refill"><input type="number" class="refill-in" min="0" step="1" data-plate="71-8682" title="ไม่บังคับเติม — ใส่ 0 ถ้าไม่เติม" aria-label="เติมลิตร 71-8682" /></td>
+  <td class="c-num refill-cost" data-plate="71-8682">0</td>
+  <td class="c-flags"></td>
+  <td class="c-updated">20/05/2026 11:08</td>
+</tr>
+<tr class="job-Conti" data-plate="72-0421">
+  <td class="c-num">11</td>
+  <td class="c-plate"><strong>72-0421</strong><div class="sub">นายสุวิทย์ สุขล้อม 081-968-3743</div></td>
+  <td class="c-job"><span class="job-pill" style="background:#0d9488">Conti</span> <span class="trips">1 เที่ยว</span></td>
+  <td class="c-num">50</td>
+  <td class="c-num">74</td>
+  <td class="c-num">74</td>
+  <td class="c-num ">24</td>
+  <td class="c-refill"><input type="number" class="refill-in" min="0" step="1" data-plate="72-0421" title="ไม่บังคับเติม — ใส่ 0 ถ้าไม่เติม" aria-label="เติมลิตร 72-0421" /></td>
+  <td class="c-num refill-cost" data-plate="72-0421">0</td>
+  <td class="c-flags"></td>
+  <td class="c-updated">20/05/2026 14:59</td>
+</tr>
+<tr class="job-Conti" data-plate="72-1218">
+  <td class="c-num">12</td>
+  <td class="c-plate"><strong>72-1218</strong><div class="sub">นายวิโรจน์ เหมสงวน 082-409-1940</div></td>
+  <td class="c-job"><span class="job-pill" style="background:#0d9488">Conti</span> <span class="trips">1 เที่ยว</span></td>
+  <td class="c-num">50</td>
+  <td class="c-num">92</td>
+  <td class="c-num">92</td>
+  <td class="c-num ">42</td>
+  <td class="c-refill"><input type="number" class="refill-in" min="0" step="1" data-plate="72-1218" title="ไม่บังคับเติม — ใส่ 0 ถ้าไม่เติม" aria-label="เติมลิตร 72-1218" /></td>
+  <td class="c-num refill-cost" data-plate="72-1218">0</td>
+  <td class="c-flags"></td>
+  <td class="c-updated">20/05/2026 14:58</td>
+</tr>
+<tr class="job-Lacation" data-plate="71-8683">
+  <td class="c-num">13</td>
+  <td class="c-plate"><strong>71-8683</strong><div class="sub">นายรัฐภูมิ เพิ่มสุข 095-393-7716</div></td>
+  <td class="c-job"><span class="job-pill" style="background:#b45309">Lacation</span> <span class="trips">1 เที่ยว</span></td>
+  <td class="c-num">50</td>
+  <td class="c-num">94</td>
+  <td class="c-num">94</td>
+  <td class="c-num ">44</td>
+  <td class="c-refill"><input type="number" class="refill-in" min="0" step="1" data-plate="71-8683" title="ไม่บังคับเติม — ใส่ 0 ถ้าไม่เติม" aria-label="เติมลิตร 71-8683" /></td>
+  <td class="c-num refill-cost" data-plate="71-8683">0</td>
+  <td class="c-flags"></td>
+  <td class="c-updated">20/05/2026 14:59</td>
+</tr>
+<tr class="job-คลังวาฬ" data-plate="71-6803">
+  <td class="c-num">14</td>
+  <td class="c-plate"><strong>71-6803</strong><div class="sub">นายสุรเดช สุขสำราญ 091-774-1369</div></td>
+  <td class="c-job"><span class="job-pill" style="background:#64748b">คลังวาฬ</span> <span class="trips">2 เที่ยว</span></td>
+  <td class="c-num">50</td>
+  <td class="c-num">53</td>
+  <td class="c-num">73</td>
+  <td class="c-num ">23</td>
+  <td class="c-refill"><input type="number" class="refill-in" min="0" step="1" data-plate="71-6803" title="ไม่บังคับเติม — ใส่ 0 ถ้าไม่เติม" aria-label="เติมลิตร 71-6803" /></td>
+  <td class="c-num refill-cost" data-plate="71-6803">0</td>
+  <td class="c-flags"><span class="badge badge-ok">เติมแล้ว +20ล.</span></td>
+  <td class="c-updated">20/05/2026 09:48</td>
+</tr>
+<tr class="job-คลังวาฬ" data-plate="72-0420">
+  <td class="c-num">15</td>
+  <td class="c-plate"><strong>72-0420</strong><div class="sub">นายประจัก ทุมเชียงเข้ม 095-085-5075</div></td>
+  <td class="c-job"><span class="job-pill" style="background:#64748b">คลังวาฬ</span> <span class="trips">2 เที่ยว</span></td>
+  <td class="c-num">50</td>
+  <td class="c-num">58</td>
+  <td class="c-num">88</td>
+  <td class="c-num ">38</td>
+  <td class="c-refill"><input type="number" class="refill-in" min="0" step="1" data-plate="72-0420" title="ไม่บังคับเติม — ใส่ 0 ถ้าไม่เติม" aria-label="เติมลิตร 72-0420" /></td>
+  <td class="c-num refill-cost" data-plate="72-0420">0</td>
+  <td class="c-flags"><span class="badge badge-ok">เติมแล้ว +30ล.</span></td>
+  <td class="c-updated">20/05/2026 14:38</td>
+</tr>
+<tr class="job-Oatside" data-plate="72-1217">
+  <td class="c-num">16</td>
+  <td class="c-plate"><strong>72-1217</strong><div class="sub">นายเนื้อ ภาสดา 099-119-1586</div></td>
+  <td class="c-job"><span class="job-pill" style="background:#be185d">Oatside</span> <span class="trips">1 เที่ยว</span></td>
+  <td class="c-num">110</td>
+  <td class="c-num">158</td>
+  <td class="c-num">158</td>
+  <td class="c-num ">48</td>
+  <td class="c-refill"><input type="number" class="refill-in" min="0" step="1" data-plate="72-1217" title="ไม่บังคับเติม — ใส่ 0 ถ้าไม่เติม" aria-label="เติมลิตร 72-1217" /></td>
+  <td class="c-num refill-cost" data-plate="72-1217">0</td>
+  <td class="c-flags"></td>
+  <td class="c-updated">20/05/2026 07:33</td>
 </tr>
       </tbody>
     </table>
@@ -149,11 +345,11 @@
   </div>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script>
-    const REPORT_DATA = {"assignments": [{"plate": "71-9628", "job": "KAO", "trips": 1, "liters_per_trip": 50.0, "need": 50.0, "fuel_gps": 49.0, "fuel_added": 0.0, "fuel": 49.0, "left": -1.0, "needs_refuel": true, "refuel_min_l": 1.0, "refuel_buffer_l": 13.5, "suggested_refill_l": 14, "driver": "", "time_th": "20/05/2026 14:58", "time_iso": "2026-05-20T14:58:45", "location": "3578, Maenam Khu", "notes": "", "stale": false}, {"plate": "72-0419", "job": "KAO", "trips": 1, "liters_per_trip": 50.0, "need": 50.0, "fuel_gps": 49.0, "fuel_added": 0.0, "fuel": 49.0, "left": -1.0, "needs_refuel": true, "refuel_min_l": 1.0, "refuel_buffer_l": 13.5, "suggested_refill_l": 14, "driver": "นายพชร ทดสอบ", "time_th": "20/05/2026 14:59", "time_iso": "2026-05-20T14:59:04", "location": "3, Thung Sukhla", "notes": "", "stale": false}], "meta": {"generated_th": "20/05/2026 18:59", "plan_file": "lcb_plan_sample.txt", "fuel_source": "fuel_level_latest_LCB_2026-05-20.csv", "trip_count": 2, "container_trips_dispatch": 2, "container_trips_all": 2, "trucks_dispatch": 2, "trucks_with_oatside": 2, "header_running": 16, "header_continuity": 1, "header_repair": 2, "header_truck_mismatch": true, "header_container_mismatch": true, "fuel_need": 100.0, "diesel_price": 42.2, "price_note": "(ค่าเริ่มต้น — ปรับด้วย --diesel-price หรือดู FuelPriceIndex ในแอป)", "tonight_refuel_l": 0, "tonight_refuel_baht": 0.0, "tonight_refuel_detail": "—", "refuel_buffer_total_l": 27.0, "refuel_buffer_total_baht": 1139.4, "total_spend_baht": 1139.4, "budget_cap_low": 5000, "budget_cap_high": 10000, "within_budget": true}, "excluded": [["71-8681", "รถเสีย — แผนใช้ 71-8684 แทน (พัฒิยะ)"], ["72-1219", "รถเสีย — ไม่จัดงาน"]]};
+    const REPORT_DATA = {"assignments": [{"plate": "71-8684", "job": "Haier", "trips": 1, "liters_per_trip": 100.0, "need": 100.0, "fuel_gps": 186.0, "fuel_added": 0.0, "fuel": 186.0, "left": 86.0, "needs_refuel": false, "refuel_min_l": 0.0, "refuel_buffer_l": 0.0, "suggested_refill_l": 0, "driver": "นายพัฒิยะ พิริยะตระกูล 095-407-9798", "time_th": "20/05/2026 14:26", "time_iso": "2026-05-20T14:26:10", "location": "304, Lat Takhian", "notes": "แทน 71-8681", "stale": false}, {"plate": "71-8967", "job": "Haier", "trips": 1, "liters_per_trip": 100.0, "need": 100.0, "fuel_gps": 196.0, "fuel_added": 0.0, "fuel": 196.0, "left": 96.0, "needs_refuel": false, "refuel_min_l": 0.0, "refuel_buffer_l": 0.0, "suggested_refill_l": 0, "driver": "นายณัฐวุฒิ ศิริรัตนะกิตติโชติ 096-752-8494", "time_th": "20/05/2026 14:55", "time_iso": "2026-05-20T14:55:50", "location": "3578, Maenam Khu", "notes": "", "stale": false}, {"plate": "71-9629", "job": "Haier", "trips": 1, "liters_per_trip": 100.0, "need": 100.0, "fuel_gps": 155.0, "fuel_added": 0.0, "fuel": 155.0, "left": 55.0, "needs_refuel": false, "refuel_min_l": 0.0, "refuel_buffer_l": 0.0, "suggested_refill_l": 0, "driver": "นายพิชิต แซ่อึง 084-991-1780", "time_th": "20/05/2026 14:59", "time_iso": "2026-05-20T14:59:13", "location": "Main_X_Fence, Thung Sukhla", "notes": "", "stale": false}, {"plate": "71-9627", "job": "KAO", "trips": 1, "liters_per_trip": 50.0, "need": 50.0, "fuel_gps": 143.0, "fuel_added": 0.0, "fuel": 143.0, "left": 93.0, "needs_refuel": false, "refuel_min_l": 0.0, "refuel_buffer_l": 0.0, "suggested_refill_l": 0, "driver": "นายสุภาพ สมบูรณ์ 080-812-4295", "time_th": "20/05/2026 14:57", "time_iso": "2026-05-20T14:57:06", "location": "304, Lat Takhian", "notes": "", "stale": false}, {"plate": "71-9628", "job": "KAO", "trips": 1, "liters_per_trip": 50.0, "need": 50.0, "fuel_gps": 49.0, "fuel_added": 0.0, "fuel": 49.0, "left": -1.0, "needs_refuel": true, "refuel_min_l": 1.0, "refuel_buffer_l": 13.5, "suggested_refill_l": 14, "driver": "นายพชร ทุมเชียงเข้ม 089-525-9174", "time_th": "20/05/2026 14:58", "time_iso": "2026-05-20T14:58:45", "location": "3578, Maenam Khu", "notes": "", "stale": false}, {"plate": "72-0419", "job": "KAO", "trips": 1, "liters_per_trip": 50.0, "need": 50.0, "fuel_gps": 49.0, "fuel_added": 0.0, "fuel": 49.0, "left": -1.0, "needs_refuel": true, "refuel_min_l": 1.0, "refuel_buffer_l": 13.5, "suggested_refill_l": 14, "driver": "นายนันทสิทธิ์ งามสวรรค์ 098-538-2434", "time_th": "20/05/2026 14:59", "time_iso": "2026-05-20T14:59:04", "location": "3, Thung Sukhla", "notes": "", "stale": false}, {"plate": "72-1220", "job": "KAO", "trips": 1, "liters_per_trip": 50.0, "need": 50.0, "fuel_gps": 121.0, "fuel_added": 0.0, "fuel": 121.0, "left": 71.0, "needs_refuel": false, "refuel_min_l": 0.0, "refuel_buffer_l": 0.0, "suggested_refill_l": 0, "driver": "นายปกรณ์ ศรีปุญเรือง 063-379-3511", "time_th": "20/05/2026 14:59", "time_iso": "2026-05-20T14:59:31", "location": "Sukhumvit Road, Thung Sukhla", "notes": "", "stale": false}, {"plate": "71-6802", "job": "Conti", "trips": 1, "liters_per_trip": 50.0, "need": 50.0, "fuel_gps": 88.0, "fuel_added": 0.0, "fuel": 88.0, "left": 38.0, "needs_refuel": false, "refuel_min_l": 0.0, "refuel_buffer_l": 0.0, "suggested_refill_l": 0, "driver": "นายนิพล สีโนนม่วง 080-003-0340", "time_th": "20/05/2026 14:58", "time_iso": "2026-05-20T14:58:55", "location": "Main_X_Fence, Thung Sukhla", "notes": "", "stale": false}, {"plate": "71-6804", "job": "Conti", "trips": 1, "liters_per_trip": 50.0, "need": 50.0, "fuel_gps": 75.0, "fuel_added": 0.0, "fuel": 75.0, "left": 25.0, "needs_refuel": false, "refuel_min_l": 0.0, "refuel_buffer_l": 0.0, "suggested_refill_l": 0, "driver": "นายชยุต วิโล 093-552-8187", "time_th": "20/05/2026 14:58", "time_iso": "2026-05-20T14:58:54", "location": "ลาน 99", "notes": "", "stale": false}, {"plate": "71-8682", "job": "Conti", "trips": 1, "liters_per_trip": 50.0, "need": 50.0, "fuel_gps": 73.0, "fuel_added": 0.0, "fuel": 73.0, "left": 23.0, "needs_refuel": false, "refuel_min_l": 0.0, "refuel_buffer_l": 0.0, "suggested_refill_l": 0, "driver": "นายอภิชาติ อุทาหงษ์ 092-603-1056", "time_th": "20/05/2026 11:08", "time_iso": "2026-05-20T11:08:31", "location": "Y.K. LCB", "notes": "", "stale": false}, {"plate": "72-0421", "job": "Conti", "trips": 1, "liters_per_trip": 50.0, "need": 50.0, "fuel_gps": 74.0, "fuel_added": 0.0, "fuel": 74.0, "left": 24.0, "needs_refuel": false, "refuel_min_l": 0.0, "refuel_buffer_l": 0.0, "suggested_refill_l": 0, "driver": "นายสุวิทย์ สุขล้อม 081-968-3743", "time_th": "20/05/2026 14:59", "time_iso": "2026-05-20T14:59:22", "location": "OM DEPOT", "notes": "", "stale": false}, {"plate": "72-1218", "job": "Conti", "trips": 1, "liters_per_trip": 50.0, "need": 50.0, "fuel_gps": 92.0, "fuel_added": 0.0, "fuel": 92.0, "left": 42.0, "needs_refuel": false, "refuel_min_l": 0.0, "refuel_buffer_l": 0.0, "suggested_refill_l": 0, "driver": "นายวิโรจน์ เหมสงวน 082-409-1940", "time_th": "20/05/2026 14:58", "time_iso": "2026-05-20T14:58:53", "location": "304, Hua Wa", "notes": "", "stale": false}, {"plate": "71-8683", "job": "Lacation", "trips": 1, "liters_per_trip": 50.0, "need": 50.0, "fuel_gps": 94.0, "fuel_added": 0.0, "fuel": 94.0, "left": 44.0, "needs_refuel": false, "refuel_min_l": 0.0, "refuel_buffer_l": 0.0, "suggested_refill_l": 0, "driver": "นายรัฐภูมิ เพิ่มสุข 095-393-7716", "time_th": "20/05/2026 14:59", "time_iso": "2026-05-20T14:59:15", "location": "ถนนบ้านเก่า-พานทอง, Phan Thong", "notes": "", "stale": false}, {"plate": "71-6803", "job": "คลังวาฬ", "trips": 2, "liters_per_trip": 25.0, "need": 50.0, "fuel_gps": 53.0, "fuel_added": 20.0, "fuel": 73.0, "left": 23.0, "needs_refuel": false, "refuel_min_l": 0.0, "refuel_buffer_l": 0.0, "suggested_refill_l": 0, "driver": "นายสุรเดช สุขสำราญ 091-774-1369", "time_th": "20/05/2026 09:48", "time_iso": "2026-05-20T09:48:20", "location": "KAO", "notes": "", "stale": false}, {"plate": "72-0420", "job": "คลังวาฬ", "trips": 2, "liters_per_trip": 25.0, "need": 50.0, "fuel_gps": 58.0, "fuel_added": 30.0, "fuel": 88.0, "left": 38.0, "needs_refuel": false, "refuel_min_l": 0.0, "refuel_buffer_l": 0.0, "suggested_refill_l": 0, "driver": "นายประจัก ทุมเชียงเข้ม 095-085-5075", "time_th": "20/05/2026 14:38", "time_iso": "2026-05-20T14:38:02", "location": "3578, Maenam Khu", "notes": "", "stale": false}, {"plate": "72-1217", "job": "Oatside", "trips": 1, "liters_per_trip": 110.0, "need": 110.0, "fuel_gps": 158.0, "fuel_added": 0.0, "fuel": 158.0, "left": 48.0, "needs_refuel": false, "refuel_min_l": 0.0, "refuel_buffer_l": 0.0, "suggested_refill_l": 0, "driver": "นายเนื้อ ภาสดา 099-119-1586", "time_th": "20/05/2026 07:33", "time_iso": "2026-05-20T07:33:02", "location": "P&G เวลโกลล์", "notes": "ประจำ Oatside — นอกชุด 16 เที่ยว", "stale": false}], "meta": {"generated_th": "20/05/2026 19:09", "plan_file": "21.05.26.txt", "fuel_source": "fuel_level_latest_LCB_2026-05-20.csv", "trip_count": 17, "container_trips_dispatch": 17, "container_trips_all": 18, "trucks_dispatch": 15, "trucks_with_oatside": 16, "header_running": 16, "header_continuity": 1, "header_repair": 2, "header_truck_mismatch": false, "header_container_mismatch": true, "fuel_need": 900.0, "diesel_price": 42.2, "price_note": "(ค่าเริ่มต้น — ปรับด้วย --diesel-price หรือดู FuelPriceIndex ในแอป)", "tonight_refuel_l": 50.0, "tonight_refuel_baht": 2110.0, "tonight_refuel_detail": "71-6803 +20 ล., 72-0420 +30 ล.", "refuel_buffer_total_l": 27.0, "refuel_buffer_total_baht": 1139.4, "total_spend_baht": 3249.4, "budget_cap_low": 5000, "budget_cap_high": 10000, "within_budget": true}, "excluded": [["71-8681", "รถเสีย — แผนใช้ 71-8684 แทน (พัฒิยะ)"], ["72-1219", "รถเสีย — ไม่จัดงาน"]]};
     const REFUEL_BUFFER_L = 12.5;
     const BUDGET_LOW = 5000;
     const BUDGET_HIGH = 10000;
-    const TONIGHT_BAHT = 0.0;
+    const TONIGHT_BAHT = 2110.0;
 
     function getDieselPrice() {
       const el = document.getElementById('diesel-price');

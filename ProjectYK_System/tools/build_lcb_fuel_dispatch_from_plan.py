@@ -315,6 +315,8 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
     .report-head {{ padding: 20px 22px 14px; border-bottom: 3px solid #1e3a8a; background: linear-gradient(135deg, #eff6ff 0%, #fff 60%); }}
     .report-head h1 {{ font-size: 1.4rem; font-weight: 800; color: #1e3a8a; }}
     .report-head .sub {{ color: #64748b; font-size: 0.88rem; margin-top: 4px; }}
+    .pages-url-note {{ background: #eff6ff; border: 1px solid #93c5fd; border-radius: 8px; padding: 8px 10px; margin-top: 8px; }}
+    .pages-url-note a {{ color: #1d4ed8; font-weight: 700; }}
     .summary {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; padding: 14px 22px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }}
     .sum-card {{ background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; }}
     .sum-card .lbl {{ font-size: 0.75rem; color: #64748b; }}
@@ -356,7 +358,9 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
 <body>
   <div class="toolbar no-print">
     <h2>LCB fuel dispatch — LINE plan + GPS</h2>
-    <p>Build: <code>build_lcb_fuel_dispatch.bat</code> · Edit diesel price and liters per truck below (saved in export only).</p>
+    <p>Build: <code>build_lcb_fuel_dispatch.bat</code> · ตารางแสดง<strong>ทุกคันในแผน</strong> (ไม่กรองเฉพาะต้องเติม) · แถวส้ม = ต้องเติม</p>
+    <p>Pages: <a href="{GITHUB_PAGES_BASE}/reports/{PAGES_SLUG}/" target="_blank" rel="noopener">{GITHUB_PAGES_BASE}/reports/{PAGES_SLUG}/</a>
+      (ไม่ใช่หน้าแรก transport-rate-calculator)</p>
     <div class="toolbar-row">
       <label class="price-box">Diesel price (฿/L)
         <input type="number" id="diesel-price" min="0" step="0.01" value="{diesel_default:.2f}" />
@@ -374,6 +378,10 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
       <p class="sub">แผน {meta.get('plan_file', '')} · สร้าง {meta['generated_th']}</p>
       <p class="sub">แหล่งน้ำมัน: {meta.get('fuel_source', '')} · เที่ยวตู้ (ไม่รวม Oatside): {meta.get('container_trips_dispatch', 0)} · หัวแผน LINE วิ่ง: {meta.get('header_running', '—')}</p>
       <p class="sub">กติกาเติม: แจ้งเมื่อหลังวิ่งเหลือ &lt; {REFUEL_BUFFER_L:.0f} ล. · ราคา diesel สมมติ {meta.get('diesel_price', 32):.2f} บาท/ล. {meta.get('price_note', '')}</p>
+      <p class="sub pages-url-note"><strong>ลิงก์สาธารณะ (GitHub Pages):</strong>
+        <a href="{GITHUB_PAGES_BASE}/reports/{PAGES_SLUG}/">{GITHUB_PAGES_BASE}/reports/{PAGES_SLUG}/</a>
+        — ไม่ใช่หน้า <a href="{GITHUB_PAGES_BASE}/">{GITHUB_PAGES_BASE}/</a> (เครื่องคิดเรทขนส่ง)
+        · ไฟล์ HTML ในเครื่อง/โฟลเดอร์โปรเจกต์ = สำเนาหลัง build — ต้อง push ถึงจะอัปเดตบนเน็ต</p>
     </header>
     <div class="summary">
       <div class="sum-card"><div class="lbl">เที่ยวตู้ / หัวแผนวิ่ง</div><div class="val">{meta.get('container_trips_dispatch', 0)} / {meta.get('header_running', '—')}</div></div>
