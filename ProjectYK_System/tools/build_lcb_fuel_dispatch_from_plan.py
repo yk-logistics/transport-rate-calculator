@@ -293,10 +293,11 @@ def build_rows(
 
 
 def _render_table_row(r: dict, n: int, job: str) -> str:
+    added = int(r.get("fuel_added") or 0)
     flags = []
-    if r.get("fuel_added", 0) > 0:
+    if added > 0:
         flags.append(
-            f'<span class="badge badge-ok">เติมแล้ว +{r["fuel_added"]:.0f}ล.</span>'
+            f'<span class="badge badge-ok tonight-badge">'             f'เติมแล้ว <input class="tonight-in" type="number" min="0" step="1" '             f'value="{added}" data-plate="{r['plate']}" '             f'title="แก้ได้ — ใส่ 0 ถ้ายังไม่เติม" />'             f' ล.</span>'
         )
     if r["needs_refuel"]:
         flags.append('<span class="badge badge-risk">ต้องเติม</span>')
@@ -304,7 +305,6 @@ def _render_table_row(r: dict, n: int, job: str) -> str:
         flags.append('<span class="badge badge-warn">ข้อมูลเก่า</span>')
     flag_html = " ".join(flags)
     gps_col = f'{r["fuel_gps"]:.0f}' if r["fuel_gps"] is not None else "—"
-    added = int(r.get("fuel_added") or 0)
     suggest = int(r.get("suggested_refill_l") or 0)
     row_cls = f"job-{job}" + (" row-must-refuel" if r["needs_refuel"] else "")
     if added > 0:
@@ -331,10 +331,10 @@ def _render_table_row(r: dict, n: int, job: str) -> str:
   <td class="c-num">{r['need']:.0f}</td>
   <td class="c-num">{gps_col}</td>
   <td class="c-num">{r['fuel']:.0f}</td>
-  <td class="c-num {'low' if r['left'] < REFUEL_BUFFER_L else ''}">{r['left']:.0f}</td>
+  <td class="c-num {{'low' if r['left'] < REFUEL_BUFFER_L else ''}}">{r['left']:.0f}</td>
   <td class="c-refill"><input type="number" class="refill-in" min="0" step="1" data-plate="{r['plate']}" data-need="{r['need']:.0f}" data-fuel-base="{fuel_gps_val:.0f}"{val_attr}{already_attr} title="{title}" aria-label="เติมลิตร {r['plate']}" /></td>
   <td class="c-num after-refill-plan" data-plate="{r['plate']}">{after_refill_plan:.0f}</td>
-  <td class="c-num after-trip-plan {'low' if low_plan else ''}" data-plate="{r['plate']}">{after_trip_plan:.0f}</td>
+  <td class="c-num after-trip-plan {{'low' if low_plan else ''}}" data-plate="{r['plate']}">{after_trip_plan:.0f}</td>
   <td class="c-num refill-cost" data-plate="{r['plate']}">0</td>
   <td class="c-flags">{flag_html}</td>
   <td class="c-updated">{r['time_th']}</td>
@@ -443,6 +443,8 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
     .badge-risk {{ background: #fee2e2; color: #991b1b; }}
     .badge-warn {{ background: #fef3c7; color: #92400e; }}
     .badge-ok {{ background: #dcfce7; color: #166534; }}
+    .tonight-badge {{ display: inline-flex; align-items: center; gap: 2px; }}
+    .tonight-in {{ width: 40px; padding: 1px 3px; border: 1px solid #86efac; border-radius: 3px; background: #f0fdf4; color: #166534; font-size: 0.85em; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; font-family: inherit; }}
     .c-refill input.refill-in {{ width: 64px; padding: 5px 6px; border: 1px solid #cbd5e1; border-radius: 6px; text-align: right; font-variant-numeric: tabular-nums; font-family: inherit; }}
     tr.row-must-refuel .c-refill input {{ border-color: #f97316; background: #fff7ed; }}
     tr.row-must-refuel td {{ background: #fffbeb; }}
@@ -529,7 +531,7 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
     const REFUEL_BUFFER_L = {REFUEL_BUFFER_L};
     let BUDGET_LOW = {budget_low};
     let BUDGET_HIGH = {budget_high};
-    const TONIGHT_BAHT = {meta.get('tonight_refuel_baht', 0)};
+    const TONIGHT_BAHT_INIT = {meta.get('tonight_refuel_baht', 0)};  // ค่าเริ่มต้นจาก build — แก้ได้ใน UI
 
     function getBudgetCaps() {{
       const lo = parseFloat(document.getElementById('budget-low')?.value);
@@ -581,14 +583,24 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
       }}
     }}
 
+    function getTonightLiters(plate) {{
+      const t = document.querySelector('.tonight-in[data-plate="' + plate + '"]');
+      return t ? Math.max(0, parseFloat(t.value) || 0) : 0;
+    }}
+
     function recalcAll() {{
       getBudgetCaps();
       const price = getDieselPrice();
+      let tonightL = 0;
+      document.querySelectorAll('.tonight-in').forEach(t => {{
+        tonightL += Math.max(0, parseFloat(t.value) || 0);
+      }});
+      const tonightB = tonightL * price;
       let plannedL = 0;
       let plannedB = 0;
       document.querySelectorAll('.refill-in').forEach(inp => {{
         const L = refillLiters(inp);
-        const alreadyFueled = parseFloat(inp.dataset.alreadyFueled || 0);
+        const alreadyFueled = getTonightLiters(inp.dataset.plate);
         const extraL = Math.max(0, L - alreadyFueled);
         const cost = extraL * price;
         plannedL += extraL;
@@ -597,7 +609,7 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
         const cell = document.querySelector('.refill-cost[data-plate="' + inp.dataset.plate + '"]');
         if (cell) cell.textContent = extraL > 0 ? fmtBaht(cost) : '0';
       }});
-      const totalB = TONIGHT_BAHT + plannedB;
+      const totalB = tonightB + plannedB;
       const elL = document.getElementById('sum-planned-liters');
       const elB = document.getElementById('sum-planned-baht');
       const elT = document.getElementById('sum-total-baht');
@@ -608,7 +620,7 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
       const status = document.getElementById('budget-status');
       const pct = Math.min(100, Math.max(0, (totalB / BUDGET_HIGH) * 100));
       if (marker) marker.style.left = pct + '%';
-      let msg = 'รวมงบ <strong>' + fmtBaht(totalB) + ' ฿</strong> (เติมคืนนี้ ' + fmtBaht(TONIGHT_BAHT) + ' + แผนเติม ' + fmtBaht(plannedB) + ')';
+      let msg = 'รวมงบ <strong>' + fmtBaht(totalB) + ' ฿</strong> (เติมแล้ว ' + fmtBaht(tonightB) + ' + แผนเติม ' + fmtBaht(plannedB) + ')';
       if (totalB < BUDGET_LOW) msg += ' · ต่ำกว่าเป้า ' + fmtBaht(BUDGET_LOW);
       else if (totalB <= BUDGET_HIGH) msg += ' · <span style="color:#166534">อยู่ในช่วง ' + fmtBaht(BUDGET_LOW) + '–' + fmtBaht(BUDGET_HIGH) + '</span>';
       else msg += ' · <span style="color:#b91c1c">เกิน ' + fmtBaht(BUDGET_HIGH) + ' ฿</span>';
@@ -624,6 +636,7 @@ def render_html(rows: list[dict], meta: dict, excluded: list[tuple[str, str]]) -
     document.getElementById('budget-low')?.addEventListener('input', recalcAll);
     document.getElementById('budget-high')?.addEventListener('input', recalcAll);
     document.querySelectorAll('.refill-in').forEach(inp => inp.addEventListener('input', recalcAll));
+    document.querySelectorAll('.tonight-in').forEach(inp => inp.addEventListener('input', recalcAll));
     recalcAll();
 
     async function exportPng() {{
