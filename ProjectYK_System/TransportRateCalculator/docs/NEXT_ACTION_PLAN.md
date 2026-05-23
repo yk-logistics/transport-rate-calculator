@@ -2,10 +2,26 @@
 
 แผนงานลำดับถัดไป (เรียงตามความสำคัญ)
 
+## ⭐ Quick Status (2026-05-21 | TR Calculator — โหมด 2 โรงงานละตาราง)
+
+- [done] โรงงานละ Base + ตารางน้ำมันแยก; + เพิ่มโรง; สรุป/PDF/Excel รวมลูกค้า+ทุกโรง
+- [next] โอทด 6 โรง LINE (Base ต่างกัน) → Export PDF; push Pages
+
+## ⭐ Quick Status (2026-05-21 | TR Calculator — ลูกค้า/หลายโรงงาน) — รวมในโหมด 2 แล้ว
+
+- [done] หน้าผลลัพธ์: ลูกค้า + โรงงาน/ราคา (หลายแถว, default 1); สรุปบนหน้าสำหรับ PDF/PNG/Excel
+
+## ⭐ Quick Status (2026-05-21 | TR Calculator — ปัดเศษ)
+
+- [done] Step 4 เลือกปัดเศษค่าขนส่ง/ราคาเป้า (หลักสิบ, หน่วย, 5|0, ทศนิยม); จำใน localStorage; sync `index.html`
+- [next] โอทดแต่ละโหมดปัดกับลูกค้าจริง 1 เคส; push GitHub Pages ถ้าต้องการเว็บสาธารณะ
+
 ## ⭐ Quick Status (2026-05-20 | LCB fuel — แผน LINE + GPS)
 
+- [done] rebuild + push Pages แผน `21.05.26.txt` — ตาราง 16 คัน (ไม่ใช่ sample 2 คัน); commit `79fa6c8`
+- [done] HTML หมายเหตุลิงก์: fuel dispatch = `…/reports/lcb-fuel-dispatch/` ไม่ใช่หน้าแรก TR calculator
 - [done] HTML แก้ราคาดีเซล + กรอกลิตรเติมต่อคัน + งบ 5k–10k + Export PNG/CSV (client-side)
-- [next] โอรัน bat แผนจริง `21.05.26.txt` แล้ว push Pages; ทดบนมือถือว่าค่าเติม/งบรวมตรงที่สั่งเติมจริง
+- [next] โอ hard refresh Pages 1–2 นาที; ทดมือถือกรอกลิตรเติมจริงแล้วเทียบงบ
 - [done] build คัดลอก HTML → `reports/lcb-fuel-dispatch/` สำหรับ GitHub Pages (`…/reports/lcb-fuel-dispatch/`)
 - [done] commit + push สคริปต์ Python สร้าง HTML (`tools: LCB fuel dispatch build scripts`); bat ภาษาอังกฤษแก้ encoding cmd
 - [next] โอรัน bat แล้ว push `reports/lcb-fuel-dispatch/` เมื่อมีแผนวันใหม่ (หรือตอบ Y ใน bat)

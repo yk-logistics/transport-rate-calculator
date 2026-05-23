@@ -114,6 +114,36 @@ tr.highlight-current.highlight-base{background:#d1fae5 !important}
 .back-to-wizard{margin-top:20px;text-align:center}
 .watermark{text-align:center;margin-top:24px;font-size:.75rem;color:var(--text-light)}
 
+.quote-panel{border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px;background:#fff}
+.quote-panel h3{font-size:1rem;color:var(--primary);margin:0 0 10px}
+.quote-panel-desc{font-size:.82rem;color:var(--text-light);margin:0 0 12px;line-height:1.5}
+.quote-line-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(90px,.8fr) minmax(0,1fr) auto;gap:8px;align-items:end;margin-bottom:8px}
+.quote-line-row label{font-size:.75rem;color:var(--text-light);display:block;margin-bottom:4px}
+.quote-line-row input{width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.9rem}
+.quote-line-actions{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.quote-print-block{background:var(--primary-lighter);border:1px solid #bfdbfe;border-radius:10px;padding:14px;margin-bottom:16px}
+.quote-print-block .qp-title{font-size:1.05rem;font-weight:700;color:var(--primary);margin:0 0 6px}
+.quote-print-block .qp-meta{font-size:.82rem;color:var(--text-light);margin-bottom:10px}
+.quote-print-table{width:100%;border-collapse:collapse;font-size:.9rem;margin-top:8px}
+.quote-print-table th{background:var(--primary);color:#fff;padding:8px 10px;text-align:left}
+.quote-print-table td{padding:8px 10px;border-bottom:1px solid var(--border);background:#fff;text-align:left}
+.quote-print-table td.price{text-align:right;font-weight:600;white-space:nowrap}
+.quote-print-empty{font-size:.85rem;color:var(--text-light);font-style:italic}
+@media (max-width:640px){
+  .quote-line-row{grid-template-columns:1fr 1fr;grid-template-rows:auto auto}
+  .quote-line-row .ql-remove{grid-column:1/-1}
+}
+.factory-block-card{border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;background:#f8fafc}
+.factory-block-card h4{margin:0 0 10px;font-size:.92rem;color:var(--primary)}
+.factory-block-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:8px}
+.factory-block-grid label{font-size:.75rem;color:var(--text-light);display:block;margin-bottom:4px}
+.factory-block-grid input,.factory-block-grid select{width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.88rem}
+.factory-block-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.factory-table-block{margin-bottom:24px;padding-top:8px;border-top:2px solid var(--border)}
+.factory-table-block:first-of-type{border-top:none;padding-top:0}
+.factory-table-title{font-size:1.05rem;color:var(--primary);margin:0 0 6px}
+.factory-table-meta{font-size:.8rem;color:var(--text-light);margin-bottom:10px;line-height:1.5}
+
 .ref-link-min{text-align:center;margin:0 0 14px;font-size:.8rem}
 .ref-link-min a{color:var(--primary-light);text-decoration:underline;text-underline-offset:2px}
 .ref-link-min a:hover{color:var(--primary)}
@@ -413,6 +443,28 @@ tr.highlight-current.highlight-base{background:#d1fae5 !important}
       </label>
     </div>
 
+    <div class="input-row" style="margin-top:14px">
+      <div class="input-group">
+        <label class="field-label">ปัดเศษค่าขนส่ง / ราคาเป้า</label>
+        <select id="priceRoundingMode">
+          <option value="none">ไม่ปัด (ตามสูตร)</option>
+          <option value="decimal">ปัดทศนิยม</option>
+          <option value="unit">หลักหน่วย (เต็มบาท)</option>
+          <option value="five">หลักหน่วย 5 หรือ 0</option>
+          <option value="ten">หลักสิบ</option>
+        </select>
+      </div>
+      <div class="input-group" id="priceRoundingDecimalsWrap" style="display:none">
+        <label class="field-label">ทศนิยม (ตำแหน่ง)</label>
+        <select id="priceRoundingDecimals">
+          <option value="0">0 — เต็มบาท</option>
+          <option value="1">1 ตำแหน่ง</option>
+          <option value="2" selected>2 ตำแหน่ง</option>
+        </select>
+      </div>
+    </div>
+    <p class="uniform-hint" id="priceRoundingHint" style="margin-top:6px">ตัวอย่างหลักสิบ: 15,347 → 15,350 | หน่วย 5/0: 15,347 → 15,345 | หลักหน่วย: 15,347 → 15,347</p>
+
     <div class="example-calc" id="exampleCalc"></div>
 
     <div class="btn-row">
@@ -432,6 +484,23 @@ tr.highlight-current.highlight-base{background:#d1fae5 !important}
       <button class="btn btn-sm btn-secondary" onclick="exportImage()">Export รูปภาพ</button>
     </div>
   </div>
+
+  <div class="quote-print-block" id="quotePrintBlock"></div>
+
+  <div class="quote-panel quote-editor-panel" id="quoteEditorPanel">
+    <h3>โหมดหลายโรงงาน — โรงงานละ 1 ตาราง</h3>
+    <p class="quote-panel-desc">ช่วงน้ำมันและวิธีปรับ (%) ใช้ร่วมจากวิซาร์ด — แต่ละโรงตั้ง <strong>Base Rate</strong> และช่วงฐานเองได้ ค่าเริ่มต้น 1 โรง</p>
+    <div class="input-group" style="margin-bottom:12px">
+      <label class="field-label">ชื่อลูกค้า</label>
+      <input type="text" id="resultCustomerName" placeholder="เช่น ลูกค้า A / ชื่อบริษัท" oninput="onFactoryBlocksLightChange()">
+    </div>
+    <div id="factoryBlocksEditor"></div>
+    <div class="quote-line-actions">
+      <button type="button" class="btn btn-sm btn-accent" onclick="addFactoryBlock()">+ เพิ่มโรงงาน (ตารางใหม่)</button>
+      <button type="button" class="btn btn-sm btn-secondary" onclick="recalculateAllFactoryBlocksFromEditor()">คำนวณตารางใหม่ทั้งหมด</button>
+    </div>
+  </div>
+
   <div class="summary-cards" id="summaryCards"></div>
   <div id="resultTableWrap"></div>
   <div class="back-to-wizard">
@@ -648,11 +717,14 @@ let rangeType = 'uniform';
 let adjustMode = 'percent'; // percent | baht_per_step
 let pctMode = 'per_baht'; // per_baht: คิด % ต่อราคาน้ำมันเพิ่ม 1 บาท, per_step: คิด % ต่อจำนวนช่วง
 let resultData = [];
+let factoryBlocks = [];
+let factoryBlockSeq = 1;
 let baseSelectHasInitialized = false; // ตั้งค่าเริ่มต้น Base Rate ให้ตรงกับ “ราคาน้ำมันปัจจุบัน” ครั้งแรกที่เข้าขั้น
 let routeSegments = [];
 let routeIdSeq = 1;
 const SAVED_JOBS_KEY = 'yk_saved_jobs_v1';
 const DRIVE_SETTINGS_KEY = 'yk_drive_sync_settings_v1';
+const PRICE_ROUNDING_KEY = 'yk_price_rounding_v1';
 let savedJobs = [];
 let historicalRows = [];
 let historicalSelection = new Set();
@@ -761,6 +833,93 @@ function buildRanges() {
 }
 
 function roundN(n) { return Math.round(n * 100) / 100; }
+
+function getPriceRoundingSettings() {
+  const modeEl = document.getElementById('priceRoundingMode');
+  const decEl = document.getElementById('priceRoundingDecimals');
+  const mode = modeEl ? modeEl.value : 'none';
+  let decimals = decEl ? parseInt(decEl.value, 10) : 2;
+  if (!Number.isFinite(decimals) || decimals < 0) decimals = 2;
+  return { mode: mode, decimals: decimals };
+}
+
+function roundTransportPrice(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 0;
+  const s = getPriceRoundingSettings();
+  switch (s.mode) {
+    case 'decimal': {
+      const f = Math.pow(10, s.decimals);
+      return Math.round(n * f) / f;
+    }
+    case 'unit':
+      return Math.round(n);
+    case 'five':
+      return Math.round(n / 5) * 5;
+    case 'ten':
+      return Math.round(n / 10) * 10;
+    case 'none':
+    default:
+      return n;
+  }
+}
+
+function getRoundingModeLabel() {
+  const s = getPriceRoundingSettings();
+  if (s.mode === 'decimal') return 'ปัดทศนิยม ' + s.decimals + ' ตำแหน่ง';
+  if (s.mode === 'unit') return 'หลักหน่วย (เต็มบาท)';
+  if (s.mode === 'five') return 'หลักหน่วย 5 หรือ 0';
+  if (s.mode === 'ten') return 'หลักสิบ';
+  return 'ไม่ปัด (ตามสูตร)';
+}
+
+function fmtPrice(n) {
+  const s = getPriceRoundingSettings();
+  if (s.mode === 'unit' || s.mode === 'five' || s.mode === 'ten') {
+    return Number(n).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  }
+  if (s.mode === 'decimal') {
+    return Number(n).toLocaleString('th-TH', { minimumFractionDigits: s.decimals, maximumFractionDigits: s.decimals });
+  }
+  return fmt(n);
+}
+
+function onPriceRoundingChange() {
+  const wrap = document.getElementById('priceRoundingDecimalsWrap');
+  const mode = document.getElementById('priceRoundingMode');
+  if (wrap && mode) wrap.style.display = mode.value === 'decimal' ? '' : 'none';
+  savePriceRoundingSettings();
+  updateExampleCalc();
+  if (isResultVisible()) generateResult();
+  renderCostResult();
+}
+
+function savePriceRoundingSettings() {
+  try {
+    localStorage.setItem(PRICE_ROUNDING_KEY, JSON.stringify(getPriceRoundingSettings()));
+  } catch (e) {}
+}
+
+function loadPriceRoundingSettings() {
+  try {
+    const raw = localStorage.getItem(PRICE_ROUNDING_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    const modeEl = document.getElementById('priceRoundingMode');
+    const decEl = document.getElementById('priceRoundingDecimals');
+    if (modeEl && data.mode) modeEl.value = data.mode;
+    if (decEl && data.decimals !== undefined) decEl.value = String(data.decimals);
+  } catch (e) {}
+  onPriceRoundingChange();
+}
+
+function setupPriceRoundingInputs() {
+  const modeEl = document.getElementById('priceRoundingMode');
+  if (!modeEl) return;
+  modeEl.addEventListener('change', onPriceRoundingChange);
+  const decEl = document.getElementById('priceRoundingDecimals');
+  if (decEl) decEl.addEventListener('change', onPriceRoundingChange);
+}
 
 function fmt(n) { return n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
@@ -969,6 +1128,10 @@ function updateExampleCalc() {
     }
 
     const isBase = i === baseIdx;
+    rate = isBase ? baseRate : roundTransportPrice(rate);
+    if (isBase) pctFromBase = 0;
+    else pctFromBase = baseRate > 0 ? ((rate / baseRate) - 1) * 100 : 0;
+
     const isCurrent = !isNaN(fuelPrice) && fuelInRange(fuelPrice, ranges[i]);
     let cls = '';
     if (isBase && isCurrent) cls = 'highlight-current highlight-base';
@@ -979,14 +1142,14 @@ function updateExampleCalc() {
     const pctCell = isBase ? '0.00%' : (pctFromBase > 0 ? '+' : '') + pctFromBase.toFixed(2) + '%';
     const adjDiff = prevRate === null ? 0 : rate - prevRate;
     prevRate = rate;
-    const adjDiffCell = i === 0 ? '-' : (adjDiff > 0 ? '+' : '') + fmt(adjDiff);
+    const adjDiffCell = i === 0 ? '-' : (adjDiff > 0 ? '+' : '') + fmtPrice(adjDiff);
 
     html +=
       '<tr class="' + cls + '">' +
       '<td>' + fmtRange(ranges[i].from, ranges[i].to) + '</td>' +
       '<td>' + deltaCell + '</td>' +
       '<td>' + pctCell + '</td>' +
-      '<td>' + fmt(rate) + '</td>' +
+      '<td>' + fmtPrice(rate) + '</td>' +
       '<td>' + adjDiffCell + '</td>' +
       '</tr>';
   }
@@ -1030,43 +1193,44 @@ function populateMaxRangeSelect() {
   sel.value = 'all';
 }
 
-function generateResult() {
-  const fuelPrice = parseFloat(document.getElementById('fuelPrice').value);
-  const adjustVal = parseFloat(document.getElementById('adjustPercent').value);
-  const baseRate = parseFloat(document.getElementById('baseRate').value);
-  const baseIdx = parseInt(document.getElementById('baseRangeSelect').value);
-  const maxIdx = ranges.length - 1; // แสดงครบทุกช่วง (ตัด Step 6 ออกแล้ว)
+function getWizardSnapshot() {
+  if (!ranges.length) buildRanges();
+  return {
+    fuelPrice: parseFloat(document.getElementById('fuelPrice').value),
+    adjustVal: parseFloat(document.getElementById('adjustPercent').value),
+    baseRate: parseFloat(document.getElementById('baseRate').value),
+    baseIdx: parseInt(document.getElementById('baseRangeSelect').value, 10) || 0
+  };
+}
 
-  if (isNaN(adjustVal) || adjustVal <= 0) { alert('กรุณากรอกค่าการปรับที่ถูกต้อง'); return; }
-  if (isNaN(baseRate) || baseRate <= 0) { alert('กรุณากรอกค่าขนส่งฐานที่ถูกต้อง'); return; }
-
-  resultData = [];
+function computeResultData(baseRate, baseIdx, adjustVal, fuelPrice) {
+  if (!ranges.length) buildRanges();
+  const maxIdx = ranges.length - 1;
+  const rows = [];
   for (let i = 0; i <= maxIdx; i++) {
     const diff = adjustMode === 'baht_per_step' ? getStepDeltaFromBase(i, baseIdx) : getDeltaFromBase(i, baseIdx);
     let rate, pctFromBase;
     if (adjustMode === 'baht_per_step') {
       rate = baseRate + (diff * adjustVal);
       pctFromBase = baseRate > 0 ? ((rate / baseRate) - 1) * 100 : 0;
+    } else if (calcMethod === 'base') {
+      pctFromBase = diff * adjustVal;
+      rate = baseRate * (1 + pctFromBase / 100);
+    } else if (diff === 0) {
+      rate = baseRate;
+      pctFromBase = 0;
+    } else if (diff > 0) {
+      rate = baseRate * Math.pow(1 + adjustVal / 100, diff);
+      pctFromBase = ((rate / baseRate) - 1) * 100;
     } else {
-      if (calcMethod === 'base') {
-        pctFromBase = diff * adjustVal;
-        rate = baseRate * (1 + pctFromBase / 100);
-      } else {
-        if (diff === 0) {
-          rate = baseRate;
-          pctFromBase = 0;
-        } else if (diff > 0) {
-          rate = baseRate * Math.pow(1 + adjustVal / 100, diff);
-          pctFromBase = ((rate / baseRate) - 1) * 100;
-        } else {
-          rate = baseRate * Math.pow(1 - adjustVal / 100, Math.abs(diff));
-          pctFromBase = ((rate / baseRate) - 1) * 100;
-        }
-      }
+      rate = baseRate * Math.pow(1 - adjustVal / 100, Math.abs(diff));
+      pctFromBase = ((rate / baseRate) - 1) * 100;
     }
     const isBase = i === baseIdx;
-    const isCurrent = fuelInRange(fuelPrice, ranges[i]);
-    resultData.push({
+    rate = isBase ? baseRate : roundTransportPrice(rate);
+    if (!isBase) pctFromBase = baseRate > 0 ? ((rate / baseRate) - 1) * 100 : 0;
+    const isCurrent = !isNaN(fuelPrice) && fuelInRange(fuelPrice, ranges[i]);
+    rows.push({
       range: ranges[i],
       steps: diff,
       pctFromBase: pctFromBase,
@@ -1076,64 +1240,343 @@ function generateResult() {
       isCurrent: isCurrent
     });
   }
-
-  renderResult(fuelPrice, adjustVal, baseRate, baseIdx);
+  return rows;
 }
 
-function renderResult(fuelPrice, adjustVal, baseRate, baseIdx) {
+function recalculateFactoryBlock(block, fuelPrice, wizardAdj) {
+  const baseRate = parseFloat(block.baseRate);
+  const baseIdx = parseInt(block.baseIdx, 10);
+  const adj = block.useCustomAdjust
+    ? parseFloat(block.adjustValOverride)
+    : wizardAdj;
+  if (isNaN(baseRate) || baseRate <= 0 || isNaN(adj) || adj <= 0 || isNaN(baseIdx) || baseIdx < 0 || baseIdx >= ranges.length) {
+    block.resultData = [];
+    return;
+  }
+  block.resultData = computeResultData(baseRate, baseIdx, adj, fuelPrice);
+}
+
+function recalculateAllFactoryBlocks(fuelPrice, wizardAdj) {
+  const adj = wizardAdj != null ? wizardAdj : getWizardSnapshot().adjustVal;
+  const fp = fuelPrice != null ? fuelPrice : getWizardSnapshot().fuelPrice;
+  factoryBlocks.forEach(function(b) { recalculateFactoryBlock(b, fp, adj); });
+  resultData = factoryBlocks.length ? (factoryBlocks[0].resultData || []) : [];
+}
+
+function initFactoryBlocksFromWizard() {
+  const w = getWizardSnapshot();
+  factoryBlocks = [{
+    id: factoryBlockSeq++,
+    factory: '',
+    baseRate: w.baseRate,
+    baseIdx: w.baseIdx,
+    useCustomAdjust: false,
+    adjustValOverride: w.adjustVal,
+    offeredPrice: '',
+    note: '',
+    resultData: []
+  }];
+}
+
+function generateResult() {
+  const w = getWizardSnapshot();
+  if (isNaN(w.adjustVal) || w.adjustVal <= 0) { alert('กรุณากรอกค่าการปรับที่ถูกต้อง'); return; }
+  if (isNaN(w.baseRate) || w.baseRate <= 0) { alert('กรุณากรอกค่าขนส่งฐานที่ถูกต้อง'); return; }
+
+  if (factoryBlocks.length) {
+    readFactoryBlocksFromEditor();
+  } else {
+    initFactoryBlocksFromWizard();
+  }
+  recalculateAllFactoryBlocks(w.fuelPrice, w.adjustVal);
+  renderResult(w.fuelPrice);
+}
+
+function getCurrentRateFromBlock(block) {
+  if (!block || !block.resultData || !block.resultData.length) return null;
+  const cur = block.resultData.find(function(d) { return d.isCurrent; });
+  if (cur) return cur.rate;
+  const base = block.resultData.find(function(d) { return d.isBase; });
+  return base ? base.rate : null;
+}
+
+function escapeHtml(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function buildBaseRangeOptions(selectedIdx) {
+  return ranges.map(function(r, i) {
+    const sel = i === selectedIdx ? ' selected' : '';
+    return '<option value="' + i + '"' + sel + '>' + escapeHtml(fmtRange(r.from, r.to)) + '</option>';
+  }).join('');
+}
+
+function readFactoryBlocksFromEditor() {
+  document.querySelectorAll('#factoryBlocksEditor .factory-block-card').forEach(function(card) {
+    const id = parseInt(card.getAttribute('data-id'), 10);
+    const b = factoryBlocks.find(function(x) { return x.id === id; });
+    if (!b) return;
+    const f = card.querySelector('.fb-factory');
+    const br = card.querySelector('.fb-base');
+    const bi = card.querySelector('.fb-base-idx');
+    const ca = card.querySelector('.fb-custom-adj');
+    const av = card.querySelector('.fb-adj');
+    const op = card.querySelector('.fb-offered');
+    const nt = card.querySelector('.fb-note');
+    if (f) b.factory = f.value;
+    if (br) b.baseRate = br.value;
+    if (bi) b.baseIdx = parseInt(bi.value, 10);
+    if (ca) b.useCustomAdjust = !!ca.checked;
+    if (av) b.adjustValOverride = av.value;
+    if (op) b.offeredPrice = op.value;
+    if (nt) b.note = nt.value;
+  });
+}
+
+function getFactoryQuoteMeta() {
+  readFactoryBlocksFromEditor();
+  const customer = (document.getElementById('resultCustomerName') || {}).value;
+  return {
+    customer: (customer || '').trim(),
+    lines: factoryBlocks.map(function(b) {
+      const priceNum = parseFloat(String(b.offeredPrice).replace(/,/g, ''));
+      const tableRate = getCurrentRateFromBlock(b);
+      return {
+        factory: (b.factory || '').trim(),
+        offeredPrice: b.offeredPrice,
+        offeredNum: Number.isFinite(priceNum) ? priceNum : null,
+        tableCurrentRate: tableRate,
+        baseRate: parseFloat(b.baseRate),
+        note: (b.note || '').trim()
+      };
+    })
+  };
+}
+
+function onFactoryBlocksLightChange() {
+  readFactoryBlocksFromEditor();
+  renderQuotePrintBlock();
+}
+
+function onFactoryBlocksChange() {
+  readFactoryBlocksFromEditor();
+  const w = getWizardSnapshot();
+  recalculateAllFactoryBlocks(w.fuelPrice, w.adjustVal);
+  renderFactoryBlocksEditor();
+  renderFactoryTables();
+  renderQuotePrintBlock();
+}
+
+function recalculateAllFactoryBlocksFromEditor() {
+  onFactoryBlocksChange();
+}
+
+function addFactoryBlock() {
+  readFactoryBlocksFromEditor();
+  const w = getWizardSnapshot();
+  const ref = factoryBlocks[0];
+  factoryBlocks.push({
+    id: factoryBlockSeq++,
+    factory: '',
+    baseRate: ref ? ref.baseRate : w.baseRate,
+    baseIdx: ref ? ref.baseIdx : w.baseIdx,
+    useCustomAdjust: false,
+    adjustValOverride: w.adjustVal,
+    offeredPrice: '',
+    note: '',
+    resultData: []
+  });
+  recalculateAllFactoryBlocks(w.fuelPrice, w.adjustVal);
+  renderFactoryBlocksEditor();
+  renderFactoryTables();
+  renderQuotePrintBlock();
+}
+
+function removeFactoryBlock(id) {
+  readFactoryBlocksFromEditor();
+  if (factoryBlocks.length <= 1) {
+    const w = getWizardSnapshot();
+    factoryBlocks = [{
+      id: factoryBlockSeq++,
+      factory: '',
+      baseRate: w.baseRate,
+      baseIdx: w.baseIdx,
+      useCustomAdjust: false,
+      adjustValOverride: w.adjustVal,
+      offeredPrice: '',
+      note: '',
+      resultData: []
+    }];
+  } else {
+    factoryBlocks = factoryBlocks.filter(function(b) { return b.id !== id; });
+  }
+  onFactoryBlocksChange();
+  renderFactoryBlocksEditor();
+}
+
+function copyFactoryBlockFromFirst(id) {
+  readFactoryBlocksFromEditor();
+  if (!factoryBlocks.length) return;
+  const first = factoryBlocks[0];
+  const b = factoryBlocks.find(function(x) { return x.id === id; });
+  if (!b || b.id === first.id) return;
+  b.baseRate = first.baseRate;
+  b.baseIdx = first.baseIdx;
+  b.useCustomAdjust = first.useCustomAdjust;
+  b.adjustValOverride = first.adjustValOverride;
+  onFactoryBlocksChange();
+  renderFactoryBlocksEditor();
+}
+
+function fillFactoryOfferedCurrent(id) {
+  readFactoryBlocksFromEditor();
+  const b = factoryBlocks.find(function(x) { return x.id === id; });
+  if (!b) return;
+  const rate = getCurrentRateFromBlock(b);
+  if (rate == null) {
+    alert('ยังไม่มีแถว「ราคาปัจจุบัน」ในตารางโรงนี้ — กรอกราคาน้ำมันให้ตรงช่วงก่อน');
+    return;
+  }
+  b.offeredPrice = String(Math.round(rate));
+  renderFactoryBlocksEditor();
+  renderQuotePrintBlock();
+}
+
+function renderFactoryBlocksEditor() {
+  const wrap = document.getElementById('factoryBlocksEditor');
+  if (!wrap) return;
+  const w = getWizardSnapshot();
+  wrap.innerHTML = factoryBlocks.map(function(b, idx) {
+    const canRemove = factoryBlocks.length > 1;
+    const adjWrapStyle = b.useCustomAdjust ? '' : 'opacity:.55';
+    return '<div class="factory-block-card" data-id="' + b.id + '">' +
+      '<h4>โรงงาน ' + (idx + 1) + (b.factory ? ': ' + escapeHtml(b.factory) : '') + '</h4>' +
+      '<div class="factory-block-grid">' +
+      '<div><label>ชื่อโรงงาน</label><input type="text" class="fb-factory" value="' + escapeHtml(b.factory) + '" placeholder="Tianhai" oninput="onFactoryBlocksLightChange()"></div>' +
+      '<div><label>Base Rate (บาท)</label><input type="number" class="fb-base" min="0" step="1" value="' + escapeHtml(b.baseRate) + '" onchange="onFactoryBlocksChange()"></div>' +
+      '<div><label>ช่วงน้ำมันฐาน</label><select class="fb-base-idx" onchange="onFactoryBlocksChange()">' + buildBaseRangeOptions(parseInt(b.baseIdx, 10) || 0) + '</select></div>' +
+      '<div><label>ราคาเสนอลูกค้า (บาท)</label><input type="number" class="fb-offered" min="0" step="1" value="' + escapeHtml(b.offeredPrice) + '" placeholder="4800" oninput="onFactoryBlocksLightChange()"></div>' +
+      '<div><label>หมายเหตุ</label><input type="text" class="fb-note" value="' + escapeHtml(b.note) + '" placeholder="ถ้ามี" oninput="onFactoryBlocksLightChange()"></div>' +
+      '</div>' +
+      '<div class="factory-block-grid" style="' + adjWrapStyle + '">' +
+      '<div><label><input type="checkbox" class="fb-custom-adj" style="width:auto"' + (b.useCustomAdjust ? ' checked' : '') + ' onchange="onFactoryBlocksChange()"> % ปรับเฉพาะโรงนี้</label></div>' +
+      '<div><label>ค่าปรับ (% หรือบาท/ช่วง)</label><input type="number" class="fb-adj" min="0" step="0.1" value="' + escapeHtml(b.useCustomAdjust ? b.adjustValOverride : w.adjustVal) + '"' + (b.useCustomAdjust ? '' : ' disabled') + ' onchange="onFactoryBlocksChange()"></div>' +
+      '</div>' +
+      '<div class="factory-block-actions">' +
+      '<button type="button" class="btn btn-sm btn-secondary" onclick="fillFactoryOfferedCurrent(' + b.id + ')">ราคาปัจจุบันจากตาราง</button>' +
+      (idx > 0 ? '<button type="button" class="btn btn-sm btn-secondary" onclick="copyFactoryBlockFromFirst(' + b.id + ')">คัดลอก Base จากโรง 1</button>' : '') +
+      (canRemove ? '<button type="button" class="btn btn-sm btn-danger" onclick="removeFactoryBlock(' + b.id + ')">ลบโรงนี้</button>' : '') +
+      '</div></div>';
+  }).join('');
+}
+
+function renderFactoryTableHtml(block, deltaHeader) {
+  if (!block.resultData || !block.resultData.length) {
+    return '<p class="quote-print-empty">กรอก Base Rate ให้ถูกต้องเพื่อสร้างตาราง</p>';
+  }
+  const w = getWizardSnapshot();
+  const adj = block.useCustomAdjust ? block.adjustValOverride : w.adjustVal;
+  const baseIdx = parseInt(block.baseIdx, 10) || 0;
+  let html = '<table class="factory-result-table"><thead><tr>' +
+    '<th>ลำดับ</th><th>ช่วงราคาน้ำมัน (บาท)</th><th>ค่าขนส่ง (บาท)</th><th>' + deltaHeader + '</th><th>% ปรับจากฐาน</th><th>ผลต่างจากฐาน (บาท)</th>' +
+    '</tr></thead><tbody>';
+  block.resultData.forEach(function(d, i) {
+    let cls = '';
+    if (d.isBase && d.isCurrent) cls = 'highlight-current highlight-base';
+    else if (d.isCurrent) cls = 'highlight-current';
+    else if (d.isBase) cls = 'highlight-base';
+    let badges = '';
+    if (d.isBase) badges += '<span class="badge badge-base">ฐาน</span>';
+    if (d.isCurrent) badges += '<span class="badge badge-current">ปัจจุบัน</span>';
+    const pctSign = d.pctFromBase > 0 ? '+' : '';
+    const diffSign = d.diffFromBase > 0 ? '+' : '';
+    const diffClass = d.diffFromBase > 0 ? 'positive' : d.diffFromBase < 0 ? 'negative' : '';
+    const s = fmtDelta(d.steps);
+    const stepsLabel = d.steps > 0 ? '+' + s : d.steps === 0 ? '-' : s;
+    html += '<tr class="' + cls + '"><td>' + (i + 1) + '</td><td>' + fmtRange(d.range.from, d.range.to) + badges + '</td>' +
+      '<td>' + fmtPrice(d.rate) + '</td><td>' + stepsLabel + '</td>' +
+      '<td>' + (d.isBase ? '0%' : pctSign + d.pctFromBase.toFixed(2) + '%') + '</td>' +
+      '<td class="' + diffClass + '">' + (d.isBase ? '-' : diffSign + fmtPrice(d.diffFromBase)) + '</td></tr>';
+  });
+  html += '</tbody></table>';
+  const cur = getCurrentRateFromBlock(block);
+  html = '<div class="factory-table-meta">ฐาน ' + fmtPrice(block.baseRate) + ' บาท | ช่วงฐาน ' + fmtRange(ranges[baseIdx].from, ranges[baseIdx].to) +
+    ' | ปรับ ' + adj + (adjustMode === 'baht_per_step' ? ' บาท/ช่วง' : '%') +
+    (cur != null ? ' | <strong>ราคาปัจจุบันในตาราง: ' + fmtPrice(cur) + '</strong>' : '') + '</div>' + html;
+  return html;
+}
+
+function renderFactoryTables() {
+  const wrap = document.getElementById('resultTableWrap');
+  if (!wrap) return;
+  const deltaHeader = (adjustMode === 'baht_per_step' || pctMode === 'per_step')
+    ? 'ขั้นห่างจากฐาน'
+    : 'ห่างจากฐาน (บาท)';
+  let html = '';
+  factoryBlocks.forEach(function(b, idx) {
+    const title = (b.factory || '').trim() || ('โรงงาน ' + (idx + 1));
+    html += '<div class="factory-table-block" data-factory-id="' + b.id + '">';
+    html += '<h3 class="factory-table-title">' + escapeHtml(title) + '</h3>';
+    html += renderFactoryTableHtml(b, deltaHeader);
+    html += '</div>';
+  });
+  wrap.innerHTML = html || '<p class="quote-print-empty">ยังไม่มีตาราง</p>';
+}
+
+function renderQuotePrintBlock() {
+  const block = document.getElementById('quotePrintBlock');
+  if (!block) return;
+  const meta = getFactoryQuoteMeta();
+  const stamp = new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+  let html = '<div class="qp-title">ใบสรุปเสนอราคา';
+  if (meta.customer) html += ' — ' + escapeHtml(meta.customer);
+  html += '</div><div class="qp-meta">วันที่พิมพ์/ส่งออก: ' + escapeHtml(stamp) + ' | โหมด: โรงงานละ 1 ตาราง</div>';
+  if (meta.customer) html += '<div style="font-size:.95rem;margin:8px 0"><strong>ลูกค้า:</strong> ' + escapeHtml(meta.customer) + '</div>';
+  html += '<table class="quote-print-table"><thead><tr><th>โรงงาน</th><th>Base</th><th>ราคาเสนอ</th><th>ราคาปัจจุบัน (ตาราง)</th><th>หมายเหตุ</th></tr></thead><tbody>';
+  meta.lines.forEach(function(l, i) {
+    const name = l.factory || ('โรงงาน ' + (i + 1));
+    html += '<tr><td>' + escapeHtml(name) + '</td><td class="price">' + (Number.isFinite(l.baseRate) ? fmtPrice(l.baseRate) : '-') + '</td>' +
+      '<td class="price">' + (l.offeredNum != null ? fmtPrice(l.offeredNum) : '-') + '</td>' +
+      '<td class="price">' + (l.tableCurrentRate != null ? fmtPrice(l.tableCurrentRate) : '-') + '</td>' +
+      '<td>' + (l.note ? escapeHtml(l.note) : '-') + '</td></tr>';
+  });
+  html += '</tbody></table>';
+  block.innerHTML = html;
+}
+
+function renderFactoryPanel() {
+  renderFactoryBlocksEditor();
+  renderFactoryTables();
+  renderQuotePrintBlock();
+}
+
+function renderResult(fuelPrice) {
   document.getElementById('wizardContainer').style.display = 'none';
   document.getElementById('progressBar').style.display = 'none';
   const sec = document.getElementById('resultSection');
   sec.classList.add('visible');
 
+  const w = getWizardSnapshot();
+  const fp = !isNaN(fuelPrice) ? fuelPrice : w.fuelPrice;
   const methodLabel = adjustMode === 'baht_per_step'
     ? 'บวก/ลบ แบบจำนวนบาทต่อช่วง'
     : (calcMethod === 'base' ? 'จาก Base Rate' : 'ขั้นบันได (Compound)');
   const adjustLabel = adjustMode === 'baht_per_step'
     ? 'ปรับราคา ต่อ 1 ช่วง'
     : (pctMode === 'per_baht' ? '% ปรับต่อ 1 บาท' : '% ปรับต่อขั้น');
-  const deltaHeader = (adjustMode === 'baht_per_step' || pctMode === 'per_step')
-    ? 'ขั้นห่างจากฐาน'
-    : 'ห่างจากฐาน (บาท)';
 
   document.getElementById('summaryCards').innerHTML =
-    '<div class="summary-card"><div class="sc-label">น้ำมันปัจจุบัน</div><div class="sc-value">' + fmt(fuelPrice) + ' บ./ล.</div></div>' +
-    '<div class="summary-card"><div class="sc-label">ค่าขนส่งฐาน</div><div class="sc-value">' + fmt(baseRate) + ' บาท</div></div>' +
-    '<div class="summary-card"><div class="sc-label">ช่วงน้ำมันฐาน</div><div class="sc-value">' + fmtRange(ranges[baseIdx].from, ranges[baseIdx].to) + '</div></div>' +
-    '<div class="summary-card"><div class="sc-label">วิธีปรับ</div><div class="sc-value">' + methodLabel + '</div></div>' +
-    '<div class="summary-card"><div class="sc-label">' + adjustLabel + '</div><div class="sc-value">' + adjustVal + (adjustMode === 'baht_per_step' ? ' บาท' : '%') + '</div></div>';
+    '<div class="summary-card"><div class="sc-label">น้ำมันปัจจุบัน</div><div class="sc-value">' + fmt(fp) + ' บ./ล.</div></div>' +
+    '<div class="summary-card"><div class="sc-label">จำนวนโรงงาน</div><div class="sc-value">' + factoryBlocks.length + ' โรง</div></div>' +
+    '<div class="summary-card"><div class="sc-label">วิธีปรับ (ร่วม)</div><div class="sc-value">' + methodLabel + '</div></div>' +
+    '<div class="summary-card"><div class="sc-label">' + adjustLabel + ' (ค่าเริ่ม)</div><div class="sc-value">' + w.adjustVal + (adjustMode === 'baht_per_step' ? ' บาท' : '%') + '</div></div>' +
+    '<div class="summary-card"><div class="sc-label">ปัดเศษ</div><div class="sc-value">' + getRoundingModeLabel() + '</div></div>';
 
-  let html = '<table id="resultTable"><thead><tr>' +
-    '<th>ลำดับ</th><th>ช่วงราคาน้ำมัน (บาท)</th><th>ค่าขนส่ง (บาท)</th><th>' + deltaHeader + '</th><th>% ปรับจากฐาน</th><th>ผลต่างจากฐาน (บาท)</th>' +
-    '</tr></thead><tbody>';
-
-  resultData.forEach((d, i) => {
-    let cls = '';
-    if (d.isBase && d.isCurrent) cls = 'highlight-current highlight-base';
-    else if (d.isCurrent) cls = 'highlight-current';
-    else if (d.isBase) cls = 'highlight-base';
-
-    let badges = '';
-    if (d.isBase) badges += '<span class="badge badge-base">ฐาน</span>';
-    if (d.isCurrent) badges += '<span class="badge badge-current">ปัจจุบัน</span>';
-
-    const pctSign = d.pctFromBase > 0 ? '+' : '';
-    const diffSign = d.diffFromBase > 0 ? '+' : '';
-    const diffClass = d.diffFromBase > 0 ? 'positive' : d.diffFromBase < 0 ? 'negative' : '';
-    const s = fmtDelta(d.steps);
-    const stepsLabel = d.steps > 0 ? '+' + s : d.steps === 0 ? '-' : s;
-
-    html += '<tr class="' + cls + '">' +
-      '<td>' + (i + 1) + '</td>' +
-      '<td>' + fmtRange(d.range.from, d.range.to) + badges + '</td>' +
-      '<td>' + fmt(d.rate) + '</td>' +
-      '<td>' + stepsLabel + '</td>' +
-      '<td>' + (d.isBase ? '0%' : pctSign + d.pctFromBase.toFixed(2) + '%') + '</td>' +
-      '<td class="' + diffClass + '">' + (d.isBase ? '-' : diffSign + fmt(d.diffFromBase)) + '</td></tr>';
-  });
-
-  html += '</tbody></table>';
-  document.getElementById('resultTableWrap').innerHTML = html;
+  renderFactoryPanel();
 }
 
 function backToWizard() {
@@ -1145,9 +1588,9 @@ function backToWizard() {
 }
 
 function exportExcel() {
-  const fuelPrice = parseFloat(document.getElementById('fuelPrice').value);
-  const adjustVal = parseFloat(document.getElementById('adjustPercent').value);
-  const baseRate = parseFloat(document.getElementById('baseRate').value);
+  readFactoryBlocksFromEditor();
+  const w = getWizardSnapshot();
+  recalculateAllFactoryBlocks(w.fuelPrice, w.adjustVal);
   const methodLabel = adjustMode === 'baht_per_step'
     ? 'บวก/ลบ แบบจำนวนบาทต่อช่วง'
     : (calcMethod === 'base' ? 'จาก Base Rate' : 'ขั้นบันได (Compound)');
@@ -1158,32 +1601,55 @@ function exportExcel() {
     ? 'ขั้นห่างจากฐาน'
     : 'ห่างจากฐาน (บาท)';
 
-  const header = [
-    ['คำนวณค่าขนส่งตามราคาน้ำมัน'],
-    ['น้ำมันปัจจุบัน', fuelPrice + ' บาท/ลิตร'],
-    ['ค่าขนส่งฐาน', baseRate + ' บาท'],
-    ['วิธีปรับ', methodLabel],
-    [adjustLabel, adjustVal + (adjustMode === 'baht_per_step' ? ' บาท' : '%')],
-    [],
-    ['ลำดับ', 'ช่วงราคาน้ำมัน (บาท)', 'ค่าขนส่ง (บาท)', deltaCol, '% ปรับจากฐาน', 'ผลต่างจากฐาน (บาท)', 'หมายเหตุ']
-  ];
-
-  const rows = resultData.map((d, i) => {
-    let note = '';
-    if (d.isBase) note += 'ฐาน';
-    if (d.isCurrent) note += (note ? ', ' : '') + 'ราคาปัจจุบัน';
+  const meta = getFactoryQuoteMeta();
+  const summaryRows = meta.lines.map(function(l, i) {
     return [
       i + 1,
-      fmtRange(d.range.from, d.range.to),
-      Math.round(d.rate * 100) / 100,
-      d.steps,
-      d.pctFromBase.toFixed(2) + '%',
-      Math.round(d.diffFromBase * 100) / 100,
-      note
+      l.factory || ('โรงงาน ' + (i + 1)),
+      Number.isFinite(l.baseRate) ? l.baseRate : '-',
+      l.offeredNum != null ? l.offeredNum : '-',
+      l.tableCurrentRate != null ? Math.round(l.tableCurrentRate * 100) / 100 : '-',
+      l.note || ''
     ];
   });
 
-  const ws = XLSX.utils.aoa_to_sheet([...header, ...rows]);
+  const aoa = [
+    ['คำนวณค่าขนส่งตามราคาน้ำมัน — โรงงานละ 1 ตาราง'],
+    ['ลูกค้า', meta.customer || '(ยังไม่ระบุ)'],
+    ['น้ำมันปัจจุบัน', w.fuelPrice + ' บาท/ลิตร'],
+    ['วิธีปรับ (ร่วม)', methodLabel],
+    [adjustLabel + ' (ค่าเริ่ม)', w.adjustVal + (adjustMode === 'baht_per_step' ? ' บาท' : '%')],
+    ['ปัดเศษ', getRoundingModeLabel()],
+    [],
+    ['สรุปรายโรงงาน'],
+    ['ลำดับ', 'โรงงาน', 'Base (บาท)', 'ราคาเสนอ', 'ราคาปัจจุบัน (ตาราง)', 'หมายเหตุ'],
+    ...summaryRows
+  ];
+
+  factoryBlocks.forEach(function(b, fi) {
+    const title = (b.factory || '').trim() || ('โรงงาน ' + (fi + 1));
+    const adj = b.useCustomAdjust ? parseFloat(b.adjustValOverride) : w.adjustVal;
+    aoa.push([]);
+    aoa.push(['ตาราง: ' + title]);
+    aoa.push(['Base', parseFloat(b.baseRate), 'ช่วงฐาน', fmtRange(ranges[parseInt(b.baseIdx, 10) || 0].from, ranges[parseInt(b.baseIdx, 10) || 0].to), 'ปรับ', adj]);
+    aoa.push(['ลำดับ', 'ช่วงราคาน้ำมัน (บาท)', 'ค่าขนส่ง (บาท)', deltaCol, '% ปรับจากฐาน', 'ผลต่างจากฐาน (บาท)', 'หมายเหตุ']);
+    (b.resultData || []).forEach(function(d, i) {
+      let note = '';
+      if (d.isBase) note += 'ฐาน';
+      if (d.isCurrent) note += (note ? ', ' : '') + 'ราคาปัจจุบัน';
+      aoa.push([
+        i + 1,
+        fmtRange(d.range.from, d.range.to),
+        Math.round(d.rate * 100) / 100,
+        d.steps,
+        d.pctFromBase.toFixed(2) + '%',
+        Math.round(d.diffFromBase * 100) / 100,
+        note
+      ]);
+    });
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols'] = [{ wch: 8 }, { wch: 24 }, { wch: 18 }, { wch: 14 }, { wch: 16 }, { wch: 20 }, { wch: 16 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'ค่าขนส่ง');
@@ -1206,18 +1672,26 @@ function getHtml2CanvasResultOpts() {
         sec.style.filter = 'none';
         sec.style.webkitFilter = 'none';
       }
-      var tbl = clonedDoc.getElementById('resultTable');
-      if (tbl) {
+      clonedDoc.querySelectorAll('.factory-result-table').forEach(function(tbl) {
         tbl.style.color = '#1a202c';
         tbl.querySelectorAll('tbody td').forEach(function(td) { td.style.color = '#1a202c'; });
         tbl.querySelectorAll('tbody tr').forEach(function(tr) {
           tr.style.opacity = '1';
           tr.style.filter = 'none';
         });
-      }
+      });
+      clonedDoc.querySelectorAll('.factory-table-title').forEach(function(el) { el.style.color = '#1e3a5f'; });
       clonedDoc.querySelectorAll('.summary-card .sc-value').forEach(function(el) { el.style.color = '#1e3a5f'; });
       clonedDoc.querySelectorAll('.summary-card .sc-label').forEach(function(el) { el.style.color = '#64748b'; });
       clonedDoc.querySelectorAll('.result-header h2').forEach(function(el) { el.style.color = '#1e3a5f'; });
+      var editor = clonedDoc.getElementById('quoteEditorPanel');
+      if (editor) editor.style.display = 'none';
+      var qpb = clonedDoc.getElementById('quotePrintBlock');
+      if (qpb) {
+        qpb.style.display = 'block';
+        qpb.querySelectorAll('.qp-title,.quote-print-table th').forEach(function(el) { el.style.color = '#1e3a5f'; });
+        qpb.querySelectorAll('.quote-print-table td').forEach(function(td) { td.style.color = '#1a202c'; });
+      }
       clonedDoc.documentElement.style.backgroundColor = '#ffffff';
       if (clonedDoc.body) clonedDoc.body.style.backgroundColor = '#ffffff';
     }
@@ -1617,8 +2091,8 @@ function calcCostModel() {
 
 function applySuggestedPrice(level) {
   const c = calcCostModel();
-  if (level === 'min') setVal('customerPrice', Math.round(c.suggested15AfterFinance));
-  else setVal('customerPrice', Math.round(c.suggested30AfterFinance));
+  const raw = level === 'min' ? c.suggested15AfterFinance : c.suggested30AfterFinance;
+  setVal('customerPrice', roundTransportPrice(raw));
   renderCostResult();
 }
 
@@ -1626,7 +2100,7 @@ function renderCostResult() {
   const c = calcCostModel();
   setVal('fuelLiters', c.liters.toFixed(2));
   setVal('fuelCost', c.fuelCost.toFixed(2));
-  const hints = c.targetMarginMin.toFixed(1) + '%: ' + fmt(c.suggested15AfterFinance) + ' บาท | ' + c.targetMarginNice.toFixed(1) + '%: ' + fmt(c.suggested30AfterFinance) + ' บาท';
+  const hints = c.targetMarginMin.toFixed(1) + '%: ' + fmtPrice(roundTransportPrice(c.suggested15AfterFinance)) + ' บาท | ' + c.targetMarginNice.toFixed(1) + '%: ' + fmtPrice(roundTransportPrice(c.suggested30AfterFinance)) + ' บาท';
   const hintsEl = document.getElementById('priceHints');
   if (hintsEl) hintsEl.textContent = hints;
 
@@ -1635,8 +2109,8 @@ function renderCostResult() {
     kpiWrap.innerHTML =
       '<div class="kpi"><div class="k-label">ต้นทุนรวม/เที่ยว</div><div class="k-value">' + fmt(c.totalCost) + '</div></div>' +
       '<div class="kpi"><div class="k-label">ต้นทุนการเงิน/เที่ยว</div><div class="k-value">' + fmt(c.financeCost) + '</div></div>' +
-      '<div class="kpi"><div class="k-label">ราคาขายเป้า 1 (' + c.targetMarginMin.toFixed(1) + '%)</div><div class="k-value">' + fmt(c.suggested15AfterFinance) + '</div></div>' +
-      '<div class="kpi"><div class="k-label">ราคาขายเป้า 2 (' + c.targetMarginNice.toFixed(1) + '%)</div><div class="k-value">' + fmt(c.suggested30AfterFinance) + '</div></div>' +
+      '<div class="kpi"><div class="k-label">ราคาขายเป้า 1 (' + c.targetMarginMin.toFixed(1) + '%)</div><div class="k-value">' + fmtPrice(roundTransportPrice(c.suggested15AfterFinance)) + '</div></div>' +
+      '<div class="kpi"><div class="k-label">ราคาขายเป้า 2 (' + c.targetMarginNice.toFixed(1) + '%)</div><div class="k-value">' + fmtPrice(roundTransportPrice(c.suggested30AfterFinance)) + '</div></div>' +
       '<div class="kpi"><div class="k-label">% น้ำมันต่อราคาขาย</div><div class="k-value">' + c.fuelPctOfSale.toFixed(2) + '%</div></div>' +
       '<div class="kpi"><div class="k-label">% ซ่อมบำรุงต่อราคาขาย</div><div class="k-value">' + c.maintenancePctOfSale.toFixed(2) + '%</div></div>' +
       '<div class="kpi"><div class="k-label">% คนขับต่อราคาขาย</div><div class="k-value">' + c.driverPctOfSale.toFixed(2) + '%</div></div>' +
@@ -2014,6 +2488,8 @@ function initCostModule() {
   routeSegments = baseRouteSegments();
   renderRouteList();
   syncFuelPriceFromMain();
+  setupPriceRoundingInputs();
+  loadPriceRoundingSettings();
   setupCostInputs();
   loadSavedJobsFromStorage();
   renderSavedJobsList();

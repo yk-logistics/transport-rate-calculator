@@ -4,6 +4,28 @@
 
 > **Agent bootstrap:** อ่านเฉพาะ **3 หัวข้อ `##` แรกจากด้านบนลงมา** (ไม่รวมบรรทัดนี้) — **ห้าม**อ่านทั้งไฟล์ทุกแชต. นโยบาย/การย้าย archive: [`ProjectYK_System/docs/CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md)
 
+## 2026-05-21 (LCB fuel dispatch — ชื่อลูกค้า WHALE/เหรินเหอ)
+
+- แผน LINE: รองรับบล็อก WHALE5 [เหรินเหอ5] → โชว์ **เหรินเหอ** (50 ล./เที่ยว); HTML แสดงทุกคันที่ parse (ไม่ซ่อน Unknown); คลังวาฬนับ Bol.+Con. (รวมฟรีโซน)
+
+## 2026-05-21 (Transport Rate Calculator — โหมด 2 โรงงานละตาราง)
+
+- โรงงานละ Base + ช่วงฐาน + ตารางน้ำมันแยก; ช่วงน้ำมัน/% ปรับร่วมจากวิซาร์ด; + เพิ่มโรง, คัดลอก Base, ราคาเสนอ, PDF/Excel รวมทุกโรง
+
+## 2026-05-21 (Transport Rate Calculator — ลูกค้า/หลายโรงงานบนหน้าผลลัพธ์)
+
+- หน้าผลลัพธ์: ชื่อลูกค้า + รายการโรงงาน/ราคาเสนอ (default 1 แถว, + เพิ่มได้); สรุปด้านบนสำหรับพิมพ์ PDF/PNG/Excel; ปุ่มดึงราคาปัจจุบันจากตารางน้ำมัน
+
+## 2026-05-21 (Transport Rate Calculator — ปัดเศษค่าขนส่ง)
+
+- Step 4: เลือกปัดเศษ — ไม่ปัด / ทศนิยม (0–2 ตำแหน่ง) / หลักหน่วย / หน่วย 5|0 / หลักสิบ; จำในเครื่อง; ใช้กับตารางเรท + ราคาเป้าต้นทุน; sync `index.html`
+
+## 2026-05-20 (LCB fuel dispatch — Pages full 16 trucks + URL note)
+
+- สาเหตุ Pages เห็นแค่ 2 คัน: build จาก `fixtures/lcb_plan_sample.txt` (ทดสอบ) ไม่ใช่แผนจริง — **ไม่ใช่** filter ตาราง
+- rebuild จาก `21.05.26.txt` → ตาราง **16 แถว** (รวม Oatside); ไฮไลต์เฉพาะ KAO 9628/0419 ที่ต้องเติม
+- HTML เพิ่มหมายเหตุลิงก์: `…/reports/lcb-fuel-dispatch/` ≠ หน้าแรก transport-rate-calculator; push `79fa6c8`
+
 ## 2026-05-20 (LCB fuel dispatch — editable refill + diesel on HTML)
 
 - `build_lcb_fuel_dispatch_from_plan.py` — หน้า HTML แก้ราคาดีเซล (ค่าเริ่มต้น 42.20), กรอกลิตรเติมต่อคัน, สรุปงบ 5k–10k, pre-fill คันต้องเติม (~buffer 12.5 ล.), Export PNG/CSV รวมคอลัมน์เติม
