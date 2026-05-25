@@ -2649,8 +2649,13 @@ function dateToDisplayText(d) {
   return dd + '/' + mm + '/' + yyyyAd;
 }
 
+function todayAtMidnight() {
+  const n = new Date();
+  return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+}
+
 function fillMissingHistoricalDates(rows) {
-  if (!rows.length) return { rows: [], filledCount: 0 };
+  if (!rows.length) return { rows: [], filledCount: 0, carryForwardCount: 0 };
   const byIso = new Map();
   rows.forEach(function(r) {
     const d = thDateToDate(r.dateText);
@@ -2658,7 +2663,7 @@ function fillMissingHistoricalDates(rows) {
     byIso.set(dateToIso(d), { date: d, value: r.value, imputed: !!r.imputed });
   });
   const dates = Array.from(byIso.values()).map(function(x) { return x.date; }).sort(function(a, b) { return a - b; });
-  if (!dates.length) return { rows: [], filledCount: 0 };
+  if (!dates.length) return { rows: [], filledCount: 0, carryForwardCount: 0 };
   const minD = new Date(dates[0].getFullYear(), dates[0].getMonth(), dates[0].getDate());
   const maxD = new Date(dates[dates.length - 1].getFullYear(), dates[dates.length - 1].getMonth(), dates[dates.length - 1].getDate());
 
@@ -2670,14 +2675,36 @@ function fillMissingHistoricalDates(rows) {
     const exists = byIso.get(iso);
     if (exists) {
       prevValue = exists.value;
-      full.push({ dateText: dateToDisplayText(d), value: exists.value, imputed: false });
+      full.push({ dateText: dateToDisplayText(d), value: exists.value, imputed: false, carryForward: false });
     } else if (Number.isFinite(prevValue)) {
-      full.push({ dateText: dateToDisplayText(d), value: prevValue, imputed: true });
+      full.push({ dateText: dateToDisplayText(d), value: prevValue, imputed: true, carryForward: false });
       filledCount += 1;
     }
   }
+
+  let carryForwardCount = 0;
+  const today = todayAtMidnight();
+  if (Number.isFinite(prevValue) && maxD < today) {
+    for (let d = new Date(maxD.getFullYear(), maxD.getMonth(), maxD.getDate() + 1); d <= today; d.setDate(d.getDate() + 1)) {
+      full.push({ dateText: dateToDisplayText(d), value: prevValue, imputed: true, carryForward: true });
+      filledCount += 1;
+      carryForwardCount += 1;
+    }
+  }
+
   sortHistoricalRows(full);
-  return { rows: full, filledCount: filledCount };
+  return { rows: full, filledCount: filledCount, carryForwardCount: carryForwardCount };
+}
+
+function formatHistoricalLoadStatus(rawDayCount, normalized) {
+  let msg = 'โหลดสำเร็จ ' + rawDayCount + ' วัน (ข้อมูลต้นทาง)';
+  const gapFilled = normalized.filledCount - normalized.carryForwardCount;
+  if (gapFilled > 0) msg += ' เติมช่องว่างในช่วง ' + gapFilled + ' วัน';
+  if (normalized.carryForwardCount > 0) {
+    msg += ' ใช้ราคาล่าสุดต่อถึงวันนี้ ' + normalized.carryForwardCount + ' วัน';
+  }
+  msg += ' — คลุมช่วงในตารางหรือเลือกช่วงวันที่ในปฏิทินเพื่อหาเฉลี่ย';
+  return msg;
 }
 
 function resetHistoryDateRangeInputs() {
@@ -2747,7 +2774,9 @@ function updateHistoryRangeLabel() {
     help.textContent = 'ปฏิทินยังเปิดอยู่ คลิกวันที่ปลายทางเพื่อจบช่วง';
   } else {
     trigger.textContent = 'เลือกวันเริ่ม แล้วเลือกวันถึง';
-    help.textContent = boundsText ? ('ข้อมูลที่มี: ' + boundsText) : 'คลิกวันที่เริ่มและวันที่ถึงในปฏิทินเดียว';
+    help.textContent = boundsText
+      ? ('ข้อมูลที่มี: ' + boundsText + ' (วันหลังปรับราคาล่าสุดใช้เรทเดิมจนถึงวันนี้)')
+      : 'คลิกวันที่เริ่มและวันที่ถึงในปฏิทินเดียว';
   }
 }
 
@@ -2859,7 +2888,9 @@ function renderHistoryTable() {
   }
   body.innerHTML = historicalRows.map(function(r, idx) {
     const sel = historicalSelection.has(idx) ? 'selected' : '';
-    const imputedTag = r.imputed ? ' <span class="badge badge-base" style="background:#64748b">เติมวันหาย</span>' : '';
+    const imputedTag = r.carryForward
+      ? ' <span class="badge badge-base" style="background:#475569">ราคาล่าสุด</span>'
+      : (r.imputed ? ' <span class="badge badge-base" style="background:#64748b">เติมวันหาย</span>' : '');
     return '<tr class="' + sel + '" data-idx="' + idx + '">' +
       '<td>' + r.dateText + imputedTag + '</td>' +
       '<td>' + fmt(r.value) + '</td>' +
@@ -3078,7 +3109,7 @@ async function loadHistoricalOilPrices() {
   historicalRows = normalized.rows;
   renderHistoryTable();
   resetHistoryDateRangeInputs();
-  updateHistoryStatus('โหลดสำเร็จ ' + rows.length + ' วัน และเติมวันที่หายเพิ่ม ' + normalized.filledCount + ' วัน — คลุมช่วงในตารางหรือเลือกช่วงวันที่ในปฏิทินเพื่อหาเฉลี่ย');
+  updateHistoryStatus(formatHistoricalLoadStatus(rows.length, normalized));
 }
 
 function parseHistoricalFromPaste() {
@@ -3097,7 +3128,7 @@ function parseHistoricalFromPaste() {
   clearHistorySelection();
   renderHistoryTable();
   resetHistoryDateRangeInputs();
-  updateHistoryStatus('แปลงข้อมูลสำเร็จ ' + rows.length + ' วัน และเติมวันที่หายเพิ่ม ' + normalized.filledCount + ' วัน — คลุมช่วงในตารางหรือเลือกช่วงวันที่ในปฏิทินเพื่อหาเฉลี่ย');
+  updateHistoryStatus(formatHistoricalLoadStatus(rows.length, normalized).replace('โหลดสำเร็จ', 'แปลงข้อมูลสำเร็จ'));
 }
 
 document.getElementById('adjustPercent').addEventListener('input', function() {
