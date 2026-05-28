@@ -1,20 +1,31 @@
 {
   "permissions": {
+    "defaultMode": "bypassPermissions",
     "allow": [
-      "Bash(python -m py_compile Oatside/build_oatside_reports.py)",
-      "Bash(python Oatside/build_oatside_reports.py)",
-      "Bash(python -c ' *)",
-      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Home\\\\Desktop\\\\Project YK\\\\ProjectYK_System\" -ErrorAction SilentlyContinue | Select-Object Name, @{N='Type';E={if\\($_.PSIsContainer\\){'DIR'}else{'FILE'}}}, @{N='SizeMB';E={if\\(!$_.PSIsContainer\\){[math]::Round\\($_.Length/1MB,2\\)}else{'-'}}} | Format-Table -AutoSize)",
-      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Home\\\\Desktop\\\\Project YK\\\\ProjectYK_System\\\\app\" -ErrorAction SilentlyContinue | Select-Object Name, @{N='Type';E={if\\($_.PSIsContainer\\){'DIR'}else{'FILE'}}}, @{N='SizeMB';E={if\\(!$_.PSIsContainer\\){[math]::Round\\($_.Length/1MB,2\\)}else{'-'}}} | Format-Table -AutoSize)",
-      "Bash(python -c \"import sys; sys.stdout.buffer.write\\(sys.stdin.buffer.read\\(\\)\\)\")",
+      "Bash(*)",
+      "PowerShell(*)",
+      "WebFetch(*)",
+      "WebSearch(*)",
       "mcp__plugin_claude-mem_mcp-search__get_observations",
-      "Bash(python -m py_compile main.py services/email_ingest.py services/email_oauth.py)",
-      "Bash(python \"c:\\\\Users\\\\Home\\\\Desktop\\\\Project YK\\\\ProjectYK_System\\\\tools\\\\run_payroll_test.py\")",
-      "Bash(python \"ProjectYK_System/dev_scripts/reconcile_book3_vs_customer_summary.py\")",
-      "Bash(python -c \"import sys; [print\\(l\\) for l in sys.stdin.buffer.read\\(\\).decode\\('utf-8'\\).splitlines\\(\\)]\")",
-      "Bash(python tools/preflight_payrun.py --site AYU --run-id 7)",
-      "Bash(powershell -Command \"Get-WmiObject -Class Win32_OperatingSystem | Select-Object Caption, Version, TotalVisibleMemorySize, FreePhysicalMemory | Format-List\")",
-      "Bash(powershell -Command \"Get-WmiObject -Class Win32_VideoController | Select-Object Name, DriverVersion, AdapterRAM | Format-List\")"
+      "Skill(update-config)",
+      "Skill(update-config:*)"
+    ]
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "autoMemoryDirectory": "C:\\Users\\guole\\Desktop\\2026.5.28\\Desktop\\Project YK\\.claude\\memory",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -WindowStyle Hidden -File \"$env:USERPROFILE\\.claude\\on_stop.ps1\"",
+            "shell": "powershell",
+            "statusMessage": "Saving session & arming auto-resume...",
+            "async": true
+          }
+        ]
+      }
     ]
   }
 }
