@@ -67,6 +67,7 @@ class OatsideConfig:
     manual_return_trips: tuple[ManualExtraTrip, ...]
     report_start_date: date | None
     report_end_date: date | None
+    customer_rate_summary: str | None = None
 
 @dataclass
 class CustomerIdleWindow:
@@ -367,6 +368,7 @@ def load_oatside_config() -> OatsideConfig:
                 return_list.append(item)
     report_start_date = _parse_optional_iso_date(raw.get("report_start_date"))
     report_end_date = _parse_optional_iso_date(raw.get("report_end_date"))
+    customer_rate_summary = _parse_optional_str(raw.get("customer_rate_summary"))
 
     return OatsideConfig(
         trip_rates=trip_rates,
@@ -401,7 +403,15 @@ def load_oatside_config() -> OatsideConfig:
         manual_return_trips=tuple(return_list),
         report_start_date=report_start_date,
         report_end_date=report_end_date,
+        customer_rate_summary=customer_rate_summary,
     )
+
+
+def _parse_optional_str(val: Any) -> str | None:
+    if val is None:
+        return None
+    s = str(val).strip()
+    return s or None
 
 
 def _parse_optional_iso_date(raw_date: Any) -> date | None:
@@ -546,6 +556,8 @@ def manual_return_label(m: ManualExtraTrip) -> str:
 
 def config_rate_summary(cfg: OatsideConfig) -> str:
     """Human-readable summary of rate rules for subtitles/logs."""
+    if cfg.customer_rate_summary:
+        return cfg.customer_rate_summary
     parts = []
     for rule in cfg.trip_rates:
         rate = rule.get("rate_baht")

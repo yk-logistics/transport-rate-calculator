@@ -266,16 +266,73 @@
     {
       "date": "2026-05-01",
       "price": 40.8,
-      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+      "source": "Bangchak ไฮดีเซล S คอลัมน์ที่ 2 (26.05.2026)"
     },
     {
       "date": "2026-05-08",
       "price": 39.95,
-      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+      "source": "Bangchak ไฮดีเซล S คอลัมน์ที่ 2 (26.05.2026)"
+    },
+    {
+      "date": "2026-05-13",
+      "price": 40.75,
+      "source": "Bangchak ไฮดีเซล S คอลัมน์ที่ 2 (26.05.2026)"
+    },
+    {
+      "date": "2026-05-14",
+      "price": 41.45,
+      "source": "Bangchak ไฮดีเซล S คอลัมน์ที่ 2 (26.05.2026)"
+    },
+    {
+      "date": "2026-05-19",
+      "price": 42.2,
+      "source": "Bangchak ไฮดีเซล S คอลัมน์ที่ 2 (26.05.2026)"
+    },
+    {
+      "date": "2026-05-20",
+      "price": 42.2,
+      "source": "Bangchak ไฮดีเซล S คอลัมน์ที่ 2 (26.05.2026)"
+    },
+    {
+      "date": "2026-05-26",
+      "price": 41.2,
+      "source": "Bangchak ไฮดีเซล S คอลัมน์ที่ 2 (26.05.2026)"
     }
   ],
   "_note_diesel_price_history": "ราคาน้ำมันรายวัน (ไฮดีเซล) สำหรับคำนวณเรทตามวันที่วิ่ง; เติมจากข้อมูลย้อนหลังที่ผู้ใช้ให้",
-  "report_end_date": "2026-04-30",
-  "report_start_date": null,
-  "_note_report_date_range": "กรองช่วงรายงานตามวันวิ่ง (trip_date): null = ไม่กรอง, เช่น report_end_date='2026-04-30' เพื่อตัดเดือน พ.ค. ออก"
+  "report_end_date": "2026-05-31",
+  "report_start_date": "2026-05-01",
+  "_note_report_date_range": "ช่วงรายงาน (trip_date): null = ทั้งหมด; ปัจจุบัน พ.ค. 2569",
+  "customer_rate_summary": "พ.ค. 2569: ฐาน 6,500 บาท (แถบน้ำมัน 31.00–31.99 บ./ล.) ปรับ +1.5% ต่อ 1 บาท จากราคาบางจาก ไฮดีเซล S (คอลัมน์ที่ 2)",
+  "_billing_locked_april_2026": {
+    "note": "วางบิลเม.ย. 2569 เรียบร้อย — เก็บอ้างอิงภายใน ไม่แสดงบนหน้ารายงานลูกค้า",
+    "report_window": {
+      "from": "2026-04-01",
+      "to": "2026-04-30"
+    },
+    "diesel_note": "ใช้ราคาจากคอลัมน์ที่ 2 ของตารางบางจาก (~40–50 บ./ล.) ตาม diesel_price_history เดิม",
+    "trip_rates": [
+      {
+        "_note": "April high window: base 8,000 ที่ช่วงน้ำมัน 50.00-50.99",
+        "from": "2026-04-12",
+        "to": "2026-04-15",
+        "rate_baht": 8000,
+        "base_fuel_min": 50.0,
+        "base_fuel_max": 50.99,
+        "step_pct_per_baht": 1.5,
+        "floor_rate_baht": 6500
+      },
+      {
+        "_note": "April normal window: base 7,500 ที่ช่วงน้ำมัน 50.00-50.99",
+        "from": "2026-04-01",
+        "to": "2026-04-30",
+        "rate_baht": 7500,
+        "base_fuel_min": 50.0,
+        "base_fuel_max": 50.99,
+        "step_pct_per_baht": 1.5,
+        "floor_rate_baht": 6500
+      }
+    ],
+    "summary": "ฐาน 7,500 บาท (12–15 เม.ย. 8,000) แถบน้ำมัน 50.00–50.99 บ./ล. ปรับ ±1.5%/บาท ไม่ต่ำกว่า 6,500"
+  }
 }
