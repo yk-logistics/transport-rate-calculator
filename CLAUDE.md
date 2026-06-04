@@ -2,6 +2,18 @@
 
 ไฟล์นี้อยู่ที่ราก repo เพื่อให้ **Claude Code** จับบริบทและทำงาน **ทีละก้อน** โดยไม่ต้องเท context ยาวทุกเซสชัน
 
+## Memory ถาวร (อ่านเมื่อเริ่ม session ใหม่)
+
+ไฟล์เหล่านี้อยู่ใน repo → **รอด format เครื่อง** — อ่านตามที่งานต้องการ:
+
+| ไฟล์ | อ่านเมื่อ |
+|------|----------|
+| [`CLAUDE_MEMORY/user_profile.md`](CLAUDE_MEMORY/user_profile.md) | ทุกครั้ง (โออเป็นใคร, วิธีสื่อสาร) |
+| [`CLAUDE_MEMORY/feedback_working_style.md`](CLAUDE_MEMORY/feedback_working_style.md) | ทุกครั้ง (กฎทำงานร่วมกัน) |
+| [`CLAUDE_MEMORY/project_overview.md`](CLAUDE_MEMORY/project_overview.md) | งานแรกของ session / งานใหม่ |
+| [`CLAUDE_MEMORY/business_domain.md`](CLAUDE_MEMORY/business_domain.md) | งานที่แตะ payroll / billing / ราคา |
+| [`SKILLS.md`](SKILLS.md) | ทุกครั้ง (Karpathy coding principles — think, simplify, surgical, goal-driven) |
+
 ## ใครเป็นเจ้าของงาน
 
 - **โอ (พงษกาญจน์)** — ผู้จัดการ, non-coder: ตัดสินใจโดเมน, ทดสอบหน้างาน, แจ้งบั๊ก
