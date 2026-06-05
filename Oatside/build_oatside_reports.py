@@ -1718,7 +1718,7 @@ def first_no_work_trip_by_plate_recovery_day(
 
 
 def _split_fifty_surcharge_50_100(frs: list[dict]) -> tuple[int, int]:
-    """Sum fifty surcharges into +50%% bucket vs +100%% bucket (exclude no-work/blank_run rows)."""
+    """Sum fifty surcharges into +50% bucket vs +100% bucket (exclude no-work/blank_run rows)."""
     a50 = 0
     a100 = 0
     for r in frs:
@@ -1726,13 +1726,13 @@ def _split_fifty_surcharge_50_100(frs: list[dict]) -> tuple[int, int]:
         if sur <= 0:
             continue
         k = str(r.get("fifty_kind") or "")
-        if k == "midnight_full":
+        if k in ("no_finish_day", "midnight_full"):
             a100 += sur
         elif k in ("no_work_outbound", "blank_run"):
             continue
-        elif k == "midnight_pct":
+        elif k == "one_trip_billed_day":
             a50 += sur
-        elif k in ("downtime_dest", "downtime_origin_day", "origin24h"):
+        elif k == "override_include":
             a50 += sur
         else:
             rate = float(r.get("trip_rate_baht", 0) or 0)
@@ -1743,25 +1743,47 @@ def _split_fifty_surcharge_50_100(frs: list[dict]) -> tuple[int, int]:
     return a50, a100
 
 
+def attach_no_finish_to_next_trip(
+    fifty_rows: list[dict], trips: list[Trip]
+) -> dict[tuple[str, date], list[dict]]:
+    """For each no_finish_day surcharge row, find the next trip on that plate (by billed_day)
+    and re-key the row to that trip's billed_day, so trip-level displays show the 100% on
+    the first trip after the wasted day."""
+    plate_billed_days: dict[str, list[date]] = defaultdict(set)
+    for t in trips:
+        plate_billed_days[t.plate].add(t.trip_date)
+    plate_billed_days_sorted: dict[str, list[date]] = {
+        p: sorted(ds) for p, ds in plate_billed_days.items()
+    }
+    out: dict[tuple[str, date], list[dict]] = defaultdict(list)
+    for r in fifty_rows:
+        plate = str(r.get("plate") or "")
+        day = r.get("dest_date")
+        if not plate or day is None:
+            continue
+        kind = str(r.get("fifty_kind") or "")
+        if kind == "no_finish_day":
+            days = plate_billed_days_sorted.get(plate, [])
+            next_day = next((d for d in days if d > day), None)
+            if next_day is not None:
+                out[(plate, next_day)].append(r)
+        else:
+            out[(plate, day)].append(r)
+    return out
+
+
 def _assert_pricing_bucket_mapping(
     *,
     fifty_rows: list[dict],
+    trips: list[Trip],
     trip_detail_rows: dict[tuple[str, date], tuple[int, int]],
     trips_pricing_rows: dict[tuple[str, date], tuple[int, int]],
 ) -> None:
     """Regression guard: ensure +50/+100 assignment is stable across sheets.
-       Skip no_finish_day rows — they have no backing trip row to compare against."""
+       no_finish_day rows are re-keyed to next-trip's billed_day to match display attachment."""
     expected: dict[tuple[str, date], tuple[int, int]] = {}
-    grouped: dict[tuple[str, date], list[dict]] = defaultdict(list)
-    for fr in fifty_rows:
-        plate = str(fr.get("plate") or "")
-        dest_date = fr.get("dest_date")
-        if not plate or dest_date is None:
-            continue
-        if str(fr.get("fifty_kind") or "") == "no_finish_day":
-            continue
-        grouped[(plate, dest_date)].append(fr)
-    for key, rows in grouped.items():
+    by_key = attach_no_finish_to_next_trip(fifty_rows, trips)
+    for key, rows in by_key.items():
         expected[key] = _split_fifty_surcharge_50_100(rows)
 
     mismatches: list[str] = []
@@ -2221,11 +2243,7 @@ def write_excel(
     ])
     firsts = first_matched_trip_by_plate_dest(trips)
     first_no_work = first_no_work_trip_by_plate_recovery_day(trips, cfg)
-    fifty_by_lists: dict[tuple[str, date], list[dict]] = defaultdict(list)
-    for r in fifty_rows:
-        k = (str(r.get("plate") or ""), r.get("dest_date"))
-        if k[0] and k[1]:
-            fifty_by_lists[k].append(r)
+    fifty_by_lists = attach_no_finish_to_next_trip(fifty_rows, trips)
     ret_by_pd: dict[tuple[str, date], int] = {}
     for m in cfg.manual_return_trips:
         k = (str(m.plate), m.dest_date)
@@ -2289,6 +2307,7 @@ def write_excel(
 
     _assert_pricing_bucket_mapping(
         fifty_rows=fifty_rows,
+        trips=trips,
         trip_detail_rows=td_bucket_rows,
         trips_pricing_rows=tp_bucket_rows,
     )
@@ -2861,9 +2880,7 @@ def write_html(
     thr = iqr_threshold([t.travel_h for t in trips])
     abn = [t for t in trips if t.travel_flag]
     plates = sorted({t.plate for t in trips})
-    fifty_by_lists: dict[tuple[str, date], list[dict]] = defaultdict(list)
-    for r in fifty_rows:
-        fifty_by_lists[(r["plate"], r["dest_date"])].append(r)
+    fifty_by_lists = attach_no_finish_to_next_trip(fifty_rows, trips)
     fifty_origin_lists: dict[tuple[str, date], list[dict]] = defaultdict(list)
     for r in fifty_rows:
         if "origin_day" in r:
