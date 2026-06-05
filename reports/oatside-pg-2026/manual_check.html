@@ -1,0 +1,81 @@
+<!doctype html><html lang='th'><head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width,initial-scale=1'>
+<title>Manual Check — Oatside พ.ค. 2569</title>
+<style>
+body{font-family:Segoe UI,Tahoma,sans-serif;margin:24px;background:#f4f7fb;color:#152235}
+a{color:#0b57d0}
+.h1{font-size:26px;font-weight:800;margin-bottom:4px}
+.sub{color:#4b5b74;margin-bottom:18px;font-size:13px}
+.kpi{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:10px;margin-bottom:16px}
+.card{background:#fff;border-radius:10px;padding:12px;box-shadow:0 2px 8px rgba(16,24,40,.08)}
+.card .l{font-size:12px;color:#63758f}
+.card .v{font-size:26px;font-weight:700}
+.v.miss{color:#b42318}
+.v.extra{color:#a16207}
+.v.ok{color:#0d6b3c}
+details.plate-section{background:#fff;border-radius:10px;padding:8px 14px;box-shadow:0 2px 8px rgba(16,24,40,.06);margin-bottom:8px}
+details.plate-section summary{cursor:pointer;font-size:15px;padding:6px 0}
+.miss{color:#b42318;font-weight:700}
+.extra{color:#a16207;font-weight:700}
+h4{margin:10px 0 6px}
+table.tt{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px}
+table.tt th{background:#eef3fa;text-align:left;padding:6px 8px;border-bottom:1px solid #c5d0e0}
+table.tt td{padding:6px 8px;border-bottom:1px solid #e6ebf2;vertical-align:top}
+.nav{margin-bottom:12px}
+.dl{display:inline-block;background:#0b57d0;color:#fff;padding:8px 14px;border-radius:8px;font-weight:600;margin-right:8px}
+</style></head><body>
+<div class='nav'><a href='index.html'>&larr; สรุปภาพรวม</a> · <a href='trips.html'>เที่ยวทั้งหมด</a></div>
+<div class='h1'>ตรวจมือ Daily vs ระบบ — Oatside พ.ค. 2569</div>
+<div class='sub'>เทียบรายเที่ยวระหว่างไฟล์ Daily (Homepro+LCB) กับเที่ยวที่ระบบจับคู่ได้ — ใช้ช่วงวัน ±2 วัน (กันเที่ยวข้ามคืน) · บิ้วด์ที่ 2026-06-05 17:14</div>
+<div class='kpi'>
+<div class='card'><div class='l'>Daily บันทึก</div><div class='v ok'>176</div></div>
+<div class='card'><div class='l'>ระบบจับคู่ได้</div><div class='v ok'>154</div></div>
+<div class='card'><div class='l'>Daily หายในระบบ</div><div class='v miss'>22</div></div>
+<div class='card'><div class='l'>ค่าเที่ยวที่อาจขาด</div><div class='v miss'>~159,808 ฿</div></div>
+</div>
+<p><a class='dl' href='exports/99_Manual_Check_Daily_vs_System.csv'>ดาวน์โหลด CSV</a>
+<a class='dl' href='exports/03_Unmatched_Legs.csv'>Unmatched Legs CSV</a></p>
+<p class='sub'>วิธีใช้: คลิกแถบทะเบียนเพื่อดูรายละเอียด — เที่ยวที่ <span class='miss'>"หายในระบบ"</span> = ตามดูว่าเที่ยวจริงไหม ถ้าจริงให้แจ้งวันที่ + ทะเบียน + Origin/Dest จะใส่ <code>manual_extra_trips</code> ให้</p>
+<details class='plate-section'><summary>
+<b>71-5041</b> — Daily 12 เที่ยว, ระบบจับคู่ 10 เที่ยว
+| <span class='miss'>หายในระบบ 2</span>
+| <span class='extra'>เกินในระบบ 0</span>
+</summary><h4 class='miss'>เที่ยวที่อยู่ใน Daily แต่ระบบไม่จับคู่ (ต้องตรวจ)</h4><table class='tt'><thead><tr><th>วันที่</th><th>คนขับ</th><th>ลูกค้า</th><th>Origin</th><th>Branch/Loading</th><th>Dest</th><th>Source</th></tr></thead><tbody><tr><td>2026-05-13</td><td>เกรียงไกร สายแก้ว</td><td>Oatside</td><td>บ้านบึง</td><td></td><td>P&G</td><td>Homepro</td></tr><tr><td>2026-05-13</td><td>เกรียงไกร สายแก้ว</td><td>Oatside</td><td>บ้านบึง</td><td></td><td>P&G</td><td>Homepro</td></tr></tbody></table></details><details class='plate-section'><summary>
+<b>71-5042</b> — Daily 10 เที่ยว, ระบบจับคู่ 8 เที่ยว
+| <span class='miss'>หายในระบบ 2</span>
+| <span class='extra'>เกินในระบบ 0</span>
+</summary><h4 class='miss'>เที่ยวที่อยู่ใน Daily แต่ระบบไม่จับคู่ (ต้องตรวจ)</h4><table class='tt'><thead><tr><th>วันที่</th><th>คนขับ</th><th>ลูกค้า</th><th>Origin</th><th>Branch/Loading</th><th>Dest</th><th>Source</th></tr></thead><tbody><tr><td>2026-05-03</td><td>ณัชพน หอมหวน</td><td>Oatside</td><td>บ้านบึง</td><td></td><td>P&G</td><td>Homepro</td></tr><tr><td>2026-05-04</td><td>ณัชพน หอมหวน</td><td>Oatside</td><td>บ้านบึง</td><td></td><td>P&G</td><td>Homepro</td></tr></tbody></table></details><details class='plate-section'><summary>
+<b>71-6802</b> — Daily 3 เที่ยว, ระบบจับคู่ 3 เที่ยว
+| <span class='miss'>หายในระบบ 0</span>
+| <span class='extra'>เกินในระบบ 0</span>
+</summary></details><details class='plate-section'><summary>
+<b>71-8001</b> — Daily 13 เที่ยว, ระบบจับคู่ 9 เที่ยว
+| <span class='miss'>หายในระบบ 4</span>
+| <span class='extra'>เกินในระบบ 0</span>
+</summary><h4 class='miss'>เที่ยวที่อยู่ใน Daily แต่ระบบไม่จับคู่ (ต้องตรวจ)</h4><table class='tt'><thead><tr><th>วันที่</th><th>คนขับ</th><th>ลูกค้า</th><th>Origin</th><th>Branch/Loading</th><th>Dest</th><th>Source</th></tr></thead><tbody><tr><td>2026-05-21</td><td>นายมานพ หงษ์ทอง</td><td>Oatside</td><td>บ้านบึง</td><td></td><td>P&G</td><td>Homepro</td></tr><tr><td>2026-05-22</td><td>นายมานพ หงษ์ทอง</td><td>Oatside</td><td>บ้านบึง</td><td></td><td>P&G</td><td>Homepro</td></tr><tr><td>2026-05-23</td><td>นายมานพ หงษ์ทอง</td><td>Oatside</td><td>บ้านบึง</td><td></td><td>P&G</td><td>Homepro</td></tr><tr><td>2026-05-24</td><td>นายมานพ หงษ์ทอง</td><td>Oatside</td><td>บ้านบึง</td><td></td><td>P&G</td><td>Homepro</td></tr></tbody></table></details><details class='plate-section'><summary>
+<b>71-8002</b> — Daily 30 เที่ยว, ระบบจับคู่ 28 เที่ยว
+| <span class='miss'>หายในระบบ 2</span>
+| <span class='extra'>เกินในระบบ 0</span>
+</summary><h4 class='miss'>เที่ยวที่อยู่ใน Daily แต่ระบบไม่จับคู่ (ต้องตรวจ)</h4><table class='tt'><thead><tr><th>วันที่</th><th>คนขับ</th><th>ลูกค้า</th><th>Origin</th><th>Branch/Loading</th><th>Dest</th><th>Source</th></tr></thead><tbody><tr><td>2026-05-30</td><td>นายสมประสงค์ กุมประสิทธิ์</td><td>Oatside</td><td>บ้านบึง</td><td></td><td>P&G</td><td>Homepro</td></tr><tr><td>2026-05-31</td><td>นายสมประสงค์ กุมประสิทธิ์</td><td>Oatside</td><td>บ้านบึง</td><td></td><td>P&G</td><td>Homepro</td></tr></tbody></table></details><details class='plate-section'><summary>
+<b>71-8003</b> — Daily 7 เที่ยว, ระบบจับคู่ 6 เที่ยว
+| <span class='miss'>หายในระบบ 1</span>
+| <span class='extra'>เกินในระบบ 0</span>
+</summary><h4 class='miss'>เที่ยวที่อยู่ใน Daily แต่ระบบไม่จับคู่ (ต้องตรวจ)</h4><table class='tt'><thead><tr><th>วันที่</th><th>คนขับ</th><th>ลูกค้า</th><th>Origin</th><th>Branch/Loading</th><th>Dest</th><th>Source</th></tr></thead><tbody><tr><td>2026-05-30</td><td>นายโกสินทร์ สรีกันยา</td><td>Oatside</td><td>บ้านบึง</td><td></td><td>P&G</td><td>Homepro</td></tr></tbody></table></details><details class='plate-section'><summary>
+<b>71-8005</b> — Daily 13 เที่ยว, ระบบจับคู่ 12 เที่ยว
+| <span class='miss'>หายในระบบ 1</span>
+| <span class='extra'>เกินในระบบ 0</span>
+</summary><h4 class='miss'>เที่ยวที่อยู่ใน Daily แต่ระบบไม่จับคู่ (ต้องตรวจ)</h4><table class='tt'><thead><tr><th>วันที่</th><th>คนขับ</th><th>ลูกค้า</th><th>Origin</th><th>Branch/Loading</th><th>Dest</th><th>Source</th></tr></thead><tbody><tr><td>2026-05-26</td><td>นายสมัย ราศรี</td><td>Oatside</td><td>บ้านบึง</td><td></td><td>P&G</td><td>Homepro</td></tr></tbody></table></details><details class='plate-section'><summary>
+<b>71-8009</b> — Daily 35 เที่ยว, ระบบจับคู่ 28 เที่ยว
+| <span class='miss'>หายในระบบ 7</span>
+| <span class='extra'>เกินในระบบ 0</span>
+</summary><h4 class='miss'>เที่ยวที่อยู่ใน Daily แต่ระบบไม่จับคู่ (ต้องตรวจ)</h4><table class='tt'><thead><tr><th>วันที่</th><th>คนขับ</th><th>ลูกค้า</th><th>Origin</th><th>Branch/Loading</th><th>Dest</th><th>Source</th></tr></thead><tbody><tr><td>2026-05-12</td><td>นายชรินทร์ ใยสอาด</td><td>Oatside</td><td>บ้านบึง</td><td></td><td>P&G</td><td>Homepro</td></tr><tr><td>2026-05-13</td><td>นายชรินทร์ ใยสอาด</td><td>Oatside</td><td>บ้านบึง</td><td></td><td>P&G</td><td>Homepro</td></tr><tr><td>2026-05-14</td><td>นายชรินทร์ ใยสอาด</td><td>Oatside</td><td>บ้านบึง</td><td></td><td>P&G</td><td>Homepro</td></tr><tr><td>2026-05-14</td><td>นายชรินทร์ ใยสอาด</td><td>Oatside</td><td>บ้านบึง</td><td></td><td>P&G</td><td>Homepro</td></tr><tr><td>2026-05-24</td><td>นายชรินทร์ ใยสอาด</td><td>Oatside</td><td>บ้านบึง</td><td></td><td>P&G</td><td>Homepro</td></tr><tr><td>2026-05-25</td><td>นายชรินทร์ ใยสอาด</td><td>Oatside</td><td>บ้านบึง</td><td></td><td>P&G</td><td>Homepro</td></tr><tr><td>2026-05-31</td><td>นายชรินทร์ ใยสอาด</td><td>Oatside</td><td>บ้านบึง</td><td></td><td>P&G</td><td>Homepro</td></tr></tbody></table></details><details class='plate-section'><summary>
+<b>72-1217</b> — Daily 42 เที่ยว, ระบบจับคู่ 40 เที่ยว
+| <span class='miss'>หายในระบบ 2</span>
+| <span class='extra'>เกินในระบบ 0</span>
+</summary><h4 class='miss'>เที่ยวที่อยู่ใน Daily แต่ระบบไม่จับคู่ (ต้องตรวจ)</h4><table class='tt'><thead><tr><th>วันที่</th><th>คนขับ</th><th>ลูกค้า</th><th>Origin</th><th>Branch/Loading</th><th>Dest</th><th>Source</th></tr></thead><tbody><tr><td>2026-05-31</td><td>เนื้อ ภาสดา</td><td>DHL Overflow</td><td>Oatsiteชลบุรี</td><td>P&Gเวลโกล</td><td></td><td>LCB</td></tr><tr><td>2026-05-31</td><td>เนื้อ ภาสดา</td><td>DHL Overflow</td><td>Oatsiteชลบุรี</td><td>P&Gเวลโกล</td><td></td><td>LCB</td></tr></tbody></table></details><details class='plate-section'><summary>
+<b>72-1218</b> — Daily 11 เที่ยว, ระบบจับคู่ 10 เที่ยว
+| <span class='miss'>หายในระบบ 1</span>
+| <span class='extra'>เกินในระบบ 0</span>
+</summary><h4 class='miss'>เที่ยวที่อยู่ใน Daily แต่ระบบไม่จับคู่ (ต้องตรวจ)</h4><table class='tt'><thead><tr><th>วันที่</th><th>คนขับ</th><th>ลูกค้า</th><th>Origin</th><th>Branch/Loading</th><th>Dest</th><th>Source</th></tr></thead><tbody><tr><td>2026-05-09</td><td>วิโรจน์  เหมสงวน</td><td>DHL Overflow</td><td>Oatsiteชลบุรี</td><td>P&Gเวลโกล</td><td></td><td>LCB</td></tr></tbody></table></details>
+<details class='plate-section'><summary><b>ขาที่ระบบจับคู่ไม่ได้ (Unmatched Legs)</b> — เพื่อ debug pair logic</summary><table class='tt'><thead><tr><th>Source</th><th>Plate</th><th>In</th><th>Out</th><th>Dwell h</th></tr></thead><tbody><tr><td>Destination</td><td>71-5041</td><td>2026-05-28 19:09:08</td><td>2026-05-28 22:18:24</td><td>3.1544</td></tr><tr><td>Destination</td><td>71-5042</td><td>2026-05-02 06:48:14</td><td>2026-05-02 16:20:48</td><td>9.5428</td></tr><tr><td>Origin</td><td>71-5042</td><td>2026-05-02 18:25:23</td><td>2026-05-02 21:55:23</td><td>3.5</td></tr><tr><td>Destination</td><td>71-5042</td><td>2026-05-19 14:38:17</td><td>2026-05-19 16:14:33</td><td>1.6044</td></tr><tr><td>Origin</td><td>71-6802</td><td>2026-05-03 12:54:08</td><td>2026-05-03 18:15:03</td><td>5.3486</td></tr><tr><td>Origin</td><td>71-8001</td><td>2026-05-19 09:31:42</td><td>2026-05-19 12:24:11</td><td>2.8747</td></tr><tr><td>Destination</td><td>71-8001</td><td>2026-05-19 19:40:40</td><td>2026-05-19 19:42:27</td><td>0.0297</td></tr><tr><td>Destination</td><td>71-8001</td><td>2026-05-19 19:53:31</td><td>2026-05-19 19:55:21</td><td>0.0306</td></tr><tr><td>Destination</td><td>71-8001</td><td>2026-05-19 20:07:13</td><td>2026-05-20 15:31:57</td><td>19.4122</td></tr><tr><td>Destination</td><td>71-8001</td><td>2026-05-20 15:38:29</td><td>2026-05-20 15:40:05</td><td>0.0267</td></tr><tr><td>Destination</td><td>71-8002</td><td>2026-05-13 21:58:58</td><td>2026-05-13 22:21:03</td><td>0.3681</td></tr><tr><td>Destination</td><td>71-8002</td><td>2026-05-22 12:03:34</td><td>2026-05-22 12:34:00</td><td>0.5072</td></tr><tr><td>Destination</td><td>71-8002</td><td>2026-05-24 22:21:39</td><td>2026-05-24 23:28:52</td><td>1.1203</td></tr><tr><td>Origin</td><td>71-8002</td><td>2026-05-31 10:36:53</td><td>2026-05-31 23:43:11</td><td>13.105</td></tr><tr><td>Origin</td><td>71-8003</td><td>2026-05-30 15:09:49</td><td>2026-05-30 15:41:20</td><td>0.5253</td></tr><tr><td>Origin</td><td>71-8003</td><td>2026-05-31 23:01:07</td><td>2026-05-31 23:37:36</td><td>0.6081</td></tr><tr><td>Destination</td><td>71-8005</td><td>2026-05-17 07:50:04</td><td>2026-05-17 08:33:06</td><td>0.7172</td></tr><tr><td>Origin</td><td>71-8005</td><td>2026-05-22 22:08:25</td><td>2026-05-23 07:18:02</td><td>9.1603</td></tr><tr><td>Origin</td><td>71-8005</td><td>2026-05-23 16:15:10</td><td>2026-05-23 23:15:26</td><td>7.0044</td></tr><tr><td>Destination</td><td>71-8683</td><td>2026-05-11 19:17:37</td><td>2026-05-11 20:47:02</td><td>1.4903</td></tr><tr><td>Origin</td><td>72-1217</td><td>2026-05-10 23:38:28</td><td>2026-05-11 00:09:40</td><td>0.52</td></tr><tr><td>Origin</td><td>72-1217</td><td>2026-05-31 16:38:12</td><td>2026-05-31 21:59:03</td><td>5.3475</td></tr></tbody></table></details>
+</body></html>
