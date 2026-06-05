@@ -526,12 +526,7 @@ def trip_rate_baht(d: date, cfg: OatsideConfig) -> float:
     except (TypeError, ValueError):
         step_pct = 1.5
     step_delta = math.floor((fuel_price - base_fuel_min) + 1e-9)
-    if step_delta == 0:
-        adjusted = base_rate
-    elif step_delta > 0:
-        adjusted = round(base_rate * ((1 + step_pct / 100.0) ** step_delta), 2)
-    else:
-        adjusted = round(base_rate * ((1 - step_pct / 100.0) ** abs(step_delta)), 2)
+    adjusted = round(base_rate * (1 + step_delta * step_pct / 100.0), 2)
     floor_raw = rule.get("floor_rate_baht")
     if floor_raw is not None:
         try:
