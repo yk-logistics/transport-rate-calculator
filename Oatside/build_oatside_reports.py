@@ -2718,13 +2718,14 @@ def merge_manual_return_into_pday(pday_rows: list[dict], cfg: OatsideConfig) -> 
         found = False
         for r in pday_rows:
             if str(r["plate"]) == m.plate and r["dest_date"] == m.dest_date:
+                amt = manual_return_amount_baht(m, cfg)
                 prev = int(r.get("return_trip_baht", 0) or 0)
-                r["return_trip_baht"] = prev + int(m.amount_baht)
-                r["customer_day_baht"] = int(r["customer_day_baht"]) + int(m.amount_baht)
+                r["return_trip_baht"] = prev + int(amt)
+                r["customer_day_baht"] = int(r["customer_day_baht"]) + int(amt)
                 tag = esc(m.note) if m.note else "ค่าขนส่งขากลับ (manual)"
                 badge = (
                     f"<span class='badge return-trip' title='{tag}'>"
-                    f"ขากลับ +{fmt_money(m.amount_baht)}฿</span>"
+                    f"ขากลับ +{fmt_money(amt)}฿</span>"
                 )
                 prev_b = (r.get("fifty_badge_html") or "").strip()
                 r["fifty_badge_html"] = (prev_b + " " + badge).strip() if prev_b else badge
@@ -2768,7 +2769,7 @@ def merge_manual_return_into_audit(audit_rows: list[dict], cfg: OatsideConfig) -
             extra = (
                 f" | ขากลับ (manual): {m.note} (+{fmt_money(amt)}฿)"
                 if m.note
-                else f" | ขากลับ (manual) +{fmt_money(m.amount_baht)}฿"
+                else f" | ขากลับ (manual) +{fmt_money(amt)}฿"
             )
             r["billing_note"] = str(r.get("billing_note", "")) + extra
             hit = True
@@ -2776,10 +2777,11 @@ def merge_manual_return_into_audit(audit_rows: list[dict], cfg: OatsideConfig) -
         if hit:
             continue
         rate = trip_rate_baht(m.dest_date, cfg)
+        amt = manual_return_amount_baht(m, cfg)
         note = (
-            f"ขากลับ (manual): {m.note} (+{fmt_money(m.amount_baht)}฿)"
+            f"ขากลับ (manual): {m.note} (+{fmt_money(amt)}฿)"
             if m.note
-            else f"ขากลับ (manual) +{fmt_money(m.amount_baht)}฿"
+            else f"ขากลับ (manual) +{fmt_money(amt)}฿"
         )
         audit_rows.append(
             {
@@ -2791,8 +2793,8 @@ def merge_manual_return_into_audit(audit_rows: list[dict], cfg: OatsideConfig) -
                 "trip_rate_baht": rate,
                 "base_line_baht": 0,
                 "fifty_pct_baht": 0,
-                "return_trip_baht": int(m.amount_baht),
-                "customer_day_baht": int(m.amount_baht),
+                "return_trip_baht": int(amt),
+                "customer_day_baht": int(amt),
                 "billing_note": note,
             }
         )
