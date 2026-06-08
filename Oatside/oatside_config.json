@@ -65,6 +65,54 @@
       "plate": "72-1217",
       "percent_of_trip_rate": 50,
       "note": "ค่าขนส่งงานขากลับ 50% ของราคาเที่ยวหลัก"
+    },
+    {
+      "dest_date": "2026-05-01",
+      "plate": "71-5042",
+      "amount_baht": 3632,
+      "note": "ตีเปล่าไป P&G 50%"
+    },
+    {
+      "dest_date": "2026-05-10",
+      "plate": "71-8009",
+      "amount_baht": 3584,
+      "note": "BH ขากลับ P&G>บ้านบึง 50%"
+    },
+    {
+      "dest_date": "2026-05-11",
+      "plate": "71-8009",
+      "amount_baht": 3584,
+      "note": "BH ขากลับ P&G>บ้านบึง 50%"
+    },
+    {
+      "dest_date": "2026-05-20",
+      "plate": "71-8002",
+      "amount_baht": 3728,
+      "note": "BH ขากลับ P&G>บ้านบึง 50%"
+    },
+    {
+      "dest_date": "2026-05-20",
+      "plate": "71-8009",
+      "amount_baht": 3728,
+      "note": "BH ขากลับ P&G>บ้านบึง 50%"
+    },
+    {
+      "dest_date": "2026-05-20",
+      "plate": "71-8001",
+      "amount_baht": 3728,
+      "note": "BH ขากลับเพิ่ม 50% (base คิด ตีเปล่า+BH#1 = 1 เที่ยวแล้ว)"
+    },
+    {
+      "dest_date": "2026-05-21",
+      "plate": "71-8001",
+      "amount_baht": 3728,
+      "note": "BH ขากลับ P&G>บ้านบึง 50%"
+    },
+    {
+      "dest_date": "2026-05-22",
+      "plate": "71-8009",
+      "amount_baht": 3728,
+      "note": "BH ขากลับ P&G>บ้านบึง 50%"
     }
   ],
   "diesel_price_history": [
