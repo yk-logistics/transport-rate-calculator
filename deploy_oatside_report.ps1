@@ -80,11 +80,29 @@ if (-not (Test-Path $destParent)) {
   New-Item -ItemType Directory -Path $destParent | Out-Null
 }
 
-# Replace report folder in the publish repo (does not touch $repoAbs/index.html).
+# Files generated outside build_oatside_reports.py (manual-check tools) must survive
+# the folder replace — back them up, do the clean replace, then restore them.
+$preserveNames = @("discrepancy_check.html", "manual_check.html")
+$preserved = @{}
 if (Test-Path $destAbs) {
+  foreach ($n in $preserveNames) {
+    $p = Join-Path $destAbs $n
+    if (Test-Path -LiteralPath $p) {
+      $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString() + "_" + $n)
+      Copy-Item -LiteralPath $p -Destination $tmp -Force
+      $preserved[$n] = $tmp
+    }
+  }
   Remove-Item -Recurse -Force $destAbs
 }
 Copy-Item -Path $srcAbs -Destination $destAbs -Recurse -Force
+foreach ($n in $preserved.Keys) {
+  Copy-Item -LiteralPath $preserved[$n] -Destination (Join-Path $destAbs $n) -Force
+  Remove-Item -LiteralPath $preserved[$n] -Force
+}
+if ($preserved.Count -gt 0) {
+  Write-Host ("Preserved non-build files: " + ($preserved.Keys -join ", ")) -ForegroundColor Green
+}
 Write-Host "Copied: `n  $srcAbs`n-> $destAbs" -ForegroundColor Green
 Write-Host "Public report URL (after push): https://yk-logistics.github.io/transport-rate-calculator/reports/$slug/index.html" -ForegroundColor Cyan
 
