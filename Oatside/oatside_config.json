@@ -59,6 +59,15 @@
   ],
   "manual_extra_trips": [],
   "_note_manual_extra_trips": "เที่ยวที่ลูกค้าตกลงเก็บแต่ไม่มีในไฟล์ GPS — ลบ array ได้ถ้าไม่ใช้",
+  "remove_matched_trips": [
+    {
+      "dest_date": "2026-05-20",
+      "plate": "71-8005",
+      "count": 1,
+      "note": "เที่ยวว่าง(ตีเปล่า)ไป P&G ที่ GPS นับเป็นเที่ยวเต็ม → ตัดออกจาก base 1 เที่ยว แล้วลงเป็น manual ตีเปล่า50%+ขากลับ50% (ต้องคู่ exclude_50 ใน oatside_billing_overrides.json กัน +50% ลั่น)"
+    }
+  ],
+  "_note_remove_matched_trips": "ตัดเที่ยว matched ท้ายสุดของวันออกจาก base (เที่ยวว่าง/ตีเปล่า GPS นับเต็ม) — รวมยอดเท่าเดิมเพราะ base ที่หาย = ตีเปล่า+ขากลับ manual; ต้องเพิ่ม exclude_50 override คู่กันเสมอ",
   "manual_return_trips": [
     {
       "dest_date": "2026-04-22",
@@ -70,6 +79,7 @@
       "dest_date": "2026-05-01",
       "plate": "71-5042",
       "amount_baht": 3632,
+      "kind": "deadhead",
       "note": "ตีเปล่าไป P&G 50%"
     },
     {
@@ -92,6 +102,19 @@
     },
     {
       "dest_date": "2026-05-20",
+      "plate": "71-8005",
+      "amount_baht": 3728,
+      "kind": "deadhead",
+      "note": "ตีเปล่าไป P&G 50% (เที่ยวว่าง GPS นับเต็ม → ตัด base 1 เที่ยว แตกเป็นตีเปล่า+ขากลับ)"
+    },
+    {
+      "dest_date": "2026-05-20",
+      "plate": "71-8005",
+      "amount_baht": 3728,
+      "note": "BH ขากลับ P&G>บ้านบึง 50% (เที่ยวว่าง GPS นับเต็ม → ตัด base 1 เที่ยว แตกเป็นตีเปล่า+ขากลับ)"
+    },
+    {
+      "dest_date": "2026-05-20",
       "plate": "71-8009",
       "amount_baht": 3728,
       "note": "BH ขากลับ P&G>บ้านบึง 50%"
@@ -100,7 +123,8 @@
       "dest_date": "2026-05-20",
       "plate": "71-8001",
       "amount_baht": 3728,
-      "note": "BH ขากลับเพิ่ม 50% (base คิด ตีเปล่า+BH#1 = 1 เที่ยวแล้ว)"
+      "kind": "deadhead",
+      "note": "ตีเปล่าไป P&G 50% (วันผสม 2BH+ตีเปล่า, base บิล 1 เที่ยว)"
     },
     {
       "dest_date": "2026-05-21",

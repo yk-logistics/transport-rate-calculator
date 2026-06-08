@@ -150,3 +150,21 @@ scrutinize เจอ 2 บั๊กในงานเดิม → แก้แ�
 - เพิ่ม BH: หา loader ของ manual_return_trips (build_oatside_reports / config json) แล้วเพิ่ม {plate,dest_date,percent_of_trip_rate:50}
 - override 100%: load_billing_overrides() key (plate,billed_day) action=include/100
 - W1(B) ถ้าเลือก: แก้ surcharge_billed_day บรรทัด ~1439 ให้ใช้เรทเที่ยวที่ match
+
+## ✅ ตีเปล่า → ช่องตีเปล่า (2026-06-08 รอบ 2)
+โอ: "ตีเปล่าให้อยู่ช่องตีเปล่า, ขากลับคงเดิม" → เพิ่ม field `kind` ใน manual_return (backhaul=default / deadhead).
+- **deadhead** → render ช่อง ตีเปล่า/ส่วนเพิ่ม (trips.html คอลัมน์ "ตีเปล่า+50%" / index badge ตีเปล่า) แทนช่องขากลับ
+- **display-only**: grand=1,499,410 เท่าเดิม · ทุก (plate,day) total ไม่เปลี่ยน · summary แยก R(ขากลับ)=25,330 + Rd(ตีเปล่า)=7,360
+- tag แล้ว: **71-5042 01/05** (3,632) + **71-8001 20/05** (3,728) = kind:deadhead. BH อื่น (8009/8002/8001-21/05) คงเป็น backhaul
+- โค้ด: build_oatside_reports.py — ManualExtraTrip.kind, _load_manual_return_entry, merge_manual_return_into_pday/_audit, trip_row_pricing_cells(deadhead_baht=), sum_manual_deadhead/backhaul_baht, Customer_Summary R/Rd
+
+### ⏳ ค้าง: 71-8005 20/05 — โอเลือก "แตกให้เห็นตีเปล่า"
+ตอนนี้ base บิล 2 เที่ยวเต็ม=14,912 (ตีเปล่าฝังใน base, ช่องตีเปล่า/ขากลับ=0). โออยากแตกเป็น 1เต็ม+ตีเปล่า50%+BH50% (รวม 14,912 เท่าเดิม).
+ต้องการ: ลด base 2→1 เที่ยว (per-trip reclass) — override ปัจจุบันมีแค่ exclude_50/include_50 (surcharge) ลด base ไม่ได้ → ต้องเพิ่มกลไกใหม่. **ยังไม่ทำ** (งานใหญ่/เสี่ยงกว่า display routing — รอตัดสินวิธี)
+
+### ✅ 71-8005 20/05 — แตกตีเปล่าแล้ว (โอเลือก "ก")
+gลไกใหม่ `remove_matched_trips` (config) ตัดเที่ยว matched ท้ายสุด N เที่ยว/วัน ออกจาก base + คู่กับ `exclude_50` override กัน +50% ลั่น + manual ตีเปล่า50%+ขากลับ50%.
+- 71-8005 20/05: ตัด 1 เที่ยวว่าง → base 7,456 (1 เที่ยว) + ตีเปล่า 3,728 + ขากลับ 3,728 = **14,912 เท่าเดิม**
+- verify: Grand 1,499,410 เท่าเดิม · ทุก (plate,day) 0 diff · Trips 154→153 · Unmatched ยัง 22 (เที่ยวที่ตัดไม่หลุด unmatched)
+- ไฟล์: oatside_config.json (remove_matched_trips + 2 manual_return), oatside_billing_overrides.json (exclude_50), build_oatside_reports.py (apply_remove_matched_trips + cfg field/loader)
+- Summary ตอนนี้: A=1,121,952 / C=337,312 / R(ขากลับ)=29,058 / Rd(ตีเปล่า)=11,088 / TOTAL=1,499,410

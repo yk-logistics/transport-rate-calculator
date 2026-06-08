@@ -68,6 +68,9 @@ class OatsideConfig:
     report_start_date: date | None
     report_end_date: date | None
     customer_rate_summary: str | None = None
+    # (plate, billed_day, count) — ตัด N เที่ยว matched ท้ายสุดของวันออกจาก base billing
+    # (เที่ยวว่าง/ตีเปล่า ที่ GPS นับเป็นเที่ยวเต็ม — คิดเป็น manual ตีเปล่า/ขากลับ แทน) + ต้องคู่ exclude_50
+    remove_matched_trips: tuple[tuple[str, date, int], ...] = ()
 
 @dataclass
 class CustomerIdleWindow:
@@ -98,6 +101,7 @@ class ManualExtraTrip:
     amount_baht: int
     note: str = ""
     percent_of_trip_rate: float | None = None
+    kind: str = "backhaul"  # "backhaul" (ขากลับ) | "deadhead" (ตีเปล่า) — display column only, ไม่กระทบยอดรวม
 
 
 
@@ -366,6 +370,26 @@ def load_oatside_config() -> OatsideConfig:
             item = _load_manual_return_entry(e)
             if item:
                 return_list.append(item)
+    remove_list: list[tuple[str, date, int]] = []
+    raw_rm = raw.get("remove_matched_trips")
+    if isinstance(raw_rm, list):
+        for e in raw_rm:
+            if not isinstance(e, dict):
+                continue
+            ds = str(e.get("dest_date", "")).strip()[:10]
+            pl = str(e.get("plate", "")).strip()
+            try:
+                cnt = int(e.get("count", 1) or 1)
+            except (TypeError, ValueError):
+                cnt = 1
+            if len(ds) < 10 or not pl or cnt < 1:
+                continue
+            try:
+                dd = datetime.strptime(ds, "%Y-%m-%d").date()
+            except ValueError:
+                continue
+            remove_list.append((pl, dd, cnt))
+
     report_start_date = _parse_optional_iso_date(raw.get("report_start_date"))
     report_end_date = _parse_optional_iso_date(raw.get("report_end_date"))
     customer_rate_summary = _parse_optional_str(raw.get("customer_rate_summary"))
@@ -404,6 +428,7 @@ def load_oatside_config() -> OatsideConfig:
         report_start_date=report_start_date,
         report_end_date=report_end_date,
         customer_rate_summary=customer_rate_summary,
+        remove_matched_trips=tuple(remove_list),
     )
 
 
@@ -603,7 +628,10 @@ def _load_manual_return_entry(e: dict[str, Any]) -> ManualExtraTrip | None:
             pct_val = None
     if amt <= 0 and (pct_val is None or pct_val <= 0):
         return None
-    return ManualExtraTrip(dest_date=dd, plate=pl, amount_baht=max(0, amt), note=note, percent_of_trip_rate=pct_val)
+    kind = str(e.get("kind", "backhaul")).strip().lower()
+    if kind not in ("backhaul", "deadhead"):
+        kind = "backhaul"
+    return ManualExtraTrip(dest_date=dd, plate=pl, amount_baht=max(0, amt), note=note, percent_of_trip_rate=pct_val, kind=kind)
 
 
 # ---------------------------------------------------------------------------
@@ -1184,6 +1212,24 @@ def build_trips(
 # ---------------------------------------------------------------------------
 # Billing calculations
 # ---------------------------------------------------------------------------
+
+def apply_remove_matched_trips(trips: list[Trip], cfg: OatsideConfig) -> list[Trip]:
+    """ตัด N เที่ยว matched ท้ายสุด (by Dest_In time) ต่อ (plate, billed_day) ตาม cfg.remove_matched_trips.
+       ใช้กับเที่ยวว่าง/ตีเปล่า ที่ GPS นับเป็นเที่ยวเต็ม — ลงเป็น manual ตีเปล่า/ขากลับ แทน (ต้องคู่ exclude_50 กัน +50% ลั่น)."""
+    if not cfg.remove_matched_trips:
+        return trips
+    want: dict[tuple[str, date], int] = {(p, d): c for (p, d, c) in cfg.remove_matched_trips}
+    by_pd: dict[tuple[str, date], list[Trip]] = defaultdict(list)
+    for t in trips:
+        k = (str(t.plate), t.trip_date)
+        if k in want:
+            by_pd[k].append(t)
+    drop: set[int] = set()
+    for k, c in want.items():
+        for t in sorted(by_pd.get(k, []), key=lambda x: x.d_in)[-c:]:
+            drop.add(id(t))
+    return [t for t in trips if id(t) not in drop]
+
 
 def base_trips_revenue_baht(trips: list[Trip], cfg: OatsideConfig) -> int:
     """Sum per-trip rate by Dest_In calendar day."""
@@ -1808,8 +1854,9 @@ def trip_row_pricing_cells(
     fifty_by_lists: dict[tuple[str, date], list[dict]],
     cfg: OatsideConfig,
     return_baht: int = 0,
+    deadhead_baht: int = 0,
 ) -> str:
-    """HTML <td>…×4 after wait columns: base rate, downtime+50, downtime+100, blank(no-work)+50."""
+    """HTML <td>…×4 after wait columns: base rate, downtime+50, downtime+100, ตีเปล่า(no-work + manual deadhead)+50, ขากลับ(manual)."""
     rate = trip_rate_baht(t.trip_date, cfg)
     ft = firsts.get((t.plate, t.trip_date))
     frs = fifty_by_lists.get((str(t.plate), t.trip_date), [])
@@ -1825,7 +1872,7 @@ def trip_row_pricing_cells(
         f"<td class='money'>{fmt_money(rate)}</td>"
         + money_td(dw50)
         + money_td(dw100)
-        + money_td(nw_amt)
+        + money_td(nw_amt + int(deadhead_baht))
         + money_td(return_baht)
     )
 
@@ -2174,13 +2221,22 @@ def write_excel(
     cs.append(["A", "ค่าเที่ยวปกติ (GPS matched + เที่ยวเพิ่มจาก config)", base_baht])
     if mx:
         cs.append(["A2", "ในนั้น: เที่ยวเพิ่ม (manual_extra_trips ไม่มีใน GPS)", mx])
-    mr = sum_manual_return_baht(cfg)
-    if mr:
+    mr_bh = sum_manual_backhaul_baht(cfg)
+    mr_dh = sum_manual_deadhead_baht(cfg)
+    if mr_bh:
         cs.append(
             [
                 "R",
-                "ค่าขนส่งขากลับ (manual_return_trips — ไม่เพิ่มจำนวน matched)",
-                mr,
+                "ค่าขนส่งขากลับ (manual_return_trips kind=backhaul — ไม่เพิ่มจำนวน matched)",
+                mr_bh,
+            ]
+        )
+    if mr_dh:
+        cs.append(
+            [
+                "Rd",
+                "ค่าตีเปล่า (manual_return_trips kind=deadhead — ไม่เพิ่มจำนวน matched)",
+                mr_dh,
             ]
         )
     if cfg.charge_min_trip_shortfall:
@@ -2199,11 +2255,11 @@ def write_excel(
             no_work_total_baht,
         ]
     )
-    tot_lbl = (
-        "Grand (A+B+C+D)"
-        if cfg.charge_min_trip_shortfall
-        else ("Grand (A+C+D+R)" if sum_manual_return_baht(cfg) else "Grand (A+C+D)")
-    )
+    if cfg.charge_min_trip_shortfall:
+        tot_lbl = "Grand (A+B+C+D)"
+    else:
+        _man_parts = ("R" if mr_bh else "") + ("+Rd" if mr_dh else "")
+        tot_lbl = f"Grand (A+C+D{('+' + _man_parts.lstrip('+')) if _man_parts else ''})"
     cs.append(["TOTAL", tot_lbl, customer_grand_baht])
 
     # --- Customer: trips per day (matched, by Dest_In date) ---
@@ -2245,9 +2301,11 @@ def write_excel(
     first_no_work = first_no_work_trip_by_plate_recovery_day(trips, cfg)
     fifty_by_lists = attach_no_finish_to_next_trip(fifty_rows, trips)
     ret_by_pd: dict[tuple[str, date], int] = {}
+    deadhead_by_pd: dict[tuple[str, date], int] = {}
     for m in cfg.manual_return_trips:
         k = (str(m.plate), m.dest_date)
-        ret_by_pd[k] = int(ret_by_pd.get(k, 0)) + manual_return_amount_baht(m, cfg)
+        tgt = deadhead_by_pd if m.kind == "deadhead" else ret_by_pd
+        tgt[k] = int(tgt.get(k, 0)) + manual_return_amount_baht(m, cfg)
     td_bucket_rows: dict[tuple[str, date], tuple[int, int]] = {}
     for t in sorted(trips, key=lambda x: (x.dest_date, x.plate, x.d_in)):
         dw_c = customer_idle_clip_dest_wait_h(t, cfg)
@@ -2260,12 +2318,11 @@ def write_excel(
         if ft is not None and id(ft) == id(t):
             dw50, dw100 = _split_fifty_surcharge_50_100(frs)
             td_bucket_rows[(str(t.plate), t.trip_date)] = (dw50, dw100)
+        _first = ft is not None and id(ft) == id(t)
         nw50 = trip_no_work_outbound_baht(t, first_no_work, cfg)
-        ret_manual = (
-            int(ret_by_pd.get((str(t.plate), t.trip_date), 0))
-            if ft is not None and id(ft) == id(t)
-            else 0
-        )
+        if _first:
+            nw50 += int(deadhead_by_pd.get((str(t.plate), t.trip_date), 0))
+        ret_manual = int(ret_by_pd.get((str(t.plate), t.trip_date), 0)) if _first else 0
         td.append([
             t.trip_date, t.origin_date, t.dest_date,
             t.site, t.plate, t.device, t.o_row, t.d_row,
@@ -2293,12 +2350,11 @@ def write_excel(
         if ft is not None and id(ft) == id(t):
             dw50, dw100 = _split_fifty_surcharge_50_100(frs)
             tp_bucket_rows[(str(t.plate), t.trip_date)] = (dw50, dw100)
+        _first = ft is not None and id(ft) == id(t)
         nw50 = trip_no_work_outbound_baht(t, first_no_work, cfg)
-        ret_manual = (
-            int(ret_by_pd.get((str(t.plate), t.trip_date), 0))
-            if ft is not None and id(ft) == id(t)
-            else 0
-        )
+        if _first:
+            nw50 += int(deadhead_by_pd.get((str(t.plate), t.trip_date), 0))
+        ret_manual = int(ret_by_pd.get((str(t.plate), t.trip_date), 0)) if _first else 0
         tp.append([
             t.dest_date, t.plate,
             rate, dw50, dw100,
@@ -2713,19 +2769,35 @@ def sum_manual_return_baht(cfg: OatsideConfig) -> int:
     return sum(manual_return_amount_baht(m, cfg) for m in cfg.manual_return_trips)
 
 
+def sum_manual_deadhead_baht(cfg: OatsideConfig) -> int:
+    return sum(manual_return_amount_baht(m, cfg) for m in cfg.manual_return_trips if m.kind == "deadhead")
+
+
+def sum_manual_backhaul_baht(cfg: OatsideConfig) -> int:
+    return sum(manual_return_amount_baht(m, cfg) for m in cfg.manual_return_trips if m.kind != "deadhead")
+
+
 def merge_manual_return_into_pday(pday_rows: list[dict], cfg: OatsideConfig) -> None:
     for m in cfg.manual_return_trips:
+        is_dh = m.kind == "deadhead"
+        # deadhead (ตีเปล่า) → ช่องส่วนเพิ่ม (fifty_pct); backhaul (ขากลับ) → ช่องขากลับ (return_trip)
+        col = "fifty_pct_baht" if is_dh else "return_trip_baht"
+        if is_dh:
+            badge_cls, badge_word = "blankrun", "ตีเปล่า"
+            default_tag = "ค่าตีเปล่า (manual)"
+        else:
+            badge_cls, badge_word = "return-trip", "ขากลับ"
+            default_tag = "ค่าขนส่งขากลับ (manual)"
         found = False
         for r in pday_rows:
             if str(r["plate"]) == m.plate and r["dest_date"] == m.dest_date:
                 amt = manual_return_amount_baht(m, cfg)
-                prev = int(r.get("return_trip_baht", 0) or 0)
-                r["return_trip_baht"] = prev + int(amt)
+                r[col] = int(r.get(col, 0) or 0) + int(amt)
                 r["customer_day_baht"] = int(r["customer_day_baht"]) + int(amt)
-                tag = esc(m.note) if m.note else "ค่าขนส่งขากลับ (manual)"
+                tag = esc(m.note) if m.note else default_tag
                 badge = (
-                    f"<span class='badge return-trip' title='{tag}'>"
-                    f"ขากลับ +{fmt_money(amt)}฿</span>"
+                    f"<span class='badge {badge_cls}' title='{tag}'>"
+                    f"{badge_word} +{fmt_money(amt)}฿</span>"
                 )
                 prev_b = (r.get("fifty_badge_html") or "").strip()
                 r["fifty_badge_html"] = (prev_b + " " + badge).strip() if prev_b else badge
@@ -2734,10 +2806,10 @@ def merge_manual_return_into_pday(pday_rows: list[dict], cfg: OatsideConfig) -> 
         if not found:
             rate = trip_rate_baht(m.dest_date, cfg)
             amt = manual_return_amount_baht(m, cfg)
-            tag = esc(m.note) if m.note else manual_return_label(m)
+            tag = esc(m.note) if m.note else (default_tag if is_dh else manual_return_label(m))
             badge = (
-                f"<span class='badge return-trip' title='{tag}'>"
-                f"ขากลับ +{fmt_money(amt)}฿</span>"
+                f"<span class='badge {badge_cls}' title='{tag}'>"
+                f"{badge_word} +{fmt_money(amt)}฿</span>"
             )
             pday_rows.append(
                 {
@@ -2747,9 +2819,9 @@ def merge_manual_return_into_pday(pday_rows: list[dict], cfg: OatsideConfig) -> 
                     "matched_trips": 0,
                     "trip_rate_baht": rate,
                     "base_line_baht": 0,
-                    "fifty_pct_baht": 0,
+                    "fifty_pct_baht": int(amt) if is_dh else 0,
                     "fifty_badge_html": badge,
-                    "return_trip_baht": int(amt),
+                    "return_trip_baht": 0 if is_dh else int(amt),
                     "customer_day_baht": int(amt),
                 }
             )
@@ -2758,18 +2830,20 @@ def merge_manual_return_into_pday(pday_rows: list[dict], cfg: OatsideConfig) -> 
 
 def merge_manual_return_into_audit(audit_rows: list[dict], cfg: OatsideConfig) -> None:
     for m in cfg.manual_return_trips:
+        is_dh = m.kind == "deadhead"
+        col = "fifty_pct_baht" if is_dh else "return_trip_baht"
+        word = "ตีเปล่า" if is_dh else "ขากลับ"
         hit = False
         for r in audit_rows:
             if str(r["plate"]) != m.plate or r.get("dest_date") != m.dest_date:
                 continue
-            prev = int(r.get("return_trip_baht", 0) or 0)
             amt = manual_return_amount_baht(m, cfg)
-            r["return_trip_baht"] = prev + int(amt)
+            r[col] = int(r.get(col, 0) or 0) + int(amt)
             r["customer_day_baht"] = int(r["customer_day_baht"]) + int(amt)
             extra = (
-                f" | ขากลับ (manual): {m.note} (+{fmt_money(amt)}฿)"
+                f" | {word} (manual): {m.note} (+{fmt_money(amt)}฿)"
                 if m.note
-                else f" | ขากลับ (manual) +{fmt_money(amt)}฿"
+                else f" | {word} (manual) +{fmt_money(amt)}฿"
             )
             r["billing_note"] = str(r.get("billing_note", "")) + extra
             hit = True
@@ -2779,9 +2853,9 @@ def merge_manual_return_into_audit(audit_rows: list[dict], cfg: OatsideConfig) -
         rate = trip_rate_baht(m.dest_date, cfg)
         amt = manual_return_amount_baht(m, cfg)
         note = (
-            f"ขากลับ (manual): {m.note} (+{fmt_money(amt)}฿)"
+            f"{word} (manual): {m.note} (+{fmt_money(amt)}฿)"
             if m.note
-            else f"ขากลับ (manual) +{fmt_money(amt)}฿"
+            else f"{word} (manual) +{fmt_money(amt)}฿"
         )
         audit_rows.append(
             {
@@ -2792,8 +2866,8 @@ def merge_manual_return_into_audit(audit_rows: list[dict], cfg: OatsideConfig) -
                 "matched_trips": 0,
                 "trip_rate_baht": rate,
                 "base_line_baht": 0,
-                "fifty_pct_baht": 0,
-                "return_trip_baht": int(amt),
+                "fifty_pct_baht": int(amt) if is_dh else 0,
+                "return_trip_baht": 0 if is_dh else int(amt),
                 "customer_day_baht": int(amt),
                 "billing_note": note,
             }
@@ -2890,9 +2964,11 @@ def write_html(
     firsts = first_matched_trip_by_plate_dest(trips)
     first_no_work = first_no_work_trip_by_plate_recovery_day(trips, cfg)
     ret_by_pd: dict[tuple[str, date], int] = {}
+    deadhead_by_pd: dict[tuple[str, date], int] = {}
     for m in cfg.manual_return_trips:
         k = (str(m.plate), m.dest_date)
-        ret_by_pd[k] = int(ret_by_pd.get(k, 0)) + manual_return_amount_baht(m, cfg)
+        tgt = deadhead_by_pd if m.kind == "deadhead" else ret_by_pd
+        tgt[k] = int(tgt.get(k, 0)) + manual_return_amount_baht(m, cfg)
     _um_rows: list[str] = []
     for src, leg, _ in sorted(unmatched, key=lambda x: x[1].t_in):
         _dwell, _gap = um_leg_dwell_gap_h(leg, leg_timeline_by_plate.get(leg.plate))
@@ -2929,11 +3005,9 @@ def write_html(
     def trip_row(t: Trip) -> str:
         ab = " <span class='badge abn'>ABNORMAL</span>" if t.travel_flag else ""
         ft0 = firsts.get((t.plate, t.trip_date))
-        ret_amt = (
-            int(ret_by_pd.get((str(t.plate), t.trip_date), 0))
-            if ft0 is not None and id(ft0) == id(t)
-            else 0
-        )
+        _first = ft0 is not None and id(ft0) == id(t)
+        ret_amt = int(ret_by_pd.get((str(t.plate), t.trip_date), 0)) if _first else 0
+        dh_amt = int(deadhead_by_pd.get((str(t.plate), t.trip_date), 0)) if _first else 0
         money = trip_row_pricing_cells(
             t,
             firsts=firsts,
@@ -2941,6 +3015,7 @@ def write_html(
             fifty_by_lists=fifty_by_lists,
             cfg=cfg,
             return_baht=ret_amt,
+            deadhead_baht=dh_amt,
         )
         return (
             f"<tr data-plate='{esc(t.plate)}'><td>{t.origin_date}<br><span class='note'>{t.o_in:%H:%M}</span></td><td>{t.dest_date}<br><span class='note'>{t.d_in:%H:%M}</span></td>"
@@ -2965,11 +3040,9 @@ def write_html(
     def trip_row_plate(t: Trip) -> str:
         ab = " <span class='badge abn'>ABNORMAL</span>" if t.travel_flag else ""
         ft0 = firsts.get((t.plate, t.trip_date))
-        ret_amt = (
-            int(ret_by_pd.get((str(t.plate), t.trip_date), 0))
-            if ft0 is not None and id(ft0) == id(t)
-            else 0
-        )
+        _first = ft0 is not None and id(ft0) == id(t)
+        ret_amt = int(ret_by_pd.get((str(t.plate), t.trip_date), 0)) if _first else 0
+        dh_amt = int(deadhead_by_pd.get((str(t.plate), t.trip_date), 0)) if _first else 0
         money = trip_row_pricing_cells(
             t,
             firsts=firsts,
@@ -2977,6 +3050,7 @@ def write_html(
             fifty_by_lists=fifty_by_lists,
             cfg=cfg,
             return_baht=ret_amt,
+            deadhead_baht=dh_amt,
         )
         return (
             f"<tr data-plate='{esc(t.plate)}'><td>{t.origin_date}<br><span class='note'>{t.o_in:%H:%M}</span></td><td>{t.dest_date}<br><span class='note'>{t.d_in:%H:%M}</span></td><td>{t.site}{ab}</td>"
@@ -3213,6 +3287,7 @@ def main() -> None:
     folder = _oatside_dir()
     origin_path, dest_path = discover_gps_files(folder)
     trips, unmatched, _travels = build_trips(origin_path, dest_path, cfg)
+    trips = apply_remove_matched_trips(trips, cfg)
     o_legs_all = parse_legs(origin_path)
     d_legs_all = parse_legs(dest_path)
     daily_rows = daily_activity_by_dest(trips, cfg)
