@@ -82,13 +82,20 @@ if (-not (Test-Path $destParent)) {
 
 # Files generated outside build_oatside_reports.py (manual-check tools) must survive
 # the folder replace — back them up, do the clean replace, then restore them.
-$preserveNames = @("discrepancy_check.html", "manual_check.html")
+# NOTE: include exports/ CSVs that manual_check.html links to (build does not produce them).
+$preserveNames = @(
+  "discrepancy_check.html",
+  "manual_check.html",
+  "exports/99_Manual_Check_Daily_vs_System.csv",
+  "exports/99_Manual_Check_Summary.csv"
+)
 $preserved = @{}
 if (Test-Path $destAbs) {
   foreach ($n in $preserveNames) {
     $p = Join-Path $destAbs $n
     if (Test-Path -LiteralPath $p) {
-      $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString() + "_" + $n)
+      $safe = $n -replace '[\\/]', '_'
+      $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString() + "_" + $safe)
       Copy-Item -LiteralPath $p -Destination $tmp -Force
       $preserved[$n] = $tmp
     }
@@ -97,7 +104,12 @@ if (Test-Path $destAbs) {
 }
 Copy-Item -Path $srcAbs -Destination $destAbs -Recurse -Force
 foreach ($n in $preserved.Keys) {
-  Copy-Item -LiteralPath $preserved[$n] -Destination (Join-Path $destAbs $n) -Force
+  $restoreTo = Join-Path $destAbs $n
+  $restoreParent = Split-Path -Parent $restoreTo
+  if (-not (Test-Path -LiteralPath $restoreParent)) {
+    New-Item -ItemType Directory -Path $restoreParent -Force | Out-Null
+  }
+  Copy-Item -LiteralPath $preserved[$n] -Destination $restoreTo -Force
   Remove-Item -LiteralPath $preserved[$n] -Force
 }
 if ($preserved.Count -gt 0) {
