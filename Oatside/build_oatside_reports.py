@@ -394,6 +394,22 @@ def load_oatside_config() -> OatsideConfig:
     report_end_date = _parse_optional_iso_date(raw.get("report_end_date"))
     customer_rate_summary = _parse_optional_str(raw.get("customer_rate_summary"))
 
+    # Manual extra/return entries must respect the report date window too. Trips and
+    # surcharges are already filtered by _date_in_report_window; manual entries were not,
+    # so a manual charge dated outside the cycle (e.g. a carry-over from the previous
+    # month) inflated the customer grand total even though no trip row for that day
+    # appears in the report. Filter them by dest_date here.
+    if report_start_date or report_end_date:
+        def _mt_in_window(m: ManualExtraTrip) -> bool:
+            d = m.dest_date
+            if report_start_date and d < report_start_date:
+                return False
+            if report_end_date and d > report_end_date:
+                return False
+            return True
+        manual_list = [m for m in manual_list if _mt_in_window(m)]
+        return_list = [m for m in return_list if _mt_in_window(m)]
+
     return OatsideConfig(
         trip_rates=trip_rates,
         diesel_price_history=diesel_price_history,
