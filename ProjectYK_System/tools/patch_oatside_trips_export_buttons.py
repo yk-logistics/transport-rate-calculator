@@ -52,20 +52,43 @@ def _export_js() -> str:
     return b._TABLE_EXPORT_JS
 
 
+EXPORT_JS_SIG = "init('tripsAllTable',{title:'Oatside"
+
+
+def _strip_old(html: str) -> bool:
+    """Remove a previous injection so the patch can be re-applied with updated JS.
+    Returns True if anything was stripped."""
+    changed = False
+    if CSS_SNIPPET in html:
+        html_new = html.replace(CSS_SNIPPET, "")
+        changed |= html_new != html
+        html = html_new
+    if BAR_SNIPPET in html:
+        html_new = html.replace(BAR_SNIPPET, "")
+        changed |= html_new != html
+        html = html_new
+    # remove the whole injected <script>…</script> that holds the export logic
+    k = html.find(EXPORT_JS_SIG)
+    if k != -1:
+        start = html.rfind("<script>", 0, k)
+        end = html.find("</script>", k)
+        if start != -1 and end != -1:
+            html = html[:start] + html[end + len("</script>"):]
+            changed = True
+    return html, changed
+
+
 def patch_file(path: Path, export_js: str) -> str:
     if not path.exists():
         return "missing"
     html = path.read_text(encoding="utf-8")
-    if "tripsAllTableExpPrint" in html:
-        _copy_h2c(path)
-        return "already-patched (html2canvas refreshed)"
     if BAR_ANCHOR not in html:
         return "skip (no #tripsAllTable anchor)"
 
+    html, was_patched = _strip_old(html)
     # 1) CSS — before the first </style>
-    if ".export-bar{" not in html:
-        i = html.index("</style>")
-        html = html[:i] + CSS_SNIPPET + html[i:]
+    i = html.index("</style>")
+    html = html[:i] + CSS_SNIPPET + html[i:]
     # 2) toolbar — before the table
     html = html.replace(BAR_ANCHOR, BAR_SNIPPET + BAR_ANCHOR, 1)
     # 3) export script — before the closing </body>
@@ -74,7 +97,7 @@ def patch_file(path: Path, export_js: str) -> str:
 
     path.write_text(html, encoding="utf-8")
     _copy_h2c(path)
-    return "patched"
+    return "re-patched (updated)" if was_patched else "patched"
 
 
 def _copy_h2c(trips_path: Path) -> None:

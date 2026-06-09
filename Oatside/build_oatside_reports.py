@@ -2618,10 +2618,33 @@ function boot(){
 
     function exportXLS(){
       var cols=visCols(tbl),rows=visRows(tbl),ths=tbl.querySelectorAll('thead tr th');
-      function stl(el,head){var cs=getComputedStyle(el);var s='border:1px solid #c5d0e0;padding:4px 6px;mso-number-format:\\@;';var bg=toHex(cs.backgroundColor);if(bg)s+='background:'+bg+';';var fg=toHex(cs.color);if(fg&&fg!=='#000000')s+='color:'+fg+';';if(head||parseInt(cs.fontWeight,10)>=600||cs.fontWeight==='bold')s+='font-weight:bold;';return s;}
-      var head='';for(var i=0;i<cols.length;i++){var th=ths[cols[i]];head+='<th style="'+stl(th,true)+'">'+esc(txt(th))+'</th>';}
-      var body='';for(var r=0;r<rows.length;r++){var tds=rows[r].children,rr='';for(var c=0;c<cols.length;c++){var td=tds[cols[c]];rr+=td?('<td style="'+stl(td,false)+'">'+esc(txt(td))+'</td>'):'<td></td>';}body+='<tr>'+rr+'</tr>';}
-      var tableHtml='<table border="1" style="border-collapse:collapse;font-family:Tahoma,sans-serif;font-size:11pt"><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody></table>';
+      function isNum(s){return /^-?\d+(\.\d+)?$/.test((s||'').replace(/[,\s]/g,''));}
+      function numOf(s){return parseFloat((s||'').replace(/,/g,''))||0;}
+      function fmt2(n){return n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+      function base(el){var cs=getComputedStyle(el);var s='border:1px solid #c5d0e0;padding:4px 6px;';var bg=toHex(cs.backgroundColor);if(bg)s+='background:'+bg+';';var fg=toHex(cs.color);if(fg&&fg!=='#000000')s+='color:'+fg+';';if(parseInt(cs.fontWeight,10)>=600||cs.fontWeight==='bold')s+='font-weight:bold;';return s;}
+      // header (always text)
+      var head='';for(var i=0;i<cols.length;i++){var th=ths[cols[i]];head+='<th style="'+base(th)+'font-weight:bold;mso-number-format:\\@;">'+esc(txt(th))+'</th>';}
+      // body: numeric cells -> real numbers (summable); dates/plates/text -> text. Tally per-column sums.
+      var sums=[],hasNum=[];for(var k=0;k<cols.length;k++){sums[k]=0;hasNum[k]=false;}
+      var body='';
+      for(var r=0;r<rows.length;r++){
+        var tds=rows[r].children,rr='';
+        for(var c=0;c<cols.length;c++){
+          var td=tds[cols[c]];var raw=td?txt(td):'';var st=td?base(td):'border:1px solid #c5d0e0;padding:4px 6px;';
+          if(td&&isNum(raw)){sums[c]+=numOf(raw);hasNum[c]=true;rr+='<td style="'+st+'text-align:right;">'+esc(raw)+'</td>';}
+          else{rr+='<td style="'+st+'mso-number-format:\\@;">'+esc(raw)+'</td>';}
+        }
+        body+='<tr>'+rr+'</tr>';
+      }
+      // total row (bottom): sum each numeric column
+      var tot='';
+      for(var c2=0;c2<cols.length;c2++){
+        var ts='border:1px solid #c5d0e0;border-top:2px solid #9bb4d9;padding:4px 6px;background:#eef3fa;font-weight:bold;';
+        if(c2===0)tot+='<td style="'+ts+'">รวม</td>';
+        else if(hasNum[c2])tot+='<td style="'+ts+'text-align:right;">'+esc(fmt2(sums[c2]))+'</td>';
+        else tot+='<td style="'+ts+'mso-number-format:\\@;"></td>';
+      }
+      var tableHtml='<table border="1" style="border-collapse:collapse;font-family:Tahoma,sans-serif;font-size:11pt"><thead><tr>'+head+'</tr></thead><tbody>'+body+'<tr>'+tot+'</tr></tbody></table>';
       var sheet=(opts.sheetName||'Sheet1');
       var x='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>'+esc(sheet)+'</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>'+tableHtml+'</body></html>';
       dl(new Blob(['﻿'+x],{type:'application/vnd.ms-excel'}),fileBase+'_'+stamp()+'.xls');
