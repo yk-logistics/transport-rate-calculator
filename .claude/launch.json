@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "oatside-report",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8777", "--directory", "reports/oatside-pg-2026"],
+      "port": 8777
+    }
+  ]
+}

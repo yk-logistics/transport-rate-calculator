@@ -2574,6 +2574,81 @@ _COL_TOGGLE_JS = (
 )
 
 
+# Client-side export of the *visible* table (respects plate filter + show/hide columns):
+#   - "พิมพ์ / PDF": opens a standalone HTML window of just the table (own Print button → paper or Save as PDF)
+#   - Excel: .xls HTML workbook with inline-computed colors → opens in Excel looking like the on-screen table
+#   - PNG: lazy-loads bundled html2canvas.min.js and captures the full table
+# Baked for #tripsAllTable (the trips page); buttons are wired only if present, so it is a no-op elsewhere.
+_TABLE_EXPORT_JS = r"""<script>(function(){
+function boot(){
+  function txt(el){return (el.innerText||el.textContent||'').replace(/\s+/g,' ').trim();}
+  function esc(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function stamp(){var d=new Date();function p(n){return(n<10?'0':'')+n;}return ''+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes());}
+  function dl(blob,name){var a=document.createElement('a');var u=URL.createObjectURL(blob);a.href=u;a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(u);a.remove();},1500);}
+  function toHex(c){if(!c)return '';if(c.charAt(0)==='#')return c;var m=c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);if(!m)return '';if(m[4]!==undefined&&parseFloat(m[4])===0)return '';function h(n){var s=parseInt(n,10).toString(16);return s.length<2?'0'+s:s;}return '#'+h(m[1])+h(m[2])+h(m[3]);}
+  function visCols(tbl){var ths=tbl.querySelectorAll('thead tr th');var out=[];for(var i=0;i<ths.length;i++){if(getComputedStyle(ths[i]).display!=='none')out.push(i);}return out;}
+  function visRows(tbl){var rows=tbl.querySelectorAll('tbody tr');var out=[];for(var i=0;i<rows.length;i++){if(getComputedStyle(rows[i]).display!=='none')out.push(rows[i]);}return out;}
+  function pageCSS(){var ss=document.querySelectorAll('style');var o='';for(var i=0;i<ss.length;i++)o+=ss[i].innerHTML;return o;}
+  function cloneVisible(tbl){var c=tbl.cloneNode(true);c.removeAttribute('id');c.style.maxHeight='none';c.style.width='100%';return c;}
+
+  function init(tableId,opts){
+    var tbl=document.getElementById(tableId);if(!tbl)return;opts=opts||{};
+    var title=opts.title||document.title||'ตาราง';
+    var fileBase=opts.fileBase||'table';
+    function subInfo(){var bits=[];if(opts.filterSel){var s=document.getElementById(opts.filterSel);if(s&&s.value)bits.push('กรองทะเบียน: '+s.value);}if(opts.querySel){var q=document.getElementById(opts.querySel);if(q&&q.value)bits.push('ค้นหา: '+q.value);}return bits.join(' · ');}
+
+    function openWindow(){
+      var w=window.open('','_blank');
+      if(!w){alert('เบราว์เซอร์บล็อกการเปิดหน้าต่างใหม่ — โปรดอนุญาต pop-up แล้วลองอีกครั้ง');return;}
+      var sub=subInfo();
+      var extra='@media screen{body{margin:18px;background:#fff;color:#152235}}'
+        +'.exp-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}'
+        +'.exp-head h2{margin:0;font-size:20px}.exp-head .exp-sub{color:#4b5b74;font-size:13px;margin-top:2px}'
+        +'.exp-print-btn{font:inherit;font-weight:800;cursor:pointer;color:#fff;background:#0b57d0;border:none;border-radius:8px;padding:10px 16px}'
+        +'.table-scroll{max-height:none!important;overflow:visible!important;border:none!important;margin:0!important}'
+        +'thead th{position:static!important}table{font-size:12px}'
+        +'@media print{.noprint{display:none!important}body{margin:0}table{font-size:10px}th,td{padding:4px 6px}thead{display:table-header-group}tr{page-break-inside:avoid}}';
+      var doc='<!doctype html><html lang="th"><head><meta charset="utf-8"><title>'+esc(title)+'</title>'
+        +'<style>'+pageCSS()+'</style><style>'+extra+'</style></head><body>'
+        +'<div class="exp-head"><div><h2>'+esc(title)+'</h2>'+(sub?('<div class="exp-sub">'+esc(sub)+'</div>'):'')+'</div>'
+        +'<button class="exp-print-btn noprint" onclick="window.print()">🖨️ พิมพ์ / บันทึก PDF</button></div>'
+        +'<div class="table-scroll">'+cloneVisible(tbl).outerHTML+'</div></body></html>';
+      w.document.open();w.document.write(doc);w.document.close();w.focus();
+    }
+
+    function exportXLS(){
+      var cols=visCols(tbl),rows=visRows(tbl),ths=tbl.querySelectorAll('thead tr th');
+      function stl(el,head){var cs=getComputedStyle(el);var s='border:1px solid #c5d0e0;padding:4px 6px;mso-number-format:\\@;';var bg=toHex(cs.backgroundColor);if(bg)s+='background:'+bg+';';var fg=toHex(cs.color);if(fg&&fg!=='#000000')s+='color:'+fg+';';if(head||parseInt(cs.fontWeight,10)>=600||cs.fontWeight==='bold')s+='font-weight:bold;';return s;}
+      var head='';for(var i=0;i<cols.length;i++){var th=ths[cols[i]];head+='<th style="'+stl(th,true)+'">'+esc(txt(th))+'</th>';}
+      var body='';for(var r=0;r<rows.length;r++){var tds=rows[r].children,rr='';for(var c=0;c<cols.length;c++){var td=tds[cols[c]];rr+=td?('<td style="'+stl(td,false)+'">'+esc(txt(td))+'</td>'):'<td></td>';}body+='<tr>'+rr+'</tr>';}
+      var tableHtml='<table border="1" style="border-collapse:collapse;font-family:Tahoma,sans-serif;font-size:11pt"><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody></table>';
+      var sheet=(opts.sheetName||'Sheet1');
+      var x='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>'+esc(sheet)+'</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>'+tableHtml+'</body></html>';
+      dl(new Blob(['﻿'+x],{type:'application/vnd.ms-excel'}),fileBase+'_'+stamp()+'.xls');
+    }
+
+    function withH2C(cb,fail){if(window.html2canvas){cb();return;}var s=document.createElement('script');s.src=opts.h2cSrc||'html2canvas.min.js';s.onload=function(){cb();};s.onerror=function(){if(fail)fail();alert('โหลดไลบรารีรูปไม่สำเร็จ (html2canvas.min.js)');};document.head.appendChild(s);}
+    function exportPNG(btn){
+      var old=btn?btn.textContent:'';function busy(on){if(btn){btn.disabled=on;btn.textContent=on?'⏳ กำลังสร้างรูป...':old;}}
+      busy(true);
+      withH2C(function(){
+        var holder=document.createElement('div');holder.style.cssText='position:fixed;left:-99999px;top:0;background:#fff;padding:16px;z-index:-1';
+        holder.appendChild(cloneVisible(tbl));document.body.appendChild(holder);
+        window.html2canvas(holder,{backgroundColor:'#ffffff',scale:2}).then(function(cv){cv.toBlob(function(b){if(b)dl(b,fileBase+'_'+stamp()+'.png');holder.remove();busy(false);});}).catch(function(e){holder.remove();busy(false);alert('สร้างรูปไม่สำเร็จ: '+e);});
+      },function(){busy(false);});
+    }
+
+    var bP=document.getElementById(tableId+'ExpPrint');if(bP)bP.addEventListener('click',openWindow);
+    var bX=document.getElementById(tableId+'ExpXls');if(bX)bX.addEventListener('click',exportXLS);
+    var bN=document.getElementById(tableId+'ExpPng');if(bN)bN.addEventListener('click',function(){exportPNG(bN);});
+  }
+
+  init('tripsAllTable',{title:'Oatside — เที่ยวทั้งหมด',fileBase:'oatside_trips',sheetName:'Trips',filterSel:'tripsPlateFilter',querySel:'tripsPlateQuery',h2cSrc:'html2canvas.min.js'});
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();</script>"""
+
+
 def html_fifty_surcharge_badge(fr: dict, cfg: OatsideConfig) -> str:
     """Badge: ตีเปล่า (เฉพาะที่ mark) vs ค่าเสียเวลา (+50%% / +100%% รวมข้ามคืน)."""
     amt = int(fr.get("surcharge_baht", 0) or 0)
@@ -3130,6 +3205,9 @@ def write_html(
         "tr.um td{color:#5a3b00}"
         ".manual-extra{background:#ede7f6;color:#4a148c;font-weight:600}.return-trip{background:#e8f5e9;color:#1b5e20;font-weight:600}"
         "tr.day-band-0 td{background:#fafcfe}tr.day-band-1 td{background:#e9f1fa}tr.day-band-0 td.wait-hi{background:#fff1cc;font-weight:600}tr.day-band-1 td.wait-hi{background:#ffecc4;font-weight:600}tr.day-band-0 td.wait-hi-dest{background:#ffe8c8;font-weight:600}tr.day-band-1 td.wait-hi-dest{background:#ffdfba;font-weight:600}""details.section-fold{margin-bottom:10px}""summary.section-sum{cursor:pointer;padding:10px 14px;background:#fff;border-radius:10px;font-weight:600;margin-bottom:6px;display:block;box-shadow:0 2px 8px rgba(16,24,40,.08);list-style:none}""summary.section-sum::-webkit-details-marker{display:none}"".filter-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 14px}"".filter-bar label{font-size:13px;color:#4b5b74}"".filter-bar select,.filter-bar input[type=search]{font:inherit;padding:6px 10px;border-radius:8px;border:1px solid #c5d0e0;background:#fff;min-width:160px}""summary.section-sum-row{display:flex!important;width:100%;box-sizing:border-box;justify-content:space-between;align-items:center;gap:12px;list-style:none}""summary.section-sum-row .sum-main{flex:1 1 auto;min-width:0;text-align:left}""summary.section-sum-row .sum-dl{margin-left:auto;flex:0 0 auto}"".xlsx-dl{font-size:12px;font-weight:700;color:#0b57d0;padding:5px 10px;border-radius:8px;border:1px solid #b8cff4;background:#eef5ff;white-space:nowrap}"".hero-trips{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;background:linear-gradient(135deg,#e8f1ff,#ffffff);border:1px solid #c5d0e0;border-radius:12px;padding:16px 18px;margin:12px 0 16px}"".hero-copy{max-width:720px}"".hero-tag{display:inline-block;font-size:11px;font-weight:700;color:#0b57d0;background:#e3eeff;border-radius:999px;padding:2px 10px;margin-bottom:6px}"".hero-title{font-size:20px;font-weight:800;color:#12243b;margin-bottom:4px}"".hero-sub{color:#4b5b74;font-size:13px;line-height:1.45}"".btn-primary{display:inline-block;padding:12px 18px;border-radius:10px;background:#0b57d0;color:#fff;font-weight:800;box-shadow:0 4px 12px rgba(11,87,208,.22)}"".btn-primary:hover{filter:brightness(1.05)}"".nav-secondary{margin:0 0 12px;font-size:13px;color:#4b5b74}"".panel-title-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}"".panel-title-row h3{margin:0}"".h1 .trips-tag{font-size:13px;font-weight:800;color:#0b57d0;margin-left:8px;vertical-align:middle}"".trips-lead{color:#4b5b74;font-size:14px;margin:-2px 0 10px}""details.col-picker{margin:8px 0 14px;border:1px solid #c5d0e0;border-radius:10px;padding:0 14px 4px;background:#fff}""details.col-picker summary{cursor:pointer;font-weight:700;padding:10px 0;font-size:13px;color:#12243b;list-style:none}""details.col-picker summary::-webkit-details-marker{display:none}"".col-picker-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px 16px;padding:4px 0 12px;font-size:13px}"".col-picker-grid label{display:flex;gap:8px;align-items:flex-start;cursor:pointer;line-height:1.35}"".col-picker-grid input{margin-top:3px;flex-shrink:0}"
+        ".export-bar{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 12px}"
+        ".exp-btn{font:inherit;font-size:13px;font-weight:700;cursor:pointer;color:#0b57d0;background:#eef5ff;border:1px solid #b8cff4;border-radius:8px;padding:8px 13px}"
+        ".exp-btn:hover{background:#dfeaff}"
     )
 
     def _xlsx_dl(fname: str, short: str) -> str:
@@ -3197,16 +3275,24 @@ def write_html(
 <b>ค่าเงิน:</b> ค่าขนส่ง = เรทวัน Dest_In ของเที่ยวนั้น · <b>เสียเวลา+50%/+100%</b> = ยอดรวมส่วนเพิ่ม fifty ของ (ทะเบียน×วัน Dest_In) แสดงที่แถวแรกของวันนั้น — <b>ไม่ได้คิดจากชั่วโมงในช่อง Dest Wait โดยตรง</b> (สีส้ม = แค่เตือนว่ารอปลายทางเกินเกณฑ์) · <b>ขากลับ(฿)</b> = ยอดจาก <code>manual_return_trips</code> แสดงที่แถวแรกของวันนั้น (ไม่เพิ่มจำนวนเที่ยว matched)</p>
 <div class='filter-bar'><label for='tripsPlateFilter'>กรองทะเบียน</label><select id='tripsPlateFilter'><option value=''>ทุกคัน</option>{_trips_plate_opts}</select><label for='tripsPlateQuery' style='margin-left:6px'>ค้นหา</label><input id='tripsPlateQuery' type='search' placeholder='พิมพ์ค้นหา...' autocomplete='off'></div>
 <details class='col-picker' id='tripsAllTableColPicker'><summary>แสดง / ซ่อนคอลัมน์ (เลือกได้เหมือน Excel)</summary><div class='col-picker-grid' id='tripsAllTableColInner'></div><p style='margin:0 0 10px'><button type='button' class='xlsx-dl' id='tripsAllTableColReset'>แสดงทุกคอลัมน์</button></p></details>
+<div class='export-bar'><button type='button' class='exp-btn' id='tripsAllTableExpPrint'>🖨️ พิมพ์ / PDF (เปิดหน้าตารางแยก)</button><button type='button' class='exp-btn' id='tripsAllTableExpXls'>📊 Excel (ตามที่เห็น)</button><button type='button' class='exp-btn' id='tripsAllTableExpPng'>🖼️ บันทึกรูป PNG</button></div>
 <div class='table-scroll'><table id='tripsAllTable'><thead><tr><th title='วันงานที่ Origin + เวลาเข้าโหลด'>วัน Origin</th><th title='วันงานที่ปลายทาง + เวลาเข้า'>วัน Dest</th><th>Site</th><th>ทะเบียน</th><th>Origin In</th><th>Origin Out</th><th>Dest In</th><th>Dest Out</th><th>Orig Wait</th><th>Travel</th><th>Dest Wait</th><th>อยู่จุด UM (ชม.)</th><th>ถึงเข้าครั้งถัดไป (ชม.)</th><th>ค่าขนส่ง(฿)</th><th>เสียเวลา+50%(฿)</th><th>เสียเวลา+100%(฿)</th><th>ตีเปล่า+50%(฿)</th><th>ขากลับ(฿)</th></tr></thead><tbody>
 {merged_all_rows}
 </tbody></table></div></div>
 """
         + _TRIPS_FILTER_JS
         + _COL_TOGGLE_JS
+        + _TABLE_EXPORT_JS
         + "\n</body></html>"
     )
 
     (report_dir / "trips.html").write_text(trips_html_content, encoding="utf-8")
+
+    # Bundle html2canvas (used by the PNG export button on trips.html) into the report
+    # so the published page stays self-contained — deploy copies the whole report dir.
+    _h2c_src = _oatside_dir() / "assets" / "html2canvas.min.js"
+    if _h2c_src.exists():
+        shutil.copy2(_h2c_src, report_dir / "html2canvas.min.js")
 
     plates_dir = report_dir / "plates"
     plates_dir.mkdir(exist_ok=True)
