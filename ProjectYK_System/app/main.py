@@ -959,21 +959,18 @@ def _apply_daily_fields(row: DailyJob, f: dict) -> None:
 
 @app.get("/daily/new", response_class=HTMLResponse)
 def daily_new_form(request: Request):
+    import json as _json
     with Session(engine) as s:
         employees, vehicles, customers = _load_masters(s)
+    masters_json = _json.dumps({
+        "employees": [{"id": e.id, "name": e.full_name, "site": e.home_site_code} for e in employees],
+        "heads": [{"id": v.id, "plate": v.plate_no, "type": v.truck_type} for v in vehicles if v.vehicle_kind != "tail"],
+        "tails": [{"id": v.id, "plate": v.plate_no} for v in vehicles if v.vehicle_kind == "tail"],
+        "customers": [{"id": c.id, "name": c.name} for c in customers],
+    }, ensure_ascii=False)
     ctx = base_context(request)
-    ctx.update(
-        {
-            "row": None,
-            "mode": "new",
-            "employees": employees,
-            "vehicles": vehicles,
-            "customers": customers,
-            "preflight_warnings": [],
-            "inbox_mail_id": "",
-        }
-    )
-    return templates.TemplateResponse("daily_form.html", ctx)
+    ctx.update({"masters_json": masters_json})
+    return templates.TemplateResponse("daily_batch.html", ctx)
 
 
 @app.get("/daily/{job_id}/edit", response_class=HTMLResponse)
