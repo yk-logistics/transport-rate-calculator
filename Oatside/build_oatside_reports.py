@@ -759,14 +759,15 @@ def load_billing_overrides() -> dict[tuple[str, date], dict[str, Any]]:
     return out
 
 
-def load_job_numbers() -> dict[tuple[str, date], str]:
-    """Load customer job numbers (เลขที่ใบงาน) keyed by (plate, date) → joined string.
+def load_job_numbers(fname: str = "oatside_job_numbers.json") -> dict[tuple[str, date], str]:
+    """Load job numbers (เลขที่ใบงาน) keyed by (plate, date) → joined string.
 
     Source: oatside_job_numbers.json (built by extract_job_numbers.py from the keyer
-    Daily file). Shape: {"jobs": {"PLATE|YYYY-MM-DD": ["TO-OTL...", ...]}}. Real job
-    numbers only (Thai-text notes already dropped at extraction). Missing file → empty.
+    Daily file) or oatside_customer_jobs.json (built by _match_customer_jobs_may.py
+    from the customer's monthly file). Shape: {"jobs": {"PLATE|YYYY-MM-DD": ["TO-OTL...", ...]}}.
+    Missing file → empty.
     """
-    path = _oatside_dir() / "oatside_job_numbers.json"
+    path = _oatside_dir() / fname
     out: dict[tuple[str, date], str] = {}
     if not path.is_file():
         return out
@@ -2812,7 +2813,7 @@ def unmatched_merged_trip_one_row_html(
         f"<td>{oi}</td><td>{oo}</td><td>{di}</td><td>{do}</td>"
         f"<td>{ow}</td><td>{trv}</td><td>{dw}</td>"
         f"<td>{fmt_hm(dwell_h)}</td><td>{fmt_hm(gap_h) if gap_h is not None else dash}</td>"
-        f"<td>{dash}</td>"  # เลขที่ใบงาน (unmatched → none)
+        f"<td>{dash}</td><td>{dash}</td>"  # เลขที่ใบงาน เดลี่+ลูกค้า (unmatched → none)
         f"<td>{dash}</td><td>{dash}</td><td>{dash}</td><td>{dash}</td><td>{dash}</td></tr>"
     )
 
@@ -3118,6 +3119,7 @@ def write_html(
     firsts = first_matched_trip_by_plate_dest(trips)
     first_no_work = first_no_work_trip_by_plate_recovery_day(trips, cfg)
     job_by_pd = load_job_numbers()  # (plate, dest_date) -> "เลขที่ใบงาน" (shown on first trip of the day)
+    cust_job_by_pd = load_job_numbers("oatside_customer_jobs.json")  # เลขใบงานจากไฟล์ลูกค้า (คอลัมน์แยก)
     ret_by_pd: dict[tuple[str, date], int] = {}
     deadhead_by_pd: dict[tuple[str, date], int] = {}
     for m in cfg.manual_return_trips:
@@ -3180,6 +3182,7 @@ def write_html(
             f"{_td_wait_h(t.origin_wait_h, _hi_o, False)}<td>{fmt_hm(t.travel_h)}</td>{_td_wait_h(t.dest_wait_h, _hi_d, True)}"
             f"<td>—</td><td>—</td>"
             f"<td>{esc(job_by_pd.get((str(t.plate), t.trip_date), '') if _first else '')}</td>"
+            f"<td>{esc(cust_job_by_pd.get((str(t.plate), t.trip_date), '') if _first else '')}</td>"
             f"{money}</tr>"
         )
 
@@ -3214,6 +3217,7 @@ def write_html(
             f"{_td_wait_h(t.origin_wait_h, _hi_o, False)}<td>{fmt_hm(t.travel_h)}</td>{_td_wait_h(t.dest_wait_h, _hi_d, True)}"
             f"<td>—</td><td>—</td>"
             f"<td>{esc(job_by_pd.get((str(t.plate), t.trip_date), '') if _first else '')}</td>"
+            f"<td>{esc(cust_job_by_pd.get((str(t.plate), t.trip_date), '') if _first else '')}</td>"
             f"{money}</tr>"
         )
 
@@ -3358,7 +3362,7 @@ def write_html(
 <div class='filter-bar'><label for='tripsPlateFilter'>กรองทะเบียน</label><select id='tripsPlateFilter'><option value=''>ทุกคัน</option>{_trips_plate_opts}</select><label for='tripsPlateQuery' style='margin-left:6px'>ค้นหา</label><input id='tripsPlateQuery' type='search' placeholder='พิมพ์ค้นหา...' autocomplete='off'></div>
 <details class='col-picker' id='tripsAllTableColPicker'><summary>แสดง / ซ่อนคอลัมน์ (เลือกได้เหมือน Excel)</summary><div class='col-picker-grid' id='tripsAllTableColInner'></div><p style='margin:0 0 10px'><button type='button' class='xlsx-dl' id='tripsAllTableColReset'>แสดงทุกคอลัมน์</button></p></details>
 <div class='export-bar'><button type='button' class='exp-btn' id='tripsAllTableExpPrint'>🖨️ พิมพ์ / PDF (เปิดหน้าตารางแยก)</button><button type='button' class='exp-btn' id='tripsAllTableExpXls'>📊 Excel (ตามที่เห็น)</button><button type='button' class='exp-btn' id='tripsAllTableExpPng'>🖼️ บันทึกรูป PNG</button></div>
-<div class='table-scroll'><table id='tripsAllTable'><thead><tr><th title='วันงานที่ Origin + เวลาเข้าโหลด'>วัน Origin</th><th title='วันงานที่ปลายทาง + เวลาเข้า'>วัน Dest</th><th>Site</th><th>ทะเบียน</th><th>Origin In</th><th>Origin Out</th><th>Dest In</th><th>Dest Out</th><th>Orig Wait</th><th>Travel</th><th>Dest Wait</th><th>อยู่จุด UM (ชม.)</th><th>ถึงเข้าครั้งถัดไป (ชม.)</th><th>เลขที่ใบงาน</th><th>ค่าขนส่ง(฿)</th><th>เสียเวลา+50%(฿)</th><th>เสียเวลา+100%(฿)</th><th>ตีเปล่า+50%(฿)</th><th>ขากลับ(฿)</th></tr></thead><tbody>
+<div class='table-scroll'><table id='tripsAllTable'><thead><tr><th title='วันงานที่ Origin + เวลาเข้าโหลด'>วัน Origin</th><th title='วันงานที่ปลายทาง + เวลาเข้า'>วัน Dest</th><th>Site</th><th>ทะเบียน</th><th>Origin In</th><th>Origin Out</th><th>Dest In</th><th>Dest Out</th><th>Orig Wait</th><th>Travel</th><th>Dest Wait</th><th>อยู่จุด UM (ชม.)</th><th>ถึงเข้าครั้งถัดไป (ชม.)</th><th title='จากเดลี่คนคีย์ (ไม่ครบทุกคัน)'>เลขที่ใบงาน (เดลี่)</th><th title='จากไฟล์ลูกค้า จับคู่ตามทะเบียน+วันใกล้เวลารถออกต้นทาง'>เลขใบงาน (ลูกค้า)</th><th>ค่าขนส่ง(฿)</th><th>เสียเวลา+50%(฿)</th><th>เสียเวลา+100%(฿)</th><th>ตีเปล่า+50%(฿)</th><th>ขากลับ(฿)</th></tr></thead><tbody>
 {merged_all_rows}
 </tbody></table></div></div>
 """
@@ -3440,7 +3444,7 @@ def write_html(
 <div class='panel'><h3>รายเที่ยว (matched + unmatched)</h3>
 <p class='sub'>เรียงตามเวลา (matched ใช้ Origin In · unmatched ใช้เวลาขา Origin/Destination) — UM-O/UM-D เว้นฝั่งที่ยังไม่มีคู่เป็น —<br>หัวตารางล่างเลื่อนตามแบบ freeze แถว (เลื่อนในกรอบ)</p>
 <details class='col-picker' id='plateTripsTableColPicker'><summary>แสดง / ซ่อนคอลัมน์ (เลือกได้เหมือน Excel)</summary><div class='col-picker-grid' id='plateTripsTableColInner'></div><p style='margin:0 0 10px'><button type='button' class='xlsx-dl' id='plateTripsTableColReset'>แสดงทุกคอลัมน์</button></p></details>
-<div class='table-scroll'><table id='plateTripsTable'><thead><tr><th title='วันงานที่ Origin + เวลาเข้าโหลด'>วัน Origin</th><th title='วันงานที่ปลายทาง + เวลาเข้า'>วัน Dest</th><th>Site</th><th>Origin In</th><th>Origin Out</th><th>Dest In</th><th>Dest Out</th><th>Orig Wait</th><th>Travel</th><th>Dest Wait</th><th>อยู่จุด UM (ชม.)</th><th>ถึงเข้าครั้งถัดไป (ชม.)</th><th>เลขที่ใบงาน</th><th>ค่าขนส่ง(฿)</th><th>เสียเวลา+50%(฿)</th><th>เสียเวลา+100%(฿)</th><th>ตีเปล่า+50%(฿)</th><th>ขากลับ(฿)</th></tr></thead><tbody>{merged_plate_rows}</tbody></table></div></div>
+<div class='table-scroll'><table id='plateTripsTable'><thead><tr><th title='วันงานที่ Origin + เวลาเข้าโหลด'>วัน Origin</th><th title='วันงานที่ปลายทาง + เวลาเข้า'>วัน Dest</th><th>Site</th><th>Origin In</th><th>Origin Out</th><th>Dest In</th><th>Dest Out</th><th>Orig Wait</th><th>Travel</th><th>Dest Wait</th><th>อยู่จุด UM (ชม.)</th><th>ถึงเข้าครั้งถัดไป (ชม.)</th><th title='จากเดลี่คนคีย์ (ไม่ครบทุกคัน)'>เลขที่ใบงาน (เดลี่)</th><th title='จากไฟล์ลูกค้า จับคู่ตามทะเบียน+วันใกล้เวลารถออกต้นทาง'>เลขใบงาน (ลูกค้า)</th><th>ค่าขนส่ง(฿)</th><th>เสียเวลา+50%(฿)</th><th>เสียเวลา+100%(฿)</th><th>ตีเปล่า+50%(฿)</th><th>ขากลับ(฿)</th></tr></thead><tbody>{merged_plate_rows}</tbody></table></div></div>
 {_COL_TOGGLE_JS}
 </body></html>"""
         (plates_dir / f"{p}.html").write_text(pg, encoding="utf-8")
