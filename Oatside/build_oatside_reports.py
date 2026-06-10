@@ -3167,6 +3167,14 @@ def write_html(
         _cj = cust_job_by_trip.get((str(_t.plate), str(_t.o_in)), [])
         if _cj:
             cust_job_html[id(_t)] = "<br>".join(esc(x) for x in _cj)
+    _n_cust_missing = sum(1 for _t in trips if id(_t) not in cust_job_html)
+
+    def _cust_cell(t: Trip) -> str:
+        # ลูกค้าแจ้งไม่จ่ายเที่ยวที่ไม่มีใบงาน → ช่องว่างต้องเด่นให้ไปไล่ตรวจใบงานจริง
+        cj = cust_job_html.get(id(t))
+        if cj:
+            return f"<td>{cj}</td>"
+        return "<td class='cust-missing' title='ไม่พบเลขใบงานในไฟล์ลูกค้า — ตรวจใบงานจริงก่อนวางบิล'>ไม่มีใบงาน</td>"
     ret_by_pd: dict[tuple[str, date], int] = {}
     deadhead_by_pd: dict[tuple[str, date], int] = {}
     for m in cfg.manual_return_trips:
@@ -3229,7 +3237,7 @@ def write_html(
             f"{_td_wait_h(t.origin_wait_h, _hi_o, False)}<td>{fmt_hm(t.travel_h)}</td>{_td_wait_h(t.dest_wait_h, _hi_d, True)}"
             f"<td>—</td><td>—</td>"
             f"<td>{daily_job_html.get(id(t), '')}</td>"
-            f"<td>{cust_job_html.get(id(t), '')}</td>"
+            f"{_cust_cell(t)}"
             f"{money}</tr>"
         )
 
@@ -3264,7 +3272,7 @@ def write_html(
             f"{_td_wait_h(t.origin_wait_h, _hi_o, False)}<td>{fmt_hm(t.travel_h)}</td>{_td_wait_h(t.dest_wait_h, _hi_d, True)}"
             f"<td>—</td><td>—</td>"
             f"<td>{daily_job_html.get(id(t), '')}</td>"
-            f"<td>{cust_job_html.get(id(t), '')}</td>"
+            f"{_cust_cell(t)}"
             f"{money}</tr>"
         )
 
@@ -3337,6 +3345,8 @@ def write_html(
         ".fulltrip{background:#e3f2fd;color:#0d47a1}.blankrun{background:#ede7f6;color:#4a148c}.dwell{background:#fff3e0;color:#bf360c}"
         "tr.um td{color:#5a3b00}"
         ".manual-extra{background:#ede7f6;color:#4a148c;font-weight:600}.return-trip{background:#e8f5e9;color:#1b5e20;font-weight:600}"
+        ".cust-missing{background:#ffe3e3;color:#b42318;font-weight:700}"
+        "tr.day-band-0 td.cust-missing,tr.day-band-1 td.cust-missing{background:#ffe3e3;color:#b42318;font-weight:700}"
         "tr.day-band-0 td{background:#fafcfe}tr.day-band-1 td{background:#e9f1fa}tr.day-band-0 td.wait-hi{background:#fff1cc;font-weight:600}tr.day-band-1 td.wait-hi{background:#ffecc4;font-weight:600}tr.day-band-0 td.wait-hi-dest{background:#ffe8c8;font-weight:600}tr.day-band-1 td.wait-hi-dest{background:#ffdfba;font-weight:600}""details.section-fold{margin-bottom:10px}""summary.section-sum{cursor:pointer;padding:10px 14px;background:#fff;border-radius:10px;font-weight:600;margin-bottom:6px;display:block;box-shadow:0 2px 8px rgba(16,24,40,.08);list-style:none}""summary.section-sum::-webkit-details-marker{display:none}"".filter-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 14px}"".filter-bar label{font-size:13px;color:#4b5b74}"".filter-bar select,.filter-bar input[type=search]{font:inherit;padding:6px 10px;border-radius:8px;border:1px solid #c5d0e0;background:#fff;min-width:160px}""summary.section-sum-row{display:flex!important;width:100%;box-sizing:border-box;justify-content:space-between;align-items:center;gap:12px;list-style:none}""summary.section-sum-row .sum-main{flex:1 1 auto;min-width:0;text-align:left}""summary.section-sum-row .sum-dl{margin-left:auto;flex:0 0 auto}"".xlsx-dl{font-size:12px;font-weight:700;color:#0b57d0;padding:5px 10px;border-radius:8px;border:1px solid #b8cff4;background:#eef5ff;white-space:nowrap}"".hero-trips{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;background:linear-gradient(135deg,#e8f1ff,#ffffff);border:1px solid #c5d0e0;border-radius:12px;padding:16px 18px;margin:12px 0 16px}"".hero-copy{max-width:720px}"".hero-tag{display:inline-block;font-size:11px;font-weight:700;color:#0b57d0;background:#e3eeff;border-radius:999px;padding:2px 10px;margin-bottom:6px}"".hero-title{font-size:20px;font-weight:800;color:#12243b;margin-bottom:4px}"".hero-sub{color:#4b5b74;font-size:13px;line-height:1.45}"".btn-primary{display:inline-block;padding:12px 18px;border-radius:10px;background:#0b57d0;color:#fff;font-weight:800;box-shadow:0 4px 12px rgba(11,87,208,.22)}"".btn-primary:hover{filter:brightness(1.05)}"".nav-secondary{margin:0 0 12px;font-size:13px;color:#4b5b74}"".panel-title-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}"".panel-title-row h3{margin:0}"".h1 .trips-tag{font-size:13px;font-weight:800;color:#0b57d0;margin-left:8px;vertical-align:middle}"".trips-lead{color:#4b5b74;font-size:14px;margin:-2px 0 10px}""details.col-picker{margin:8px 0 14px;border:1px solid #c5d0e0;border-radius:10px;padding:0 14px 4px;background:#fff}""details.col-picker summary{cursor:pointer;font-weight:700;padding:10px 0;font-size:13px;color:#12243b;list-style:none}""details.col-picker summary::-webkit-details-marker{display:none}"".col-picker-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px 16px;padding:4px 0 12px;font-size:13px}"".col-picker-grid label{display:flex;gap:8px;align-items:flex-start;cursor:pointer;line-height:1.35}"".col-picker-grid input{margin-top:3px;flex-shrink:0}"
         ".export-bar{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 12px}"
         ".exp-btn{font:inherit;font-size:13px;font-weight:700;cursor:pointer;color:#0b57d0;background:#eef5ff;border:1px solid #b8cff4;border-radius:8px;padding:8px 13px}"
@@ -3405,7 +3415,7 @@ def write_html(
 <div class='nav'><a href='index.html'>&larr; สรุปภาพรวม</a> · <a href='exports/00_Full_Workbook.xlsx'>Excel รวมทุกชีต</a></div>
 <div class='panel'><div class='panel-title-row'><h3>เที่ยวทั้งหมด (matched + unmatched)</h3><a class='xlsx-dl' href='exports/05_Trip_Detail.xlsx' download onclick='event.stopPropagation()'>ดาวน์โหลด Excel (Trip Detail)</a></div>
 <p class='sub'>เรียงตามเวลา (matched ใช้ Origin In · unmatched ใช้เวลาขา Origin/Destination) — UM-O/UM-D เว้นฝั่งที่ยังไม่มีคู่เป็น —<br>
-<b>ค่าเงิน:</b> ค่าขนส่ง = เรทวัน Dest_In ของเที่ยวนั้น · <b>เสียเวลา+50%/+100%</b> = ยอดรวมส่วนเพิ่ม fifty ของ (ทะเบียน×วัน Dest_In) แสดงที่แถวแรกของวันนั้น — <b>ไม่ได้คิดจากชั่วโมงในช่อง Dest Wait โดยตรง</b> (สีส้ม = แค่เตือนว่ารอปลายทางเกินเกณฑ์) · <b>ขากลับ(฿)</b> = ยอดจาก <code>manual_return_trips</code> แสดงที่แถวแรกของวันนั้น (ไม่เพิ่มจำนวนเที่ยว matched)</p>
+<b>ค่าเงิน:</b> ค่าขนส่ง = เรทวัน Dest_In ของเที่ยวนั้น · <b>เสียเวลา+50%/+100%</b> = ยอดรวมส่วนเพิ่ม fifty ของ (ทะเบียน×วัน Dest_In) แสดงที่แถวแรกของวันนั้น — <b>ไม่ได้คิดจากชั่วโมงในช่อง Dest Wait โดยตรง</b> (สีส้ม = แค่เตือนว่ารอปลายทางเกินเกณฑ์) · <b>ขากลับ(฿)</b> = ยอดจาก <code>manual_return_trips</code> แสดงที่แถวแรกของวันนั้น (ไม่เพิ่มจำนวนเที่ยว matched) · <b style='color:#b42318'>ช่องแดง ไม่มีใบงาน = ไม่พบเลขใบงานในไฟล์ลูกค้า ({_n_cust_missing} เที่ยว) — รอตรวจกับใบงานจริง</b></p>
 <div class='filter-bar'><label for='tripsPlateFilter'>กรองทะเบียน</label><select id='tripsPlateFilter'><option value=''>ทุกคัน</option>{_trips_plate_opts}</select><label for='tripsPlateQuery' style='margin-left:6px'>ค้นหา</label><input id='tripsPlateQuery' type='search' placeholder='พิมพ์ค้นหา...' autocomplete='off'></div>
 <details class='col-picker' id='tripsAllTableColPicker'><summary>แสดง / ซ่อนคอลัมน์ (เลือกได้เหมือน Excel)</summary><div class='col-picker-grid' id='tripsAllTableColInner'></div><p style='margin:0 0 10px'><button type='button' class='xlsx-dl' id='tripsAllTableColReset'>แสดงทุกคอลัมน์</button></p></details>
 <div class='export-bar'><button type='button' class='exp-btn' id='tripsAllTableExpPrint'>🖨️ พิมพ์ / PDF (เปิดหน้าตารางแยก)</button><button type='button' class='exp-btn' id='tripsAllTableExpXls'>📊 Excel (ตามที่เห็น)</button><button type='button' class='exp-btn' id='tripsAllTableExpPng'>🖼️ บันทึกรูป PNG</button></div>
