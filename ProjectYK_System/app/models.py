@@ -1236,6 +1236,48 @@ class ImportLog(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class DispatchPlan(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    plan_date: date = Field(index=True)
+    site_code: str = Field(index=True)
+    status: str = Field(default="draft", index=True)  # draft | submitted
+    created_by: str = Field(default="")
+    submitted_at: Optional[datetime] = None
+    line_message_cache: str = ""
+    notes: str = ""
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class DispatchPlanLine(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    plan_id: int = Field(foreign_key="dispatchplan.id", index=True)
+    seq: int = Field(default=0)
+    vehicle_id: Optional[int] = Field(default=None, foreign_key="vehicle.id")
+    plate_raw: str = ""
+    driver_id: Optional[int] = Field(default=None, foreign_key="employee.id")
+    driver_raw: str = ""
+    job_type: str = ""  # Haier | KAO | Conti | Lacation | KATOEN | คลังวาฬ | ฟรีโซน | เหรินเหอ | Oatside
+    trips: int = Field(default=1)
+    fuel_liters: float = Field(default=0.0)
+    container_no: str = ""
+    notes: str = ""
+    daily_job_id: Optional[int] = Field(default=None, foreign_key="dailyjob.id")
+
+
+class DispatchPlanAudit(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    plan_id: int = Field(foreign_key="dispatchplan.id", index=True)
+    line_id: Optional[int] = Field(default=None)
+    changed_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    changed_by: str = ""
+    action: str = ""  # add_line | edit_line | delete_line | submit | reopen
+    field_name: str = ""
+    old_value: str = ""
+    new_value: str = ""
+    note: str = ""
+
+
 TRIP_TYPE_CODES_BY_SITE: dict[str, tuple[tuple[str, str], ...]] = {
     "AYU": (
         ("",         "— ไม่ระบุ —"),

@@ -1,12 +1,25 @@
 {% extends "base.html" %}
 {% block title %}น้ำมัน · Fuel{% endblock %}
 {% block content %}
+
 <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-  <h1 class="text-2xl font-bold">น้ำมัน · {{ total_rows }} การเติม <span class="text-sm text-slate-500 font-normal">(หน้า {{ page }}/{{ total_pages }})</span></h1>
-  <div class="flex gap-2">
-    <a href="/fuel/new" class="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-700">+ เพิ่มการเติม</a>
+  <h1 class="text-2xl font-bold">น้ำมัน · Fuel
+    <span class="text-sm text-slate-500 font-normal">{{ total_rows }} รายการ{% if capped %} · แสดงสูงสุด 2,000{% endif %}</span>
+  </h1>
+  <div class="flex gap-2 items-center">
+    <button type="button" id="saveFuelBtn" class="bg-emerald-600 text-white px-4 py-1.5 rounded text-sm hover:bg-emerald-700">Save</button>
+    <span id="saveFuelMsg" class="text-xs text-slate-500"></span>
+    <a href="/fuel/new" class="bg-slate-900 text-white px-4 py-1.5 rounded-lg hover:bg-slate-700 text-sm">+ เพิ่มการเติม</a>
   </div>
 </div>
+
+{% if capped %}
+<div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-2 text-xs mb-3">
+  ⚠ รายการเกิน 2,000 แถว — ใช้ตัวกรองเพิ่มเติมเพื่อดูครบทุกรายการ
+</div>
+{% endif %}
+
+<div id="saveFuelDetails" class="hidden rounded-lg border p-3 text-xs mb-3"></div>
 
 <form method="get" class="bg-white rounded-lg border p-4 mb-4 grid md:grid-cols-6 gap-3 items-end">
   <div>
@@ -62,124 +75,382 @@
   <div class="md:col-span-6 border-t pt-3">
     <div class="text-xs text-slate-500 mb-1">Preset เร็ว (เดือนปฏิทินปัจจุบัน)</div>
     <div class="flex flex-wrap gap-2 text-xs">
-      <a href="/fuel?site=BIGC&amp;d_from={{ current_month_start }}&amp;d_to={{ current_month_end }}&amp;per_page={{ per_page }}"
+      <a href="/fuel?site=BIGC&amp;d_from={{ current_month_start }}&amp;d_to={{ current_month_end }}"
          class="px-2 py-1 rounded border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100">BigC เดือนนี้</a>
-      <a href="/fuel?site=LCB&amp;d_from={{ current_month_start }}&amp;d_to={{ current_month_end }}&amp;per_page={{ per_page }}"
+      <a href="/fuel?site=LCB&amp;d_from={{ current_month_start }}&amp;d_to={{ current_month_end }}"
          class="px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">LCB เดือนนี้</a>
-      <a href="/fuel?site=AYU&amp;d_from={{ current_month_start }}&amp;d_to={{ current_month_end }}&amp;per_page={{ per_page }}"
+      <a href="/fuel?site=AYU&amp;d_from={{ current_month_start }}&amp;d_to={{ current_month_end }}"
          class="px-2 py-1 rounded border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">AYU เดือนนี้</a>
-      <a href="/fuel?linked=no&amp;d_from={{ current_month_start }}&amp;d_to={{ current_month_end }}&amp;per_page={{ per_page }}"
+      <a href="/fuel?linked=no&amp;d_from={{ current_month_start }}&amp;d_to={{ current_month_end }}"
          class="px-2 py-1 rounded border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100">ยังไม่เชื่อม Job · เดือนนี้</a>
     </div>
   </div>
 </form>
 
-<div class="grid grid-cols-3 gap-4 mb-4">
-  <div class="bg-white border rounded-lg p-4">
-    <div class="text-xs text-slate-500">รวมลิตร</div>
-    <div class="text-xl font-semibold">{{ "%.1f"|format(total_liter) }} L</div>
-  </div>
-  <div class="bg-white border rounded-lg p-4">
-    <div class="text-xs text-slate-500">รวมค่าน้ำมัน</div>
-    <div class="text-xl font-semibold text-red-600">฿{{ "%.0f"|format(total_amount) }}</div>
-  </div>
-  <div class="bg-white border rounded-lg p-4">
-    <div class="text-xs text-slate-500">เฉลี่ย ฿/L</div>
-    <div class="text-xl font-semibold text-amber-700">฿{{ "%.2f"|format(avg_price) }}</div>
-  </div>
+<!-- Subtotal mode selector -->
+<div class="flex items-center gap-4 text-xs mb-2 bg-white border rounded-lg px-3 py-2 flex-wrap">
+  <span class="text-slate-500 font-medium shrink-0">Subtotal:</span>
+  <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="calcMode" value="sum" checked class="accent-indigo-600"> ผลรวม</label>
+  <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="calcMode" value="avg" class="accent-indigo-600"> เฉลี่ย</label>
+  <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="calcMode" value="cnt" class="accent-indigo-600"> นับ(ทุก)</label>
+  <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="calcMode" value="cnt_ne" class="accent-indigo-600"> นับ(ไม่นับว่าง)</label>
+  <span class="text-slate-400 ml-1 shrink-0">· คอลัมน์ที่มี ✎ แก้ได้ · ต้องกด Save · เลือกแถว: คลิก / Shift+คลิก</span>
 </div>
 
-<div class="bg-white rounded-lg border overflow-x-auto">
-  <table class="w-full text-sm">
-    <thead class="bg-slate-100 text-left">
-      <tr>
-        <th class="px-2 py-2">วันที่</th>
-        <th class="px-2 py-2">ไซต์</th>
-        <th class="px-2 py-2">ทะเบียน</th>
-        <th class="px-2 py-2">คนขับ</th>
-        <th class="px-2 py-2 text-right">ลิตร</th>
-        <th class="px-2 py-2 text-right">บาท</th>
-        <th class="px-2 py-2 text-right">฿/L</th>
-        <th class="px-2 py-2 text-right">ไมล์</th>
-        <th class="px-2 py-2 text-right">เรท กม/L</th>
-        <th class="px-2 py-2">ปั๊ม</th>
-        <th class="px-2 py-2">Job</th>
-        <th class="px-2 py-2">ที่มา</th>
-        <th class="px-2 py-2"></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for r in rows %}
-      <tr class="border-t hover:bg-slate-50">
-        <td class="px-2 py-2 whitespace-nowrap">{{ r.txn_date | dmy }}</td>
-        <td class="px-2 py-2">{{ r.site_code }}</td>
-        <td class="px-2 py-2 font-mono text-xs">{{ r.plate_no_raw }}</td>
-        <td class="px-2 py-2">{{ r.driver_raw_name }}</td>
-        <td class="px-2 py-2 text-right">{{ "%.1f"|format(r.liter) if r.liter else "" }}</td>
-        <td class="px-2 py-2 text-right font-semibold text-red-600">{{ "%.0f"|format(r.amount) if r.amount else "" }}</td>
-        <td class="px-2 py-2 text-right text-xs">{{ "%.2f"|format(r.price_per_liter) if r.price_per_liter else "" }}</td>
-        <td class="px-2 py-2 text-right text-xs">{{ "%.0f"|format(r.mile_snapshot) if r.mile_snapshot else "" }}</td>
-        <td class="px-2 py-2 text-right text-xs">{{ "%.2f"|format(r.rate_km_per_l) if r.rate_km_per_l else "" }}</td>
-        <td class="px-2 py-2 text-xs">{{ r.station }}</td>
-        <td class="px-2 py-2 text-xs">
-          {% if r.daily_job_id %}<a href="/daily" class="text-blue-600">#{{ r.daily_job_id }}</a>
-          {% else %}<span class="text-amber-600 text-[10px]">ยังไม่เชื่อม</span>{% endif %}
-        </td>
-        <td class="px-2 py-2 text-xs">
-          {% if r.source == 'caltex' %}
-            <span class="inline-block px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px]">Caltex</span>
-          {% elif r.source == 'import_daily' %}
-            <span class="inline-block px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 text-[10px]">Daily</span>
-          {% elif r.source == 'manual' %}
-            <span class="inline-block px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px]">คีย์มือ</span>
-          {% else %}
-            <span class="text-slate-400 text-[10px]">{{ r.source }}</span>
-          {% endif %}
-        </td>
-        <td class="px-2 py-2 whitespace-nowrap">
-          <a href="/fuel/{{ r.id }}/edit" class="text-blue-600 hover:underline text-xs">แก้</a>
-          <form method="post" action="/fuel/{{ r.id }}/delete" onsubmit="return confirm('ลบรายการนี้?');" class="inline ml-2">
-            <button class="text-red-500 hover:underline text-xs">ลบ</button>
-          </form>
-        </td>
-      </tr>
-      {% else %}
-      <tr><td colspan="13" class="px-3 py-8 text-center text-slate-400">ยังไม่มีรายการ</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="bg-white rounded-lg border p-2">
+  <div id="fuelGridTable" class="w-full"></div>
 </div>
 
-{% if total_pages > 1 %}
-{% set qs = '' %}
-{% if site %}{% set qs = qs + '&site=' + site %}{% endif %}
-{% if d_from %}{% set qs = qs + '&d_from=' + d_from %}{% endif %}
-{% if d_to %}{% set qs = qs + '&d_to=' + d_to %}{% endif %}
-{% if plate %}{% set qs = qs + '&plate=' + plate %}{% endif %}
-{% if driver %}{% set qs = qs + '&driver=' + driver %}{% endif %}
-{% if station %}{% set qs = qs + '&station=' + station %}{% endif %}
-{% if source %}{% set qs = qs + '&source=' + source %}{% endif %}
-{% if linked %}{% set qs = qs + '&linked=' + linked %}{% endif %}
-{% set qs = qs + '&per_page=' + per_page|string %}
-<div class="flex items-center justify-center gap-1 mt-4 flex-wrap text-sm">
-  {% if page > 1 %}
-    <a href="?page=1{{ qs }}" class="px-3 py-1 border rounded hover:bg-slate-100">« หน้าแรก</a>
-    <a href="?page={{ page-1 }}{{ qs }}" class="px-3 py-1 border rounded hover:bg-slate-100">‹ ก่อนหน้า</a>
-  {% endif %}
-  <span class="px-3 py-1">หน้า {{ page }} / {{ total_pages }}</span>
-  {% if page < total_pages %}
-    <a href="?page={{ page+1 }}{{ qs }}" class="px-3 py-1 border rounded hover:bg-slate-100">ถัดไป ›</a>
-    <a href="?page={{ total_pages }}{{ qs }}" class="px-3 py-1 border rounded hover:bg-slate-100">สุดท้าย »</a>
-  {% endif %}
-  <span class="text-xs text-slate-500 ml-2">ไปหน้า:</span>
-  <select onchange="if(this.value) window.location.href='?page='+this.value+'{{ qs }}'"
-          class="px-2 py-1 border rounded text-xs">
-    <option value="">เลือก…</option>
-    {% for p in range(1, total_pages + 1) %}
-      <option value="{{ p }}" {% if p == page %}selected{% endif %}>{{ p }}/{{ total_pages }}</option>
-    {% endfor %}
-  </select>
-  <span class="ml-4 text-xs text-slate-500">แสดง {{ per_page }}/หน้า</span>
+<!-- Selection status bar (fixed at bottom) -->
+<div id="ykSelBar" class="hidden fixed bottom-0 left-0 right-0 bg-slate-800 text-white text-xs px-4 py-2 flex items-center gap-5 z-50 shadow-2xl">
+  <span class="font-semibold shrink-0" id="ykSelCount">0 แถวที่เลือก</span>
+  <span class="shrink-0">ลิตร: <strong id="ykSelLiterSum">0</strong> <span class="text-slate-400">avg</span> <strong id="ykSelLiterAvg">-</strong></span>
+  <span class="shrink-0">บาท: <strong id="ykSelAmountSum">0</strong> <span class="text-slate-400">avg</span> <strong id="ykSelAmountAvg">-</strong></span>
+  <span class="shrink-0">฿/L avg: <strong id="ykSelPriceAvg">-</strong></span>
+  <button id="ykSelClear" type="button" class="ml-auto text-slate-400 hover:text-white">✕ ยกเลิก</button>
 </div>
-{% endif %}
+
+<script src="https://unpkg.com/tabulator-tables@6.2.1/dist/js/tabulator.min.js"></script>
+<link href="https://unpkg.com/tabulator-tables@6.2.1/dist/css/tabulator.min.css" rel="stylesheet" />
+<style>
+  .yk-grid-dirty-cell { background: #fef3c7 !important; box-shadow: inset 0 -2px 0 #f59e0b; }
+  .yk-grid-dirty-row .tabulator-cell:first-child { border-left: 3px solid #f59e0b; }
+  .tabulator .tabulator-row.tabulator-selected { background: #dbeafe !important; }
+  .tabulator .tabulator-row.tabulator-selected:hover { background: #bfdbfe !important; }
+  .tabulator .tabulator-header .tabulator-col .tabulator-header-filter input,
+  .tabulator .tabulator-header .tabulator-col .tabulator-header-filter select {
+    background: #f0f9ff !important; border: 1px solid #7dd3fc !important;
+    border-radius: 3px; font-size: 11px; padding: 2px 4px; width: 100%; box-sizing: border-box;
+  }
+  .tabulator .tabulator-header .tabulator-col .tabulator-header-filter input::placeholder { color: #94a3b8; font-style: italic; }
+  .tabulator .tabulator-calcs-bottom .tabulator-cell { background: #f1f5f9; font-weight: 600; font-size: 11px; color: #1e40af; }
+</style>
+<script>
+(function(){
+  const ROWS = {{ rows_json | safe }};
+
+  const saveBtn     = document.getElementById("saveFuelBtn");
+  const saveMsg     = document.getElementById("saveFuelMsg");
+  const saveDetails = document.getElementById("saveFuelDetails");
+  const selBar      = document.getElementById("ykSelBar");
+
+  let dirtyRows = new Map();
+  let calcMode  = "sum";
+
+  const NUM_FIELDS = new Set(["liter","amount","price_per_liter","rate_km_per_l","mile_snapshot"]);
+
+  function makeCalc() {
+    return function(values) {
+      const ne = values.filter(v => v !== null && v !== undefined && v !== "" && !isNaN(parseFloat(v)));
+      if (calcMode === "sum") return Math.round(ne.reduce((s,v)=>s+parseFloat(v),0)*100)/100;
+      if (calcMode === "avg") return ne.length ? Math.round(ne.reduce((s,v)=>s+parseFloat(v),0)/ne.length*100)/100 : "";
+      if (calcMode === "cnt") return values.length;
+      if (calcMode === "cnt_ne") return ne.length;
+      return "";
+    };
+  }
+
+  function updateDirtyFeedback(){
+    const n = dirtyRows.size;
+    saveBtn.textContent = n ? `Save (${n})` : "Save";
+    saveMsg.textContent = n ? `ยังไม่บันทึก ${n} แถว` : "";
+    saveMsg.className   = n ? "text-xs text-amber-700" : "text-xs text-slate-500";
+  }
+
+  // ── Excel dropdown filter (same pattern as daily_grid) ──────────────────────
+  function makeExcelFilter(fieldName) {
+    return function(cell, onRendered, success) {
+      let sel = new Set(["__ALL__"]);
+      let pop = null;
+      const btn = document.createElement("button");
+      btn.type = "button";
+
+      function styleBtn() {
+        const all = sel.has("__ALL__");
+        btn.textContent = all ? "ทั้งหมด ▾" : sel.size + " เลือก ▾";
+        btn.style.cssText = "width:100%;text-align:left;font-size:11px;padding:1px 4px;" +
+          "border:1px solid #7dd3fc;border-radius:3px;background:#f0f9ff;cursor:pointer;" +
+          "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" +
+          "color:" + (all ? "#0369a1" : "#b45309") + ";font-weight:" + (all ? "normal" : "600") + ";";
+      }
+      styleBtn();
+
+      function getVals() {
+        const m = new Map();
+        ROWS.forEach(r => {
+          const v = r[fieldName];
+          const k = (v == null || v === "") ? "\0BLANK" : String(v);
+          m.set(k, (m.get(k)||0)+1);
+        });
+        return [...m.entries()].sort(([a],[b]) => a==="\0BLANK"?1:b==="\0BLANK"?-1:a.localeCompare(b,"th"));
+      }
+
+      function closePop() { if (pop) { pop.remove(); pop = null; } }
+      function applyFilter() { success(sel.has("__ALL__")||sel.size===0 ? null : new Set(sel)); styleBtn(); }
+
+      function openPop() {
+        closePop();
+        const entries = getVals();
+        const rect = btn.getBoundingClientRect();
+        pop = document.createElement("div");
+        pop.style.cssText =
+          "position:fixed;z-index:9999;background:#fff;border:1px solid #cbd5e1;" +
+          "border-radius:6px;box-shadow:0 4px 24px rgba(0,0,0,.18);" +
+          "display:flex;flex-direction:column;min-width:200px;max-width:290px;max-height:340px;font-size:12px;" +
+          "left:"+Math.min(rect.left,innerWidth-300)+"px;top:"+Math.min(rect.bottom+2,innerHeight-350)+"px;";
+
+        const si = document.createElement("input");
+        si.type = "text"; si.placeholder = "🔍 ค้นหา…";
+        si.style.cssText = "margin:6px;padding:3px 6px;border:1px solid #94a3b8;border-radius:3px;" +
+          "font-size:11px;box-sizing:border-box;width:calc(100% - 12px);";
+        pop.appendChild(si);
+
+        const ul = document.createElement("div");
+        ul.style.cssText = "overflow-y:auto;flex:1;padding:2px 4px;";
+        pop.appendChild(ul);
+
+        const ft = document.createElement("div");
+        ft.style.cssText = "display:flex;gap:4px;padding:6px;border-top:1px solid #e2e8f0;flex-shrink:0;";
+        [["ใช้ตัวกรอง",false],["ล้าง",true]].forEach(([t,isClear]) => {
+          const b = document.createElement("button"); b.type = "button"; b.textContent = t;
+          b.style.cssText = "flex:1;border-radius:4px;padding:4px;font-size:11px;cursor:pointer;" +
+            "border:1px solid "+(isClear?"#e2e8f0":"transparent")+";" +
+            "background:"+(isClear?"#f8fafc":"#0284c7")+";color:"+(isClear?"#334155":"#fff")+";";
+          b.onclick = isClear ? ()=>{sel=new Set(["__ALL__"]);applyFilter();closePop();} : ()=>{applyFilter();closePop();};
+          ft.appendChild(b);
+        });
+        pop.appendChild(ft);
+
+        function mkRow(key, label, count) {
+          const row = document.createElement("label");
+          row.style.cssText = "display:flex;align-items:center;gap:5px;padding:2px 3px;border-radius:3px;cursor:pointer;";
+          row.onmouseenter = () => row.style.background = "#f8fafc";
+          row.onmouseleave = () => row.style.background = "";
+          const chk = document.createElement("input"); chk.type="checkbox"; chk.value=key;
+          chk.style.cssText = "accent-color:#0284c7;flex-shrink:0;";
+          chk.checked = sel.has("__ALL__") || sel.has(key);
+          chk.onchange = () => {
+            if (key === "__ALL__") {
+              sel = chk.checked ? new Set(["__ALL__"]) : new Set();
+              ul.querySelectorAll("input").forEach(c => c.checked = chk.checked);
+            } else {
+              if (sel.has("__ALL__")) { sel = new Set(entries.map(([k]) => k)); }
+              sel.delete("__ALL__"); chk.checked ? sel.add(key) : sel.delete(key);
+              const ac = ul.querySelector("input[value='__ALL__']");
+              if (ac) { const ak=entries.map(([k])=>k); ac.checked=ak.every(k=>sel.has(k)); if(ac.checked)sel=new Set(["__ALL__"]); }
+            }
+          };
+          const sp = document.createElement("span"); sp.textContent = label;
+          sp.style.cssText = "flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" +
+            (key==="\0BLANK"?"color:#94a3b8;font-style:italic;":"") + (key==="__ALL__"?"font-weight:600;":"");
+          const cn = document.createElement("span"); cn.textContent = count;
+          cn.style.cssText = "color:#94a3b8;font-size:10px;flex-shrink:0;";
+          row.append(chk, sp, cn); return row;
+        }
+
+        function renderList(q) {
+          ul.innerHTML = "";
+          const total = entries.reduce((s,[,c])=>s+c,0);
+          ul.appendChild(mkRow("__ALL__","✓ ทั้งหมด",total));
+          entries.forEach(([k,c]) => {
+            const lbl = k==="\0BLANK" ? "(ว่าง)" : k;
+            if (q && k!=="\0BLANK" && !lbl.toLowerCase().includes(q.toLowerCase())) return;
+            ul.appendChild(mkRow(k,lbl,c));
+          });
+        }
+
+        renderList("");
+        si.addEventListener("input", () => renderList(si.value));
+        document.body.appendChild(pop); si.focus();
+        setTimeout(() => {
+          const h = e => { if(pop&&!pop.contains(e.target)&&e.target!==btn){closePop();document.removeEventListener("mousedown",h);} };
+          document.addEventListener("mousedown", h);
+        }, 0);
+      }
+
+      btn.addEventListener("click", e => { e.stopPropagation(); pop ? closePop() : openPop(); });
+      onRendered(styleBtn);
+      return btn;
+    };
+  }
+
+  function excelFilterFunc(headerValue, rowValue) {
+    if (!headerValue || !(headerValue instanceof Set) || headerValue.has("__ALL__")) return true;
+    const v = (rowValue==null||rowValue==="") ? "\0BLANK" : String(rowValue);
+    return headerValue.has(v);
+  }
+
+  // ── Tabulator ───────────────────────────────────────────────────────────────
+  const SOURCE_BADGES = {
+    caltex:       { lbl:"Caltex",   bg:"#d1fae5", fg:"#065f46" },
+    import_daily: { lbl:"Daily",    bg:"#e0f2fe", fg:"#0369a1" },
+    manual:       { lbl:"คีย์มือ", bg:"#f1f5f9", fg:"#475569" },
+  };
+
+  const table = new Tabulator("#fuelGridTable", {
+    data: ROWS,
+    layout: "fitDataStretch",
+    height: "75vh",
+    movableColumns: true,
+    clipboard: true,
+    selectable: true,
+    headerFilterLiveFilterDelay: 300,
+    columns: [
+      // Checkbox select column
+      { formatter:"rowSelection", titleFormatter:"rowSelection", hozAlign:"center",
+        headerSort:false, frozen:true, width:36, clipboard:false, resizable:false },
+      // Actions column
+      {
+        title: "",
+        field: "_actions",
+        frozen: true,
+        headerSort: false,
+        width: 80,
+        clipboard: false,
+        formatter: function(cell) {
+          const id = cell.getRow().getData().id;
+          return `<a href="/fuel/${id}/edit" style="color:#0369a1;text-decoration:underline;font-size:12px;">แก้</a>` +
+            `<button style="color:#dc2626;text-decoration:underline;font-size:12px;margin-left:6px;background:none;border:none;cursor:pointer;"` +
+            ` onclick="if(confirm('ลบรายการนี้?')){var f=document.createElement('form');f.method='post';` +
+            `f.action='/fuel/${id}/delete';document.body.appendChild(f);f.submit();}">ลบ</button>`;
+        },
+      },
+      // Date
+      { title:"วันที่ ✎",         field:"txn_date",        editor:"input",  hozAlign:"left",  headerFilter:makeExcelFilter("txn_date"),        headerFilterFunc:excelFilterFunc },
+      // Site
+      { title:"ไซต์ ✎",           field:"site_code",       editor:"list",   hozAlign:"left",
+        editorParams:{ values:["LCB","AYU","BIGC","CJ"], clearable:true },
+        headerFilter:makeExcelFilter("site_code"),  headerFilterFunc:excelFilterFunc },
+      // Plate
+      { title:"ทะเบียน ✎",        field:"plate_no_raw",    editor:"input",  hozAlign:"left",  headerFilter:makeExcelFilter("plate_no_raw"),    headerFilterFunc:excelFilterFunc },
+      // Driver
+      { title:"คนขับ ✎",          field:"driver_raw_name", editor:"input",  hozAlign:"left",  headerFilter:makeExcelFilter("driver_raw_name"), headerFilterFunc:excelFilterFunc },
+      // Liter
+      { title:"ลิตร ✎",           field:"liter",           editor:"number", hozAlign:"right",
+        headerFilter:makeExcelFilter("liter"),  headerFilterFunc:excelFilterFunc, bottomCalc:makeCalc() },
+      // Amount
+      { title:"บาท ✎",            field:"amount",          editor:"number", hozAlign:"right",
+        headerFilter:makeExcelFilter("amount"), headerFilterFunc:excelFilterFunc, bottomCalc:makeCalc() },
+      // Price per liter
+      { title:"฿/L ✎",            field:"price_per_liter", editor:"number", hozAlign:"right",
+        headerFilter:makeExcelFilter("price_per_liter"), headerFilterFunc:excelFilterFunc, bottomCalc:makeCalc() },
+      // Mile snapshot
+      { title:"ไมล์ ✎",           field:"mile_snapshot",   editor:"number", hozAlign:"right",
+        headerFilter:makeExcelFilter("mile_snapshot"),   headerFilterFunc:excelFilterFunc, bottomCalc:makeCalc() },
+      // Rate km/L
+      { title:"กม/L ✎",           field:"rate_km_per_l",   editor:"number", hozAlign:"right",
+        headerFilter:makeExcelFilter("rate_km_per_l"),   headerFilterFunc:excelFilterFunc, bottomCalc:makeCalc() },
+      // Station
+      { title:"ปั๊ม ✎",           field:"station",         editor:"input",  hozAlign:"left",
+        headerFilter:makeExcelFilter("station"), headerFilterFunc:excelFilterFunc },
+      // Linked job (read only)
+      {
+        title: "Job",
+        field: "daily_job_id",
+        editor: false,
+        hozAlign: "left",
+        headerFilter: makeExcelFilter("daily_job_id"),
+        headerFilterFunc: excelFilterFunc,
+        formatter: function(cell) {
+          const v = cell.getValue();
+          if (v) return `<a href="/daily" style="color:#2563eb;font-size:12px;">#${v}</a>`;
+          return `<span style="color:#d97706;font-size:10px;">ยังไม่เชื่อม</span>`;
+        },
+      },
+      // Source (read only)
+      {
+        title: "ที่มา",
+        field: "source",
+        editor: false,
+        hozAlign: "left",
+        headerFilter: makeExcelFilter("source"),
+        headerFilterFunc: excelFilterFunc,
+        formatter: function(cell) {
+          const v = cell.getValue();
+          const b = SOURCE_BADGES[v];
+          if (b) return `<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;background:${b.bg};color:${b.fg};">${b.lbl}</span>`;
+          return `<span style="color:#94a3b8;font-size:10px;">${v||""}</span>`;
+        },
+      },
+    ],
+    cellEdited: function(cell) {
+      const row   = cell.getRow().getData();
+      const field = cell.getField();
+      const dirty = dirtyRows.get(row.id) || {id: row.id};
+      dirty[field] = cell.getValue();
+      dirtyRows.set(row.id, dirty);
+      cell.getElement().classList.add("yk-grid-dirty-cell");
+      cell.getRow().getElement().classList.add("yk-grid-dirty-row");
+      saveDetails.className = "hidden rounded-lg border p-3 text-xs mb-3";
+      updateDirtyFeedback();
+    },
+  });
+
+  // ── Row selection → status bar ──────────────────────────────────────────────
+  table.on("rowSelectionChanged", function(data, rows) {
+    if (!rows.length) { selBar.classList.add("hidden"); return; }
+    selBar.classList.remove("hidden");
+    document.getElementById("ykSelCount").textContent = rows.length + " แถวที่เลือก";
+    const nums = (f) => rows.map(r => parseFloat(r.getData()[f])).filter(v => !isNaN(v));
+    const fmt  = (n) => n.toLocaleString("th-TH", {maximumFractionDigits:2});
+    const avg  = (arr) => arr.length ? fmt(arr.reduce((s,v)=>s+v,0)/arr.length) : "-";
+    const literN = nums("liter");
+    const amtN   = nums("amount");
+    const priceN = nums("price_per_liter");
+    document.getElementById("ykSelLiterSum").textContent  = fmt(literN.reduce((s,v)=>s+v,0));
+    document.getElementById("ykSelLiterAvg").textContent  = avg(literN);
+    document.getElementById("ykSelAmountSum").textContent = fmt(amtN.reduce((s,v)=>s+v,0));
+    document.getElementById("ykSelAmountAvg").textContent = avg(amtN);
+    document.getElementById("ykSelPriceAvg").textContent  = avg(priceN);
+  });
+
+  document.getElementById("ykSelClear").addEventListener("click", () => table.deselectRow());
+
+  // Subtotal mode
+  document.querySelectorAll("input[name='calcMode']").forEach(radio => {
+    radio.addEventListener("change", function() { calcMode = this.value; table.recalc(); });
+  });
+
+  // ── Save ────────────────────────────────────────────────────────────────────
+  saveBtn.addEventListener("click", async function() {
+    if (!dirtyRows.size) {
+      saveMsg.textContent = "ไม่มีข้อมูลที่แก้ไข";
+      saveMsg.className   = "text-xs text-slate-500";
+      return;
+    }
+    saveBtn.disabled = true;
+    saveBtn.classList.add("opacity-60","cursor-wait");
+    saveMsg.textContent = "กำลังบันทึก...";
+    saveMsg.className   = "text-xs text-slate-500";
+    try {
+      const res = await fetch("/api/fuel/grid-save", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({rows: Array.from(dirtyRows.values())}),
+      });
+      const out = await res.json();
+      if (!res.ok || !out.ok) throw new Error(out.error || "save failed");
+      const errors = out.errors || [];
+      if (errors.length) {
+        saveMsg.textContent = `บันทึกบางส่วน ${out.updated} แถว · error ${errors.length} รายการ`;
+        saveMsg.className   = "text-xs text-amber-700";
+        saveDetails.className = "rounded-lg border border-amber-200 bg-amber-50 text-amber-800 p-3 text-xs mb-3";
+        saveDetails.innerHTML = `<div class="font-semibold mb-1">รายการที่ต้องตรวจ</div><ul class="list-disc ml-5">${errors.slice(0,12).map(e=>`<li>ID ${e.id||"-"}: ${e.error||"error"}</li>`).join("")}</ul>`;
+      } else {
+        dirtyRows.clear();
+        saveMsg.textContent = `บันทึกแล้ว ${out.updated} แถว`;
+        saveMsg.className   = "text-xs text-emerald-700";
+        window.location.reload();
+      }
+    } catch(err) {
+      saveMsg.textContent = `บันทึกไม่สำเร็จ: ${err.message||err}`;
+      saveMsg.className   = "text-xs text-red-600";
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.classList.remove("opacity-60","cursor-wait");
+      updateDirtyFeedback();
+    }
+  });
+})();
+</script>
 {% endblock %}

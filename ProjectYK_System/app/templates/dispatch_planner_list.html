@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Dispatch Planner — แผนงาน{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-xl font-bold">📋 Dispatch Planner</h1>
+  <div class="flex gap-2 flex-wrap">
+    {% for s in sites %}
+    <a href="/dispatch/planner?site={{ s }}"
+       class="px-3 py-1.5 rounded text-sm border
+              {% if site==s %}bg-rose-600 text-white border-rose-600{% else %}bg-white text-slate-600 border-slate-300 hover:bg-slate-50{% endif %}">
+      {{ s }}
+    </a>
+    {% endfor %}
+    <a href="/dispatch/planner" class="px-3 py-1.5 rounded text-sm border bg-white text-slate-600 border-slate-300 hover:bg-slate-50 {% if not site %}font-semibold{% endif %}">ทั้งหมด</a>
+    <a href="/dispatch/planner/new" class="bg-slate-900 text-white px-3 py-1.5 rounded text-sm hover:bg-slate-700">+ สร้างแผนใหม่</a>
+  </div>
+</div>
+
+<div class="bg-white rounded-lg border overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-600 text-xs uppercase">
+      <tr>
+        <th class="px-4 py-2 text-left">วันที่</th>
+        <th class="px-4 py-2 text-left">ไซท์</th>
+        <th class="px-4 py-2 text-left">สถานะ</th>
+        <th class="px-4 py-2 text-left">สร้างโดย</th>
+        <th class="px-4 py-2 text-left">อัปเดตล่าสุด</th>
+        <th class="px-4 py-2"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for p in plans %}
+      <tr class="hover:bg-slate-50">
+        <td class="px-4 py-2 font-medium">{{ p.plan_date | dmy }}</td>
+        <td class="px-4 py-2">
+          <span class="px-2 py-0.5 rounded text-xs font-medium
+                       {% if p.site_code=='LCB' %}bg-rose-100 text-rose-700
+                       {% elif p.site_code=='BIGC' %}bg-sky-100 text-sky-700
+                       {% else %}bg-indigo-100 text-indigo-700{% endif %}">
+            {{ p.site_code }}
+          </span>
+        </td>
+        <td class="px-4 py-2">
+          {% if p.status == 'submitted' %}
+            <span class="px-2 py-0.5 rounded text-xs bg-green-100 text-green-700 font-medium">✓ Submit แล้ว</span>
+          {% else %}
+            <span class="px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-700">Draft</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-2 text-slate-500">{{ p.created_by or "—" }}</td>
+        <td class="px-4 py-2 text-slate-400 text-xs">{{ p.updated_at | dmy_hm }}</td>
+        <td class="px-4 py-2 text-right">
+          <a href="/dispatch/planner/{{ p.id }}" class="text-indigo-600 hover:underline text-xs">เปิด →</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="6" class="px-4 py-8 text-center text-slate-400">ยังไม่มีแผนงาน — <a href="/dispatch/planner/new" class="text-indigo-600 hover:underline">สร้างแผนใหม่</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

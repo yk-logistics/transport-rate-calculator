@@ -1,41 +1,46 @@
 {% extends "base.html" %}
 {% block title %}Daily · รายการงานประจำวัน{% endblock %}
 {% block content %}
-{# Build the non-sort query string once so sortable headers can preserve filters. #}
-{% set base_qs = [] %}
-{% if site %}{% set _ = base_qs.append('site=' + site) %}{% endif %}
-{% if d %}{% set _ = base_qs.append('d=' + d) %}{% endif %}
-{% if d_from %}{% set _ = base_qs.append('d_from=' + d_from) %}{% endif %}
-{% if d_to %}{% set _ = base_qs.append('d_to=' + d_to) %}{% endif %}
-{% if status %}{% set _ = base_qs.append('status=' + status) %}{% endif %}
-{% if driver %}{% set _ = base_qs.append('driver=' + driver) %}{% endif %}
-{% if plate %}{% set _ = base_qs.append('plate=' + plate) %}{% endif %}
-{% set _ = base_qs.append('per_page=' + per_page|string) %}
-{% set base_qs_str = base_qs|join('&') %}
-{% macro sort_th(key, label, align='left') -%}
-  {%- set next_dir = 'desc' if (sort == key and dir == 'asc') else 'asc' -%}
-  {%- set arrow = '' -%}
-  {%- if sort == key -%}{%- set arrow = ' ▲' if dir == 'asc' else ' ▼' -%}{%- endif -%}
-  <th class="px-2 py-2 {{ 'text-right' if align=='right' else '' }}">
-    <a href="?sort={{ key }}&dir={{ next_dir }}&{{ base_qs_str }}"
-       class="hover:underline inline-flex items-center gap-0.5 {% if sort == key %}text-slate-900 font-semibold{% else %}text-slate-600{% endif %}">
-      {{ label }}<span class="text-xs">{{ arrow }}</span>
-    </a>
-  </th>
-{%- endmacro %}
-<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-  <h1 class="text-2xl font-bold">Daily · {{ total_rows }} งาน <span class="text-sm text-slate-500 font-normal">(หน้า {{ page }}/{{ total_pages }})</span></h1>
-  <a href="/daily/new" class="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-700">+ เพิ่มงาน</a>
+
+{# ── Tabulator + styles ───────────────────────────────────────────── #}
+<link href="https://unpkg.com/tabulator-tables@6.2.1/dist/css/tabulator.min.css" rel="stylesheet" />
+<script src="https://unpkg.com/tabulator-tables@6.2.1/dist/js/tabulator.min.js"></script>
+<style>
+  .yk-dirty-cell  { background:#fef3c7!important; box-shadow:inset 0 -2px 0 #f59e0b; }
+  .yk-dirty-row .tabulator-cell:first-child { border-left:3px solid #f59e0b; }
+  .yk-missing    { background:#fee2e2!important; color:#991b1b!important; }
+  .yk-mao-row    { background:#eff6ff!important; }
+  .yk-mao-driver { color:#1d4ed8!important; font-weight:600; }
+  .tabulator .tabulator-header .tabulator-col .tabulator-header-filter input,
+  .tabulator .tabulator-header .tabulator-col .tabulator-header-filter select {
+    background:#f0f9ff!important; border:1px solid #7dd3fc!important;
+    border-radius:3px; font-size:11px; padding:2px 4px; width:100%; box-sizing:border-box;
+  }
+  #ykSelBar { transition: opacity .15s; }
+</style>
+
+{# ── Page header ─────────────────────────────────────────────────── #}
+<div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+  <h1 class="text-xl font-bold">
+    Daily
+    <span class="text-slate-500 font-normal text-sm ml-1">{{ total_rows }} งาน{% if capped %} <span class="text-amber-600">(แสดงแค่ 3,000 แรก)</span>{% endif %}</span>
+  </h1>
+  <div class="flex gap-2 flex-wrap items-center">
+    <a href="/daily/new" class="bg-slate-900 text-white px-3 py-1.5 rounded text-sm hover:bg-slate-700">+ เพิ่มงาน</a>
+    <a href="/daily/grid" class="bg-lime-600 text-white px-3 py-1.5 rounded text-sm hover:bg-lime-700">Grid (Full)</a>
+    <button id="colsBtn" class="bg-indigo-100 text-indigo-800 px-3 py-1.5 rounded text-sm hover:bg-indigo-200">คอลัมน์</button>
+    <button id="saveBtn" class="bg-emerald-600 text-white px-3 py-1.5 rounded text-sm hover:bg-emerald-700">Save</button>
+    <span id="saveMsg" class="text-xs text-slate-500"></span>
+  </div>
 </div>
 
-<form method="get" class="bg-white rounded-lg border p-4 mb-4 grid md:grid-cols-6 gap-3 items-end">
+{# ── Filter form ──────────────────────────────────────────────────── #}
+<form method="get" class="bg-white rounded-lg border p-3 mb-3 grid md:grid-cols-6 gap-2 items-end text-sm">
   <div>
     <label class="block text-xs text-slate-500 mb-1">ไซต์</label>
     <select name="site" class="border rounded px-2 py-1.5 text-sm w-full">
       <option value="" {% if not site %}selected{% endif %}>ทั้งหมด</option>
-      {% for sc in site_codes %}
-      <option value="{{ sc }}" {% if site==sc %}selected{% endif %}>{{ sc }}</option>
-      {% endfor %}
+      {% for sc in site_codes %}<option value="{{ sc }}" {% if site==sc %}selected{% endif %}>{{ sc }}</option>{% endfor %}
     </select>
   </div>
   <div>
@@ -50,9 +55,9 @@
     <label class="block text-xs text-slate-500 mb-1">สถานะ</label>
     <select name="status" class="border rounded px-2 py-1.5 text-sm w-full">
       <option value="">ทั้งหมด</option>
-      <option value="real" {% if status=='real' %}selected{% endif %}>เฉพาะงานจริง</option>
-      <option value="idle" {% if status=='idle' %}selected{% endif %}>รถจอด</option>
-      <option value="leave" {% if status=='leave' %}selected{% endif %}>ลา</option>
+      <option value="real"        {% if status=='real' %}selected{% endif %}>งานจริง</option>
+      <option value="idle"        {% if status=='idle' %}selected{% endif %}>รถจอด</option>
+      <option value="leave"       {% if status=='leave' %}selected{% endif %}>ลา</option>
       <option value="placeholder" {% if status=='placeholder' %}selected{% endif %}>placeholder</option>
     </select>
   </div>
@@ -64,118 +69,341 @@
     <label class="block text-xs text-slate-500 mb-1">ทะเบียน</label>
     <input name="plate" value="{{ plate }}" class="border rounded px-2 py-1.5 text-sm w-full" />
   </div>
-  <div class="md:col-span-6 flex gap-2">
-    <button class="bg-slate-200 px-4 py-1.5 rounded text-sm">กรอง</button>
-    <a href="/daily" class="text-sm text-slate-500 underline self-center">ล้างตัวกรอง</a>
-  </div>
-  <div class="md:col-span-6 border-t pt-3">
-    <div class="text-xs text-slate-500 mb-1">Preset เร็ว (ตามรอบ payroll)</div>
-    <div class="flex flex-wrap gap-2 text-xs">
-      <a href="/daily?site=BIGC&d_from={{ preset_cycles.BIGC.start }}&d_to={{ preset_cycles.BIGC.end }}&per_page={{ per_page }}"
-         class="px-2 py-1 rounded border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100">{{ preset_cycles.BIGC.label }}</a>
-      <a href="/daily?site=LCB&d_from={{ preset_cycles.LCB.start }}&d_to={{ preset_cycles.LCB.end }}&per_page={{ per_page }}"
-         class="px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">{{ preset_cycles.LCB.label }}</a>
-      <a href="/daily?site=AYU&d_from={{ preset_cycles.AYU.start }}&d_to={{ preset_cycles.AYU.end }}&per_page={{ per_page }}"
-         class="px-2 py-1 rounded border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">{{ preset_cycles.AYU.label }}</a>
-      <a href="/daily?status=real&per_page={{ per_page }}"
-         class="px-2 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100">เฉพาะงานจริง</a>
-      <a href="/daily?status=leave&per_page={{ per_page }}"
-         class="px-2 py-1 rounded border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100">เฉพาะลา</a>
-    </div>
+  <div class="md:col-span-6 flex gap-2 flex-wrap items-center border-t pt-2">
+    <button class="bg-slate-200 px-3 py-1.5 rounded text-sm">กรอง</button>
+    <a href="/daily" class="text-sm text-slate-500 underline">ล้าง</a>
+    <span class="text-slate-300">|</span>
+    {% for sc, key in [('BIGC','BIGC'),('LCB','LCB'),('AYU','AYU')] %}
+    <a href="/daily?site={{ key }}&d_from={{ preset_cycles[key].start }}&d_to={{ preset_cycles[key].end }}"
+       class="px-2 py-1 rounded border text-xs
+              {% if key=='BIGC' %}border-sky-200 bg-sky-50 text-sky-700{% elif key=='LCB' %}border-rose-200 bg-rose-50 text-rose-700{% else %}border-indigo-200 bg-indigo-50 text-indigo-700{% endif %}">
+      {{ preset_cycles[key].label }}
+    </a>
+    {% endfor %}
+    <a href="/daily?status=real" class="px-2 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs">งานจริง</a>
   </div>
 </form>
 
-<div class="grid grid-cols-3 gap-4 mb-4">
-  <div class="bg-white border rounded-lg p-4">
-    <div class="text-xs text-slate-500">รายได้ (ตามที่กรอง)</div>
-    <div class="text-xl font-semibold text-emerald-600">฿{{ "%.0f"|format(total_rev) }}</div>
+{# ── Subtotal mode + Selection bar ───────────────────────────────── #}
+<div class="flex items-center gap-3 mb-2 flex-wrap">
+  <div class="flex items-center gap-1.5 text-xs">
+    <span class="text-slate-500">Subtotal:</span>
+    <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="calcMode" value="sum" checked class="accent-emerald-600"> ผลรวม</label>
+    <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="calcMode" value="avg" class="accent-emerald-600"> เฉลี่ย</label>
+    <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="calcMode" value="count" class="accent-emerald-600"> นับ (ทุกแถว)</label>
+    <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="calcMode" value="count_ne" class="accent-emerald-600"> นับ (ไม่รวมว่าง)</label>
   </div>
-  <div class="bg-white border rounded-lg p-4">
-    <div class="text-xs text-slate-500">ค่าเที่ยว พขร.</div>
-    <div class="text-xl font-semibold">฿{{ "%.0f"|format(total_trip) }}</div>
-  </div>
-  <div class="bg-white border rounded-lg p-4">
-    <div class="text-xs text-slate-500">ค่าน้ำมัน</div>
-    <div class="text-xl font-semibold text-red-600">฿{{ "%.0f"|format(total_fuel) }}</div>
+  <div id="ykSelBar" class="opacity-0 ml-auto bg-slate-800 text-white text-xs px-3 py-1.5 rounded-lg flex gap-3 pointer-events-none">
+    <span>เลือก <strong id="ykSelCount">0</strong> แถว</span>
+    <span>ยอดรวม: <strong id="ykSelSum">0</strong></span>
+    <span>เฉลี่ย: <strong id="ykSelAvg">0</strong></span>
+    <span id="ykSelInfo" class="text-slate-300"></span>
   </div>
 </div>
 
-<div class="bg-white rounded-lg border overflow-x-auto">
-  <table class="w-full text-sm">
-    <thead class="bg-slate-100 text-left">
-      <tr>
-        {{ sort_th('work_date', 'วันที่') }}
-        {{ sort_th('site_code', 'ไซต์') }}
-        {{ sort_th('driver', 'พขร.') }}
-        {{ sort_th('plate', 'ทะเบียน') }}
-        <th class="px-2 py-2">หาง</th>
-        {{ sort_th('customer', 'ลูกค้า') }}
-        <th class="px-2 py-2">Type</th>
-        <th class="px-2 py-2">ปลายทาง</th>
-        <th class="px-2 py-2">ลา</th>
-        {{ sort_th('revenue', 'รายได้', 'right') }}
-        {{ sort_th('trip', 'ค่าเที่ยว', 'right') }}
-        {{ sort_th('fuel', 'น้ำมัน', 'right') }}
-        <th class="px-2 py-2"></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for r in rows %}
-      <tr class="border-t hover:bg-slate-50 {% if r.status_code in ['idle','placeholder'] %}bg-slate-50/50 text-slate-500{% elif r.status_code=='leave' %}bg-amber-50/50{% endif %}">
-        <td class="px-2 py-2 whitespace-nowrap">{{ r.work_date | dmy }}</td>
-        <td class="px-2 py-2">{{ r.site_code }}</td>
-        <td class="px-2 py-2">{{ r.driver_name }}</td>
-        <td class="px-2 py-2 font-mono">{{ r.plate_no }}</td>
-        <td class="px-2 py-2 font-mono text-xs">{{ r.tail_plate }}</td>
-        <td class="px-2 py-2">{{ r.customer_name }}</td>
-        <td class="px-2 py-2 text-xs">
-          {{ r.trip_type_code }}
-          {% if r.status_code and r.status_code not in ['idle','placeholder','leave'] %}
-            <span class="ml-1 px-1 rounded bg-sky-100 text-sky-700 text-[10px]">{{ r.status_code }}</span>
-          {% elif r.status_code in ['idle','placeholder','leave'] %}
-            <span class="ml-1 px-1 rounded bg-slate-200 text-slate-600 text-[10px]">{{ r.status_code }}</span>
-          {% endif %}
-        </td>
-        <td class="px-2 py-2 text-xs">{{ r.destination }}</td>
-        <td class="px-2 py-2 text-xs">{% if r.leave_status %}<span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">{{ r.leave_status }}</span>{% endif %}</td>
-        <td class="px-2 py-2 text-right">{{ "%.0f"|format(r.revenue_customer) }}</td>
-        <td class="px-2 py-2 text-right">{{ "%.0f"|format(r.trip_fee_driver) }}</td>
-        <td class="px-2 py-2 text-right">{{ "%.0f"|format(r.fuel_amount) }}</td>
-        <td class="px-2 py-2 whitespace-nowrap">
-          <a href="/daily/{{ r.id }}/edit" class="text-blue-600 hover:underline text-xs">แก้</a>
-          <form method="post" action="/daily/{{ r.id }}/delete" onsubmit="return confirm('ลบแถวนี้?');" class="inline ml-2">
-            <button class="text-red-500 hover:underline text-xs">ลบ</button>
-          </form>
-        </td>
-      </tr>
-      {% else %}
-      <tr><td colspan="13" class="px-3 py-8 text-center text-slate-400">ยังไม่มีข้อมูล — กด "+ เพิ่มงาน" เพื่อเริ่ม</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+{# ── Grid ─────────────────────────────────────────────────────────── #}
+<div id="ykSaveDetails" class="hidden rounded-lg border p-3 text-xs mb-2"></div>
+<div class="bg-white rounded-lg border">
+  <div id="dailyListGrid"></div>
 </div>
 
-{% if total_pages > 1 %}
-{% set qs = '&' + base_qs_str + '&sort=' + sort + '&dir=' + dir %}
-<div class="flex items-center justify-center gap-1 mt-4 flex-wrap text-sm">
-  {% if page > 1 %}
-    <a href="?page=1{{ qs }}" class="px-3 py-1 border rounded hover:bg-slate-100">« หน้าแรก</a>
-    <a href="?page={{ page-1 }}{{ qs }}" class="px-3 py-1 border rounded hover:bg-slate-100">‹ ก่อนหน้า</a>
-  {% endif %}
-  <span class="px-3 py-1">หน้า {{ page }} / {{ total_pages }}</span>
-  {% if page < total_pages %}
-    <a href="?page={{ page+1 }}{{ qs }}" class="px-3 py-1 border rounded hover:bg-slate-100">ถัดไป ›</a>
-    <a href="?page={{ total_pages }}{{ qs }}" class="px-3 py-1 border rounded hover:bg-slate-100">สุดท้าย »</a>
-  {% endif %}
-  <span class="text-xs text-slate-500">ไปหน้า:</span>
-  <select onchange="if(this.value) window.location.href='?page='+this.value+'{{ qs }}'"
-          class="px-2 py-1 border rounded text-xs">
-    <option value="">เลือก…</option>
-    {% for p in range(1, total_pages + 1) %}
-      <option value="{{ p }}" {% if p == page %}selected{% endif %}>{{ p }}/{{ total_pages }}</option>
-    {% endfor %}
-  </select>
-  <span class="ml-2 text-xs text-slate-500">แสดง {{ per_page }}/หน้า</span>
-</div>
-{% endif %}
+{# ── Column dialog ────────────────────────────────────────────────── #}
+<dialog id="colsDialog" class="rounded-lg p-0 border w-full max-w-xl shadow-xl">
+  <div class="p-3 border-b flex items-center justify-between bg-white sticky top-0">
+    <h3 class="font-semibold text-sm">แสดง/ซ่อนคอลัมน์</h3>
+    <button id="closeColsDialog" type="button" class="text-slate-400 hover:text-slate-700">✕</button>
+  </div>
+  <div class="p-3 border-b bg-slate-50 flex flex-wrap gap-1.5 text-xs">
+    <button type="button" data-preset="basic"     class="dlPreset px-3 py-1 rounded border bg-white hover:bg-sky-50">📋 พื้นฐาน</button>
+    <button type="button" data-preset="money"     class="dlPreset px-3 py-1 rounded border bg-white hover:bg-emerald-50">💰 เงิน</button>
+    <button type="button" data-preset="container" class="dlPreset px-3 py-1 rounded border bg-white hover:bg-purple-50">📦 ตู้</button>
+    <button type="button" data-preset="all"       class="dlPreset px-3 py-1 rounded border bg-white hover:bg-slate-100">🗂 ทั้งหมด</button>
+  </div>
+  <div id="colsChecklist" class="p-3 grid grid-cols-2 gap-y-1 gap-x-3 text-sm max-h-72 overflow-y-auto"></div>
+</dialog>
+
+<script>
+(function(){
+"use strict";
+
+// ── Data ────────────────────────────────────────────────────────────
+const RAW_DATA = {{ rows_json | safe }};
+
+// ── Column definitions ──────────────────────────────────────────────
+const HIDDEN_KEY = "yk_daily_list_hidden_v1";
+const STATUS_VALS = ["KLND","DHL Overflow","DHL","NHL","WHALE","KAO","CJ","Nippon","SDS","KN","KTL","SONIC","โฮมโปร","ต่อเนื่องส่งงาน","ลา / ไม่พร้อม","รถซ่อม","รถอุบัติเหตุ"];
+
+// [field, label, editable, width]
+const COLS_DEF = [
+  ["work_date",        "วันที่",         true,  90],
+  ["site_code",        "ไซต์",           true,  60],
+  ["driver_name",      "พขร.",           false, 110],
+  ["driver_raw_name",  "พขร.(raw)",      true,  110],
+  ["plate_no",         "ทะเบียน",        false,  90],
+  ["plate_no_raw",     "ทะเบียน(raw)",   true,   90],
+  ["tail_plate",       "หาง",            false,  80],
+  ["customer_name",    "ลูกค้า",         false, 100],
+  ["status_code",      "Status/ลูกค้า",  true,  100],
+  ["trip_type_code",   "Type/STARTING",  true,   90],
+  ["origin",           "ต้นทาง/บรรจุ",  true,  100],
+  ["destination",      "ปลายทาง",        true,  100],
+  ["leave_status",     "ลา",             true,   60],
+  ["revenue_customer", "รายได้",         true,   80],
+  ["trip_fee_driver",  "ค่าเที่ยว",      true,   80],
+  ["fuel_amount",      "น้ำมัน",         true,   75],
+  ["fuel_liter",       "ลิตร",           true,   65],
+  ["remark",           "หมายเหตุ",       true,  130],
+];
+
+const PRESETS = {
+  basic:     ["work_date","site_code","driver_name","plate_no","status_code","origin","destination"],
+  money:     ["work_date","site_code","driver_name","plate_no","status_code","destination","revenue_customer","trip_fee_driver","remark"],
+  container: ["work_date","site_code","driver_name","plate_no","status_code","trip_type_code","origin","destination"],
+  all: null,
+};
+const NUM_FIELDS = ["revenue_customer","trip_fee_driver","fuel_amount","fuel_liter"];
+const DEFAULT_HIDDEN = ["driver_raw_name","plate_no_raw","tail_plate","leave_status","fuel_liter"];
+
+function getHidden(){ try{ const v=JSON.parse(localStorage.getItem(HIDDEN_KEY)||"[]"); return Array.isArray(v)?v:DEFAULT_HIDDEN; }catch{return DEFAULT_HIDDEN;} }
+function setHidden(a){ localStorage.setItem(HIDDEN_KEY, JSON.stringify(a)); }
+
+// ── Subtotal mode ───────────────────────────────────────────────────
+let calcMode = "sum";
+document.querySelectorAll("input[name='calcMode']").forEach(r => {
+  r.addEventListener("change", () => { calcMode = r.value; table && table.recalc(); });
+});
+
+function makeCalc(field){
+  return function(values, data){
+    const nums = values.map(Number).filter(v => !isNaN(v));
+    const nonZero = nums.filter(v => v !== 0);
+    if (calcMode === "sum")     return nums.reduce((a,b)=>a+b,0);
+    if (calcMode === "avg")     return nums.length ? nums.reduce((a,b)=>a+b,0)/nums.length : 0;
+    if (calcMode === "count")   return values.length;
+    if (calcMode === "count_ne")return nonZero.length;
+    return 0;
+  };
+}
+function fmtCalc(cell){ const v=cell.getValue(); return typeof v==="number"?v.toLocaleString("th",{maximumFractionDigits:calcMode==="avg"?2:0}):v; }
+
+// ── dirty tracking ──────────────────────────────────────────────────
+let dirty = new Map();
+const saveBtn   = document.getElementById("saveBtn");
+const saveMsg   = document.getElementById("saveMsg");
+const saveDetails = document.getElementById("ykSaveDetails");
+
+function markDirty(id, field, val){
+  const d = dirty.get(id) || {id};
+  d[field] = val;
+  dirty.set(id, d);
+  saveBtn.textContent = `Save (${dirty.size})`;
+  saveMsg.textContent = `ยังไม่บันทึก ${dirty.size} แถว`;
+  saveMsg.className = "text-xs text-amber-700";
+}
+function hasUnsaved(){ return dirty.size > 0; }
+
+// ── Excel-style dropdown filter ─────────────────────────────────────
+function makeExcelFilter(field){
+  return function(cell, onRendered, success){
+    let sel = new Set(["__ALL__"]); let pop = null;
+    const btn = document.createElement("button"); btn.type="button";
+    function styleBtn(){ const all=sel.has("__ALL__"); btn.textContent=all?"ทั้งหมด ▾":sel.size+" เลือก ▾"; btn.style.cssText="width:100%;text-align:left;font-size:11px;padding:1px 4px;border:1px solid #7dd3fc;border-radius:3px;background:#f0f9ff;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:"+(all?"#0369a1":"#b45309")+";font-weight:"+(all?"normal":"600")+";"; }
+    styleBtn();
+    function getVals(){ const m=new Map(); (table?table.getData():[]).forEach(r=>{ const v=r[field]; const k=(v==null||v==="")?"\0BLANK":String(v); m.set(k,(m.get(k)||0)+1); }); return [...m.entries()].sort(([a],[b])=>a==="\0BLANK"?1:b==="\0BLANK"?-1:a.localeCompare(b,"th")); }
+    function closePop(){ if(pop){pop.remove();pop=null;} }
+    function applyFilter(){ success(sel.has("__ALL__")||sel.size===0?null:new Set(sel)); styleBtn(); }
+    function openPop(){
+      closePop(); const entries=getVals(); const rect=btn.getBoundingClientRect();
+      pop=document.createElement("div"); pop.style.cssText="position:fixed;z-index:9999;background:#fff;border:1px solid #cbd5e1;border-radius:6px;box-shadow:0 4px 24px rgba(0,0,0,.18);display:flex;flex-direction:column;min-width:190px;max-width:280px;max-height:320px;font-size:12px;left:"+Math.min(rect.left,innerWidth-290)+"px;top:"+Math.min(rect.bottom+2,innerHeight-340)+"px;";
+      const si=document.createElement("input"); si.type="text"; si.placeholder="🔍 ค้นหา…"; si.style.cssText="margin:6px;padding:3px 6px;border:1px solid #94a3b8;border-radius:3px;font-size:11px;box-sizing:border-box;width:calc(100% - 12px);"; pop.appendChild(si);
+      const ul=document.createElement("div"); ul.style.cssText="overflow-y:auto;flex:1;padding:2px 4px;"; pop.appendChild(ul);
+      const ft=document.createElement("div"); ft.style.cssText="display:flex;gap:4px;padding:6px;border-top:1px solid #e2e8f0;flex-shrink:0;";
+      [["ใช้",false],["ล้าง",true]].forEach(([t,isClear])=>{ const b=document.createElement("button"); b.type="button"; b.textContent=t; b.style.cssText="flex:1;border-radius:4px;padding:4px;font-size:11px;cursor:pointer;border:1px solid "+(isClear?"#e2e8f0":"transparent")+";background:"+(isClear?"#f8fafc":"#0284c7")+";color:"+(isClear?"#334155":"#fff")+";"; b.onclick=isClear?()=>{sel=new Set(["__ALL__"]);applyFilter();closePop();}:()=>{applyFilter();closePop();}; ft.appendChild(b); }); pop.appendChild(ft);
+      function mkRow(key,label,count){ const row=document.createElement("label"); row.style.cssText="display:flex;align-items:center;gap:5px;padding:2px 3px;border-radius:3px;cursor:pointer;"; const chk=document.createElement("input"); chk.type="checkbox"; chk.value=key; chk.style.cssText="accent-color:#0284c7;flex-shrink:0;"; chk.checked=sel.has("__ALL__")||sel.has(key); chk.onchange=()=>{ if(key==="__ALL__"){sel=chk.checked?new Set(["__ALL__"]):new Set(); ul.querySelectorAll("input").forEach(c=>c.checked=chk.checked);}else{if(sel.has("__ALL__")){sel=new Set(entries.map(([k])=>k));} sel.delete("__ALL__"); chk.checked?sel.add(key):sel.delete(key); const ac=ul.querySelector("input[value='__ALL__']"); if(ac){const allKeys=entries.map(([k])=>k); ac.checked=allKeys.every(k=>sel.has(k)); if(ac.checked)sel=new Set(["__ALL__"]);}} }; const sp=document.createElement("span"); sp.textContent=label; sp.style.cssText="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"+(key==="\0BLANK"?"color:#94a3b8;font-style:italic;":"")+(key==="__ALL__"?"font-weight:600;":""); const cn=document.createElement("span"); cn.textContent=count; cn.style.cssText="color:#94a3b8;font-size:10px;flex-shrink:0;"; row.append(chk,sp,cn); return row; }
+      function renderList(q){ ul.innerHTML=""; const total=entries.reduce((s,[,c])=>s+c,0); ul.appendChild(mkRow("__ALL__","✓ ทั้งหมด",total)); entries.forEach(([k,c])=>{ const lbl=k==="\0BLANK"?"(ว่าง)":k; if(q&&k!=="\0BLANK"&&!lbl.toLowerCase().includes(q.toLowerCase()))return; ul.appendChild(mkRow(k,lbl,c)); }); }
+      renderList(""); si.addEventListener("input",()=>renderList(si.value));
+      document.body.appendChild(pop); si.focus();
+      setTimeout(()=>{ const h=e=>{ if(pop&&!pop.contains(e.target)&&e.target!==btn){closePop();document.removeEventListener("mousedown",h);} }; document.addEventListener("mousedown",h); },0);
+    }
+    btn.addEventListener("click",e=>{e.stopPropagation();pop?closePop():openPop();});
+    onRendered(styleBtn);
+    return btn;
+  };
+}
+function excelFilterFn(hv,rv){ if(!hv||!(hv instanceof Set)||hv.has("__ALL__"))return true; const v=(rv==null||rv==="")?"\0BLANK":String(rv); return hv.has(v); }
+
+// ── Build Tabulator columns ─────────────────────────────────────────
+function buildColumns(){
+  const hidden = new Set(getHidden());
+  const cols = [{
+    title:"🔗",field:"_link",frozen:true,headerSort:false,width:46,clipboard:false,
+    formatter(cell){ return `<a class="text-sky-600 hover:underline text-xs" href="/daily/${cell.getRow().getData().id}/edit" target="_blank">แก้</a>`; }
+  }];
+  for(const [field,label,editable,width] of COLS_DEF){
+    const isNum = NUM_FIELDS.includes(field);
+    const col = {
+      title: editable?`${label} ✎`:label,
+      field, width,
+      editor: !editable ? false : (isNum?"number":"input"),
+      hozAlign: isNum?"right":"left",
+      visible: !hidden.has(field),
+      headerFilter: makeExcelFilter(field),
+      headerFilterFunc: excelFilterFn,
+    };
+    if(field==="status_code") Object.assign(col,{editor:"list",editorParams:{values:STATUS_VALS,clearable:true}});
+    if(field==="site_code")   Object.assign(col,{editor:"list",editorParams:{values:["LCB","AYU","BIGC","CJ"],clearable:true}});
+    if(field==="leave_status") Object.assign(col,{editor:"list",editorParams:{values:["","leave"],clearable:true}});
+    if(isNum){
+      col.bottomCalc = makeCalc(field);
+      col.bottomCalcFormatter = fmtCalc;
+      col.formatter = function(cell){
+        const row=cell.getRow().getData();
+        const val=cell.getValue();
+        const miss=["revenue_customer","trip_fee_driver"].includes(field)&&(row.leave_status!=="leave")&&(!val||val===0);
+        if(miss) cell.getElement().classList.add("yk-missing"); else cell.getElement().classList.remove("yk-missing");
+        return val?val.toLocaleString("th",{maximumFractionDigits:0}):"";
+      };
+    }
+    cols.push(col);
+  }
+  return cols;
+}
+
+// ── Init Tabulator ──────────────────────────────────────────────────
+let table = new Tabulator("#dailyListGrid", {
+  data: RAW_DATA,
+  layout: "fitDataStretch",
+  height: "75vh",
+  movableColumns: true,
+  clipboard: true,
+  selectable: true,
+  columns: buildColumns(),
+  rowFormatter(row){
+    const d=row.getData();
+    const el=row.getElement();
+    el.classList.toggle("yk-mao-row", !!(d.pay_mode&&d.pay_mode.endsWith("_mao")));
+    if(["idle","placeholder"].includes(d.status_code)) el.style.opacity=".65";
+    else el.style.opacity="";
+    if(d.status_code==="leave") el.style.background="#fffbeb";
+    else if(!d.pay_mode?.endsWith("_mao")) el.style.background="";
+    row.getCells().forEach(c=>{ if(c.getField()==="driver_name"&&d.pay_mode?.endsWith("_mao")) c.getElement().classList.add("yk-mao-driver"); });
+  },
+  cellEdited(cell){
+    const row=cell.getRow().getData();
+    const field=cell.getField();
+    markDirty(row.id, field, cell.getValue());
+    cell.getElement().classList.add("yk-dirty-cell");
+    cell.getRow().getElement().classList.add("yk-dirty-row");
+    saveDetails.className="hidden";
+  },
+  rowSelectionChanged(data, rows){
+    updateSelBar(data);
+  },
+});
+
+// ── Selection status bar ────────────────────────────────────────────
+const selBar   = document.getElementById("ykSelBar");
+const selCount = document.getElementById("ykSelCount");
+const selSum   = document.getElementById("ykSelSum");
+const selAvg   = document.getElementById("ykSelAvg");
+const selInfo  = document.getElementById("ykSelInfo");
+
+function updateSelBar(selectedData){
+  if(!selectedData||selectedData.length===0){selBar.style.opacity="0";selBar.style.pointerEvents="none";return;}
+  selBar.style.opacity="1"; selBar.style.pointerEvents="auto";
+  selCount.textContent = selectedData.length;
+  // sum/avg over all visible numeric fields
+  const totals = {};
+  for(const f of NUM_FIELDS) totals[f] = selectedData.reduce((s,r)=>s+(Number(r[f])||0),0);
+  const revSum = totals["revenue_customer"];
+  const tripSum = totals["trip_fee_driver"];
+  const fuelSum = totals["fuel_amount"];
+  selSum.textContent = revSum.toLocaleString("th",{maximumFractionDigits:0});
+  selAvg.textContent = (revSum/selectedData.length).toLocaleString("th",{maximumFractionDigits:0});
+  selInfo.textContent = `รายได้ ${revSum.toLocaleString("th",{maximumFractionDigits:0})} · เที่ยว ${tripSum.toLocaleString("th",{maximumFractionDigits:0})} · น้ำมัน ${fuelSum.toLocaleString("th",{maximumFractionDigits:0})}`;
+}
+
+// ── Save ────────────────────────────────────────────────────────────
+saveBtn.addEventListener("click", async () => {
+  if(!dirty.size){saveMsg.textContent="ไม่มีข้อมูลที่แก้";saveMsg.className="text-xs text-slate-500";return;}
+  saveBtn.disabled=true; saveBtn.classList.add("opacity-60","cursor-wait");
+  saveMsg.textContent="กำลังบันทึก..."; saveMsg.className="text-xs text-slate-500";
+  try{
+    const res = await fetch("/api/daily/grid-save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({rows:Array.from(dirty.values())})});
+    const out = await res.json();
+    if(!res.ok||!out.ok) throw new Error(out.error||"save failed");
+    const errs = out.errors||[];
+    if(errs.length){
+      saveMsg.textContent=`บันทึก ${out.updated} แถว · error ${errs.length}`;
+      saveMsg.className="text-xs text-amber-700";
+      saveDetails.className="rounded-lg border border-amber-200 bg-amber-50 text-amber-800 p-3 text-xs mb-2";
+      saveDetails.innerHTML=`<div class="font-semibold mb-1">ตรวจ error</div><ul class="list-disc ml-5">${errs.slice(0,10).map(e=>`<li>ID ${e.id}: ${e.error}</li>`).join("")}</ul>`;
+    }else{
+      dirty.clear(); saveBtn.textContent="Save";
+      saveMsg.textContent=`บันทึกแล้ว ${out.updated} แถว`;
+      saveMsg.className="text-xs text-emerald-700";
+      saveDetails.className="hidden";
+      table.getRows().forEach(r=>r.getElement().classList.remove("yk-dirty-row"));
+      document.querySelectorAll(".yk-dirty-cell").forEach(el=>el.classList.remove("yk-dirty-cell"));
+    }
+  }catch(err){
+    saveMsg.textContent=`บันทึกไม่สำเร็จ: ${err.message||err}`;
+    saveMsg.className="text-xs text-red-600";
+  }finally{
+    saveBtn.disabled=false; saveBtn.classList.remove("opacity-60","cursor-wait");
+  }
+});
+
+window.addEventListener("beforeunload", e=>{ if(hasUnsaved()){e.preventDefault();e.returnValue="";} });
+
+// ── Column dialog ────────────────────────────────────────────────────
+const colsBtn    = document.getElementById("colsBtn");
+const colsDialog = document.getElementById("colsDialog");
+const closeColsDialog = document.getElementById("closeColsDialog");
+const colsChecklist   = document.getElementById("colsChecklist");
+
+function renderChecklist(){
+  colsChecklist.innerHTML="";
+  for(const [field,label] of COLS_DEF){
+    const col=table.getColumn(field);
+    const wrap=document.createElement("label"); wrap.className="flex items-center gap-2 py-0.5 cursor-pointer hover:bg-slate-50 rounded px-1";
+    const chk=document.createElement("input"); chk.type="checkbox"; chk.className="accent-indigo-600"; chk.checked=col?col.isVisible():true;
+    chk.addEventListener("change",()=>{ chk.checked?table.showColumn(field):table.hideColumn(field); saveHiddenState(); });
+    const lbl=document.createElement("span"); lbl.textContent=label; lbl.className=chk.checked?"":"text-slate-400 line-through";
+    wrap.append(chk,lbl); colsChecklist.appendChild(wrap);
+  }
+}
+function saveHiddenState(){
+  const hidden=COLS_DEF.map(([f])=>f).filter(f=>{const c=table.getColumn(f); return c&&!c.isVisible();});
+  setHidden(hidden);
+}
+function applyPreset(name){
+  const show=PRESETS[name];
+  COLS_DEF.forEach(([f])=>{const c=table.getColumn(f);if(!c)return;show===null||show.includes(f)?c.show():c.hide();});
+  saveHiddenState(); renderChecklist();
+}
+
+colsBtn.addEventListener("click",()=>{renderChecklist();colsDialog.showModal();});
+closeColsDialog.addEventListener("click",()=>colsDialog.close());
+colsDialog.addEventListener("click",e=>{if(e.target===colsDialog)colsDialog.close();});
+document.querySelectorAll(".dlPreset").forEach(btn=>btn.addEventListener("click",()=>{applyPreset(btn.dataset.preset);document.querySelectorAll(".dlPreset").forEach(b=>b.classList.remove("ring-2","ring-indigo-400"));btn.classList.add("ring-2","ring-indigo-400");}));
+
+// Right-click on header → hide column
+let ctxMenu=null;
+document.addEventListener("click",()=>{if(ctxMenu){ctxMenu.remove();ctxMenu=null;}});
+table.on("tableBuilt",()=>{
+  document.querySelectorAll("#dailyListGrid .tabulator-col[tabulator-field]").forEach(el=>{
+    el.addEventListener("contextmenu",e=>{
+      const field=el.getAttribute("tabulator-field"); if(!field||field==="_link")return; e.preventDefault();
+      if(ctxMenu){ctxMenu.remove();}
+      const menu=document.createElement("div"); menu.className="fixed z-50 bg-white border rounded shadow-lg py-1 text-sm min-w-32";
+      menu.style.left=Math.min(e.clientX,innerWidth-160)+"px"; menu.style.top=Math.min(e.clientY,innerHeight-100)+"px";
+      [{label:`🙈 ซ่อน`,action:()=>{table.hideColumn(field);saveHiddenState();renderChecklist();}},{label:"🗂 ทั้งหมด",action:()=>applyPreset("all")}].forEach(({label,action})=>{const li=document.createElement("div");li.textContent=label;li.className="px-4 py-1.5 hover:bg-slate-100 cursor-pointer";li.addEventListener("mousedown",ev=>{ev.preventDefault();action();ctxMenu&&ctxMenu.remove();ctxMenu=null;});menu.appendChild(li);});
+      document.body.appendChild(menu); ctxMenu=menu;
+    });
+  });
+});
+
+})();
+</script>
 {% endblock %}

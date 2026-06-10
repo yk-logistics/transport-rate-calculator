@@ -14,7 +14,14 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, SQLModel, create_engine, select
@@ -30,6 +37,9 @@ from models import (
     Customer,
     DailyJob,
     DailyJobFee,
+    DispatchPlan,
+    DispatchPlanAudit,
+    DispatchPlanLine,
     DriverDeposit,
     DriverSession,
     DriverSubmission,
@@ -73,7 +83,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 18
+SCHEMA_VERSION = 19
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 if IS_SQLITE:
     engine = create_engine(
@@ -368,6 +378,21 @@ app.mount("/static", StaticFiles(directory=str(APP_DIR / "static")), name="stati
 _uploads_dir = APP_DIR / "uploads"
 _uploads_dir.mkdir(exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(_uploads_dir)), name="uploads")
+
+_DOCS_PRINT_DIR = APP_DIR.parent / "docs" / "print"
+
+
+@app.get("/ops/lcb-fuel-dispatch")
+def ops_lcb_fuel_dispatch():
+    """แผนเติมน้ำมัน LCB (HTML จาก build_lcb_fuel_dispatch.bat)."""
+    path = _DOCS_PRINT_DIR / "lcb_fuel_dispatch_plan.html"
+    if not path.is_file():
+        raise HTTPException(
+            404,
+            detail="ยังไม่มีไฟล์แผน — รัน ProjectYK_System/tools/build_lcb_fuel_dispatch.bat ก่อน",
+        )
+    return FileResponse(path, media_type="text/html; charset=utf-8")
+
 
 app.add_middleware(PreviewAuthMiddleware)
 
@@ -785,13 +810,8 @@ def daily_list(
     plate: str = "",
     sort: str = "work_date",
     dir: str = "asc",
-    page: int = 1,
-    per_page: int = 100,
 ):
     from sqlalchemy import func as sa_func
-
-    page = max(1, page)
-    per_page = max(10, min(500, per_page))
 
     SORT_COLS = {
         "work_date":  DailyJob.work_date,
@@ -849,32 +869,40 @@ def daily_list(
         total_rev = float(s.exec(sum_rev).one() or 0)
         total_trip = float(s.exec(sum_trip).one() or 0)
         total_fuel = float(s.exec(sum_fuel).one() or 0)
-        total_pages = max(1, (total_rows + per_page - 1) // per_page)
-        page = min(page, total_pages)
-        offset = (page - 1) * per_page
 
-        rows = s.exec(stmt.offset(offset).limit(per_page)).all()
+        cap = 3000
+        capped = total_rows > cap
+        rows = s.exec(stmt.limit(cap)).all()
         emp_map = {e.id: e for e in s.exec(select(Employee)).all()}
         veh_map = {v.id: v for v in s.exec(select(Vehicle)).all()}
         cust_map = {c.id: c for c in s.exec(select(Customer)).all()}
 
     def _display_row(r: DailyJob) -> dict:
-        driver = emp_map.get(r.driver_id) if r.driver_id else None
+        drv = emp_map.get(r.driver_id) if r.driver_id else None
         head = veh_map.get(r.head_vehicle_id) if r.head_vehicle_id else None
         tail = veh_map.get(r.tail_vehicle_id) if r.tail_vehicle_id else None
         cust = cust_map.get(r.customer_id) if r.customer_id else None
         return {
-            "id": r.id, "work_date": r.work_date, "site_code": r.site_code,
-            "driver_name": driver.full_name if driver else r.driver_raw_name,
-            "plate_no": head.plate_no if head else r.plate_no_raw,
-            "tail_plate": tail.plate_no if tail else r.tail_plate_raw,
-            "customer_name": cust.name if cust else r.customer_name_raw,
-            "origin": r.origin, "destination": r.destination,
-            "trip_type_code": r.trip_type_code, "leave_status": r.leave_status,
-            "status_code": r.status_code,
-            "revenue_customer": r.revenue_customer,
-            "trip_fee_driver": r.trip_fee_driver,
-            "fuel_amount": r.fuel_amount,
+            "id": r.id,
+            "work_date": r.work_date.isoformat() if r.work_date else "",
+            "site_code": r.site_code or "",
+            "driver_name": drv.full_name if drv else (r.driver_raw_name or ""),
+            "driver_raw_name": r.driver_raw_name or "",
+            "plate_no": head.plate_no if head else (r.plate_no_raw or ""),
+            "plate_no_raw": r.plate_no_raw or "",
+            "tail_plate": tail.plate_no if tail else (r.tail_plate_raw or ""),
+            "customer_name": cust.name if cust else (r.customer_name_raw or ""),
+            "origin": r.origin or "",
+            "destination": r.destination or "",
+            "trip_type_code": r.trip_type_code or "",
+            "leave_status": r.leave_status or "",
+            "status_code": r.status_code or "",
+            "pay_mode": drv.pay_mode if drv else "",
+            "revenue_customer": float(r.revenue_customer or 0),
+            "trip_fee_driver": float(r.trip_fee_driver or 0),
+            "fuel_amount": float(r.fuel_amount or 0),
+            "fuel_liter": float(r.fuel_liter or 0),
+            "remark": r.remark or "",
         }
 
     display = [_display_row(r) for r in rows]
@@ -882,13 +910,15 @@ def daily_list(
     preset_cycles = _daily_site_preset_cycles(today)
     ctx = base_context(request)
     ctx.update({
-        "rows": display, "site": site, "d": d,
+        "rows": display,
+        "rows_json": json.dumps(display, ensure_ascii=False),
+        "site": site, "d": d,
         "d_from": d_from, "d_to": d_to, "status": status,
         "driver": driver, "plate": plate,
         "sort": sort, "dir": dir,
         "total_rev": total_rev, "total_trip": total_trip, "total_fuel": total_fuel,
         "total_rows": total_rows,
-        "page": page, "per_page": per_page, "total_pages": total_pages,
+        "capped": capped,
         "preset_cycles": preset_cycles,
     })
     return templates.TemplateResponse("daily_list.html", ctx)
@@ -1037,7 +1067,7 @@ def daily_delete(job_id: int):
     return RedirectResponse(url="/daily", status_code=303)
 
 
-def _daily_grid_filters(stmt, site: str, d_from: str, d_to: str, q: str, status: str = ""):
+def _daily_grid_filters(stmt, site: str, d_from: str, d_to: str, q: str, status: str = "", missing: str = ""):
     if site:
         stmt = stmt.where(DailyJob.site_code == site)
     df = _parse_date(d_from)
@@ -1059,6 +1089,27 @@ def _daily_grid_filters(stmt, site: str, d_from: str, d_to: str, q: str, status:
             stmt = stmt.where(DailyJob.status_code.notin_(["idle", "placeholder", "leave"]))
         else:
             stmt = stmt.where(DailyJob.status_code == status)
+    if missing:
+        # exclude leave rows — they legitimately have 0 in both fields
+        stmt = stmt.where(DailyJob.leave_status != "leave")
+        ad_missing = (DailyJob.trip_fee_driver.is_(None) | (DailyJob.trip_fee_driver == 0))
+        u_missing  = (DailyJob.revenue_customer.is_(None) | (DailyJob.revenue_customer == 0))
+        # Smart: per-trip modes need AD; mao/lump modes need U
+        trip_emp_ids = select(Employee.id).where(
+            Employee.pay_mode.in_(["lcb_trip", "lcb_monthly", "ayu_trip", "ayu_trip_self_fuel", "bigc_trip"])
+        )
+        mao_emp_ids = select(Employee.id).where(
+            Employee.pay_mode.in_(["lcb_mao", "ayu_mao", "lcb_lump"])
+        )
+        if missing == "ad":
+            stmt = stmt.where(DailyJob.driver_id.in_(trip_emp_ids)).where(ad_missing)
+        elif missing == "u":
+            stmt = stmt.where(DailyJob.driver_id.in_(mao_emp_ids)).where(u_missing)
+        elif missing == "any":
+            stmt = stmt.where(
+                (DailyJob.driver_id.in_(trip_emp_ids) & ad_missing) |
+                (DailyJob.driver_id.in_(mao_emp_ids) & u_missing)
+            )
     return stmt
 
 
@@ -1070,6 +1121,7 @@ def daily_grid_page(
     d_to: str = "",
     q: str = "",
     status: str = "",
+    missing: str = "",
     limit: int = 400,
 ):
     from sqlalchemy import func as sa_func
@@ -1081,15 +1133,11 @@ def daily_grid_page(
         rows = s.exec(
             _daily_grid_filters(
                 select(DailyJob).order_by(DailyJob.work_date.desc(), DailyJob.id.desc()),
-                site,
-                d_from,
-                d_to,
-                q,
-                status,
+                site, d_from, d_to, q, status, missing,
             ).limit(limit)
         ).all()
         total_rows = s.exec(
-            _daily_grid_filters(select(sa_func.count(DailyJob.id)), site, d_from, d_to, q, status)
+            _daily_grid_filters(select(sa_func.count(DailyJob.id)), site, d_from, d_to, q, status, missing)
         ).one()
     ctx = base_context(request)
     ctx.update(
@@ -1099,6 +1147,7 @@ def daily_grid_page(
             "d_to": d_to,
             "q": q,
             "status": status,
+            "missing": missing,
             "limit": limit,
             "today_iso": today.isoformat(),
             "total_rows": total_rows,
@@ -1116,6 +1165,7 @@ def daily_grid_data(
     d_to: str = "",
     q: str = "",
     status: str = "",
+    missing: str = "",
     limit: int = 400,
 ):
     limit = max(1, min(800, limit))
@@ -1123,13 +1173,18 @@ def daily_grid_data(
         rows = s.exec(
             _daily_grid_filters(
                 select(DailyJob).order_by(DailyJob.work_date.desc(), DailyJob.id.desc()),
-                site,
-                d_from,
-                d_to,
-                q,
-                status,
+                site, d_from, d_to, q, status, missing,
             ).limit(limit)
         ).all()
+        # Build pay_mode map for driver highlight
+        driver_ids = {r.driver_id for r in rows if r.driver_id}
+        pay_mode_map: dict[int, str] = {}
+        if driver_ids:
+            emp_rows = s.exec(
+                select(models.Employee.id, models.Employee.pay_mode)
+                .where(models.Employee.id.in_(driver_ids))
+            ).all()
+            pay_mode_map = {e[0]: (e[1] or "") for e in emp_rows}
     data = [
         {
             "id": r.id,
@@ -1137,6 +1192,7 @@ def daily_grid_data(
             "site_code": r.site_code or "",
             "driver_id": r.driver_id,
             "driver_raw_name": r.driver_raw_name or "",
+            "pay_mode": pay_mode_map.get(r.driver_id, "") if r.driver_id else "",
             "head_vehicle_id": r.head_vehicle_id,
             "tail_vehicle_id": r.tail_vehicle_id,
             "plate_no_raw": r.plate_no_raw or "",
@@ -1507,6 +1563,10 @@ def _daily_site_preset_cycles(today: date) -> dict[str, dict[str, str]]:
     lcb_start = date(lcb_start_year, lcb_start_month, 16)
     lcb_end = date(lcb_end_year, lcb_end_month, 15)
     lcb_tag = f"{lcb_end_year:04d}-{lcb_end_month:02d}"
+    # Previous LCB cycle (T-1) — used for "missing values" button after cycle rollover
+    lcb_prev_start_year, lcb_prev_start_month = _shift_year_month(lcb_start_year, lcb_start_month, -1)
+    lcb_prev_start = date(lcb_prev_start_year, lcb_prev_start_month, 16)
+    lcb_prev_end = lcb_start - __import__("datetime").timedelta(days=1)  # day before current cycle start
 
     bigc_year, bigc_month = _shift_year_month(today.year, today.month, -1)
     bigc_start, bigc_end = _month_bounds(bigc_year, bigc_month)
@@ -1530,6 +1590,12 @@ def _daily_site_preset_cycles(today: date) -> dict[str, dict[str, str]]:
             "end": lcb_end.isoformat(),
             "tag": lcb_tag,
             "label": f"LCB รอบ {lcb_start.strftime('%d/%m')}–{lcb_end.strftime('%d/%m')}",
+        },
+        "LCB_prev": {
+            "start": lcb_prev_start.isoformat(),
+            "end": lcb_prev_end.isoformat(),
+            "tag": f"{lcb_prev_end.year:04d}-{lcb_prev_end.month:02d}",
+            "label": f"LCB รอบก่อน {lcb_prev_start.strftime('%d/%m')}–{lcb_prev_end.strftime('%d/%m')}",
         },
     }
 
@@ -1560,12 +1626,8 @@ def petty_list(
     unlinked: str = "",
     review: str = "",
     cycle: str = "",
-    page: int = 1,
-    per_page: int = 100,
 ):
     from sqlalchemy import func as sa_func
-    page = max(1, page)
-    per_page = max(10, min(500, per_page))
 
     with Session(engine) as s:
         stmt = select(PettyCashTxn).order_by(PettyCashTxn.txn_date.desc(),
@@ -1623,11 +1685,9 @@ def petty_list(
         total_in = float(s.exec(sum_in_stmt).one() or 0)
         total_deduct_pending = float(s.exec(ded_pending_stmt).one() or 0)
 
-        total_pages = max(1, (total_rows + per_page - 1) // per_page)
-        page = min(page, total_pages)
-        offset = (page - 1) * per_page
-
-        rows = s.exec(stmt.offset(offset).limit(per_page)).all()
+        cap = 2000
+        capped = total_rows > cap
+        rows = s.exec(stmt.limit(cap)).all()
         emp_map = {e.id: e for e in s.exec(select(Employee)).all()}
         employees = sorted(emp_map.values(), key=lambda e: (e.home_site_code, e.full_name))
 
@@ -1651,23 +1711,27 @@ def petty_list(
         elif r.pay_cycle_tag and auto_tag and r.pay_cycle_tag != auto_tag:
             reason_text = f"แท็กรอบไม่ตรง policy ({r.pay_cycle_tag} -> {auto_tag})"
         return {
-            "id": r.id, "txn_date": r.txn_date, "site_code": r.site_code,
-            "direction": r.direction, "amount": r.amount,
-            "requester": drv.full_name if drv else r.requester_raw,
+            "id": r.id,
+            "txn_date": r.txn_date.isoformat() if r.txn_date else "",
+            "site_code": r.site_code or "",
+            "direction": r.direction or "",
+            "amount": float(r.amount or 0),
+            "requester": drv.full_name if drv else (r.requester_raw or ""),
             "driver_id": r.driver_id,
-            "memo": r.memo, "category": r.category,
-            "deduct_from_driver": r.deduct_from_driver,
-            "deduct_amount": r.deduct_amount,
-            "deduction_status": r.deduction_status,
-            "pay_cycle_tag": r.pay_cycle_tag,
+            "memo": r.memo or "",
+            "category": r.category or "",
+            "deduct_from_driver": bool(r.deduct_from_driver),
+            "deduct_amount": float(r.deduct_amount or 0),
+            "deduction_status": r.deduction_status or "",
+            "pay_cycle_tag": r.pay_cycle_tag or "",
             "cycle_overridden": bool(r.pay_cycle_tag and auto_tag and r.pay_cycle_tag != auto_tag),
             "auto_cycle_tag": auto_tag,
             "policy_used": policy_used,
             "review_required": review_required,
             "review_reason": reason_text,
-            "pending_amount": r.pending_amount,
+            "pending_amount": float(r.pending_amount or 0),
             "pending_cleared": r.pending_cleared_at is not None,
-            "status": r.status,
+            "status": r.status or "",
         }
 
     display = [disp(r) for r in rows]
@@ -1686,14 +1750,16 @@ def petty_list(
     current_cycle_tag = f"{today.year:04d}-{today.month:02d}"
 
     ctx.update({
-        "rows": display, "site": site, "d_from": d_from, "d_to": d_to,
+        "rows": display,
+        "rows_json": json.dumps(display, ensure_ascii=False),
+        "site": site, "d_from": d_from, "d_to": d_to,
         "driver": driver, "cat": cat, "dstatus": dstatus, "deduct": deduct, "unlinked": unlinked, "review": review,
         "cycle": cycle, "cycle_options": cycle_options,
         "employees": employees,
         "total_out": total_out, "total_in": total_in,
         "total_deduct_pending": total_deduct_pending,
         "total_rows": total_rows,
-        "page": page, "per_page": per_page, "total_pages": total_pages,
+        "capped": capped,
         "current_cycle_tag": current_cycle_tag,
     })
     return templates.TemplateResponse("petty_list.html", ctx)
@@ -2150,12 +2216,8 @@ def fuel_list(
     station: str = "",
     source: str = "",
     linked: str = "",
-    page: int = 1,
-    per_page: int = 100,
 ):
     from sqlalchemy import func as sa_func
-    page = max(1, page)
-    per_page = max(10, min(500, per_page))
 
     with Session(engine) as s:
         stmt = select(FuelTxn).order_by(FuelTxn.txn_date.desc(), FuelTxn.id.desc())
@@ -2194,15 +2256,32 @@ def fuel_list(
         total_rows = s.exec(count_stmt).one()
         total_liter = float(s.exec(sum_l_stmt).one() or 0)
         total_amount = float(s.exec(sum_b_stmt).one() or 0)
-        total_pages = max(1, (total_rows + per_page - 1) // per_page)
-        page = min(page, total_pages)
-        offset = (page - 1) * per_page
 
-        rows = s.exec(stmt.offset(offset).limit(per_page)).all()
+        cap = 2000
+        capped = total_rows > cap
+        rows = s.exec(stmt.limit(cap)).all()
 
     avg_price = (total_amount / total_liter) if total_liter else 0
     import calendar
 
+    def _fuel_row_json(r: FuelTxn) -> dict:
+        return {
+            "id": r.id,
+            "txn_date": r.txn_date.isoformat() if r.txn_date else "",
+            "site_code": r.site_code or "",
+            "plate_no_raw": r.plate_no_raw or "",
+            "driver_raw_name": r.driver_raw_name or "",
+            "liter": float(r.liter or 0),
+            "amount": float(r.amount or 0),
+            "price_per_liter": float(r.price_per_liter or 0),
+            "mile_snapshot": float(r.mile_snapshot or 0),
+            "rate_km_per_l": float(r.rate_km_per_l or 0),
+            "station": r.station or "",
+            "daily_job_id": r.daily_job_id,
+            "source": r.source or "",
+        }
+
+    rows_json = json.dumps([_fuel_row_json(r) for r in rows], ensure_ascii=False)
     today = date.today()
     month_start = today.replace(day=1).isoformat()
     month_end = today.replace(day=calendar.monthrange(today.year, today.month)[1]).isoformat()
@@ -2210,12 +2289,13 @@ def fuel_list(
     ctx = base_context(request)
     ctx.update({
         "rows": rows,
+        "rows_json": rows_json,
         "site": site, "d_from": d_from, "d_to": d_to,
         "plate": plate, "driver": driver, "station": station,
         "source": source, "linked": linked,
         "total_rows": total_rows, "total_liter": total_liter,
         "total_amount": total_amount, "avg_price": avg_price,
-        "page": page, "per_page": per_page, "total_pages": total_pages,
+        "capped": capped,
         "current_month_start": month_start,
         "current_month_end": month_end,
         "current_cycle_tag": current_cycle_tag,
@@ -2318,6 +2398,100 @@ def fuel_delete(request: Request, txn_id: int):
             s.delete(row)
             s.commit()
     return RedirectResponse("/fuel", status_code=303)
+
+
+@app.post("/api/fuel/grid-save")
+async def fuel_grid_save(request: Request):
+    payload = await request.json()
+    rows = payload.get("rows", []) if isinstance(payload, dict) else []
+    if not isinstance(rows, list) or not rows:
+        return JSONResponse({"ok": False, "error": "no rows"}, status_code=400)
+    editable = {"txn_date", "site_code", "plate_no_raw", "driver_raw_name",
+                "liter", "amount", "price_per_liter", "rate_km_per_l",
+                "mile_snapshot", "station"}
+    updated = 0
+    errors: list[dict] = []
+    with Session(engine) as s:
+        for item in rows:
+            if not isinstance(item, dict):
+                continue
+            rid = _parse_int(str(item.get("id", "")))
+            if not rid:
+                continue
+            row = s.get(FuelTxn, rid)
+            if not row:
+                errors.append({"id": rid, "error": "not_found"})
+                continue
+            for key, val in item.items():
+                if key not in editable:
+                    continue
+                if key in ("liter", "amount", "price_per_liter", "rate_km_per_l", "mile_snapshot"):
+                    try:
+                        setattr(row, key, float(val) if val not in (None, "") else None)
+                    except (TypeError, ValueError):
+                        pass
+                elif key == "txn_date":
+                    parsed = _parse_date(str(val or ""))
+                    if parsed:
+                        row.txn_date = parsed
+                else:
+                    setattr(row, key, str(val or "").strip() or None)
+            try:
+                s.add(row)
+                s.commit()
+                updated += 1
+            except Exception as exc:
+                s.rollback()
+                errors.append({"id": rid, "error": str(exc)})
+    return JSONResponse({"ok": True, "updated": updated, "errors": errors})
+
+
+@app.post("/api/petty/grid-save")
+async def petty_grid_save(request: Request):
+    payload = await request.json()
+    rows = payload.get("rows", []) if isinstance(payload, dict) else []
+    if not isinstance(rows, list) or not rows:
+        return JSONResponse({"ok": False, "error": "no rows"}, status_code=400)
+    editable = {"txn_date", "site_code", "direction", "amount", "memo", "category",
+                "pay_cycle_tag", "deduct_amount"}
+    updated = 0
+    errors: list[dict] = []
+    with Session(engine) as s:
+        for item in rows:
+            if not isinstance(item, dict):
+                continue
+            rid = _parse_int(str(item.get("id", "")))
+            if not rid:
+                continue
+            row = s.get(PettyCashTxn, rid)
+            if not row:
+                errors.append({"id": rid, "error": "not_found"})
+                continue
+            if row.status == "locked":
+                errors.append({"id": rid, "error": "locked"})
+                continue
+            for key, val in item.items():
+                if key not in editable:
+                    continue
+                if key in ("amount", "deduct_amount"):
+                    try:
+                        setattr(row, key, float(val) if val not in (None, "") else None)
+                    except (TypeError, ValueError):
+                        pass
+                elif key == "txn_date":
+                    parsed = _parse_date(str(val or ""))
+                    if parsed:
+                        row.txn_date = parsed
+                else:
+                    setattr(row, key, str(val or "").strip() or None)
+            try:
+                s.add(row)
+                s.commit()
+                updated += 1
+            except Exception as exc:
+                s.rollback()
+                errors.append({"id": rid, "error": str(exc)})
+    return JSONResponse({"ok": True, "updated": updated, "errors": errors})
 
 
 # ==========================================================================
@@ -6950,6 +7124,391 @@ async def import_history_partial(request: Request):
         "request": request,
         "logs": logs,
     })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DISPATCH PLANNER
+# ─────────────────────────────────────────────────────────────────────────────
+
+_DISPATCH_L_PER_TRIP: dict[str, float] = {
+    "KAO": 50.0,
+    "Conti": 50.0,
+    "Haier": 100.0,
+    "Lacation": 50.0,
+    "KATOEN": 40.0,
+    "คลังวาฬ": 25.0,
+    "ฟรีโซน": 25.0,
+    "เหรินเหอ": 70.0,
+    "Oatside": 110.0,
+}
+
+_DISPATCH_JOB_TYPES = [
+    "Haier", "KAO", "Conti", "Lacation", "KATOEN",
+    "คลังวาฬ", "ฟรีโซน", "เหรินเหอ", "Oatside", "อื่นๆ",
+]
+
+_DISPATCH_SITES = ["LCB", "BIGC", "AYU"]
+
+
+def _dispatch_gen_line_message(plan: DispatchPlan, lines: list[DispatchPlanLine],
+                                vehicles: dict, drivers: dict) -> str:
+    d = plan.plan_date
+    date_str = f"{d.day:02d}/{d.month:02d}/{str(d.year)[2:]}"
+    total = len([l for l in lines if l.vehicle_id or l.plate_raw])
+
+    by_job: dict[str, list[DispatchPlanLine]] = {}
+    for line in lines:
+        by_job.setdefault(line.job_type or "อื่นๆ", []).append(line)
+
+    parts = [f"📋 แผนงาน {plan.site_code} วันที่ {date_str}", f"รวม {total} คัน", ""]
+
+    job_order = _DISPATCH_JOB_TYPES
+    for jt in job_order:
+        grp = by_job.get(jt, [])
+        if not grp:
+            continue
+        lpt = _DISPATCH_L_PER_TRIP.get(jt, 0)
+        fuel_note = f" ({int(lpt)} L/เที่ยว)" if lpt else ""
+        parts.append(f"🚛 {jt}{fuel_note}")
+        for line in grp:
+            plate = vehicles.get(line.vehicle_id, {}).get("plate", line.plate_raw) if line.vehicle_id else line.plate_raw
+            drv = drivers.get(line.driver_id, {}).get("name", line.driver_raw) if line.driver_id else line.driver_raw
+            trips_str = f"{line.trips} เที่ยว" if line.trips else ""
+            fuel_str = f"({int(line.fuel_liters)} L)" if line.fuel_liters else ""
+            container_str = f"ตู้: {line.container_no}" if line.container_no else ""
+            detail = " — ".join(x for x in [plate, drv, trips_str, fuel_str, container_str] if x)
+            parts.append(detail)
+        parts.append("")
+
+    if plan.notes:
+        parts.append(f"หมายเหตุ: {plan.notes}")
+
+    return "\n".join(parts).strip()
+
+
+@app.get("/dispatch/planner", response_class=HTMLResponse)
+def dispatch_planner_list(request: Request, site: str = ""):
+    with Session(engine) as s:
+        q = select(DispatchPlan).order_by(DispatchPlan.plan_date.desc())  # type: ignore[arg-type]
+        if site:
+            q = q.where(DispatchPlan.site_code == site.upper())
+        plans = s.exec(q).all()
+    ctx = base_context(request)
+    ctx.update({"plans": plans, "site": site, "sites": _DISPATCH_SITES})
+    return templates.TemplateResponse("dispatch_planner_list.html", ctx)
+
+
+@app.get("/dispatch/planner/new", response_class=HTMLResponse)
+def dispatch_planner_new_form(request: Request, site: str = "LCB"):
+    with Session(engine) as s:
+        employees, vehicles, _ = _load_masters(s)
+    ctx = base_context(request)
+    ctx.update({
+        "plan": None,
+        "lines": [],
+        "employees": employees,
+        "vehicles": vehicles,
+        "customers": [],
+        "job_types": _DISPATCH_JOB_TYPES,
+        "sites": _DISPATCH_SITES,
+        "default_site": site.upper(),
+        "l_per_trip_json": json.dumps(_DISPATCH_L_PER_TRIP),
+    })
+    return templates.TemplateResponse("dispatch_planner_form.html", ctx)
+
+
+@app.post("/dispatch/planner/new")
+def dispatch_planner_create(
+    request: Request,
+    plan_date: str = Form(...),
+    site_code: str = Form("LCB"),
+    created_by: str = Form(""),
+    notes: str = Form(""),
+):
+    pd_ = _parse_date(plan_date)
+    if not pd_:
+        raise HTTPException(400, "plan_date invalid")
+    with Session(engine) as s:
+        plan = DispatchPlan(
+            plan_date=pd_,
+            site_code=site_code.strip().upper(),
+            created_by=created_by.strip(),
+            notes=notes.strip(),
+        )
+        s.add(plan)
+        s.commit()
+        s.refresh(plan)
+        plan_id = plan.id
+    return RedirectResponse(url=f"/dispatch/planner/{plan_id}", status_code=303)
+
+
+@app.get("/dispatch/planner/{plan_id}", response_class=HTMLResponse)
+def dispatch_planner_detail(plan_id: int, request: Request):
+    with Session(engine) as s:
+        plan = s.get(DispatchPlan, plan_id)
+        if not plan:
+            raise HTTPException(404)
+        lines = s.exec(
+            select(DispatchPlanLine)
+            .where(DispatchPlanLine.plan_id == plan_id)
+            .order_by(DispatchPlanLine.seq, DispatchPlanLine.id)  # type: ignore[arg-type]
+        ).all()
+        audits = s.exec(
+            select(DispatchPlanAudit)
+            .where(DispatchPlanAudit.plan_id == plan_id)
+            .order_by(DispatchPlanAudit.changed_at.desc())  # type: ignore[arg-type]
+            .limit(50)
+        ).all()
+        employees, vehicles_list, _ = _load_masters(s)
+        veh_map = {v.id: {"plate": v.plate_no, "nickname": v.nickname} for v in vehicles_list}
+        drv_map = {e.id: {"name": e.full_name, "nickname": e.nickname} for e in employees}
+
+        line_message = _dispatch_gen_line_message(plan, list(lines), veh_map, drv_map)
+
+    ctx = base_context(request)
+    ctx.update({
+        "plan": plan,
+        "lines": lines,
+        "audits": audits,
+        "employees": employees,
+        "vehicles": vehicles_list,
+        "job_types": _DISPATCH_JOB_TYPES,
+        "l_per_trip_json": json.dumps(_DISPATCH_L_PER_TRIP),
+        "line_message": line_message,
+        "veh_map": veh_map,
+        "drv_map": drv_map,
+    })
+    return templates.TemplateResponse("dispatch_planner_detail.html", ctx)
+
+
+@app.post("/dispatch/planner/{plan_id}/lines/add")
+def dispatch_planner_add_line(
+    plan_id: int,
+    vehicle_id: str = Form(""),
+    plate_raw: str = Form(""),
+    driver_id: str = Form(""),
+    driver_raw: str = Form(""),
+    job_type: str = Form(""),
+    trips: str = Form("1"),
+    container_no: str = Form(""),
+    notes_line: str = Form(""),
+):
+    with Session(engine) as s:
+        plan = s.get(DispatchPlan, plan_id)
+        if not plan:
+            raise HTTPException(404)
+        if plan.status == "submitted":
+            raise HTTPException(400, "แผนนี้ submit แล้ว ไม่สามารถเพิ่มบรรทัดได้")
+        trips_int = max(1, _parse_int(trips) or 1)
+        lpt = _DISPATCH_L_PER_TRIP.get(job_type, 0.0)
+        fuel = lpt * trips_int
+
+        existing = s.exec(
+            select(DispatchPlanLine).where(DispatchPlanLine.plan_id == plan_id)
+        ).all()
+        next_seq = max((l.seq for l in existing), default=0) + 1
+
+        line = DispatchPlanLine(
+            plan_id=plan_id,
+            seq=next_seq,
+            vehicle_id=_parse_int(vehicle_id),
+            plate_raw=plate_raw.strip(),
+            driver_id=_parse_int(driver_id),
+            driver_raw=driver_raw.strip(),
+            job_type=job_type.strip(),
+            trips=trips_int,
+            fuel_liters=fuel,
+            container_no=container_no.strip(),
+            notes=notes_line.strip(),
+        )
+        s.add(line)
+        s.commit()
+        s.refresh(line)
+
+        audit = DispatchPlanAudit(
+            plan_id=plan_id,
+            line_id=line.id,
+            action="add_line",
+            new_value=f"{line.plate_raw or line.vehicle_id} | {line.job_type} | {line.trips} เที่ยว",
+        )
+        s.add(audit)
+        plan.updated_at = datetime.utcnow()
+        s.add(plan)
+        s.commit()
+    return RedirectResponse(url=f"/dispatch/planner/{plan_id}", status_code=303)
+
+
+@app.post("/dispatch/planner/{plan_id}/lines/{line_id}/edit")
+def dispatch_planner_edit_line(
+    plan_id: int,
+    line_id: int,
+    vehicle_id: str = Form(""),
+    plate_raw: str = Form(""),
+    driver_id: str = Form(""),
+    driver_raw: str = Form(""),
+    job_type: str = Form(""),
+    trips: str = Form("1"),
+    container_no: str = Form(""),
+    notes_line: str = Form(""),
+    edit_reason: str = Form(""),
+):
+    with Session(engine) as s:
+        plan = s.get(DispatchPlan, plan_id)
+        line = s.get(DispatchPlanLine, line_id)
+        if not plan or not line or line.plan_id != plan_id:
+            raise HTTPException(404)
+        if plan.status == "submitted" and not edit_reason.strip():
+            raise HTTPException(400, "แผนนี้ submit แล้ว — ต้องระบุเหตุผลแก้ไข")
+
+        old_snapshot = f"{line.plate_raw or line.vehicle_id} | {line.job_type} | {line.trips} เที่ยว"
+        trips_int = max(1, _parse_int(trips) or 1)
+        lpt = _DISPATCH_L_PER_TRIP.get(job_type, 0.0)
+
+        line.vehicle_id = _parse_int(vehicle_id)
+        line.plate_raw = plate_raw.strip()
+        line.driver_id = _parse_int(driver_id)
+        line.driver_raw = driver_raw.strip()
+        line.job_type = job_type.strip()
+        line.trips = trips_int
+        line.fuel_liters = lpt * trips_int
+        line.container_no = container_no.strip()
+        line.notes = notes_line.strip()
+        s.add(line)
+
+        new_snapshot = f"{line.plate_raw or line.vehicle_id} | {line.job_type} | {line.trips} เที่ยว"
+        audit = DispatchPlanAudit(
+            plan_id=plan_id,
+            line_id=line_id,
+            action="edit_line",
+            old_value=old_snapshot,
+            new_value=new_snapshot,
+            note=edit_reason.strip(),
+        )
+        s.add(audit)
+        plan.updated_at = datetime.utcnow()
+        s.add(plan)
+        s.commit()
+    return RedirectResponse(url=f"/dispatch/planner/{plan_id}", status_code=303)
+
+
+@app.post("/dispatch/planner/{plan_id}/lines/{line_id}/delete")
+def dispatch_planner_delete_line(
+    plan_id: int,
+    line_id: int,
+    delete_reason: str = Form(""),
+):
+    with Session(engine) as s:
+        plan = s.get(DispatchPlan, plan_id)
+        line = s.get(DispatchPlanLine, line_id)
+        if not plan or not line or line.plan_id != plan_id:
+            raise HTTPException(404)
+        if plan.status == "submitted":
+            raise HTTPException(400, "แผนนี้ submit แล้ว ต้องระบุเหตุผลแก้ไข")
+
+        snapshot = f"{line.plate_raw or line.vehicle_id} | {line.job_type} | {line.trips} เที่ยว"
+        s.delete(line)
+
+        audit = DispatchPlanAudit(
+            plan_id=plan_id,
+            line_id=line_id,
+            action="delete_line",
+            old_value=snapshot,
+            note=delete_reason.strip(),
+        )
+        s.add(audit)
+        plan.updated_at = datetime.utcnow()
+        s.add(plan)
+        s.commit()
+    return RedirectResponse(url=f"/dispatch/planner/{plan_id}", status_code=303)
+
+
+@app.post("/dispatch/planner/{plan_id}/submit")
+def dispatch_planner_submit(plan_id: int):
+    with Session(engine) as s:
+        plan = s.get(DispatchPlan, plan_id)
+        if not plan:
+            raise HTTPException(404)
+        if plan.status == "submitted":
+            return RedirectResponse(url=f"/dispatch/planner/{plan_id}", status_code=303)
+
+        lines = s.exec(
+            select(DispatchPlanLine)
+            .where(DispatchPlanLine.plan_id == plan_id)
+            .order_by(DispatchPlanLine.seq)  # type: ignore[arg-type]
+        ).all()
+
+        for line in lines:
+            if line.daily_job_id:
+                continue
+            job = DailyJob(
+                work_date=plan.plan_date,
+                site_code=plan.site_code,
+                driver_id=line.driver_id,
+                driver_raw_name=line.driver_raw,
+                head_vehicle_id=line.vehicle_id,
+                plate_no_raw=line.plate_raw,
+                customer_name_raw=line.job_type,
+                trip_type_code="dispatch",
+                status_code="planned",
+                fuel_liter=line.fuel_liters,
+                remark=line.notes,
+                source="dispatch_planner",
+            )
+            s.add(job)
+            s.flush()
+            line.daily_job_id = job.id
+            s.add(line)
+
+        plan.status = "submitted"
+        plan.submitted_at = datetime.utcnow()
+        plan.updated_at = datetime.utcnow()
+        s.add(plan)
+
+        audit = DispatchPlanAudit(
+            plan_id=plan_id,
+            action="submit",
+            new_value=f"submitted {len(lines)} lines → DailyJob",
+        )
+        s.add(audit)
+        s.commit()
+    return RedirectResponse(url=f"/dispatch/planner/{plan_id}", status_code=303)
+
+
+@app.post("/dispatch/planner/{plan_id}/reopen")
+def dispatch_planner_reopen(plan_id: int, reopen_reason: str = Form("")):
+    with Session(engine) as s:
+        plan = s.get(DispatchPlan, plan_id)
+        if not plan:
+            raise HTTPException(404)
+        plan.status = "draft"
+        plan.updated_at = datetime.utcnow()
+        s.add(plan)
+        audit = DispatchPlanAudit(
+            plan_id=plan_id,
+            action="reopen",
+            note=reopen_reason.strip(),
+        )
+        s.add(audit)
+        s.commit()
+    return RedirectResponse(url=f"/dispatch/planner/{plan_id}", status_code=303)
+
+
+@app.get("/dispatch/planner/{plan_id}/line-message", response_class=PlainTextResponse)
+def dispatch_planner_line_message(plan_id: int):
+    with Session(engine) as s:
+        plan = s.get(DispatchPlan, plan_id)
+        if not plan:
+            raise HTTPException(404)
+        lines = s.exec(
+            select(DispatchPlanLine)
+            .where(DispatchPlanLine.plan_id == plan_id)
+            .order_by(DispatchPlanLine.seq)  # type: ignore[arg-type]
+        ).all()
+        employees, vehicles_list, _ = _load_masters(s)
+        veh_map = {v.id: {"plate": v.plate_no, "nickname": v.nickname} for v in vehicles_list}
+        drv_map = {e.id: {"name": e.full_name, "nickname": e.nickname} for e in employees}
+    msg = _dispatch_gen_line_message(plan, list(lines), veh_map, drv_map)
+    return PlainTextResponse(msg)
 
 
 if __name__ == "__main__":

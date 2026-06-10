@@ -1,13 +1,26 @@
 {% extends "base.html" %}
 {% block title %}สดย่อย · Petty Cash{% endblock %}
 {% block content %}
+
 <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-  <h1 class="text-2xl font-bold">สดย่อย · {{ total_rows }} รายการ <span class="text-sm text-slate-500 font-normal">(หน้า {{ page }}/{{ total_pages }})</span></h1>
-  <div class="flex gap-2">
-    <a href="/petty-cash/pending" class="bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 text-sm">ดูรอหักคนขับ ({{ "%.0f"|format(total_deduct_pending) }})</a>
-    <a href="/petty-cash/new" class="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-700">+ เพิ่มรายการ</a>
+  <h1 class="text-2xl font-bold">สดย่อย · Petty Cash
+    <span class="text-sm text-slate-500 font-normal">{{ total_rows }} รายการ{% if capped %} · แสดงสูงสุด 2,000{% endif %}</span>
+  </h1>
+  <div class="flex gap-2 items-center flex-wrap">
+    <button type="button" id="savePettyBtn" class="bg-emerald-600 text-white px-4 py-1.5 rounded text-sm hover:bg-emerald-700">Save</button>
+    <span id="savePettyMsg" class="text-xs text-slate-500"></span>
+    <a href="/petty-cash/pending" class="bg-amber-500 text-white px-4 py-1.5 rounded-lg hover:bg-amber-600 text-sm">รอหักคนขับ ({{ "%.0f"|format(total_deduct_pending) }})</a>
+    <a href="/petty-cash/new" class="bg-slate-900 text-white px-4 py-1.5 rounded-lg hover:bg-slate-700 text-sm">+ เพิ่มรายการ</a>
   </div>
 </div>
+
+{% if capped %}
+<div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-2 text-xs mb-3">
+  ⚠ รายการเกิน 2,000 แถว — ใช้ตัวกรองเพิ่มเติมเพื่อดูครบทุกรายการ
+</div>
+{% endif %}
+
+<div id="savePettyDetails" class="hidden rounded-lg border p-3 text-xs mb-3"></div>
 
 <form method="get" class="bg-white rounded-lg border p-4 mb-4 grid md:grid-cols-6 gap-3 items-end">
   <div>
@@ -54,7 +67,7 @@
       {% endfor %}
     </select>
   </div>
-  <div class="flex gap-2">
+  <div class="md:col-span-3 flex gap-4 flex-wrap">
     <label class="inline-flex items-center gap-1 text-sm">
       <input type="checkbox" name="deduct" value="1" {% if deduct=='1' %}checked{% endif %} />
       เฉพาะหักคนขับ
@@ -75,37 +88,23 @@
   <div class="md:col-span-6 border-t pt-3">
     <div class="text-xs text-slate-500 mb-1">Preset เร็ว</div>
     <div class="flex flex-wrap gap-2 text-xs">
-      <a href="/petty-cash?site=BIGC&cycle={{ current_cycle_tag }}&per_page={{ per_page }}"
+      <a href="/petty-cash?site=BIGC&amp;cycle={{ current_cycle_tag }}"
          class="px-2 py-1 rounded border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100">BigC เดือนนี้</a>
-      <a href="/petty-cash?site=LCB&cycle={{ current_cycle_tag }}&per_page={{ per_page }}"
+      <a href="/petty-cash?site=LCB&amp;cycle={{ current_cycle_tag }}"
          class="px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">LCB เดือนนี้</a>
-      <a href="/petty-cash?site=AYU&cycle={{ current_cycle_tag }}&per_page={{ per_page }}"
+      <a href="/petty-cash?site=AYU&amp;cycle={{ current_cycle_tag }}"
          class="px-2 py-1 rounded border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">AYU เดือนนี้</a>
-      <a href="/petty-cash?deduct=1&dstatus=pending&per_page={{ per_page }}"
+      <a href="/petty-cash?deduct=1&amp;dstatus=pending"
          class="px-2 py-1 rounded border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100">รออนุมัติหัก</a>
-      <a href="/petty-cash?unlinked=1&deduct=1&dstatus=pending&per_page={{ per_page }}"
+      <a href="/petty-cash?unlinked=1&amp;deduct=1&amp;dstatus=pending"
          class="px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">ยังไม่ผูกคนขับ</a>
-      <a href="/petty-cash?review=1&deduct=1&dstatus=pending&per_page={{ per_page }}"
+      <a href="/petty-cash?review=1&amp;deduct=1&amp;dstatus=pending"
          class="px-2 py-1 rounded border border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100">ต้องทวน policy</a>
     </div>
   </div>
 </form>
 
-<div class="grid grid-cols-3 gap-4 mb-4">
-  <div class="bg-white border rounded-lg p-4">
-    <div class="text-xs text-slate-500">ยอดจ่ายออกรวม</div>
-    <div class="text-xl font-semibold text-red-600">{{ "%.0f"|format(total_out) }} บ.</div>
-  </div>
-  <div class="bg-white border rounded-lg p-4">
-    <div class="text-xs text-slate-500">รับเข้าสดย่อยรวม</div>
-    <div class="text-xl font-semibold text-green-600">{{ "%.0f"|format(total_in) }} บ.</div>
-  </div>
-  <div class="bg-white border rounded-lg p-4">
-    <div class="text-xs text-slate-500">รอหักคนขับ (ที่กรองอยู่)</div>
-    <div class="text-xl font-semibold text-amber-600">{{ "%.0f"|format(total_deduct_pending) }} บ.</div>
-  </div>
-</div>
-
+<!-- Bulk shift-cycle form (preserved — wired to Tabulator selection) -->
 <form id="bulkPettyForm" method="post" action="/petty-cash/bulk-shift-cycle">
   <input type="hidden" name="ids" id="bulkPettyIds" />
   <input type="hidden" name="next_url" value="{{ request.url.path }}?{{ request.url.query }}" />
@@ -118,207 +117,474 @@
     <button type="submit" name="direction" value="prev" class="bg-slate-200 px-3 py-1 rounded text-sm hover:bg-slate-300">−1 เดือน</button>
     <button type="submit" name="direction" value="next" class="bg-slate-200 px-3 py-1 rounded text-sm hover:bg-slate-300">+1 เดือน</button>
     <span class="text-slate-400">|</span>
-    <button type="button" id="bulkClear" class="text-slate-500 underline">ล้างเลือก</button>
+    <button type="button" id="bulkClear" class="text-slate-500 underline text-sm">ล้างเลือก</button>
   </div>
 </form>
 
-<div class="bg-white rounded-lg border overflow-x-auto">
-  <table class="w-full text-sm" id="pettyTable">
-    <thead class="bg-slate-100 text-left">
-      <tr>
-        <th class="px-2 py-2"><input type="checkbox" id="selAllPetty" /></th>
-        <th class="px-2 py-2">วันที่</th>
-        <th class="px-2 py-2">ไซต์</th>
-        <th class="px-2 py-2">ทิศทาง</th>
-        <th class="px-2 py-2 text-right">จำนวน</th>
-        <th class="px-2 py-2">ผู้เบิก</th>
-        <th class="px-2 py-2">รายการ</th>
-        <th class="px-2 py-2">หมวด</th>
-        <th class="px-2 py-2 text-center">หัก พขร.</th>
-        <th class="px-2 py-2">รอบ</th>
-        <th class="px-2 py-2">Review</th>
-        <th class="px-2 py-2">สถานะ</th>
-        <th class="px-2 py-2"></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for r in rows %}
-      {% set is_settled = r.deduct_from_driver and r.deduction_status == 'settled_offline' %}
-      {% set is_waived  = r.deduct_from_driver and r.deduction_status == 'waived' %}
-      <tr class="border-t hover:bg-slate-50 {% if is_settled or is_waived %}bg-slate-50 text-slate-500{% endif %}">
-        <td class="px-2 py-2">
-          {% if r.status != 'locked' %}
-          <input type="checkbox" class="petty-row-cb" data-id="{{ r.id }}" />
-          {% endif %}
-        </td>
-        <td class="px-2 py-2 whitespace-nowrap">{{ r.txn_date | dmy }}</td>
-        <td class="px-2 py-2">{{ r.site_code }}</td>
-        <td class="px-2 py-2">
-          {% if r.direction == 'in' %}
-            <span class="px-1.5 py-0.5 rounded bg-green-100 text-green-700 text-xs">เข้า</span>
-          {% else %}
-            <span class="px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-xs">ออก</span>
-          {% endif %}
-        </td>
-        <td class="px-2 py-2 text-right font-semibold {% if r.direction=='out' %}text-red-600{% else %}text-green-600{% endif %}">
-          {{ "%.0f"|format(r.amount) }}
-        </td>
-        <td class="px-2 py-2">
-          {{ r.requester }}
-          {% if not r.driver_id %}
-          <span class="ml-1 px-1 py-0.5 rounded bg-rose-100 text-rose-700 text-[10px]">unlinked</span>
-          {% endif %}
-        </td>
-        <td class="px-2 py-2 text-xs">{{ r.memo }}</td>
-        <td class="px-2 py-2 text-xs">{{ r.category }}</td>
-        <td class="px-2 py-2 text-center text-xs">
-          {% if r.deduct_from_driver %}
-            <span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">{{ "%.0f"|format(r.deduct_amount) }}</span>
-            {% if r.deduction_status == 'deducted' %}
-              <span class="block text-green-600 text-[10px] mt-0.5">✓ หักแล้ว</span>
-            {% elif r.deduction_status == 'settled_offline' %}
-              <span class="block text-slate-500 text-[10px] mt-0.5" title="เคยหักนอกระบบ/ทอนไม่คืน — payroll จะข้าม">⊘ เคยหัก</span>
-            {% elif r.deduction_status == 'waived' %}
-              <span class="block text-slate-400 text-[10px] mt-0.5">ยกเลิก</span>
-            {% endif %}
-          {% endif %}
-        </td>
-        <td class="px-2 py-2 text-xs">
-          {{ r.pay_cycle_tag }}
-          {% if r.cycle_overridden %}<span class="ml-1 px-1 rounded bg-amber-100 text-amber-800 text-[10px]" title="auto = {{ r.auto_cycle_tag }}">ย้ายจาก {{ r.auto_cycle_tag }}</span>{% endif %}
-          {% if r.pending_amount and not r.pending_cleared %}
-            <div class="mt-1"><span class="px-1 rounded bg-yellow-100 text-yellow-800 text-[10px]">รอเคลียร์ {{ "%.0f"|format(r.pending_amount) }}</span></div>
-          {% endif %}
-        </td>
-        <td class="px-2 py-2 text-xs">
-          {% if r.review_required %}
-            <span class="px-1.5 py-0.5 rounded bg-fuchsia-100 text-fuchsia-800">ต้องทวน</span>
-            <div class="text-[10px] text-fuchsia-700 mt-0.5">{{ r.review_reason }}</div>
-          {% else %}
-            <span class="text-slate-400">—</span>
-          {% endif %}
-        </td>
-        <td class="px-2 py-2 text-xs">
-          {% if r.status == 'locked' %}<span class="text-slate-400">🔒</span>{% else %}{{ r.status }}{% endif %}
-        </td>
-        <td class="px-2 py-2 whitespace-nowrap">
-          {% if r.status != 'locked' %}
-          <a href="/petty-cash/{{ r.id }}/edit" class="text-blue-600 hover:underline text-xs">แก้</a>
-          {% if r.deduct_from_driver and r.deduction_status == 'pending' %}
-            <form method="post" action="/petty-cash/{{ r.id }}/shift-cycle" class="inline ml-1" title="เลื่อนรอบหักไปเดือนก่อน (ใช้เมื่อถูกหักในรอบก่อนไปแล้ว)">
-              <input type="hidden" name="direction" value="prev" />
-              <button class="text-sky-600 hover:underline text-xs">↶ รอบก่อน</button>
-            </form>
-            <form method="post" action="/petty-cash/{{ r.id }}/mark-settled" class="inline ml-1" title="เคยหักแล้วนอกระบบ / ทอนไม่คืน — payroll จะข้าม">
-              <button class="text-slate-600 hover:underline text-xs">⊘ เคยหัก</button>
-            </form>
-          {% elif r.deduct_from_driver and r.deduction_status == 'settled_offline' %}
-            <form method="post" action="/petty-cash/{{ r.id }}/mark-pending" class="inline ml-1" title="เปลี่ยนกลับเป็น 'รอหัก'">
-              <button class="text-amber-600 hover:underline text-xs">↺ รอหัก</button>
-            </form>
-          {% endif %}
-          <form method="post" action="/petty-cash/{{ r.id }}/delete" onsubmit="return confirm('ลบรายการนี้?');" class="inline ml-1">
-            <button class="text-red-500 hover:underline text-xs">ลบ</button>
-          </form>
-          {% endif %}
-        </td>
-      </tr>
-      {% else %}
-      <tr><td colspan="13" class="px-3 py-8 text-center text-slate-400">ยังไม่มีรายการ — กด "+ เพิ่มรายการ" หรือใช้ตัวกรองอื่น</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<!-- Subtotal mode selector -->
+<div class="flex items-center gap-4 text-xs mb-2 bg-white border rounded-lg px-3 py-2 flex-wrap">
+  <span class="text-slate-500 font-medium shrink-0">Subtotal:</span>
+  <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="calcMode" value="sum" checked class="accent-indigo-600"> ผลรวม</label>
+  <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="calcMode" value="avg" class="accent-indigo-600"> เฉลี่ย</label>
+  <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="calcMode" value="cnt" class="accent-indigo-600"> นับ(ทุก)</label>
+  <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="calcMode" value="cnt_ne" class="accent-indigo-600"> นับ(ไม่นับว่าง)</label>
+  <span class="text-slate-400 ml-1 shrink-0">· ✎ แก้ได้ · 🔒 = ล็อก · เลือกแถว Shift+คลิก → ย้ายรอบได้</span>
 </div>
 
-{% if total_pages > 1 %}
-{% set qs = '' %}
-{% if site %}{% set qs = qs + '&site=' + site %}{% endif %}
-{% if d_from %}{% set qs = qs + '&d_from=' + d_from %}{% endif %}
-{% if d_to %}{% set qs = qs + '&d_to=' + d_to %}{% endif %}
-{% if driver %}{% set qs = qs + '&driver=' + driver %}{% endif %}
-{% if cat %}{% set qs = qs + '&cat=' + cat %}{% endif %}
-{% if dstatus %}{% set qs = qs + '&dstatus=' + dstatus %}{% endif %}
-{% if deduct %}{% set qs = qs + '&deduct=' + deduct %}{% endif %}
-{% if unlinked %}{% set qs = qs + '&unlinked=' + unlinked %}{% endif %}
-{% if review %}{% set qs = qs + '&review=' + review %}{% endif %}
-{% if cycle %}{% set qs = qs + '&cycle=' + cycle %}{% endif %}
-{% set qs = qs + '&per_page=' + per_page|string %}
-<div class="flex items-center justify-center gap-1 mt-4 flex-wrap text-sm">
-  {% if page > 1 %}
-    <a href="?page=1{{ qs }}" class="px-3 py-1 border rounded hover:bg-slate-100">« หน้าแรก</a>
-    <a href="?page={{ page-1 }}{{ qs }}" class="px-3 py-1 border rounded hover:bg-slate-100">‹ ก่อนหน้า</a>
-  {% endif %}
-  <span class="px-3 py-1">หน้า {{ page }} / {{ total_pages }}</span>
-  {% if page < total_pages %}
-    <a href="?page={{ page+1 }}{{ qs }}" class="px-3 py-1 border rounded hover:bg-slate-100">ถัดไป ›</a>
-    <a href="?page={{ total_pages }}{{ qs }}" class="px-3 py-1 border rounded hover:bg-slate-100">สุดท้าย »</a>
-  {% endif %}
-  <form method="get" class="flex items-center gap-1 ml-2">
-    {% if site %}<input type="hidden" name="site" value="{{ site }}">{% endif %}
-    {% if d_from %}<input type="hidden" name="d_from" value="{{ d_from }}">{% endif %}
-    {% if d_to %}<input type="hidden" name="d_to" value="{{ d_to }}">{% endif %}
-    {% if driver %}<input type="hidden" name="driver" value="{{ driver }}">{% endif %}
-    {% if cat %}<input type="hidden" name="cat" value="{{ cat }}">{% endif %}
-    {% if dstatus %}<input type="hidden" name="dstatus" value="{{ dstatus }}">{% endif %}
-    {% if deduct %}<input type="hidden" name="deduct" value="{{ deduct }}">{% endif %}
-    {% if unlinked %}<input type="hidden" name="unlinked" value="{{ unlinked }}">{% endif %}
-    {% if review %}<input type="hidden" name="review" value="{{ review }}">{% endif %}
-    {% if cycle %}<input type="hidden" name="cycle" value="{{ cycle }}">{% endif %}
-    <input type="hidden" name="per_page" value="{{ per_page }}">
-    <span class="text-xs text-slate-500">ไปหน้า:</span>
-    <input type="number" name="page" min="1" max="{{ total_pages }}" value="{{ page }}"
-           class="w-16 px-2 py-1 border rounded text-center" />
-    <button class="px-2 py-1 border rounded hover:bg-slate-100">ไป</button>
-    <select onchange="if(this.value) window.location.href = '?page=' + this.value + '{{ qs }}'"
-            class="px-2 py-1 border rounded text-xs">
-      <option value="">เลือกหน้า…</option>
-      {% for p in range(1, total_pages + 1) %}
-        <option value="{{ p }}" {% if p == page %}selected{% endif %}>หน้า {{ p }}/{{ total_pages }}</option>
-      {% endfor %}
-    </select>
-  </form>
-  <span class="ml-2 text-xs text-slate-500">แสดง {{ per_page }}/หน้า</span>
+<div class="bg-white rounded-lg border p-2">
+  <div id="pettyGridTable" class="w-full"></div>
 </div>
-{% endif %}
 
+<!-- Selection status bar (fixed at bottom) -->
+<div id="ykSelBar" class="hidden fixed bottom-0 left-0 right-0 bg-slate-800 text-white text-xs px-4 py-2 flex items-center gap-5 z-50 shadow-2xl">
+  <span class="font-semibold shrink-0" id="ykSelCount">0 แถวที่เลือก</span>
+  <span class="shrink-0">จำนวนรวม: <strong id="ykSelAmtSum">0</strong></span>
+  <span class="shrink-0">ออกรวม: <strong id="ykSelOutSum">0</strong> <span class="text-slate-400">avg</span> <strong id="ykSelOutAvg">-</strong></span>
+  <span class="shrink-0">หักรวม: <strong id="ykSelDeductSum">0</strong></span>
+  <button id="ykSelClear" type="button" class="ml-auto text-slate-400 hover:text-white">✕ ยกเลิก</button>
+</div>
+
+<script src="https://unpkg.com/tabulator-tables@6.2.1/dist/js/tabulator.min.js"></script>
+<link href="https://unpkg.com/tabulator-tables@6.2.1/dist/css/tabulator.min.css" rel="stylesheet" />
+<style>
+  .yk-grid-dirty-cell { background: #fef3c7 !important; box-shadow: inset 0 -2px 0 #f59e0b; }
+  .yk-grid-dirty-row .tabulator-cell:first-child { border-left: 3px solid #f59e0b; }
+  .tabulator .tabulator-row.tabulator-selected { background: #dbeafe !important; }
+  .tabulator .tabulator-row.tabulator-selected:hover { background: #bfdbfe !important; }
+  .tabulator .tabulator-header .tabulator-col .tabulator-header-filter input,
+  .tabulator .tabulator-header .tabulator-col .tabulator-header-filter select {
+    background: #f0f9ff !important; border: 1px solid #7dd3fc !important;
+    border-radius: 3px; font-size: 11px; padding: 2px 4px; width: 100%; box-sizing: border-box;
+  }
+  .tabulator .tabulator-header .tabulator-col .tabulator-header-filter input::placeholder { color: #94a3b8; font-style: italic; }
+  .tabulator .tabulator-calcs-bottom .tabulator-cell { background: #f1f5f9; font-weight: 600; font-size: 11px; color: #1e40af; }
+</style>
 <script>
-(function(){
-  const form = document.getElementById('bulkPettyForm');
-  const idsInput = document.getElementById('bulkPettyIds');
-  const bar = document.getElementById('bulkBar');
-  const cnt = document.getElementById('bulkCount');
-  const selAll = document.getElementById('selAllPetty');
-  const cbs = document.querySelectorAll('.petty-row-cb');
-  const clearBtn = document.getElementById('bulkClear');
+// Global helper for action buttons rendered inside Tabulator formatters
+function _pf(action, msg, extraName, extraVal) {
+  if (!confirm(msg || 'ดำเนินการ?')) return;
+  var f = document.createElement('form'); f.method = 'post'; f.action = action;
+  if (extraName) { var i = document.createElement('input'); i.type='hidden'; i.name=extraName; i.value=extraVal||''; f.appendChild(i); }
+  document.body.appendChild(f); f.submit();
+}
 
-  function refresh(){
-    const ids = Array.from(cbs).filter(cb => cb.checked).map(cb => cb.dataset.id);
-    idsInput.value = ids.join(',');
-    cnt.textContent = ids.length;
-    bar.classList.toggle('hidden', ids.length === 0);
+(function(){
+  const ROWS = {{ rows_json | safe }};
+
+  const saveBtn     = document.getElementById("savePettyBtn");
+  const saveMsg     = document.getElementById("savePettyMsg");
+  const saveDetails = document.getElementById("savePettyDetails");
+  const selBar      = document.getElementById("ykSelBar");
+  const bulkBar     = document.getElementById("bulkBar");
+  const bulkIds     = document.getElementById("bulkPettyIds");
+  const bulkCount   = document.getElementById("bulkCount");
+  const bulkForm    = document.getElementById("bulkPettyForm");
+
+  let dirtyRows = new Map();
+  let calcMode  = "sum";
+
+  const notLocked = (cell) => cell.getRow().getData().status !== 'locked';
+
+  function makeCalc() {
+    return function(values) {
+      const ne = values.filter(v => v !== null && v !== undefined && v !== "" && !isNaN(parseFloat(v)));
+      if (calcMode === "sum") return Math.round(ne.reduce((s,v)=>s+parseFloat(v),0)*100)/100;
+      if (calcMode === "avg") return ne.length ? Math.round(ne.reduce((s,v)=>s+parseFloat(v),0)/ne.length*100)/100 : "";
+      if (calcMode === "cnt") return values.length;
+      if (calcMode === "cnt_ne") return ne.length;
+      return "";
+    };
   }
-  cbs.forEach(cb => cb.addEventListener('change', refresh));
-  if (selAll){
-    selAll.addEventListener('change', () => {
-      cbs.forEach(cb => { cb.checked = selAll.checked; });
-      refresh();
-    });
+
+  function updateDirtyFeedback(){
+    const n = dirtyRows.size;
+    saveBtn.textContent = n ? `Save (${n})` : "Save";
+    saveMsg.textContent = n ? `ยังไม่บันทึก ${n} แถว` : "";
+    saveMsg.className   = n ? "text-xs text-amber-700" : "text-xs text-slate-500";
   }
-  if (clearBtn){
-    clearBtn.addEventListener('click', () => {
-      cbs.forEach(cb => { cb.checked = false; });
-      if (selAll) selAll.checked = false;
-      refresh();
-    });
-  }
-  if (form){
-    form.addEventListener('submit', (e) => {
-      if (!idsInput.value){
-        e.preventDefault();
-        alert('ยังไม่ได้เลือกแถวที่จะย้าย');
+
+  // ── Excel dropdown filter ───────────────────────────────────────────────────
+  function makeExcelFilter(fieldName) {
+    return function(cell, onRendered, success) {
+      let sel = new Set(["__ALL__"]);
+      let pop = null;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      function styleBtn() {
+        const all = sel.has("__ALL__");
+        btn.textContent = all ? "ทั้งหมด ▾" : sel.size + " เลือก ▾";
+        btn.style.cssText = "width:100%;text-align:left;font-size:11px;padding:1px 4px;" +
+          "border:1px solid #7dd3fc;border-radius:3px;background:#f0f9ff;cursor:pointer;" +
+          "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" +
+          "color:" + (all ? "#0369a1" : "#b45309") + ";font-weight:" + (all ? "normal" : "600") + ";";
       }
-    });
+      styleBtn();
+      function getVals() {
+        const m = new Map();
+        ROWS.forEach(r => {
+          const v = r[fieldName];
+          const k = (v == null || v === "") ? "\0BLANK" : String(v);
+          m.set(k, (m.get(k)||0)+1);
+        });
+        return [...m.entries()].sort(([a],[b]) => a==="\0BLANK"?1:b==="\0BLANK"?-1:a.localeCompare(b,"th"));
+      }
+      function closePop() { if(pop){pop.remove();pop=null;} }
+      function applyFilter() { success(sel.has("__ALL__")||sel.size===0?null:new Set(sel)); styleBtn(); }
+      function openPop() {
+        closePop();
+        const entries = getVals();
+        const rect = btn.getBoundingClientRect();
+        pop = document.createElement("div");
+        pop.style.cssText = "position:fixed;z-index:9999;background:#fff;border:1px solid #cbd5e1;border-radius:6px;" +
+          "box-shadow:0 4px 24px rgba(0,0,0,.18);display:flex;flex-direction:column;" +
+          "min-width:200px;max-width:290px;max-height:340px;font-size:12px;" +
+          "left:"+Math.min(rect.left,innerWidth-300)+"px;top:"+Math.min(rect.bottom+2,innerHeight-350)+"px;";
+        const si = document.createElement("input"); si.type="text"; si.placeholder="🔍 ค้นหา…";
+        si.style.cssText="margin:6px;padding:3px 6px;border:1px solid #94a3b8;border-radius:3px;font-size:11px;box-sizing:border-box;width:calc(100% - 12px);";
+        pop.appendChild(si);
+        const ul = document.createElement("div"); ul.style.cssText="overflow-y:auto;flex:1;padding:2px 4px;"; pop.appendChild(ul);
+        const ft = document.createElement("div"); ft.style.cssText="display:flex;gap:4px;padding:6px;border-top:1px solid #e2e8f0;flex-shrink:0;"; pop.appendChild(ft);
+        [["ใช้ตัวกรอง",false],["ล้าง",true]].forEach(([t,isClear])=>{
+          const b=document.createElement("button"); b.type="button"; b.textContent=t;
+          b.style.cssText="flex:1;border-radius:4px;padding:4px;font-size:11px;cursor:pointer;border:1px solid "+(isClear?"#e2e8f0":"transparent")+";background:"+(isClear?"#f8fafc":"#0284c7")+";color:"+(isClear?"#334155":"#fff")+";";
+          b.onclick=isClear?()=>{sel=new Set(["__ALL__"]);applyFilter();closePop();}:()=>{applyFilter();closePop();};
+          ft.appendChild(b);
+        });
+        function mkRow(key,label,count){
+          const row=document.createElement("label"); row.style.cssText="display:flex;align-items:center;gap:5px;padding:2px 3px;border-radius:3px;cursor:pointer;";
+          row.onmouseenter=()=>row.style.background="#f8fafc"; row.onmouseleave=()=>row.style.background="";
+          const chk=document.createElement("input"); chk.type="checkbox"; chk.value=key; chk.style.cssText="accent-color:#0284c7;flex-shrink:0;";
+          chk.checked=sel.has("__ALL__")||sel.has(key);
+          chk.onchange=()=>{
+            if(key==="__ALL__"){sel=chk.checked?new Set(["__ALL__"]):new Set();ul.querySelectorAll("input").forEach(c=>c.checked=chk.checked);}
+            else{if(sel.has("__ALL__")){sel=new Set(entries.map(([k])=>k));} sel.delete("__ALL__");chk.checked?sel.add(key):sel.delete(key);
+              const ac=ul.querySelector("input[value='__ALL__']");
+              if(ac){const ak=entries.map(([k])=>k);ac.checked=ak.every(k=>sel.has(k));if(ac.checked)sel=new Set(["__ALL__"]);}
+            }
+          };
+          const sp=document.createElement("span"); sp.textContent=label;
+          sp.style.cssText="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"+(key==="\0BLANK"?"color:#94a3b8;font-style:italic;":"")+(key==="__ALL__"?"font-weight:600;":"");
+          const cn=document.createElement("span"); cn.textContent=count; cn.style.cssText="color:#94a3b8;font-size:10px;flex-shrink:0;";
+          row.append(chk,sp,cn); return row;
+        }
+        function renderList(q){
+          ul.innerHTML="";
+          const total=entries.reduce((s,[,c])=>s+c,0);
+          ul.appendChild(mkRow("__ALL__","✓ ทั้งหมด",total));
+          entries.forEach(([k,c])=>{const lbl=k==="\0BLANK"?"(ว่าง)":k;if(q&&k!=="\0BLANK"&&!lbl.toLowerCase().includes(q.toLowerCase()))return;ul.appendChild(mkRow(k,lbl,c));});
+        }
+        renderList(""); si.addEventListener("input",()=>renderList(si.value));
+        document.body.appendChild(pop); si.focus();
+        setTimeout(()=>{const h=e=>{if(pop&&!pop.contains(e.target)&&e.target!==btn){closePop();document.removeEventListener("mousedown",h);}};document.addEventListener("mousedown",h);},0);
+      }
+      btn.addEventListener("click",e=>{e.stopPropagation();pop?closePop():openPop();});
+      onRendered(styleBtn); return btn;
+    };
   }
+
+  function excelFilterFunc(headerValue, rowValue) {
+    if (!headerValue || !(headerValue instanceof Set) || headerValue.has("__ALL__")) return true;
+    const v = (rowValue==null||rowValue==="") ? "\0BLANK" : String(rowValue);
+    return headerValue.has(v);
+  }
+
+  // ── Tabulator ───────────────────────────────────────────────────────────────
+  const table = new Tabulator("#pettyGridTable", {
+    data: ROWS,
+    layout: "fitDataStretch",
+    height: "75vh",
+    movableColumns: true,
+    clipboard: true,
+    selectable: true,
+    selectableCheck: function(row) { return row.getData().status !== 'locked'; },
+    headerFilterLiveFilterDelay: 300,
+    rowFormatter: function(row) {
+      const d = row.getData();
+      const settled = d.deduct_from_driver && d.deduction_status === 'settled_offline';
+      const waived  = d.deduct_from_driver && d.deduction_status === 'waived';
+      if (settled || waived || d.status === 'locked') {
+        row.getElement().style.opacity = "0.65";
+        row.getElement().style.background = "#f8fafc";
+      }
+    },
+    columns: [
+      // Checkbox select column (locked rows non-selectable via selectableCheck)
+      { formatter:"rowSelection", titleFormatter:"rowSelection", hozAlign:"center", headerSort:false, frozen:true, width:36, clipboard:false, resizable:false },
+
+      // Actions column
+      {
+        title: "",
+        field: "_actions",
+        frozen: true,
+        headerSort: false,
+        width: 160,
+        clipboard: false,
+        formatter: function(cell) {
+          const d = cell.getRow().getData();
+          const id = d.id;
+          if (d.status === 'locked') return '<span style="color:#94a3b8;font-size:11px;">🔒 ล็อก</span>';
+          const S = "font-size:11px;background:none;border:none;cursor:pointer;text-decoration:underline;white-space:nowrap;";
+          let h = `<a href="/petty-cash/${id}/edit" style="color:#0369a1;${S}">แก้</a>`;
+          if (d.deduct_from_driver && d.deduction_status === 'pending') {
+            h += ` <button style="color:#0284c7;${S}" onclick="_pf('/petty-cash/${id}/shift-cycle','ย้ายไปรอบก่อน?','direction','prev')">↶ รอบก่อน</button>`;
+            h += ` <button style="color:#64748b;${S}" onclick="_pf('/petty-cash/${id}/mark-settled','บันทึกว่าเคยหักแล้ว?')">⊘ เคยหัก</button>`;
+          } else if (d.deduct_from_driver && d.deduction_status === 'settled_offline') {
+            h += ` <button style="color:#d97706;${S}" onclick="_pf('/petty-cash/${id}/mark-pending','เปลี่ยนกลับเป็นรอหัก?')">↺ รอหัก</button>`;
+          }
+          h += ` <button style="color:#dc2626;${S}" onclick="_pf('/petty-cash/${id}/delete','ลบรายการนี้?')">ลบ</button>`;
+          return h;
+        },
+      },
+
+      // Date
+      { title:"วันที่ ✎",   field:"txn_date",  editable:notLocked, editor:"input", hozAlign:"left",
+        headerFilter:makeExcelFilter("txn_date"), headerFilterFunc:excelFilterFunc },
+
+      // Site
+      { title:"ไซต์ ✎",    field:"site_code",  editable:notLocked, editor:"list",  hozAlign:"left",
+        editorParams:{values:["LCB","AYU","BIGC","CJ"],clearable:true},
+        headerFilter:makeExcelFilter("site_code"), headerFilterFunc:excelFilterFunc },
+
+      // Direction
+      {
+        title: "ทิศทาง ✎",
+        field: "direction",
+        editable: notLocked,
+        editor: "list",
+        editorParams: { values: ["in","out"], clearable: false },
+        hozAlign: "center",
+        width: 80,
+        headerFilter: makeExcelFilter("direction"),
+        headerFilterFunc: excelFilterFunc,
+        formatter: function(cell) {
+          const v = cell.getValue();
+          if (v === 'in')  return '<span style="padding:1px 8px;border-radius:4px;background:#dcfce7;color:#15803d;font-size:11px;">เข้า</span>';
+          if (v === 'out') return '<span style="padding:1px 8px;border-radius:4px;background:#fee2e2;color:#dc2626;font-size:11px;">ออก</span>';
+          return v || '';
+        },
+      },
+
+      // Amount
+      {
+        title: "จำนวน ✎",
+        field: "amount",
+        editable: notLocked,
+        editor: "number",
+        hozAlign: "right",
+        headerFilter: makeExcelFilter("amount"),
+        headerFilterFunc: excelFilterFunc,
+        bottomCalc: makeCalc(),
+        formatter: function(cell) {
+          const d = cell.getRow().getData();
+          const v = cell.getValue();
+          if (v === null || v === undefined || v === '') return '';
+          const color = d.direction === 'out' ? '#dc2626' : '#16a34a';
+          return `<span style="color:${color};font-weight:600;">${parseFloat(v).toLocaleString('th-TH',{maximumFractionDigits:0})}</span>`;
+        },
+      },
+
+      // Requester / driver
+      {
+        title: "ผู้เบิก",
+        field: "requester",
+        editor: false,
+        hozAlign: "left",
+        headerFilter: makeExcelFilter("requester"),
+        headerFilterFunc: excelFilterFunc,
+        formatter: function(cell) {
+          const d = cell.getRow().getData();
+          let h = cell.getValue() || '';
+          if (!d.driver_id) h += ' <span style="padding:1px 4px;border-radius:3px;background:#fee2e2;color:#be123c;font-size:10px;">unlinked</span>';
+          return h;
+        },
+      },
+
+      // Memo
+      { title:"รายการ ✎",  field:"memo",          editable:notLocked, editor:"input", hozAlign:"left",
+        headerFilter:makeExcelFilter("memo"), headerFilterFunc:excelFilterFunc },
+
+      // Category
+      { title:"หมวด ✎",    field:"category",       editable:notLocked, editor:"input", hozAlign:"left",
+        headerFilter:makeExcelFilter("category"), headerFilterFunc:excelFilterFunc },
+
+      // Deduct amount (combined display — shows amount + status badge)
+      {
+        title: "หัก พขร. ✎",
+        field: "deduct_amount",
+        editable: (cell) => { const d=cell.getRow().getData(); return d.status!=='locked' && !!d.deduct_from_driver; },
+        editor: "number",
+        hozAlign: "center",
+        headerFilter: makeExcelFilter("deduct_amount"),
+        headerFilterFunc: excelFilterFunc,
+        bottomCalc: makeCalc(),
+        formatter: function(cell) {
+          const d = cell.getRow().getData();
+          if (!d.deduct_from_driver) return '';
+          const amt = d.deduct_amount != null ? parseFloat(d.deduct_amount).toFixed(0) : '?';
+          const statusLabel = { deducted:'✓ หักแล้ว', settled_offline:'⊘ เคยหัก', waived:'ยกเลิก', pending:'' };
+          const statusColor = { deducted:'#16a34a', settled_offline:'#94a3b8', waived:'#94a3b8', pending:'' };
+          const lbl = statusLabel[d.deduction_status] || '';
+          const clr = statusColor[d.deduction_status] || '';
+          let h = `<span style="padding:1px 6px;border-radius:4px;background:#fef3c7;color:#92400e;font-size:11px;">${amt}</span>`;
+          if (lbl) h += ` <span style="font-size:10px;color:${clr};">${lbl}</span>`;
+          return h;
+        },
+      },
+
+      // Pay cycle tag
+      {
+        title: "รอบ ✎",
+        field: "pay_cycle_tag",
+        editable: notLocked,
+        editor: "input",
+        hozAlign: "left",
+        width: 120,
+        headerFilter: makeExcelFilter("pay_cycle_tag"),
+        headerFilterFunc: excelFilterFunc,
+        formatter: function(cell) {
+          const d = cell.getRow().getData();
+          let h = cell.getValue() || '';
+          if (d.cycle_overridden && d.auto_cycle_tag) {
+            h += ` <span style="padding:1px 4px;border-radius:3px;background:#fef3c7;color:#92400e;font-size:10px;" title="auto: ${d.auto_cycle_tag}">↝ ${d.auto_cycle_tag}</span>`;
+          }
+          if (d.pending_amount && !d.pending_cleared) {
+            h += ` <span style="padding:1px 4px;border-radius:3px;background:#fef9c3;color:#92400e;font-size:10px;">⏳${Math.round(d.pending_amount)}</span>`;
+          }
+          return h;
+        },
+      },
+
+      // Review flag
+      {
+        title: "Review",
+        field: "review_required",
+        editor: false,
+        hozAlign: "center",
+        width: 80,
+        headerFilter: makeExcelFilter("review_required"),
+        headerFilterFunc: excelFilterFunc,
+        formatter: function(cell) {
+          const d = cell.getRow().getData();
+          if (!d.review_required) return '<span style="color:#cbd5e1;">—</span>';
+          return `<span style="padding:1px 5px;border-radius:3px;background:#fae8ff;color:#7e22ce;font-size:10px;" title="${d.review_reason||''}">ต้องทวน</span>`;
+        },
+      },
+
+      // Status
+      {
+        title: "สถานะ",
+        field: "status",
+        editor: false,
+        hozAlign: "center",
+        width: 70,
+        headerFilter: makeExcelFilter("status"),
+        headerFilterFunc: excelFilterFunc,
+        formatter: function(cell) {
+          const v = cell.getValue();
+          if (v === 'locked') return '<span style="color:#94a3b8;">🔒</span>';
+          return `<span style="font-size:11px;">${v||''}</span>`;
+        },
+      },
+    ],
+
+    cellEdited: function(cell) {
+      const row   = cell.getRow().getData();
+      const field = cell.getField();
+      const dirty = dirtyRows.get(row.id) || {id: row.id};
+      dirty[field] = cell.getValue();
+      dirtyRows.set(row.id, dirty);
+      cell.getElement().classList.add("yk-grid-dirty-cell");
+      cell.getRow().getElement().classList.add("yk-grid-dirty-row");
+      saveDetails.className = "hidden rounded-lg border p-3 text-xs mb-3";
+      updateDirtyFeedback();
+    },
+  });
+
+  // ── Row selection → bulk bar + status bar ───────────────────────────────────
+  table.on("rowSelectionChanged", function(data, rows) {
+    // Only non-locked rows count for bulk actions
+    const selectableRows = rows.filter(r => r.getData().status !== 'locked');
+    const ids = selectableRows.map(r => r.getData().id);
+
+    // Update bulk bar
+    bulkIds.value = ids.join(',');
+    bulkCount.textContent = ids.length;
+    bulkBar.classList.toggle('hidden', ids.length === 0);
+
+    // Update selection status bar
+    if (!rows.length) { selBar.classList.add("hidden"); return; }
+    selBar.classList.remove("hidden");
+    document.getElementById("ykSelCount").textContent = rows.length + " แถวที่เลือก";
+
+    const nums = (f) => rows.map(r => parseFloat(r.getData()[f])).filter(v => !isNaN(v));
+    const fmt  = (n) => n.toLocaleString("th-TH", {maximumFractionDigits:2});
+    const avg  = (arr) => arr.length ? fmt(arr.reduce((s,v)=>s+v,0)/arr.length) : "-";
+
+    const amtAll = nums("amount");
+    const amtOut = rows.filter(r=>r.getData().direction==='out').map(r=>parseFloat(r.getData().amount)).filter(v=>!isNaN(v));
+    const deductN = rows.filter(r=>r.getData().deduct_from_driver).map(r=>parseFloat(r.getData().deduct_amount)).filter(v=>!isNaN(v));
+
+    document.getElementById("ykSelAmtSum").textContent   = fmt(amtAll.reduce((s,v)=>s+v,0));
+    document.getElementById("ykSelOutSum").textContent   = fmt(amtOut.reduce((s,v)=>s+v,0));
+    document.getElementById("ykSelOutAvg").textContent   = avg(amtOut);
+    document.getElementById("ykSelDeductSum").textContent = fmt(deductN.reduce((s,v)=>s+v,0));
+  });
+
+  document.getElementById("ykSelClear").addEventListener("click", () => table.deselectRow());
+
+  // Bulk clear button also clears Tabulator selection
+  document.getElementById("bulkClear").addEventListener("click", () => table.deselectRow());
+
+  // Bulk form: require IDs before submit
+  bulkForm.addEventListener("submit", function(e) {
+    if (!bulkIds.value) { e.preventDefault(); alert("ยังไม่ได้เลือกแถวที่จะย้าย"); }
+  });
+
+  // Subtotal mode
+  document.querySelectorAll("input[name='calcMode']").forEach(radio => {
+    radio.addEventListener("change", function() { calcMode = this.value; table.recalc(); });
+  });
+
+  // ── Save ────────────────────────────────────────────────────────────────────
+  saveBtn.addEventListener("click", async function() {
+    if (!dirtyRows.size) {
+      saveMsg.textContent = "ไม่มีข้อมูลที่แก้ไข";
+      saveMsg.className   = "text-xs text-slate-500";
+      return;
+    }
+    saveBtn.disabled = true;
+    saveBtn.classList.add("opacity-60","cursor-wait");
+    saveMsg.textContent = "กำลังบันทึก...";
+    saveMsg.className   = "text-xs text-slate-500";
+    try {
+      const res = await fetch("/api/petty/grid-save", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({rows: Array.from(dirtyRows.values())}),
+      });
+      const out = await res.json();
+      if (!res.ok || !out.ok) throw new Error(out.error || "save failed");
+      const errors = out.errors || [];
+      if (errors.length) {
+        saveMsg.textContent = `บันทึกบางส่วน ${out.updated} แถว · error ${errors.length} รายการ`;
+        saveMsg.className   = "text-xs text-amber-700";
+        saveDetails.className = "rounded-lg border border-amber-200 bg-amber-50 text-amber-800 p-3 text-xs mb-3";
+        saveDetails.innerHTML = `<div class="font-semibold mb-1">รายการที่ต้องตรวจ</div><ul class="list-disc ml-5">${errors.slice(0,12).map(e=>`<li>ID ${e.id||"-"}: ${e.error||"error"}</li>`).join("")}</ul>`;
+      } else {
+        dirtyRows.clear();
+        saveMsg.textContent = `บันทึกแล้ว ${out.updated} แถว`;
+        saveMsg.className   = "text-xs text-emerald-700";
+        window.location.reload();
+      }
+    } catch(err) {
+      saveMsg.textContent = `บันทึกไม่สำเร็จ: ${err.message||err}`;
+      saveMsg.className   = "text-xs text-red-600";
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.classList.remove("opacity-60","cursor-wait");
+      updateDirtyFeedback();
+    }
+  });
 })();
 </script>
 {% endblock %}

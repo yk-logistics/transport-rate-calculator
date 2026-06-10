@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+{% block title %}แผนงาน {{ plan.site_code }} {{ plan.plan_date | dmy }}{% endblock %}
+{% block content %}
+
+{# ── Header ── #}
+<div class="flex items-start justify-between mb-4 flex-wrap gap-3">
+  <div>
+    <div class="flex items-center gap-2 mb-1">
+      <a href="/dispatch/planner" class="text-slate-400 hover:text-slate-600 text-sm">← รายการแผน</a>
+    </div>
+    <h1 class="text-xl font-bold">
+      📋 แผนงาน
+      <span class="{% if plan.site_code=='LCB' %}text-rose-600{% elif plan.site_code=='BIGC' %}text-sky-600{% else %}text-indigo-600{% endif %}">
+        {{ plan.site_code }}
+      </span>
+      วันที่ {{ plan.plan_date | dmy }}
+    </h1>
+    <div class="flex items-center gap-3 mt-1 text-sm text-slate-500">
+      {% if plan.status == 'submitted' %}
+        <span class="px-2 py-0.5 rounded bg-green-100 text-green-700 font-medium text-xs">✓ Submit แล้ว — DailyJob สร้างแล้ว</span>
+      {% else %}
+        <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-700 text-xs">Draft</span>
+      {% endif %}
+      {% if plan.created_by %}<span>สร้างโดย {{ plan.created_by }}</span>{% endif %}
+      <span class="text-xs">อัปเดต {{ plan.updated_at | dmy_hm }}</span>
+    </div>
+  </div>
+  <div class="flex gap-2 flex-wrap">
+    {% if plan.status == 'draft' %}
+    <form method="post" action="/dispatch/planner/{{ plan.id }}/submit"
+          onsubmit="return confirm('ยืนยัน Submit แผนนี้? จะสร้าง DailyJob ทุกรายการทันที')">
+      <button type="submit" class="bg-emerald-600 text-white px-4 py-2 rounded text-sm hover:bg-emerald-700 font-medium">
+        ✓ Submit แผน → DailyJob
+      </button>
+    </form>
+    {% else %}
+    <form method="post" action="/dispatch/planner/{{ plan.id }}/reopen">
+      <input type="hidden" name="reopen_reason" value="reopen manual">
+      <button type="submit"
+              onclick="return confirm('เปิดแผนกลับเป็น Draft? DailyJob ที่สร้างไปแล้วจะยังอยู่')"
+              class="bg-amber-500 text-white px-3 py-2 rounded text-sm hover:bg-amber-600">
+        Reopen เป็น Draft
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid lg:grid-cols-3 gap-4">
+
+  {# ── Left: Lines table ── #}
+  <div class="lg:col-span-2 space-y-4">
+
+    {# Lines table #}
+    <div class="bg-white rounded-lg border overflow-hidden">
+      <div class="px-4 py-2 bg-slate-50 border-b flex items-center justify-between">
+        <span class="font-medium text-sm">รายการรถ — {{ lines | length }} คัน</span>
+      </div>
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs text-slate-500 uppercase">
+          <tr>
+            <th class="px-3 py-2 text-left">#</th>
+            <th class="px-3 py-2 text-left">ทะเบียน</th>
+            <th class="px-3 py-2 text-left">คนขับ</th>
+            <th class="px-3 py-2 text-left">งาน</th>
+            <th class="px-3 py-2 text-center">เที่ยว</th>
+            <th class="px-3 py-2 text-center">น้ำมัน (L)</th>
+            <th class="px-3 py-2 text-left">ตู้</th>
+            <th class="px-3 py-2"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100" id="lines-body">
+          {% for line in lines %}
+          <tr class="hover:bg-slate-50" id="line-{{ line.id }}">
+            <td class="px-3 py-2 text-slate-400 text-xs">{{ loop.index }}</td>
+            <td class="px-3 py-2 font-mono font-medium">
+              {% if line.vehicle_id and veh_map.get(line.vehicle_id) %}
+                {{ veh_map[line.vehicle_id].plate }}
+              {% else %}
+                {{ line.plate_raw or "—" }}
+              {% endif %}
+            </td>
+            <td class="px-3 py-2 text-slate-600">
+              {% if line.driver_id and drv_map.get(line.driver_id) %}
+                {{ drv_map[line.driver_id].name }}
+              {% else %}
+                {{ line.driver_raw or "—" }}
+              {% endif %}
+            </td>
+            <td class="px-3 py-2">
+              <span class="px-1.5 py-0.5 rounded text-xs bg-indigo-50 text-indigo-700">{{ line.job_type or "—" }}</span>
+            </td>
+            <td class="px-3 py-2 text-center">{{ line.trips }}</td>
+            <td class="px-3 py-2 text-center {% if line.fuel_liters > 0 %}text-amber-700 font-medium{% else %}text-slate-400{% endif %}">
+              {{ line.fuel_liters | int if line.fuel_liters else "—" }}
+            </td>
+            <td class="px-3 py-2 text-xs text-slate-500 font-mono">{{ line.container_no or "" }}</td>
+            <td class="px-3 py-2 text-right">
+              <button onclick="openEditModal({{ line.id }}, '{{ line.vehicle_id or '' }}', '{{ (veh_map[line.vehicle_id].plate if line.vehicle_id and veh_map.get(line.vehicle_id) else line.plate_raw) | e }}', '{{ line.driver_id or '' }}', '{{ (drv_map[line.driver_id].name if line.driver_id and drv_map.get(line.driver_id) else line.driver_raw) | e }}', '{{ line.job_type | e }}', {{ line.trips }}, '{{ line.container_no | e }}', '{{ line.notes | e }}')"
+                      class="text-indigo-500 hover:text-indigo-700 text-xs mr-2">แก้ไข</button>
+              <form method="post" action="/dispatch/planner/{{ plan.id }}/lines/{{ line.id }}/delete"
+                    style="display:inline"
+                    onsubmit="return confirmDelete(this)">
+                <input type="hidden" name="delete_reason" id="del-reason-{{ line.id }}" value="">
+                <button type="submit" class="text-red-400 hover:text-red-600 text-xs">ลบ</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="8" class="px-4 py-6 text-center text-slate-400 text-sm">ยังไม่มีรายการ — เพิ่มรถด้านล่าง</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        {% if lines %}
+        <tfoot class="bg-slate-50 text-xs text-slate-600">
+          <tr>
+            <td colspan="4" class="px-3 py-2 text-right font-medium">รวม</td>
+            <td class="px-3 py-2 text-center font-medium">{{ lines | sum(attribute='trips') }}</td>
+            <td class="px-3 py-2 text-center font-medium text-amber-700">{{ lines | sum(attribute='fuel_liters') | int }} L</td>
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>
+        {% endif %}
+      </table>
+    </div>
+
+    {# Add line form (only when draft) #}
+    {% if plan.status == 'draft' %}
+    <div class="bg-white rounded-lg border p-4">
+      <h3 class="font-medium text-sm mb-3 text-slate-700">+ เพิ่มรถ</h3>
+      <form method="post" action="/dispatch/planner/{{ plan.id }}/lines/add" id="add-line-form">
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">ทะเบียนรถ</label>
+            <select name="vehicle_id" id="add-vehicle" onchange="onVehicleChange(this)"
+                    class="border rounded px-2 py-1.5 text-sm w-full">
+              <option value="">— เลือกรถ —</option>
+              {% for v in vehicles %}
+              {% if v.home_site_code == plan.site_code or not v.home_site_code %}
+              <option value="{{ v.id }}">{{ v.plate_no }}{% if v.nickname %} ({{ v.nickname }}){% endif %}</option>
+              {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">คนขับ</label>
+            <select name="driver_id" id="add-driver"
+                    class="border rounded px-2 py-1.5 text-sm w-full">
+              <option value="">— เลือกคนขับ —</option>
+              {% for e in employees %}
+              {% if e.home_site_code == plan.site_code or not e.home_site_code %}
+              <option value="{{ e.id }}">{{ e.full_name }}</option>
+              {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">ประเภทงาน</label>
+            <select name="job_type" id="add-job-type" onchange="onJobTypeChange(this)"
+                    class="border rounded px-2 py-1.5 text-sm w-full">
+              <option value="">— เลือกงาน —</option>
+              {% for jt in job_types %}
+              <option value="{{ jt }}">{{ jt }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">จำนวนเที่ยว</label>
+            <input type="number" name="trips" id="add-trips" value="1" min="1" max="10"
+                   onchange="recalcFuel()"
+                   class="border rounded px-2 py-1.5 text-sm w-full">
+          </div>
+
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">น้ำมัน (L) <span class="text-amber-500" id="add-fuel-hint"></span></label>
+            <input type="number" name="fuel_liters_display" id="add-fuel-display" readonly
+                   placeholder="คำนวณอัตโนมัติ"
+                   class="border rounded px-2 py-1.5 text-sm w-full bg-amber-50 text-amber-700">
+          </div>
+
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">เลขตู้ (ถ้ามี)</label>
+            <input type="text" name="container_no" placeholder="XXXX-000000"
+                   class="border rounded px-2 py-1.5 text-sm w-full font-mono">
+          </div>
+
+        </div>
+        <div class="flex gap-2">
+          <button type="submit" class="bg-indigo-600 text-white px-4 py-1.5 rounded text-sm hover:bg-indigo-700">
+            + เพิ่มรายการ
+          </button>
+        </div>
+      </form>
+    </div>
+    {% endif %}
+
+  </div>
+
+  {# ── Right: LINE message + Audit ── #}
+  <div class="space-y-4">
+
+    {# LINE message #}
+    <div class="bg-white rounded-lg border p-4">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="font-medium text-sm">📱 ข้อความส่ง LINE</h3>
+        <button onclick="copyLineMessage()" id="copy-btn"
+                class="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700">
+          Copy 📋
+        </button>
+      </div>
+      <pre id="line-msg-box" class="text-xs bg-slate-50 rounded p-3 whitespace-pre-wrap font-sans leading-5 text-slate-700 max-h-64 overflow-y-auto select-all">{{ line_message }}</pre>
+      <p class="text-xs text-slate-400 mt-1">คลิก Copy แล้ว Paste ใน LINE ได้เลย</p>
+    </div>
+
+    {# Audit log #}
+    {% if audits %}
+    <div class="bg-white rounded-lg border p-4">
+      <h3 class="font-medium text-sm mb-2 text-slate-700">📝 ประวัติการแก้ไข</h3>
+      <div class="space-y-1.5 max-h-48 overflow-y-auto">
+        {% for a in audits %}
+        <div class="text-xs text-slate-600 border-l-2
+                    {% if a.action == 'submit' %}border-green-400
+                    {% elif a.action in ('delete_line','reopen') %}border-red-300
+                    {% else %}border-indigo-300{% endif %} pl-2">
+          <span class="text-slate-400">{{ a.changed_at | dmy_hm }}</span>
+          <span class="font-medium ml-1">{{ a.action }}</span>
+          {% if a.old_value %}<span class="text-red-500 ml-1">{{ a.old_value }}</span>{% endif %}
+          {% if a.new_value %}<span class="text-green-600 ml-1">→ {{ a.new_value }}</span>{% endif %}
+          {% if a.note %}<span class="text-slate-400 ml-1">({{ a.note }})</span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if plan.notes %}
+    <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+      <strong>หมายเหตุ:</strong> {{ plan.notes }}
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+{# ── Edit Line Modal ── #}
+<div id="edit-modal" class="fixed inset-0 bg-black/40 z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-white rounded-lg shadow-xl w-full max-w-lg p-5">
+    <h3 class="font-semibold mb-4">แก้ไขรายการ</h3>
+    <form method="post" id="edit-line-form">
+      <div class="grid grid-cols-2 gap-3 mb-3">
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">ทะเบียนรถ</label>
+          <select name="vehicle_id" id="edit-vehicle"
+                  class="border rounded px-2 py-1.5 text-sm w-full">
+            <option value="">— เลือกรถ —</option>
+            {% for v in vehicles %}
+            <option value="{{ v.id }}">{{ v.plate_no }}{% if v.nickname %} ({{ v.nickname }}){% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">คนขับ</label>
+          <select name="driver_id" id="edit-driver"
+                  class="border rounded px-2 py-1.5 text-sm w-full">
+            <option value="">— เลือกคนขับ —</option>
+            {% for e in employees %}
+            <option value="{{ e.id }}">{{ e.full_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">ประเภทงาน</label>
+          <select name="job_type" id="edit-job-type" onchange="onEditJobTypeChange(this)"
+                  class="border rounded px-2 py-1.5 text-sm w-full">
+            <option value="">— เลือกงาน —</option>
+            {% for jt in job_types %}
+            <option value="{{ jt }}">{{ jt }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">จำนวนเที่ยว</label>
+          <input type="number" name="trips" id="edit-trips" value="1" min="1"
+                 onchange="recalcEditFuel()"
+                 class="border rounded px-2 py-1.5 text-sm w-full">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">เลขตู้ (ถ้ามี)</label>
+          <input type="text" name="container_no" id="edit-container" placeholder="XXXX-000000"
+                 class="border rounded px-2 py-1.5 text-sm w-full font-mono">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">หมายเหตุ</label>
+          <input type="text" name="notes_line" id="edit-notes-line"
+                 class="border rounded px-2 py-1.5 text-sm w-full">
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="block text-xs text-slate-500 mb-1">เหตุผลที่แก้ไข (สำหรับ log)</label>
+        <input type="text" name="edit_reason" placeholder="เช่น เปลี่ยนรถเพราะซ่อม"
+               class="border rounded px-2 py-1.5 text-sm w-full">
+      </div>
+      <div class="flex gap-2 justify-end">
+        <button type="button" onclick="closeEditModal()"
+                class="px-4 py-2 rounded text-sm border text-slate-600 hover:bg-slate-50">ยกเลิก</button>
+        <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700">บันทึก</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const L_PER_TRIP = {{ l_per_trip_json | safe }};
+
+function onJobTypeChange(sel) {
+  recalcFuel();
+}
+function recalcFuel() {
+  const jt = document.getElementById('add-job-type').value;
+  const trips = parseInt(document.getElementById('add-trips').value) || 1;
+  const lpt = L_PER_TRIP[jt] || 0;
+  const fuel = lpt * trips;
+  document.getElementById('add-fuel-display').value = fuel > 0 ? fuel : '';
+  document.getElementById('add-fuel-hint').textContent = lpt > 0 ? `(${lpt} L×${trips})` : '';
+}
+
+function onEditJobTypeChange(sel) {
+  recalcEditFuel();
+}
+function recalcEditFuel() {
+  const jt = document.getElementById('edit-job-type').value;
+  const trips = parseInt(document.getElementById('edit-trips').value) || 1;
+  const lpt = L_PER_TRIP[jt] || 0;
+}
+
+function openEditModal(lineId, vehicleId, plateTxt, driverId, driverTxt, jobType, trips, containerNo, notes) {
+  const form = document.getElementById('edit-line-form');
+  form.action = `/dispatch/planner/{{ plan.id }}/lines/${lineId}/edit`;
+
+  const vSel = document.getElementById('edit-vehicle');
+  if (vehicleId) {
+    vSel.value = vehicleId;
+  } else {
+    vSel.value = '';
+  }
+
+  const dSel = document.getElementById('edit-driver');
+  if (driverId) {
+    dSel.value = driverId;
+  } else {
+    dSel.value = '';
+  }
+
+  document.getElementById('edit-job-type').value = jobType;
+  document.getElementById('edit-trips').value = trips;
+  document.getElementById('edit-container').value = containerNo;
+  document.getElementById('edit-notes-line').value = notes;
+
+  document.getElementById('edit-modal').classList.remove('hidden');
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.add('hidden');
+}
+
+function confirmDelete(form) {
+  const reason = prompt('เหตุผลที่ลบ (ใส่เพื่อ log หรือว่างได้):') || '';
+  const lineId = form.action.split('/').slice(-2)[0];
+  const hidden = form.querySelector('input[name="delete_reason"]');
+  if (hidden) hidden.value = reason;
+  return true;
+}
+
+function copyLineMessage() {
+  const text = document.getElementById('line-msg-box').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = '✓ Copied!';
+    btn.classList.replace('bg-green-600', 'bg-slate-500');
+    setTimeout(() => {
+      btn.textContent = 'Copy 📋';
+      btn.classList.replace('bg-slate-500', 'bg-green-600');
+    }, 2000);
+  });
+}
+
+document.getElementById('edit-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeEditModal();
+});
+</script>
+
+{% endblock %}

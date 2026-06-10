@@ -9,11 +9,12 @@
   <style>
     body { font-family: -apple-system, "Segoe UI", Tahoma, sans-serif; }
     .btn { @apply inline-block px-4 py-2 rounded-lg text-sm; }
+    :where(tr.yk-day-b) { background-color: rgb(250 248 245); }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
   <nav class="bg-slate-900 text-white">
-    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between flex-wrap gap-2">
+    <div class="w-full px-3 py-3 flex items-center justify-between flex-wrap gap-2">
       <a href="/daily" class="font-bold text-lg">Project YK · One Platform</a>
       <div class="flex gap-3 text-sm flex-wrap">
         <a href="/daily" class="hover:underline">Daily</a>
@@ -33,7 +34,7 @@
         <a href="/fuel-index" class="hover:underline text-cyan-300" title="ราคาน้ำมันรายเดือน + Fuel Surcharge">⛽ Fuel</a>
         <a href="/maint" class="hover:underline text-orange-300 font-medium">ซ่อม/ยาง/PM</a>
         <span class="text-slate-500">|</span>
-        <span class="text-slate-400">Dispatch</span>
+        <a href="/dispatch/planner" class="hover:underline text-rose-300 font-medium">📋 Dispatch</a>
         <a href="/billing" class="hover:underline text-amber-300 font-medium">Billing</a>
         <a href="/finance" class="hover:underline text-violet-300 font-medium">💰 CFO</a>
         <a href="/admin/submissions" class="hover:underline text-pink-300 font-medium" title="รายการส่งจากคนขับ (PWA)">📱 Driver</a>
@@ -43,12 +44,29 @@
     </div>
   </nav>
 
-  <main class="max-w-7xl mx-auto px-4 py-6">
+  <main class="w-full px-2 sm:px-4 lg:px-6 py-4 overflow-x-hidden">
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="max-w-7xl mx-auto px-4 py-6 text-xs text-slate-400">
+  <footer class="w-full px-3 py-4 text-xs text-slate-400">
     Phase 1.1 — Master Data + Expanded Daily · SQLite: app.db
   </footer>
+  <script src="/static/js/yk_table_filter.js?v=2"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('table[data-date-col]').forEach(tbl => {
+        const col = parseInt(tbl.dataset.dateCol) || 0;
+        const rows = tbl.querySelectorAll('tbody tr');
+        let lastDate = '', band = 0;
+        rows.forEach(row => {
+          const cell = row.cells[col];
+          if (!cell) return;
+          const dateText = cell.textContent.trim();
+          if (dateText && dateText !== lastDate) { band ^= 1; lastDate = dateText; }
+          if (band) row.classList.add('yk-day-b');
+        });
+      });
+    });
+  </script>
 </body>
 </html>

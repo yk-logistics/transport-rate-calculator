@@ -6,7 +6,7 @@
   <div class="flex items-center gap-2 flex-wrap">
     <a href="/daily/new" class="guardedLink bg-emerald-600 text-white px-3 py-1.5 rounded text-sm hover:bg-emerald-700">+ สร้าง Daily</a>
     <a href="/daily" class="guardedLink bg-white border px-3 py-1.5 rounded text-sm hover:bg-slate-50">กลับ List</a>
-    <div class="text-xs text-slate-500">คอลัมน์ที่มี ✎ แก้ได้ และต้องกด Save เอง</div>
+    <div class="text-xs text-slate-500">คอลัมน์ที่มี ✎ แก้ได้ · <kbd class="bg-slate-100 border rounded px-1 py-0.5 font-mono">Ctrl+Enter</kbd> ใส่ค่าทุกแถวที่เลือก · ต้องกด Save เอง</div>
   </div>
 </div>
 
@@ -43,6 +43,15 @@
     </select>
   </div>
   <div>
+    <label class="block text-xs text-slate-500 mb-1">ค่าที่ยังว่าง</label>
+    <select name="missing" class="w-full border rounded px-2 py-1.5 text-sm">
+      <option value="" {% if not missing %}selected{% endif %}>ทั้งหมด</option>
+      <option value="ad" {% if missing=='ad' %}selected{% endif %}>ว่าง ค่าเที่ยว (AD)</option>
+      <option value="u"  {% if missing=='u'  %}selected{% endif %}>ว่าง ค่าขนส่ง (U)</option>
+      <option value="any" {% if missing=='any' %}selected{% endif %}>ว่าง อย่างใดอย่างหนึ่ง</option>
+    </select>
+  </div>
+  <div>
     <label class="block text-xs text-slate-500 mb-1">จำนวนแถว</label>
     <input type="number" min="1" max="800" name="limit" value="{{ limit }}" class="w-full border rounded px-2 py-1.5 text-sm" />
   </div>
@@ -60,6 +69,8 @@
          href="/daily/grid?site=BIGC&amp;d_from={{ preset_cycles.BIGC.start }}&amp;d_to={{ preset_cycles.BIGC.end }}&amp;limit={{ limit }}">{{ preset_cycles.BIGC.label }}</a>
       <a class="guardedLink px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
          href="/daily/grid?site=LCB&amp;d_from={{ preset_cycles.LCB.start }}&amp;d_to={{ preset_cycles.LCB.end }}&amp;limit={{ limit }}">{{ preset_cycles.LCB.label }}</a>
+      <a class="guardedLink px-2 py-1 rounded border border-red-400 bg-red-100 text-red-700 font-medium hover:bg-red-200"
+         href="/daily/grid?site=LCB&amp;d_from={{ preset_cycles.LCB_prev.start }}&amp;d_to={{ preset_cycles.LCB_prev.end }}&amp;missing=any&amp;limit=800">🔴 LCB ยังกรอกไม่ครบ ({{ preset_cycles.LCB_prev.tag }})</a>
       <a class="guardedLink px-2 py-1 rounded border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
          href="/daily/grid?site=AYU&amp;d_from={{ preset_cycles.AYU.start }}&amp;d_to={{ preset_cycles.AYU.end }}&amp;limit={{ limit }}">{{ preset_cycles.AYU.label }}</a>
       <a class="guardedLink px-2 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
@@ -74,21 +85,53 @@
 
 <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3 text-sm mb-3">
   Guardrail: Grid นี้แก้ข้อมูล Daily ได้เร็ว แต่ยังไม่สร้าง Payroll/Billing อัตโนมัติ ต้องให้คนตรวจและยืนยันต่อใน flow ปกติ
-  <span class="block text-xs mt-1">แสดง {{ shown_rows }} / {{ total_rows }} รายการตามตัวกรองปัจจุบัน · กดลิงก์ “เปิด” เพื่อแก้ในฟอร์มเต็มเป็นรายแถว</span>
+  <span class="block text-xs mt-1">แสดง {{ shown_rows }} / {{ total_rows }} รายการตามตัวกรองปัจจุบัน · กดลิงก์ "เปิด" เพื่อแก้ในฟอร์มเต็มเป็นรายแถว</span>
 </div>
 
 <div id="saveDetails" class="hidden rounded-lg border p-3 text-xs mb-3"></div>
+
+<!-- Subtotal mode selector -->
+<div class="flex items-center gap-4 text-xs mb-2 bg-white border rounded-lg px-3 py-2 flex-wrap">
+  <span class="text-slate-500 font-medium shrink-0">Subtotal:</span>
+  <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="calcMode" value="sum" checked class="accent-indigo-600"> ผลรวม</label>
+  <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="calcMode" value="avg" class="accent-indigo-600"> เฉลี่ย</label>
+  <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="calcMode" value="cnt" class="accent-indigo-600"> นับ(ทุก)</label>
+  <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="calcMode" value="cnt_ne" class="accent-indigo-600"> นับ(ไม่นับว่าง)</label>
+  <span class="text-slate-400 ml-1 shrink-0">· เลือกแถว: คลิก / Shift+คลิก</span>
+</div>
 
 <div class="bg-white rounded-lg border p-2">
   <div id="dailyGridTable" class="w-full"></div>
 </div>
 
-<dialog id="columnsDialog" class="rounded-lg p-0 border w-full max-w-3xl">
-  <div class="p-4 border-b flex items-center justify-between">
-    <h3 class="font-semibold">แสดง/ซ่อนคอลัมน์</h3>
-    <button id="closeColumnsDialog" type="button" class="text-slate-500 hover:text-slate-700">ปิด</button>
+<!-- Selection status bar (fixed at bottom) -->
+<div id="ykSelBar" class="hidden fixed bottom-0 left-0 right-0 bg-slate-800 text-white text-xs px-4 py-2 flex items-center gap-5 z-50 shadow-2xl">
+  <span class="font-semibold shrink-0" id="ykSelCount">0 แถวที่เลือก</span>
+  <span class="shrink-0">ค่าขนส่ง: <strong id="ykSelRevSum">0</strong> <span class="text-slate-400">avg</span> <strong id="ykSelRevAvg">-</strong></span>
+  <span class="shrink-0">ค่าเที่ยว: <strong id="ykSelTripSum">0</strong> <span class="text-slate-400">avg</span> <strong id="ykSelTripAvg">-</strong></span>
+  <span class="shrink-0">น้ำมัน: <strong id="ykSelFuelSum">0</strong> ลิตร</span>
+  <button id="ykSelClear" type="button" class="ml-auto text-slate-400 hover:text-white">✕ ยกเลิก</button>
+</div>
+
+<dialog id="columnsDialog" class="rounded-lg p-0 border w-full max-w-2xl shadow-xl">
+  <div class="p-3 border-b flex items-center justify-between bg-white sticky top-0">
+    <h3 class="font-semibold text-sm">แสดง/ซ่อนคอลัมน์</h3>
+    <button id="closeColumnsDialog" type="button" class="text-slate-400 hover:text-slate-700 text-lg leading-none">✕</button>
   </div>
-  <div id="columnsChecklist" class="p-4 grid md:grid-cols-3 gap-2 text-sm"></div>
+  <div class="p-3 border-b bg-slate-50">
+    <div class="text-xs text-slate-500 mb-2">Preset (เลือกชุดที่ใช้บ่อย)</div>
+    <div class="flex flex-wrap gap-1.5" id="presetBtns">
+      <button type="button" data-preset="basic"   class="colPreset px-3 py-1 rounded border text-xs bg-white hover:bg-sky-50 text-slate-700">📋 พื้นฐาน</button>
+      <button type="button" data-preset="money"   class="colPreset px-3 py-1 rounded border text-xs bg-white hover:bg-emerald-50 text-slate-700">💰 เงิน+งาน</button>
+      <button type="button" data-preset="fuel"    class="colPreset px-3 py-1 rounded border text-xs bg-white hover:bg-amber-50 text-slate-700">⛽ น้ำมัน</button>
+      <button type="button" data-preset="container" class="colPreset px-3 py-1 rounded border text-xs bg-white hover:bg-purple-50 text-slate-700">📦 ตู้/เอกสาร</button>
+      <button type="button" data-preset="all"     class="colPreset px-3 py-1 rounded border text-xs bg-white hover:bg-slate-100 text-slate-700">🗂 ทั้งหมด</button>
+    </div>
+  </div>
+  <div id="columnsChecklist" class="p-3 grid grid-cols-2 md:grid-cols-3 gap-y-1 gap-x-3 text-sm max-h-80 overflow-y-auto"></div>
+  <div class="p-3 border-t bg-slate-50 text-xs text-slate-400">
+    💡 คลิกขวาที่ <strong>หัวคอลัมน์</strong> เพื่อซ่อนได้เลย · การตั้งค่าจะถูกจำไว้ในเบราว์เซอร์
+  </div>
 </dialog>
 
 <script src="https://unpkg.com/tabulator-tables@6.2.1/dist/js/tabulator.min.js"></script>
@@ -100,6 +143,38 @@
   }
   .yk-grid-dirty-row .tabulator-cell:first-child {
     border-left: 3px solid #f59e0b;
+  }
+  .yk-cell-missing {
+    background: #fee2e2 !important;
+    color: #991b1b !important;
+  }
+  .tabulator .tabulator-row.tabulator-selected {
+    background: #dbeafe !important;
+  }
+  .tabulator .tabulator-row.tabulator-selected:hover {
+    background: #bfdbfe !important;
+  }
+  /* Header filter row */
+  .tabulator .tabulator-header .tabulator-col .tabulator-header-filter input,
+  .tabulator .tabulator-header .tabulator-col .tabulator-header-filter select {
+    background: #f0f9ff !important;
+    border: 1px solid #7dd3fc !important;
+    border-radius: 3px;
+    font-size: 11px;
+    padding: 2px 4px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .tabulator .tabulator-header .tabulator-col .tabulator-header-filter input::placeholder {
+    color: #94a3b8;
+    font-style: italic;
+  }
+  /* Bottom calc row */
+  .tabulator .tabulator-calcs-bottom .tabulator-cell {
+    background: #f1f5f9;
+    font-weight: 600;
+    font-size: 11px;
+    color: #1e40af;
   }
 </style>
 <script>
@@ -114,21 +189,29 @@
   const columnsDialog = document.getElementById("columnsDialog");
   const columnsChecklist = document.getElementById("columnsChecklist");
   const closeColumnsDialog = document.getElementById("closeColumnsDialog");
-  const HIDDEN_KEY = "yk_daily_grid_hidden_v1";
-  let dirtyRows = new Map();
+  const selBar = document.getElementById("ykSelBar");
+  const HIDDEN_KEY = "yk_daily_grid_hidden_v3";
 
+  let dirtyRows = new Map();
+  let currentEditCell = null;
+  let calcMode = "sum";
+
+  // [field, label, editable]
   const ALL_FIELDS = [
     ["id","ID",false], ["work_date","วันที่",true], ["site_code","ไซต์",true],
-    ["driver_id","driver_id",true], ["driver_raw_name","คนขับ(ดิบ)",true],
+    ["driver_id","driver_id",true], ["driver_raw_name","คนขับ",true],
     ["head_vehicle_id","head_vehicle_id",true], ["tail_vehicle_id","tail_vehicle_id",true],
-    ["plate_no_raw","ทะเบียน(ดิบ)",true], ["tail_plate_raw","หาง(ดิบ)",true],
-    ["customer_id","customer_id",true], ["customer_name_raw","ลูกค้า(ดิบ)",true],
-    ["trip_group_id","trip_group_id",true], ["trip_type_code","trip_type",true],
-    ["status_code","status",true], ["leave_status","leave_status",true],
-    ["origin","ต้นทาง",true], ["destination","ปลายทาง",true],
-    ["pickup_location","pickup_location",true], ["store_code","store_code",true], ["truck_type_raw","truck_type_raw",true],
-    ["doc_no","doc_no",true], ["job_ref","job_ref",true], ["container_no","container_no",true], ["container_size","container_size",true],
-    ["revenue_customer","ค่าขนส่ง",true], ["trip_fee_driver","ค่าเที่ยว",true],
+    ["plate_no_raw","ทะเบียน",true], ["tail_plate_raw","ทะเบียนหาง",true],
+    ["customer_id","customer_id",true], ["customer_name_raw","ลูกค้า(linked — ว่าง)",false],
+    ["trip_group_id","trip_group_id",true],
+    ["status_code","ลูกค้า / Status",true], ["leave_status","leave_status",true],
+    ["trip_type_code","STARTING / รับตู้ (H)",true],
+    ["origin","Loading / บรรจุ (I)",true],
+    ["destination","ปลายทาง (J)",true],
+    ["doc_no","Job No. (K)",true],
+    ["pickup_location","pickup_location",true], ["store_code","store_code",true], ["truck_type_raw","ประเภทรถ",true],
+    ["job_ref","BL / Booking (L)",true], ["container_no","เบอร์ตู้ (M)",true], ["container_size","ขนาดตู้",true],
+    ["revenue_customer","ค่าขนส่ง (U)",true], ["trip_fee_driver","ค่าเที่ยว (AD)",true],
     ["fuel_liter","ลิตร",true], ["fuel_amount","ค่าน้ำมัน",true], ["fuel_station","ปั๊ม",true],
     ["fuel_rate_km_per_l","km/L",true], ["mile_snapshot","ไมล์",true],
     ["invoice_no","invoice_no",true], ["invoice_date","invoice_date",true], ["wht_53","wht_53",true],
@@ -136,16 +219,61 @@
     ["source","source",false], ["created_at","created_at",false], ["updated_at","updated_at",false]
   ];
 
+  const PRESETS = {
+    basic:     ["work_date","site_code","driver_raw_name","plate_no_raw","status_code","leave_status","trip_type_code","origin","destination"],
+    money:     ["work_date","site_code","driver_raw_name","plate_no_raw","status_code","leave_status","trip_type_code","origin","destination","revenue_customer","trip_fee_driver","remark"],
+    fuel:      ["work_date","site_code","driver_raw_name","plate_no_raw","fuel_liter","fuel_amount","fuel_station","fuel_rate_km_per_l","mile_snapshot"],
+    container: ["work_date","site_code","driver_raw_name","plate_no_raw","status_code","trip_type_code","origin","destination","doc_no","job_ref","container_no","container_size"],
+    all:       null,
+  };
+
+  const NUM_FIELDS = new Set(["revenue_customer","trip_fee_driver","fuel_liter","fuel_amount","fuel_rate_km_per_l","mile_snapshot","wht_53"]);
+
+  // Returns a closure over calcMode — called per column, recalc() re-invokes it
+  function makeCalc() {
+    return function(values) {
+      const nonEmpty = values.filter(v => v !== null && v !== undefined && v !== "" && !isNaN(parseFloat(v)));
+      if (calcMode === "sum") {
+        const s = nonEmpty.reduce((acc, v) => acc + parseFloat(v), 0);
+        return Math.round(s * 100) / 100;
+      }
+      if (calcMode === "avg") {
+        if (!nonEmpty.length) return "";
+        const s = nonEmpty.reduce((acc, v) => acc + parseFloat(v), 0);
+        return Math.round(s / nonEmpty.length * 100) / 100;
+      }
+      if (calcMode === "cnt") return values.length;
+      if (calcMode === "cnt_ne") return nonEmpty.length;
+      return "";
+    };
+  }
+
   function getHiddenFields(){
     try {
       const v = JSON.parse(localStorage.getItem(HIDDEN_KEY) || "[]");
       return Array.isArray(v) ? v : [];
-    } catch(e){
-      return [];
-    }
+    } catch(e){ return []; }
   }
-  function setHiddenFields(arr){
-    localStorage.setItem(HIDDEN_KEY, JSON.stringify(arr));
+  function setHiddenFields(arr){ localStorage.setItem(HIDDEN_KEY, JSON.stringify(arr)); }
+  function saveHiddenState(){
+    const hidden = ALL_FIELDS.map(([f]) => f).filter((f) => {
+      if (f === "id") return false;
+      const col = table.getColumn(f);
+      return col && !col.isVisible();
+    });
+    setHiddenFields(hidden);
+  }
+  function applyPreset(name){
+    const show = PRESETS[name];
+    ALL_FIELDS.forEach(([f]) => {
+      if (f === "id") return;
+      const col = table.getColumn(f);
+      if (!col) return;
+      if (show === null || show.includes(f)) col.show();
+      else col.hide();
+    });
+    saveHiddenState();
+    renderColumnsChecklist();
   }
   function updateDirtyFeedback(){
     const rowCount = dirtyRows.size;
@@ -154,16 +282,159 @@
     if (rowCount){
       saveMsg.textContent = `ยังไม่บันทึก ${rowCount} แถว / ${fieldCount} ช่อง`;
       saveMsg.className = "text-xs text-amber-700";
-      return;
     }
   }
-  function hasUnsavedChanges(){
-    return dirtyRows.size > 0;
-  }
+  function hasUnsavedChanges(){ return dirtyRows.size > 0; }
   function confirmIfDirty(){
     return !hasUnsavedChanges() || window.confirm("มีข้อมูลใน Grid ที่ยังไม่ได้ Save ต้องการออกจากหน้านี้หรือโหลดตัวกรองใหม่หรือไม่?");
   }
 
+  // ── Excel-style dropdown header filter ─────────────────────────────────────
+  function makeExcelFilter(fieldName) {
+    return function(cell, onRendered, success) {
+      let sel = new Set(["__ALL__"]);
+      let pop = null;
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+
+      function styleBtn() {
+        const all = sel.has("__ALL__");
+        btn.textContent = all ? "ทั้งหมด ▾" : sel.size + " เลือก ▾";
+        btn.style.cssText = "width:100%;text-align:left;font-size:11px;padding:1px 4px;" +
+          "border:1px solid #7dd3fc;border-radius:3px;background:#f0f9ff;cursor:pointer;" +
+          "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" +
+          "color:" + (all ? "#0369a1" : "#b45309") + ";" +
+          "font-weight:" + (all ? "normal" : "600") + ";";
+      }
+      styleBtn();
+
+      function getVals() {
+        const m = new Map();
+        (table.getData ? table.getData() : []).forEach(r => {
+          const v = r[fieldName];
+          const k = (v == null || v === "") ? "\0BLANK" : String(v);
+          m.set(k, (m.get(k) || 0) + 1);
+        });
+        return [...m.entries()].sort(([a], [b]) =>
+          a === "\0BLANK" ? 1 : b === "\0BLANK" ? -1 : a.localeCompare(b, "th"));
+      }
+
+      function closePop() { if (pop) { pop.remove(); pop = null; } }
+
+      function applyFilter() {
+        success(sel.has("__ALL__") || sel.size === 0 ? null : new Set(sel));
+        styleBtn();
+      }
+
+      function openPop() {
+        closePop();
+        const entries = getVals();
+        const rect = btn.getBoundingClientRect();
+        pop = document.createElement("div");
+        pop.style.cssText =
+          "position:fixed;z-index:9999;background:#fff;border:1px solid #cbd5e1;" +
+          "border-radius:6px;box-shadow:0 4px 24px rgba(0,0,0,.18);" +
+          "display:flex;flex-direction:column;min-width:200px;max-width:290px;max-height:340px;font-size:12px;" +
+          "left:" + Math.min(rect.left, innerWidth - 300) + "px;" +
+          "top:" + Math.min(rect.bottom + 2, innerHeight - 350) + "px;";
+
+        const si = document.createElement("input");
+        si.type = "text"; si.placeholder = "🔍 ค้นหา…";
+        si.style.cssText = "margin:6px;padding:3px 6px;border:1px solid #94a3b8;" +
+          "border-radius:3px;font-size:11px;box-sizing:border-box;width:calc(100% - 12px);";
+        pop.appendChild(si);
+
+        const ul = document.createElement("div");
+        ul.style.cssText = "overflow-y:auto;flex:1;padding:2px 4px;";
+        pop.appendChild(ul);
+
+        const ft = document.createElement("div");
+        ft.style.cssText = "display:flex;gap:4px;padding:6px;border-top:1px solid #e2e8f0;flex-shrink:0;";
+        [["ใช้ตัวกรอง", false], ["ล้าง", true]].forEach(([t, isClear]) => {
+          const b = document.createElement("button");
+          b.type = "button"; b.textContent = t;
+          b.style.cssText = "flex:1;border-radius:4px;padding:4px;font-size:11px;cursor:pointer;" +
+            "border:1px solid " + (isClear ? "#e2e8f0" : "transparent") + ";" +
+            "background:" + (isClear ? "#f8fafc" : "#0284c7") + ";" +
+            "color:" + (isClear ? "#334155" : "#fff") + ";";
+          b.onclick = isClear
+            ? () => { sel = new Set(["__ALL__"]); applyFilter(); closePop(); }
+            : () => { applyFilter(); closePop(); };
+          ft.appendChild(b);
+        });
+        pop.appendChild(ft);
+
+        function mkRow(key, label, count) {
+          const row = document.createElement("label");
+          row.style.cssText = "display:flex;align-items:center;gap:5px;padding:2px 3px;border-radius:3px;cursor:pointer;";
+          row.onmouseenter = () => row.style.background = "#f8fafc";
+          row.onmouseleave = () => row.style.background = "";
+          const chk = document.createElement("input");
+          chk.type = "checkbox"; chk.value = key;
+          chk.style.cssText = "accent-color:#0284c7;flex-shrink:0;";
+          chk.checked = sel.has("__ALL__") || sel.has(key);
+          chk.onchange = () => {
+            if (key === "__ALL__") {
+              sel = chk.checked ? new Set(["__ALL__"]) : new Set();
+              ul.querySelectorAll("input").forEach(c => c.checked = chk.checked);
+            } else {
+              if (sel.has("__ALL__")) { sel = new Set(entries.map(([k]) => k)); }
+              sel.delete("__ALL__");
+              chk.checked ? sel.add(key) : sel.delete(key);
+              const ac = ul.querySelector("input[value='__ALL__']");
+              if (ac) {
+                const allKeys = entries.map(([k]) => k);
+                ac.checked = allKeys.every(k => sel.has(k));
+                if (ac.checked) sel = new Set(["__ALL__"]);
+              }
+            }
+          };
+          const sp = document.createElement("span");
+          sp.textContent = label;
+          sp.style.cssText = "flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" +
+            (key === "\0BLANK" ? "color:#94a3b8;font-style:italic;" : "") +
+            (key === "__ALL__" ? "font-weight:600;" : "");
+          const cn = document.createElement("span");
+          cn.textContent = count; cn.style.cssText = "color:#94a3b8;font-size:10px;flex-shrink:0;";
+          row.append(chk, sp, cn);
+          return row;
+        }
+
+        function renderList(q) {
+          ul.innerHTML = "";
+          const total = entries.reduce((s, [, c]) => s + c, 0);
+          ul.appendChild(mkRow("__ALL__", "✓ ทั้งหมด", total));
+          entries.forEach(([k, c]) => {
+            const lbl = k === "\0BLANK" ? "(ว่าง)" : k;
+            if (q && k !== "\0BLANK" && !lbl.toLowerCase().includes(q.toLowerCase())) return;
+            ul.appendChild(mkRow(k, lbl, c));
+          });
+        }
+
+        renderList("");
+        si.addEventListener("input", () => renderList(si.value));
+        document.body.appendChild(pop);
+        si.focus();
+        setTimeout(() => {
+          const h = e => { if (pop && !pop.contains(e.target) && e.target !== btn) { closePop(); document.removeEventListener("mousedown", h); } };
+          document.addEventListener("mousedown", h);
+        }, 0);
+      }
+
+      btn.addEventListener("click", e => { e.stopPropagation(); pop ? closePop() : openPop(); });
+      onRendered(styleBtn);
+      return btn;
+    };
+  }
+
+  function excelFilterFunc(headerValue, rowValue) {
+    if (!headerValue || !(headerValue instanceof Set) || headerValue.has("__ALL__")) return true;
+    const v = (rowValue == null || rowValue === "") ? "\0BLANK" : String(rowValue);
+    return headerValue.has(v);
+  }
+
+  // ── Tabulator ───────────────────────────────────────────────────────────────
   const table = new Tabulator("#dailyGridTable", {
     ajaxURL: apiUrl,
     ajaxResponse: function(url, params, resp){ return resp.items || []; },
@@ -171,27 +442,86 @@
     height: "70vh",
     movableColumns: true,
     clipboard: true,
+    selectable: true,
     dataTree: false,
-    columns: [{
-      title: "เปิด",
-      field: "_actions",
-      frozen: true,
-      headerSort: false,
-      width: 92,
-      formatter: function(cell){
-        const id = cell.getRow().getData().id;
-        return `<a class="text-sky-700 underline" href="/daily/${id}/edit" target="_blank" rel="noopener">แก้เต็ม</a>`;
+    headerFilterLiveFilterDelay: 300,
+    rowFormatter: function(row) {
+      const d = row.getData();
+      if (!d.pay_mode || !d.pay_mode.endsWith("_mao")) return;
+      row.getElement().style.background = "#eff6ff";
+      row.getCells().forEach(cell => {
+        if (cell.getField() === "driver_raw_name") {
+          cell.getElement().style.color = "#1d4ed8";
+          cell.getElement().style.fontWeight = "600";
+        }
+      });
+    },
+    columns: [
+      // Checkbox select column
+      {
+        formatter: "rowSelection",
+        titleFormatter: "rowSelection",
+        hozAlign: "center",
+        headerSort: false,
+        frozen: true,
+        width: 36,
+        clipboard: false,
+        resizable: false,
       },
-      clipboard: false,
-    }].concat(ALL_FIELDS.map(([field, title, editable]) => ({
-      title: editable ? `${title} ✎` : title,
-      field,
-      editor: editable ? (["revenue_customer","trip_fee_driver","fuel_liter","fuel_amount","fuel_rate_km_per_l","mile_snapshot","wht_53"].includes(field) ? "number" : "input") : false,
-      headerTooltip: editable ? "แก้ได้ใน Grid แล้วกด Save" : "อ่านอย่างเดียว",
-      hozAlign: ["id","driver_id","head_vehicle_id","tail_vehicle_id","customer_id","trip_group_id","revenue_customer","trip_fee_driver","fuel_liter","fuel_amount","fuel_rate_km_per_l","mile_snapshot","wht_53"].includes(field) ? "right" : "left",
-      width: field === "id" ? 70 : undefined
-    }))),
+      // Open link column
+      {
+        title: "เปิด",
+        field: "_actions",
+        frozen: true,
+        headerSort: false,
+        width: 92,
+        formatter: function(cell){
+          const id = cell.getRow().getData().id;
+          return `<a class="text-sky-700 underline" href="/daily/${id}/edit" target="_blank" rel="noopener">แก้เต็ม</a>`;
+        },
+        clipboard: false,
+      }
+    ].concat(ALL_FIELDS.map(([field, title, editable]) => {
+      const MISSING_FIELDS = ["revenue_customer", "trip_fee_driver"];
+      const NUM_FIELDS_ARR = ["revenue_customer","trip_fee_driver","fuel_liter","fuel_amount","fuel_rate_km_per_l","mile_snapshot","wht_53"];
+      const RIGHT_ALIGN    = ["id","driver_id","head_vehicle_id","tail_vehicle_id","customer_id","trip_group_id","revenue_customer","trip_fee_driver","fuel_liter","fuel_amount","fuel_rate_km_per_l","mile_snapshot","wht_53"];
+      const CELL_EDITORS = {
+        "status_code":   { editor: "list", editorParams: { values: ["KLND","DHL Overflow","DHL","NHL","WHALE","KAO","CJ","Nippon","SDS","KN","KTL","SONIC","โฮมโปร","ต่อเนื่องส่งงาน","ลา / ไม่พร้อม","รถซ่อม","รถอุบัติเหตุ"], clearable: true } },
+        "site_code":     { editor: "list", editorParams: { values: ["LCB","AYU","BIGC","CJ"], clearable: true } },
+        "leave_status":  { editor: "list", editorParams: { values: ["","leave"], clearable: true } },
+        "container_size":{ editor: "list", editorParams: { values: ["","20'","40'","40HC","45'"], clearable: true } },
+      };
+      const col = {
+        title: editable ? `${title} ✎` : title,
+        field,
+        editor: editable ? (NUM_FIELDS_ARR.includes(field) ? "number" : "input") : false,
+        headerTooltip: editable ? "แก้ได้ใน Grid แล้วกด Save" : "อ่านอย่างเดียว",
+        hozAlign: RIGHT_ALIGN.includes(field) ? "right" : "left",
+        width: field === "id" ? 70 : undefined,
+        headerFilter: makeExcelFilter(field),
+        headerFilterFunc: excelFilterFunc,
+        ...(editable && CELL_EDITORS[field] ? CELL_EDITORS[field] : {}),
+      };
+      if (MISSING_FIELDS.includes(field)) {
+        col.formatter = function(cell) {
+          const row = cell.getRow().getData();
+          const val = cell.getValue();
+          const isLeave = row.leave_status === "leave";
+          if (!isLeave && (val === 0 || val === null || val === undefined || val === "")) {
+            cell.getElement().classList.add("yk-cell-missing");
+          } else {
+            cell.getElement().classList.remove("yk-cell-missing");
+          }
+          return val ?? "";
+        };
+      }
+      if (NUM_FIELDS_ARR.includes(field)) {
+        col.bottomCalc = makeCalc();
+      }
+      return col;
+    })),
     cellEdited: function(cell){
+      currentEditCell = null;
       const row = cell.getRow().getData();
       const field = cell.getField();
       const dirty = dirtyRows.get(row.id) || {id: row.id};
@@ -205,6 +535,66 @@
     }
   });
 
+  // Track the cell currently being edited
+  table.on("cellEditing", function(cell) { currentEditCell = cell; });
+  table.on("cellEditCancelled", function(cell) { if (currentEditCell === cell) currentEditCell = null; });
+
+  // ── Row selection → status bar ──────────────────────────────────────────────
+  table.on("rowSelectionChanged", function(data, rows) {
+    if (!rows.length) { selBar.classList.add("hidden"); return; }
+    selBar.classList.remove("hidden");
+    document.getElementById("ykSelCount").textContent = rows.length + " แถวที่เลือก";
+    const nums = (f) => rows.map(r => parseFloat(r.getData()[f])).filter(v => !isNaN(v));
+    const fmt  = (n) => n.toLocaleString("th-TH", {maximumFractionDigits: 2});
+    const avg  = (arr) => arr.length ? fmt(arr.reduce((s,v)=>s+v,0)/arr.length) : "-";
+    const revN  = nums("revenue_customer");
+    const tripN = nums("trip_fee_driver");
+    const fuelN = nums("fuel_liter");
+    document.getElementById("ykSelRevSum").textContent  = fmt(revN.reduce((s,v)=>s+v,0));
+    document.getElementById("ykSelRevAvg").textContent  = avg(revN);
+    document.getElementById("ykSelTripSum").textContent = fmt(tripN.reduce((s,v)=>s+v,0));
+    document.getElementById("ykSelTripAvg").textContent = avg(tripN);
+    document.getElementById("ykSelFuelSum").textContent = fmt(fuelN.reduce((s,v)=>s+v,0));
+  });
+
+  // ── Ctrl+Enter: apply current editor value to all selected rows (capture phase) ──
+  document.getElementById("dailyGridTable").addEventListener("keydown", function(e) {
+    if (e.key !== "Enter" || !e.ctrlKey || !currentEditCell) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const editingCell = currentEditCell;
+    currentEditCell = null;
+
+    const field = editingCell.getField();
+    const inputEl = editingCell.getElement().querySelector("input, select, textarea");
+    const rawVal  = inputEl ? inputEl.value : String(editingCell.getValue() ?? "");
+    const newVal  = NUM_FIELDS.has(field) ? (rawVal === "" ? null : parseFloat(rawVal)) : rawVal;
+
+    const selected = table.getSelectedRows();
+    const targets  = selected.length > 0 ? selected : [editingCell.getRow()];
+
+    targets.forEach(row => {
+      const rowData = row.getData();
+      if (!rowData.id) return;
+      const cell = row.getCell(field);
+      if (!cell) return;
+      cell.setValue(newVal);
+      // Explicit dirty tracking — setValue may not trigger cellEdited
+      const dirty = dirtyRows.get(rowData.id) || {id: rowData.id};
+      dirty[field] = newVal;
+      dirtyRows.set(rowData.id, dirty);
+      const el = cell.getElement();
+      if (el) el.classList.add("yk-grid-dirty-cell");
+      row.getElement().classList.add("yk-grid-dirty-row");
+    });
+
+    saveDetails.className = "hidden rounded-lg border p-3 text-xs mb-3";
+    saveDetails.innerHTML = "";
+    updateDirtyFeedback();
+  }, true /* capture phase */);
+
+  // ── Save button ─────────────────────────────────────────────────────────────
   saveBtn.addEventListener("click", async function(){
     if (!dirtyRows.size){
       saveMsg.textContent = "ไม่มีข้อมูลที่แก้ไข";
@@ -224,22 +614,20 @@
         body: JSON.stringify({rows: Array.from(dirtyRows.values())}),
       });
       const out = await res.json();
-      if (!res.ok || !out.ok){
-        throw new Error(out.error || "save failed");
-      }
+      if (!res.ok || !out.ok){ throw new Error(out.error || "save failed"); }
       const errors = out.errors || [];
       if (errors.length){
         saveMsg.textContent = `บันทึกบางส่วน ${out.updated} แถว · ยังมี error ${errors.length} รายการ`;
         saveMsg.className = "text-xs text-amber-700";
         saveDetails.className = "rounded-lg border border-amber-200 bg-amber-50 text-amber-800 p-3 text-xs mb-3";
-        saveDetails.innerHTML = `<div class="font-semibold mb-1">รายการที่ต้องตรวจ</div><ul class="list-disc ml-5">${errors.slice(0, 12).map((e) => `<li>ID ${e.id || "-"}: ${e.error || "error"}</li>`).join("")}</ul><div class="mt-2">ระบบยังเก็บสถานะ unsaved ไว้ ให้แก้ช่องที่ผิดแล้วกด Save อีกครั้ง</div>`;
+        saveDetails.innerHTML = `<div class="font-semibold mb-1">รายการที่ต้องตรวจ</div><ul class="list-disc ml-5">${errors.slice(0,12).map(e=>`<li>ID ${e.id||"-"}: ${e.error||"error"}</li>`).join("")}</ul><div class="mt-2">ระบบยังเก็บสถานะ unsaved ไว้ ให้แก้ช่องที่ผิดแล้วกด Save อีกครั้ง</div>`;
       } else {
         dirtyRows.clear();
         saveMsg.textContent = `บันทึกแล้ว ${out.updated} แถว`;
         saveMsg.className = "text-xs text-emerald-700";
         table.replaceData().then(updateDirtyFeedback);
       }
-    } catch (err){
+    } catch(err){
       saveMsg.textContent = `บันทึกไม่สำเร็จ: ${err.message || err}`;
       saveMsg.className = "text-xs text-red-600";
     } finally {
@@ -249,49 +637,125 @@
     }
   });
 
+  // ── Columns dialog ──────────────────────────────────────────────────────────
   function renderColumnsChecklist(){
-    const hidden = new Set(getHiddenFields());
     columnsChecklist.innerHTML = "";
     ALL_FIELDS.forEach(([field, title]) => {
+      const col = table.getColumn(field);
+      const isVisible = col ? col.isVisible() : true;
       const wrap = document.createElement("label");
-      wrap.className = "flex items-center gap-2";
+      wrap.className = "flex items-center gap-2 py-0.5 cursor-pointer hover:bg-slate-50 rounded px-1";
       const chk = document.createElement("input");
       chk.type = "checkbox";
-      chk.checked = !hidden.has(field);
+      chk.className = "accent-indigo-600";
+      chk.checked = isVisible;
       if (field === "id"){ chk.disabled = true; chk.checked = true; }
       chk.addEventListener("change", () => {
         if (chk.checked) table.showColumn(field);
         else table.hideColumn(field);
-        const nextHidden = ALL_FIELDS.map(([f]) => f).filter((f) => f !== "id" && !table.getColumn(f).isVisible());
-        setHiddenFields(nextHidden);
+        saveHiddenState();
       });
+      const lbl = document.createElement("span");
+      lbl.textContent = title;
+      lbl.className = isVisible ? "" : "text-slate-400 line-through";
       wrap.appendChild(chk);
-      wrap.appendChild(document.createTextNode(title));
+      wrap.appendChild(lbl);
       columnsChecklist.appendChild(wrap);
     });
   }
 
+  // ── Context menu (right-click on col header) ────────────────────────────────
+  let ctxMenu = null;
+  function removeCtxMenu(){ if (ctxMenu){ ctxMenu.remove(); ctxMenu = null; } }
+  document.addEventListener("click", removeCtxMenu);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") removeCtxMenu(); });
+
+  function showColContextMenu(e, field, colTitle){
+    removeCtxMenu();
+    const menu = document.createElement("div");
+    menu.className = "fixed z-50 bg-white border rounded shadow-lg py-1 text-sm min-w-36";
+    menu.style.left = Math.min(e.clientX, window.innerWidth - 160) + "px";
+    menu.style.top  = Math.min(e.clientY, window.innerHeight - 120) + "px";
+    const items = [
+      { label: `🙈 ซ่อน "${colTitle}"`, action: () => { table.hideColumn(field); saveHiddenState(); renderColumnsChecklist(); } },
+      { label: "🗂 แสดงทุกคอลัมน์",     action: () => applyPreset("all") },
+      { label: "✏️ ตั้งค่าคอลัมน์...",  action: () => { columnsDialog.showModal(); renderColumnsChecklist(); } },
+    ];
+    items.forEach(({ label, action }) => {
+      const li = document.createElement("div");
+      li.textContent = label;
+      li.className = "px-4 py-1.5 hover:bg-slate-100 cursor-pointer";
+      li.addEventListener("mousedown", (ev) => { ev.preventDefault(); action(); removeCtxMenu(); });
+      menu.appendChild(li);
+    });
+    document.body.appendChild(menu);
+    ctxMenu = menu;
+  }
+
+  // ── tableBuilt ──────────────────────────────────────────────────────────────
   table.on("tableBuilt", function(){
-    const hidden = new Set(getHiddenFields());
+    const DEFAULT_HIDDEN = [
+      "leave_status","pickup_location",
+      "customer_name_raw","customer_id","driver_id",
+      "head_vehicle_id","tail_vehicle_id","trip_group_id",
+      "tail_plate_raw","store_code","truck_type_raw",
+      "invoice_no","invoice_date","wht_53",
+      "source","created_at","updated_at",
+    ];
+    const saved = getHiddenFields();
+    const hidden = new Set(saved.length > 0 ? saved : DEFAULT_HIDDEN);
     hidden.forEach((field) => { if (field !== "id") table.hideColumn(field); });
     renderColumnsChecklist();
+
+    // Right-click on column headers
+    document.querySelectorAll("#dailyGridTable .tabulator-col[tabulator-field]").forEach((el) => {
+      el.addEventListener("contextmenu", (e) => {
+        const field = el.getAttribute("tabulator-field");
+        if (!field || field === "_actions") return;
+        e.preventDefault();
+        const col = table.getColumn(field);
+        const colTitle = col ? (col.getDefinition().title || field).replace(/ ✎$/, "") : field;
+        showColContextMenu(e, field, colTitle);
+      });
+    });
+
+    // Deselect all button in status bar
+    document.getElementById("ykSelClear").addEventListener("click", function() {
+      table.deselectRow();
+    });
+
+    // Subtotal mode radio buttons
+    document.querySelectorAll("input[name='calcMode']").forEach(radio => {
+      radio.addEventListener("change", function() {
+        calcMode = this.value;
+        table.recalc();
+      });
+    });
   });
 
+  // ── Dialog buttons ──────────────────────────────────────────────────────────
   columnsBtn.addEventListener("click", function(){
     renderColumnsChecklist();
     columnsDialog.showModal();
   });
   closeColumnsDialog.addEventListener("click", function(){ columnsDialog.close(); });
+  columnsDialog.addEventListener("click", (e) => { if (e.target === columnsDialog) columnsDialog.close(); });
+
+  document.querySelectorAll(".colPreset").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      applyPreset(btn.dataset.preset);
+      document.querySelectorAll(".colPreset").forEach((b) => b.classList.remove("ring-2","ring-indigo-400","bg-indigo-50"));
+      btn.classList.add("ring-2","ring-indigo-400","bg-indigo-50");
+    });
+  });
+
+  // ── Guard unsaved changes ───────────────────────────────────────────────────
   filterForm.addEventListener("submit", function(e){
-    if (!confirmIfDirty()){
-      e.preventDefault();
-    }
+    if (!confirmIfDirty()) e.preventDefault();
   });
   document.querySelectorAll(".guardedLink").forEach((el) => {
     el.addEventListener("click", function(e){
-      if (!confirmIfDirty()){
-        e.preventDefault();
-      }
+      if (!confirmIfDirty()) e.preventDefault();
     });
   });
   window.addEventListener("beforeunload", function(e){
