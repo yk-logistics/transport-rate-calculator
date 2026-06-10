@@ -129,16 +129,15 @@ with open(OUT_CSV, "w", newline="", encoding="utf-8-sig") as f:
         w.writerow([c["ship_date"], c["plate"], "", "", c["job"], "", "CUSTOMER_DOC_NO_TRIP"])
 print(f"\nCSV: {OUT_CSV}")
 
-# --- JSON สำหรับ builder: คอลัมน์ "เลขใบงาน (ลูกค้า)" — รูปแบบเดียวกับ oatside_job_numbers.json ---
+# --- JSON สำหรับ builder: คอลัมน์ "เลขใบงาน (ลูกค้า)" — key รายเที่ยว PLATE|Origin_In ---
 OUT_JSON = HERE / "oatside_customer_jobs.json"
-jobs_by_key = defaultdict(list)
+jobs_by_key = {}
 for t in trips:
     if t["cust_jobs"]:
-        key = f'{t["plate"]}|{t["trip_date"].isoformat()}'
-        jobs_by_key[key].extend(j for j in t["cust_jobs"] if j not in jobs_by_key[key])
+        jobs_by_key[f'{t["plate"]}|{t["o_in"]}'] = t["cust_jobs"]
 OUT_JSON.write_text(json.dumps({
-    "version": 1,
-    "_note": "เลขใบงานจากไฟล์ลูกค้า (Oatside May 2026.xlsx Sheet1: B=date, C=job, I=plate) จับคู่กับเที่ยว GPS โดย _match_customer_jobs_may.py; key = PLATE|billed_day; ใบงานลูกค้าที่หาเที่ยวไม่เจอ (71-8002 ช่วง 05-07/05) ไม่อยู่ในไฟล์นี้",
+    "version": 2,
+    "_note": "เลขใบงานจากไฟล์ลูกค้า (Oatside May 2026.xlsx Sheet1: B=date, C=job, I=plate) จับคู่รายเที่ยวโดย _match_customer_jobs_may.py; key = PLATE|Origin_In (YYYY-MM-DD HH:MM:SS); ใบงานลูกค้าที่หาเที่ยวไม่เจอ (71-8002 ช่วง 05-07/05) ไม่อยู่ในไฟล์นี้",
     "jobs": {k: jobs_by_key[k] for k in sorted(jobs_by_key)},
 }, ensure_ascii=False, indent=2), encoding="utf-8")
-print(f"JSON: {OUT_JSON} ({len(jobs_by_key)} plate-days)")
+print(f"JSON: {OUT_JSON} ({len(jobs_by_key)} trips)")

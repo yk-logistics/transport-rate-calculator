@@ -792,6 +792,34 @@ def load_job_numbers(fname: str = "oatside_job_numbers.json") -> dict[tuple[str,
     return out
 
 
+def load_customer_jobs_by_trip() -> dict[tuple[str, str], list[str]]:
+    """เลขใบงานจากไฟล์ลูกค้า key รายเที่ยว: (plate, "YYYY-MM-DD HH:MM:SS" ของ Origin_In) → [jobs].
+
+    Source: oatside_customer_jobs.json (built by _match_customer_jobs_may.py from the
+    customer's monthly file). Shape: {"jobs": {"PLATE|YYYY-MM-DD HH:MM:SS": [...]}}.
+    Missing file → empty.
+    """
+    path = _oatside_dir() / "oatside_customer_jobs.json"
+    out: dict[tuple[str, str], list[str]] = {}
+    if not path.is_file():
+        return out
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return out
+    jobs = raw.get("jobs") if isinstance(raw, dict) else None
+    if not isinstance(jobs, dict):
+        return out
+    for key, vals in jobs.items():
+        if not isinstance(vals, list) or "|" not in str(key):
+            continue
+        plate, _, ts = str(key).partition("|")
+        cleaned = [str(v).strip() for v in vals if str(v).strip()]
+        if cleaned:
+            out[(plate.strip(), ts.strip())] = cleaned
+    return out
+
+
 # ---------------------------------------------------------------------------
 # File discovery
 # ---------------------------------------------------------------------------
@@ -3118,8 +3146,27 @@ def write_html(
             fifty_origin_lists[(r["plate"], r["origin_day"])].append(r)
     firsts = first_matched_trip_by_plate_dest(trips)
     first_no_work = first_no_work_trip_by_plate_recovery_day(trips, cfg)
-    job_by_pd = load_job_numbers()  # (plate, dest_date) -> "เลขที่ใบงาน" (shown on first trip of the day)
-    cust_job_by_pd = load_job_numbers("oatside_customer_jobs.json")  # เลขใบงานจากไฟล์ลูกค้า (คอลัมน์แยก)
+    job_by_pd = load_job_numbers()  # (plate, dest_date) -> "เลขที่ใบงาน" (รายวัน — กระจายรายแถวด้านล่าง)
+    cust_job_by_trip = load_customer_jobs_by_trip()  # เลขใบงานจากไฟล์ลูกค้า key รายเที่ยว
+    # กระจายเลขใบงานเป็นรายแถว (ช่องละเลข): เดลี่รู้แค่รายวัน → แจกตามลำดับเวลาเที่ยว;
+    # ถ้าเลขมากกว่าจำนวนเที่ยววันนั้น เลขที่เหลือซ้อนบรรทัดในช่องเที่ยวสุดท้าย (pre-escaped HTML)
+    daily_job_html: dict[int, str] = {}
+    _trips_by_pd: dict[tuple[str, date], list[Trip]] = defaultdict(list)
+    for _t in trips:
+        _trips_by_pd[(str(_t.plate), _t.trip_date)].append(_t)
+    for _k, _lst in _trips_by_pd.items():
+        _jobs = [s.strip() for s in job_by_pd.get(_k, "").split(",") if s.strip()]
+        if not _jobs:
+            continue
+        _lst = sorted(_lst, key=lambda x: x.o_in)
+        for _i, _t in enumerate(_lst[: len(_jobs)]):
+            _mine = _jobs[_i:] if _i == len(_lst) - 1 else [_jobs[_i]]
+            daily_job_html[id(_t)] = "<br>".join(esc(x) for x in _mine)
+    cust_job_html: dict[int, str] = {}
+    for _t in trips:
+        _cj = cust_job_by_trip.get((str(_t.plate), str(_t.o_in)), [])
+        if _cj:
+            cust_job_html[id(_t)] = "<br>".join(esc(x) for x in _cj)
     ret_by_pd: dict[tuple[str, date], int] = {}
     deadhead_by_pd: dict[tuple[str, date], int] = {}
     for m in cfg.manual_return_trips:
@@ -3181,8 +3228,8 @@ def write_html(
             f"<td>{t.o_in}</td><td>{t.o_out}</td><td>{t.d_in}</td><td>{t.d_out}</td>"
             f"{_td_wait_h(t.origin_wait_h, _hi_o, False)}<td>{fmt_hm(t.travel_h)}</td>{_td_wait_h(t.dest_wait_h, _hi_d, True)}"
             f"<td>—</td><td>—</td>"
-            f"<td>{esc(job_by_pd.get((str(t.plate), t.trip_date), '') if _first else '')}</td>"
-            f"<td>{esc(cust_job_by_pd.get((str(t.plate), t.trip_date), '') if _first else '')}</td>"
+            f"<td>{daily_job_html.get(id(t), '')}</td>"
+            f"<td>{cust_job_html.get(id(t), '')}</td>"
             f"{money}</tr>"
         )
 
@@ -3216,8 +3263,8 @@ def write_html(
             f"<td>{t.o_in}</td><td>{t.o_out}</td><td>{t.d_in}</td><td>{t.d_out}</td>"
             f"{_td_wait_h(t.origin_wait_h, _hi_o, False)}<td>{fmt_hm(t.travel_h)}</td>{_td_wait_h(t.dest_wait_h, _hi_d, True)}"
             f"<td>—</td><td>—</td>"
-            f"<td>{esc(job_by_pd.get((str(t.plate), t.trip_date), '') if _first else '')}</td>"
-            f"<td>{esc(cust_job_by_pd.get((str(t.plate), t.trip_date), '') if _first else '')}</td>"
+            f"<td>{daily_job_html.get(id(t), '')}</td>"
+            f"<td>{cust_job_html.get(id(t), '')}</td>"
             f"{money}</tr>"
         )
 
