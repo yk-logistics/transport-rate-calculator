@@ -1076,6 +1076,43 @@ def daily_save(
     return RedirectResponse(url="/daily", status_code=303)
 
 
+@app.post("/daily/batch")
+async def daily_batch_save(request: Request):
+    """รับ JSON {work_date, site_code, rows:[{...}]} จากหน้า batch entry — บันทึกทีละแถว
+    แถวที่พังไม่ล้มทั้งชุด: คืนผลรายแถว {ok, id|error}"""
+    payload = await request.json()
+    wd = _parse_date(str(payload.get("work_date") or ""))
+    site = str(payload.get("site_code") or "").strip().upper()
+    if not wd:
+        raise HTTPException(400, "work_date invalid")
+    if site not in models.SITE_CODES:
+        raise HTTPException(400, "site_code invalid")
+    rows_in = payload.get("rows") or []
+    if not isinstance(rows_in, list) or len(rows_in) > 200:
+        raise HTTPException(400, "rows invalid")
+    results = []
+    with Session(engine) as s:
+        for f in rows_in:
+            try:
+                clean = {k: ("" if v is None else str(v)) for k, v in dict(f).items()}
+                row = DailyJob(work_date=wd, site_code=site, source="manual")
+                _apply_daily_fields(row, clean)
+                s.add(row)
+                s.commit()
+                s.refresh(row)
+                # Auto-learn rates — เหมือน daily_save ทุกประการ
+                try:
+                    rate_record_from_daily(s, row)
+                    s.commit()
+                except Exception:
+                    s.rollback()
+                results.append({"ok": True, "id": row.id})
+            except Exception as e:
+                s.rollback()
+                results.append({"ok": False, "error": str(e)[:200]})
+    return {"results": results}
+
+
 @app.post("/daily/{job_id}/delete")
 def daily_delete(job_id: int):
     with Session(engine) as s:
