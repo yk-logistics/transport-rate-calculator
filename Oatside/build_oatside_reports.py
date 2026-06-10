@@ -820,6 +820,35 @@ def load_customer_jobs_by_trip() -> dict[tuple[str, str], list[str]]:
     return out
 
 
+def load_customer_doc_index() -> dict[str, list[tuple[str, str]]]:
+    """index ใบงานลูกค้าทุกใบ: TO → [(plate, date), ...] จาก oatside_customer_jobs.json key "all_docs".
+
+    ใช้เช็คเลขเดลี่: ไม่อยู่ใน index = ไฟล์ลูกค้าไม่มีใบนี้; อยู่แต่คนละทะเบียน = ลงขัดแย้งกัน.
+    Missing file/key → empty.
+    """
+    path = _oatside_dir() / "oatside_customer_jobs.json"
+    out: dict[str, list[tuple[str, str]]] = {}
+    if not path.is_file():
+        return out
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return out
+    docs = raw.get("all_docs") if isinstance(raw, dict) else None
+    if not isinstance(docs, dict):
+        return out
+    for num, ents in docs.items():
+        if not isinstance(ents, list):
+            continue
+        pairs = []
+        for e in ents:
+            plate, _, ds = str(e).partition("|")
+            pairs.append((plate.strip(), ds.strip()))
+        if pairs:
+            out[str(num).strip()] = pairs
+    return out
+
+
 # ---------------------------------------------------------------------------
 # File discovery
 # ---------------------------------------------------------------------------
@@ -3150,6 +3179,18 @@ def write_html(
     cust_job_by_trip = load_customer_jobs_by_trip()  # เลขใบงานจากไฟล์ลูกค้า key รายเที่ยว
     # กระจายเลขใบงานเป็นรายแถว (ช่องละเลข): เดลี่รู้แค่รายวัน → แจกตามลำดับเวลาเที่ยว;
     # ถ้าเลขมากกว่าจำนวนเที่ยววันนั้น เลขที่เหลือซ้อนบรรทัดในช่องเที่ยวสุดท้าย (pre-escaped HTML)
+    cust_doc_index = load_customer_doc_index()
+
+    def _daily_num_html(plate: str, num: str) -> str:
+        # เช็คเลขเดลี่กับไฟล์ลูกค้า: ไม่มี = เหลือง, มีแต่คนละทะเบียน = แดง (tooltip บอกที่ลูกค้าลง)
+        ents = cust_doc_index.get(num)
+        if cust_doc_index and ents is None:
+            return f"<span class='job-nocust' title='เลขนี้ไม่มีในไฟล์ลูกค้า'>{esc(num)}</span>"
+        if ents and not any(p == plate for (p, _d) in ents):
+            info = "; ".join(f"{p} {d}" for (p, d) in ents)
+            return f"<span class='job-conflict' title='ไฟล์ลูกค้าลงเลขนี้เป็น {esc(info)}'>{esc(num)}</span>"
+        return esc(num)
+
     daily_job_html: dict[int, str] = {}
     _trips_by_pd: dict[tuple[str, date], list[Trip]] = defaultdict(list)
     for _t in trips:
@@ -3161,7 +3202,7 @@ def write_html(
         _lst = sorted(_lst, key=lambda x: x.o_in)
         for _i, _t in enumerate(_lst[: len(_jobs)]):
             _mine = _jobs[_i:] if _i == len(_lst) - 1 else [_jobs[_i]]
-            daily_job_html[id(_t)] = "<br>".join(esc(x) for x in _mine)
+            daily_job_html[id(_t)] = "<br>".join(_daily_num_html(_k[0], x) for x in _mine)
     cust_job_html: dict[int, str] = {}
     for _t in trips:
         _cj = cust_job_by_trip.get((str(_t.plate), str(_t.o_in)), [])
@@ -3346,6 +3387,8 @@ def write_html(
         "tr.um td{color:#5a3b00}"
         ".manual-extra{background:#ede7f6;color:#4a148c;font-weight:600}.return-trip{background:#e8f5e9;color:#1b5e20;font-weight:600}"
         ".cust-missing{background:#ffe3e3;color:#b42318;font-weight:700}"
+        ".job-nocust{background:#fff3cd;color:#7a5800;font-weight:700;padding:0 4px;border-radius:4px}"
+        ".job-conflict{background:#ffd6d6;color:#b42318;font-weight:700;padding:0 4px;border-radius:4px;cursor:help}"
         "tr.day-band-0 td.cust-missing,tr.day-band-1 td.cust-missing{background:#ffe3e3;color:#b42318;font-weight:700}"
         "tr.day-band-0 td{background:#fafcfe}tr.day-band-1 td{background:#e9f1fa}tr.day-band-0 td.wait-hi{background:#fff1cc;font-weight:600}tr.day-band-1 td.wait-hi{background:#ffecc4;font-weight:600}tr.day-band-0 td.wait-hi-dest{background:#ffe8c8;font-weight:600}tr.day-band-1 td.wait-hi-dest{background:#ffdfba;font-weight:600}""details.section-fold{margin-bottom:10px}""summary.section-sum{cursor:pointer;padding:10px 14px;background:#fff;border-radius:10px;font-weight:600;margin-bottom:6px;display:block;box-shadow:0 2px 8px rgba(16,24,40,.08);list-style:none}""summary.section-sum::-webkit-details-marker{display:none}"".filter-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 14px}"".filter-bar label{font-size:13px;color:#4b5b74}"".filter-bar select,.filter-bar input[type=search]{font:inherit;padding:6px 10px;border-radius:8px;border:1px solid #c5d0e0;background:#fff;min-width:160px}""summary.section-sum-row{display:flex!important;width:100%;box-sizing:border-box;justify-content:space-between;align-items:center;gap:12px;list-style:none}""summary.section-sum-row .sum-main{flex:1 1 auto;min-width:0;text-align:left}""summary.section-sum-row .sum-dl{margin-left:auto;flex:0 0 auto}"".xlsx-dl{font-size:12px;font-weight:700;color:#0b57d0;padding:5px 10px;border-radius:8px;border:1px solid #b8cff4;background:#eef5ff;white-space:nowrap}"".hero-trips{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;background:linear-gradient(135deg,#e8f1ff,#ffffff);border:1px solid #c5d0e0;border-radius:12px;padding:16px 18px;margin:12px 0 16px}"".hero-copy{max-width:720px}"".hero-tag{display:inline-block;font-size:11px;font-weight:700;color:#0b57d0;background:#e3eeff;border-radius:999px;padding:2px 10px;margin-bottom:6px}"".hero-title{font-size:20px;font-weight:800;color:#12243b;margin-bottom:4px}"".hero-sub{color:#4b5b74;font-size:13px;line-height:1.45}"".btn-primary{display:inline-block;padding:12px 18px;border-radius:10px;background:#0b57d0;color:#fff;font-weight:800;box-shadow:0 4px 12px rgba(11,87,208,.22)}"".btn-primary:hover{filter:brightness(1.05)}"".nav-secondary{margin:0 0 12px;font-size:13px;color:#4b5b74}"".panel-title-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}"".panel-title-row h3{margin:0}"".h1 .trips-tag{font-size:13px;font-weight:800;color:#0b57d0;margin-left:8px;vertical-align:middle}"".trips-lead{color:#4b5b74;font-size:14px;margin:-2px 0 10px}""details.col-picker{margin:8px 0 14px;border:1px solid #c5d0e0;border-radius:10px;padding:0 14px 4px;background:#fff}""details.col-picker summary{cursor:pointer;font-weight:700;padding:10px 0;font-size:13px;color:#12243b;list-style:none}""details.col-picker summary::-webkit-details-marker{display:none}"".col-picker-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px 16px;padding:4px 0 12px;font-size:13px}"".col-picker-grid label{display:flex;gap:8px;align-items:flex-start;cursor:pointer;line-height:1.35}"".col-picker-grid input{margin-top:3px;flex-shrink:0}"
         ".export-bar{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 12px}"
@@ -3415,7 +3458,7 @@ def write_html(
 <div class='nav'><a href='index.html'>&larr; สรุปภาพรวม</a> · <a href='exports/00_Full_Workbook.xlsx'>Excel รวมทุกชีต</a></div>
 <div class='panel'><div class='panel-title-row'><h3>เที่ยวทั้งหมด (matched + unmatched)</h3><a class='xlsx-dl' href='exports/05_Trip_Detail.xlsx' download onclick='event.stopPropagation()'>ดาวน์โหลด Excel (Trip Detail)</a></div>
 <p class='sub'>เรียงตามเวลา (matched ใช้ Origin In · unmatched ใช้เวลาขา Origin/Destination) — UM-O/UM-D เว้นฝั่งที่ยังไม่มีคู่เป็น —<br>
-<b>ค่าเงิน:</b> ค่าขนส่ง = เรทวัน Dest_In ของเที่ยวนั้น · <b>เสียเวลา+50%/+100%</b> = ยอดรวมส่วนเพิ่ม fifty ของ (ทะเบียน×วัน Dest_In) แสดงที่แถวแรกของวันนั้น — <b>ไม่ได้คิดจากชั่วโมงในช่อง Dest Wait โดยตรง</b> (สีส้ม = แค่เตือนว่ารอปลายทางเกินเกณฑ์) · <b>ขากลับ(฿)</b> = ยอดจาก <code>manual_return_trips</code> แสดงที่แถวแรกของวันนั้น (ไม่เพิ่มจำนวนเที่ยว matched) · <b style='color:#b42318'>ช่องแดง ไม่มีใบงาน = ไม่พบเลขใบงานในไฟล์ลูกค้า ({_n_cust_missing} เที่ยว) — รอตรวจกับใบงานจริง</b></p>
+<b>ค่าเงิน:</b> ค่าขนส่ง = เรทวัน Dest_In ของเที่ยวนั้น · <b>เสียเวลา+50%/+100%</b> = ยอดรวมส่วนเพิ่ม fifty ของ (ทะเบียน×วัน Dest_In) แสดงที่แถวแรกของวันนั้น — <b>ไม่ได้คิดจากชั่วโมงในช่อง Dest Wait โดยตรง</b> (สีส้ม = แค่เตือนว่ารอปลายทางเกินเกณฑ์) · <b>ขากลับ(฿)</b> = ยอดจาก <code>manual_return_trips</code> แสดงที่แถวแรกของวันนั้น (ไม่เพิ่มจำนวนเที่ยว matched) · <b style='color:#b42318'>ช่องแดง ไม่มีใบงาน = ไม่พบเลขใบงานในไฟล์ลูกค้า ({_n_cust_missing} เที่ยว) — รอตรวจกับใบงานจริง</b> · ในช่องเดลี่: <span class='job-nocust'>เหลือง</span> = เลขนี้ไม่มีในไฟล์ลูกค้า, <span class='job-conflict'>แดง</span> = ลูกค้าลงเลขนี้เป็นคนละทะเบียน (ชี้เมาส์ดูว่าลงเป็นคันไหน)</p>
 <div class='filter-bar'><label for='tripsPlateFilter'>กรองทะเบียน</label><select id='tripsPlateFilter'><option value=''>ทุกคัน</option>{_trips_plate_opts}</select><label for='tripsPlateQuery' style='margin-left:6px'>ค้นหา</label><input id='tripsPlateQuery' type='search' placeholder='พิมพ์ค้นหา...' autocomplete='off'></div>
 <details class='col-picker' id='tripsAllTableColPicker'><summary>แสดง / ซ่อนคอลัมน์ (เลือกได้เหมือน Excel)</summary><div class='col-picker-grid' id='tripsAllTableColInner'></div><p style='margin:0 0 10px'><button type='button' class='xlsx-dl' id='tripsAllTableColReset'>แสดงทุกคอลัมน์</button></p></details>
 <div class='export-bar'><button type='button' class='exp-btn' id='tripsAllTableExpPrint'>🖨️ พิมพ์ / PDF (เปิดหน้าตารางแยก)</button><button type='button' class='exp-btn' id='tripsAllTableExpXls'>📊 Excel (ตามที่เห็น)</button><button type='button' class='exp-btn' id='tripsAllTableExpPng'>🖼️ บันทึกรูป PNG</button></div>

@@ -135,9 +135,15 @@ jobs_by_key = {}
 for t in trips:
     if t["cust_jobs"]:
         jobs_by_key[f'{t["plate"]}|{t["o_in"]}'] = t["cust_jobs"]
+# index ใบงานลูกค้า "ทุกใบ" (รวมที่หาเที่ยวไม่เจอ/ใบซ้ำ) → builder ใช้เทียบว่าเลขเดลี่ตัวไหน
+# ไม่มีในไฟล์ลูกค้า หรือลูกค้าลงเป็นคนละทะเบียน
+all_docs = defaultdict(list)
+for c in cust:
+    all_docs[c["job"]].append(f'{c["plate"]}|{c["ship_date"].isoformat()}')
 OUT_JSON.write_text(json.dumps({
-    "version": 2,
-    "_note": "เลขใบงานจากไฟล์ลูกค้า (Oatside May 2026.xlsx Sheet1: B=date, C=job, I=plate) จับคู่รายเที่ยวโดย _match_customer_jobs_may.py; key = PLATE|Origin_In (YYYY-MM-DD HH:MM:SS); ใบงานลูกค้าที่หาเที่ยวไม่เจอ (71-8002 ช่วง 05-07/05) ไม่อยู่ในไฟล์นี้",
+    "version": 3,
+    "_note": "เลขใบงานจากไฟล์ลูกค้า (Oatside May 2026.xlsx Sheet1: B=date, C=job, I=plate) จับคู่รายเที่ยวโดย _match_customer_jobs_may.py; jobs key = PLATE|Origin_In (YYYY-MM-DD HH:MM:SS); all_docs = ใบงานลูกค้าทุกใบ {TO: [PLATE|date,...]} ไว้เช็คขัดแย้งกับเลขเดลี่",
     "jobs": {k: jobs_by_key[k] for k in sorted(jobs_by_key)},
+    "all_docs": {k: all_docs[k] for k in sorted(all_docs)},
 }, ensure_ascii=False, indent=2), encoding="utf-8")
-print(f"JSON: {OUT_JSON} ({len(jobs_by_key)} trips)")
+print(f"JSON: {OUT_JSON} ({len(jobs_by_key)} trips, {len(all_docs)} customer docs)")
