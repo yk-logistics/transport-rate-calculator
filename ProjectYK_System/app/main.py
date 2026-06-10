@@ -924,6 +924,39 @@ def daily_list(
     return templates.TemplateResponse("daily_list.html", ctx)
 
 
+def _apply_daily_fields(row: DailyJob, f: dict) -> None:
+    """Apply ค่าฟอร์ม (string ทั้งหมด) ลง DailyJob — ใช้ร่วมระหว่างฟอร์มเดี่ยวและ /daily/batch"""
+    row.driver_id = _parse_int(f.get("driver_id", ""))
+    row.driver_raw_name = f.get("driver_raw_name", "").strip()
+    row.head_vehicle_id = _parse_int(f.get("head_vehicle_id", ""))
+    row.tail_vehicle_id = _parse_int(f.get("tail_vehicle_id", ""))
+    row.plate_no_raw = f.get("plate_no_raw", "").strip()
+    row.tail_plate_raw = f.get("tail_plate_raw", "").strip()
+    row.customer_id = _parse_int(f.get("customer_id", ""))
+    row.customer_name_raw = f.get("customer_name_raw", "").strip()
+    row.trip_type_code = f.get("trip_type_code", "").strip()
+    row.status_code = f.get("status_code", "").strip()
+    row.leave_status = f.get("leave_status", "").strip()
+    row.origin = f.get("origin", "").strip()
+    row.destination = f.get("destination", "").strip()
+    row.doc_no = f.get("doc_no", "").strip()
+    row.job_ref = f.get("job_ref", "").strip()
+    row.container_no = f.get("container_no", "").strip()
+    row.container_size = f.get("container_size", "").strip()
+    row.revenue_customer = _parse_float(f.get("revenue_customer", "0"))
+    row.trip_fee_driver = _parse_float(f.get("trip_fee_driver", "0"))
+    row.fuel_liter = _parse_float(f.get("fuel_liter", "0"))
+    row.fuel_amount = _parse_float(f.get("fuel_amount", "0"))
+    row.fuel_station = f.get("fuel_station", "").strip()
+    row.fuel_rate_km_per_l = _parse_float(f.get("fuel_rate_km_per_l", "0"))
+    row.mile_snapshot = _parse_float(f.get("mile_snapshot", "0"))
+    row.invoice_no = f.get("invoice_no", "").strip()
+    row.invoice_date = _parse_date(f.get("invoice_date", ""))
+    row.wht_53 = _parse_float(f.get("wht_53", "0"))
+    row.remark = f.get("remark", "").strip()
+    row.updated_at = datetime.utcnow()
+
+
 @app.get("/daily/new", response_class=HTMLResponse)
 def daily_new_form(request: Request):
     with Session(engine) as s:
@@ -1005,36 +1038,22 @@ def daily_save(
                 raise HTTPException(404)
             row.work_date = wd
             row.site_code = site_code.strip().upper()
-        row.driver_id = _parse_int(driver_id)
+        _apply_daily_fields(row, {
+            "driver_id": driver_id, "driver_raw_name": driver_raw_name,
+            "head_vehicle_id": head_vehicle_id, "tail_vehicle_id": tail_vehicle_id,
+            "plate_no_raw": plate_no_raw, "tail_plate_raw": tail_plate_raw,
+            "customer_id": customer_id, "customer_name_raw": customer_name_raw,
+            "trip_type_code": trip_type_code, "status_code": status_code,
+            "leave_status": leave_status, "origin": origin, "destination": destination,
+            "doc_no": doc_no, "job_ref": job_ref,
+            "container_no": container_no, "container_size": container_size,
+            "revenue_customer": revenue_customer, "trip_fee_driver": trip_fee_driver,
+            "fuel_liter": fuel_liter, "fuel_amount": fuel_amount,
+            "fuel_station": fuel_station, "fuel_rate_km_per_l": fuel_rate_km_per_l,
+            "mile_snapshot": mile_snapshot, "invoice_no": invoice_no,
+            "invoice_date": invoice_date, "wht_53": wht_53, "remark": remark,
+        })
         driver_obj = s.get(Employee, row.driver_id) if row.driver_id else None
-        row.driver_raw_name = driver_raw_name.strip()
-        row.head_vehicle_id = _parse_int(head_vehicle_id)
-        row.tail_vehicle_id = _parse_int(tail_vehicle_id)
-        row.plate_no_raw = plate_no_raw.strip()
-        row.tail_plate_raw = tail_plate_raw.strip()
-        row.customer_id = _parse_int(customer_id)
-        row.customer_name_raw = customer_name_raw.strip()
-        row.trip_type_code = trip_type_code.strip()
-        row.status_code = status_code.strip()
-        row.leave_status = leave_status.strip()
-        row.origin = origin.strip()
-        row.destination = destination.strip()
-        row.doc_no = doc_no.strip()
-        row.job_ref = job_ref.strip()
-        row.container_no = container_no.strip()
-        row.container_size = container_size.strip()
-        row.revenue_customer = _parse_float(revenue_customer)
-        row.trip_fee_driver = _parse_float(trip_fee_driver)
-        row.fuel_liter = _parse_float(fuel_liter)
-        row.fuel_amount = _parse_float(fuel_amount)
-        row.fuel_station = fuel_station.strip()
-        row.fuel_rate_km_per_l = _parse_float(fuel_rate_km_per_l)
-        row.mile_snapshot = _parse_float(mile_snapshot)
-        row.invoice_no = invoice_no.strip()
-        row.invoice_date = _parse_date(invoice_date)
-        row.wht_53 = _parse_float(wht_53)
-        row.remark = remark.strip()
-        row.updated_at = datetime.utcnow()
         s.add(row)
         s.commit()
         s.refresh(row)
