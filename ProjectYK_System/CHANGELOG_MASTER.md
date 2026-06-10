@@ -4,6 +4,28 @@
 
 > **Agent bootstrap:** อ่านเฉพาะ **3 หัวข้อ `##` แรกจากด้านบนลงมา** (ไม่รวมบรรทัดนี้) — **ห้าม**อ่านทั้งไฟล์ทุกแชต. นโยบาย/การย้าย archive: [`ProjectYK_System/docs/CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md)
 
+## 2026-06-10 (Daily batch entry — /daily/new เป็นตารางคีย์หลายแถว)
+
+- `/daily/new` เปลี่ยนจากฟอร์มยาว 28 ช่อง → ตารางคีย์หลายแถวแบบ Excel (`daily_batch.html`): วันที่+ไซต์ตั้งครั้งเดียว, คอลัมน์ปรับตามไซต์ (LCB: JobRef/ตู้/Doc · BIGC: หาง), ช่องใช้น้อยพับใต้ปุ่ม ⋯, Enter/Ctrl+D, autocomplete master เขียว=ลิงก์ id เหลือง=เก็บ raw
+- เพิ่ม `POST /daily/batch` (JSON หลายแถว, ผลรายแถว ok/error — แถวพังไม่ล้มชุด) + refactor `_apply_daily_fields()` ใช้ร่วมกับ `daily_save` เดิม (ฟอร์ม edit `/daily/{id}/edit` ไม่กระทบ)
+- spec/plan: `docs/superpowers/specs/2026-06-10-daily-batch-entry-design.md` · branch `feature/daily-batch-entry`
+- พบบั๊กเก่า (ยังไม่แก้): `petty_save` main.py ใช้ `driver_obj` ที่ไม่ถูกประกาศ → NameError ถ้าบันทึก petty โดยไม่ใส่ pay_cycle_tag เอง
+
+## 2026-06-10 (MVP Test Plan — เริ่มทดสอบ end-to-end)
+
+- เคาะแผนทดสอบ MVP กับโอ (grill-me 9 ข้อ) → **`docs/MVP_TEST_PLAN.md`** (S1–S7 + กติกาเปิด/ปิดเซสชัน + findings ที่ `docs/MVP_TEST_FINDINGS.md`)
+- ขอบเขต: DB จริง, LCB รอบ 2026-05 ก่อน (daily 508/fuel 288/petty 67/payrun draft); ground truth = ไฟล์เงินเดือนจริงที่ `Work\Salary\2026\5.May\LCB`
+- มติเงิน: MVP เก็บราคา-ไม่คิดราคา, น้ำมันเหมาใช้ยอดโอคำนวณ, กำไรขั้นต้นไม่รอต้นทุนคงที่ — logic น้ำมันเหมา 2 แบบจดใน `CLAUDE_MEMORY/business_domain.md`
+- หลัง MVP อันดับ 1: fuel เหมา auto-attribution
+
+## 2026-05-25 (Transport Rate Calculator — หัวตารางใบสรุปเสนอราคา)
+
+- แก้หัวตารางสีน้ำเงินมองไม่เห็นตัวอักษร (ใบสรุปเสนอราคา + ตารางโรงงาน) — บังคับตัวอักษรขาว; แก้ export PDF/PNG ที่เคยตั้งสีหัวตารางเป็นน้ำเงิน; push `e1017c9`
+
+## 2026-05-25 (Transport Rate Calculator — ราคาน้ำมันขยายถึงวันนี้)
+
+- หลังดึงข้อมูลย้อนหลัง: วันที่หลังปรับราคาล่าสุด (เช่น 21–25/5) ใช้เรทเดิมต่อถึงวันนี้ — ปฏิทินเลือกช่วงได้ถึงวันปัจจุบัน; badge `ราคาล่าสุด`; push `yk-logistics/transport-rate-calculator` `48d9a21`
+
 ## 2026-05-21 (LCB fuel dispatch — ชื่อลูกค้า WHALE/เหรินเหอ)
 
 - แผน LINE: รองรับบล็อก WHALE5 [เหรินเหอ5] → โชว์ **เหรินเหอ** (50 ล./เที่ยว); HTML แสดงทุกคันที่ parse (ไม่ซ่อน Unknown); คลังวาฬนับ Bol.+Con. (รวมฟรีโซน)
@@ -294,6 +316,17 @@
 ## 2026-05-07 (BDT communication framing — DHL support vs distance-limited economics)
 
 - บันทึกบริบทหน้างานการสื่อสารกับลูกค้า: เดิมช่วงวิ่งกับ DHL มีการซัพพอร์ตงานทดแทนเมื่อโหลดต่ำ แต่บริบทปัจจุบันกับ BDT ไม่มีกลไกทดแทนเทียบเท่า และโครงสร้างราคาไม่ผันตามกม. ทำให้รับงานได้เฉพาะช่วงระยะที่ไม่ขาดทุน (200–600 กม.) เพื่อคุม cash burn
+
+## 2026-05-26 (Oatside — ราคาน้ำมันบางจาก พ.ค. + โชว์ลูกค้าเฉพาะ พ.ค.)
+
+- เติม `diesel_price_history` พ.ค. จากตารางบางจาก (ไฮดีเซล S คอลัมน์ที่ 5); `report_start_date=2026-05-01`; `customer_rate_summary` ไม่โชว์เรท เม.ย.
+- เก็บเงื่อนไขวางบิล เม.ย. ใน `Oatside/docs/BILLING_LOCKED_APR2026.md` + `_billing_locked_april_2026` ใน config
+- Rebuild + push Pages `oatside-pg-2026` (commit `38b6166`)
+
+## 2026-05-26 (Oatside — อัปเดต GPS พ.ค. 2569 + deploy Pages)
+
+- นำเข้าไฟล์ GPS ใหม่ (26.05.2026) Oatside + P&G → `Oatside/`; ขยาย `report_end_date` เป็น `2026-05-31` ใน `oatside_config.json`
+- Build ล่าสุด: **Trips 123 | Unmatched 18**; push ขึ้น `yk-logistics/transport-rate-calculator` → `reports/oatside-pg-2026/`
 
 ## 2026-05-05 (Claude Code — `CLAUDE.md` ที่ราก repo)
 
