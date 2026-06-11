@@ -4,6 +4,14 @@
 
 > **Agent bootstrap:** อ่านเฉพาะ **3 หัวข้อ `##` แรกจากด้านบนลงมา** (ไม่รวมบรรทัดนี้) — **ห้าม**อ่านทั้งไฟล์ทุกแชต. นโยบาย/การย้าย archive: [`ProjectYK_System/docs/CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md)
 
+## 2026-06-11 (line_archiver — บอทเก็บข้อความ+รูปจากกลุ่ม LINE ลง SQLite/Discord)
+
+- service ใหม่แยกขาด `ProjectYK_System/line_archiver/` (port 8020, DB แยก `line_archive.db`)
+- LINE Messaging API webhook → เก็บ text/รูป/ไฟล์ลงเครื่อง → forward Discord (auto-create channel ต่อกลุ่ม)
+- retry loop ทุก 5 นาที: บันทึก DB ก่อนเสมอ Discord ล่มข้อมูลไม่หาย; ไม่แตะ `app/main.py`, `app.db`
+- spec: `docs/superpowers/specs/2026-06-11-line-archiver-design.md` · branch `feature/line-archiver`
+- เปิดใช้ตาม `ProjectYK_System/line_archiver/SETUP_CHECKLIST.md` (LINE Developers + Discord Bot + cloudflared)
+
 ## 2026-06-10 (Daily batch entry — /daily/new เป็นตารางคีย์หลายแถว)
 
 - `/daily/new` เปลี่ยนจากฟอร์มยาว 28 ช่อง → ตารางคีย์หลายแถวแบบ Excel (`daily_batch.html`): วันที่+ไซต์ตั้งครั้งเดียว, คอลัมน์ปรับตามไซต์ (LCB: JobRef/ตู้/Doc · BIGC: หาง), ช่องใช้น้อยพับใต้ปุ่ม ⋯, Enter/Ctrl+D, autocomplete master เขียว=ลิงก์ id เหลือง=เก็บ raw
