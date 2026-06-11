@@ -77,6 +77,10 @@ backup_*/
 .cursor/sessions/
 .cursor/projects/
 
+# Temporary inspection/scratch files
+_tmp*
+_tmp_*.txt
+
 # Temporary commit messages
 .git/COMMIT_MSG*.txt
 
@@ -84,3 +88,6 @@ backup_*/
 build/
 dist/
 *.egg-info/
+
+# git worktrees
+.worktrees/
