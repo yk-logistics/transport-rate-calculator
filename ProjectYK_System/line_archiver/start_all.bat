@@ -10,7 +10,7 @@ set "PYTHON=..\app\.venv\Scripts\python.exe"
 
 rem ---- ชื่อ named tunnel (เว้นว่าง = ใช้ quick tunnel URL เปลี่ยนทุกครั้ง) ----
 rem  พอตั้ง named tunnel เสร็จ ให้ใส่ชื่อ tunnel ตรงนี้ เช่น: set "TUNNEL_NAME=yk-line"
-set "TUNNEL_NAME="
+set "TUNNEL_NAME=yk-line"
 
 rem ---- ตรวจของจำเป็น ----
 if not exist ".env" (
