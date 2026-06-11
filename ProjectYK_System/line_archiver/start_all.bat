@@ -1,4 +1,5 @@
 @echo off
+setlocal enableextensions
 rem ============================================================
 rem  start_all.bat - one click: bot + cloudflare tunnel
 rem  Just double-click this single file.
@@ -18,12 +19,7 @@ if not exist ".env" (
     pause
     exit /b 1
 )
-if not exist "%CLOUDFLARED%" (
-    echo [ERROR] cloudflared not found at %CLOUDFLARED%
-    echo Install with: winget install Cloudflare.cloudflared
-    pause
-    exit /b 1
-)
+if not exist "%CLOUDFLARED%" goto :no_cf
 
 rem ---- 1) start bot in a new window ----
 echo [1/2] starting LINE archiver bot (port 8020) ...
@@ -37,13 +33,17 @@ if defined TUNNEL_NAME (
     echo.
     "%CLOUDFLARED%" tunnel run %TUNNEL_NAME%
 ) else (
-    echo ============================================================
-    echo  QUICK TUNNEL - find the line https://xxxx.trycloudflare.com
-    echo  below, then put it in LINE Developers ^> Webhook URL
-    echo  with /line/webhook appended, then click Verify
-    echo ============================================================
+    echo === QUICK TUNNEL - copy the https://xxxx.trycloudflare.com URL below ===
+    echo === then set it in LINE Developers Webhook URL + /line/webhook ===
     echo.
     "%CLOUDFLARED%" tunnel --url http://127.0.0.1:8020
 )
 
 pause
+exit /b 0
+
+:no_cf
+echo [ERROR] cloudflared not found.
+echo Install with: winget install Cloudflare.cloudflared
+pause
+exit /b 1
