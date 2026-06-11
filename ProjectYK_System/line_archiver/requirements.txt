@@ -1,0 +1,4 @@
+# line_archiver ใช้ venv เดิมของ app/ — ไฟล์นี้เป็น reference ว่าต้องมีอะไรเพิ่ม
+# (fastapi/uvicorn มาจาก app/requirements.txt อยู่แล้ว)
+httpx>=0.27,<1
+pytest>=8,<9
