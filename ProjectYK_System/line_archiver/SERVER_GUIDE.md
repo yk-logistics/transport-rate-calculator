@@ -56,72 +56,44 @@ https://xxxx-yyyy-zzzz.trycloudflare.com
 
 ---
 
-## อัปเกรดเป็น NAMED TUNNEL — `line.yklogistics.com` (URL คงที่ ทำครั้งเดียวจบ)
+## อัปเกรดเป็น NAMED TUNNEL — `line.yklogistics.uk` (URL คงที่ ทำครั้งเดียวจบ)
 
-> ⚠️ **อีเมล @yklogistics.com ใช้งานจริง — ขั้นตอนนี้ออกแบบมาไม่ให้อีเมลล่ม**
-> โดเมนนี้ DNS อยู่ที่ hosting (24webhost) การทำ named tunnel ฟรีต้องย้าย
-> nameserver มา Cloudflare เราจะย้ายแบบ "ตรวจ DNS ให้ครบก่อนสลับ"
+> ✅ ใช้โดเมน **yklogistics.uk** (ซื้อผ่าน Cloudflare Registrar — DNS อยู่ Cloudflare แล้ว)
+> **แยกจาก yklogistics.com (อีเมล) คนละโดเมน** — ขั้นตอนนี้ไม่แตะอีเมลเลย
+> ไม่ต้องย้าย nameserver ไม่ต้องตรวจ MX/SPF อะไรทั้งสิ้น
 
-### DNS records เดิมที่ "ห้ามหาย" (จดไว้ก่อนเริ่ม)
+### ขั้นตอน (รันบนเครื่อง server)
 
-| Type | Name | Value | หน้าที่ |
-|------|------|-------|--------|
-| A | yklogistics.com | `5.223.56.39` | เว็บ + mail server |
-| MX | yklogistics.com | `0 yklogistics.com` | **รับอีเมล** |
-| TXT | yklogistics.com | `v=spf1 +a +mx +ip4:5.223.56.39 ~all` | **SPF** |
-
-(ถ้ามี record อื่นใน cPanel > Zone Editor เช่น DKIM, autodiscover, www — จดเพิ่มให้หมดก่อน)
-
-### ขั้นตอน (ทำตามลำดับ ห้ามข้าม)
-
-**1. เพิ่มโดเมนเข้า Cloudflare (ยังไม่สลับ NS)**
-- สมัคร cloudflare.com (ฟรี) > Add a site > `yklogistics.com` > เลือก **Free plan**
-- Cloudflare จะสแกน DNS เดิมให้อัตโนมัติ
-
-**2. ⭐ ตรวจ DNS ที่ Cloudflare สแกนมา — จุดชี้เป็นชี้ตายของอีเมล**
-- ในหน้า DNS ของ Cloudflare เทียบกับตาราง "ห้ามหาย" ข้างบน
-- **A, MX, TXT(SPF) ต้องมาครบทั้ง 3** — ถ้าขาด **เพิ่มเองด้วยมือ** ให้ตรงเป๊ะ
-- MX/อีเมล records ตั้งเป็น **DNS only (เมฆเทา)** ไม่ใช่ Proxied (เมฆส้ม)
-
-**3. ค่อยสลับ nameserver ที่ผู้ให้บริการโดเมน**
-- Cloudflare จะให้ NS 2 ตัว (เช่น `xxx.ns.cloudflare.com`)
-- เข้าที่จดทะเบียนโดเมน/24webhost > เปลี่ยน nameserver เป็นของ Cloudflare
-- รอ propagate (ไม่กี่นาที — ไม่กี่ชั่วโมง)
-
-**4. ✅ ตรวจว่าอีเมลยังทำงาน (ก่อนทำ tunnel)**
-- ลองส่งอีเมลเข้า @yklogistics.com จากเมลอื่น → ต้องเข้าได้ปกติ
-- ถ้าเข้าไม่ได้ → กลับไปเช็คข้อ 2 (MX/SPF หาย) **อย่าไปต่อจนกว่าอีเมลปกติ**
-
-**5. สร้าง tunnel (รันใน PowerShell บนเครื่อง server)**
+**1. สร้าง tunnel (PowerShell)**
 ```powershell
 $cf = "C:\Program Files (x86)\cloudflared\cloudflared.exe"
-& $cf tunnel login                                   # เลือก yklogistics.com
-& $cf tunnel create yk-line                          # จำ <tunnel-id> ที่โชว์
-& $cf tunnel route dns yk-line line.yklogistics.com  # สร้าง CNAME ให้อัตโนมัติ
+& $cf tunnel login                                 # เลือก yklogistics.uk
+& $cf tunnel create yk-line                        # จำ <tunnel-id> ที่โชว์
+& $cf tunnel route dns yk-line line.yklogistics.uk # สร้าง DNS record ให้อัตโนมัติ
 ```
 
-**6. สร้าง config** ที่ `C:\Users\<user>\.cloudflared\config.yml`
+**2. สร้าง config** ที่ `C:\Users\<user>\.cloudflared\config.yml`
 (แทน `<user>` และ `<tunnel-id>` เป็นของจริง):
 ```yaml
 tunnel: yk-line
 credentials-file: C:\Users\<user>\.cloudflared\<tunnel-id>.json
 
 ingress:
-  - hostname: line.yklogistics.com
+  - hostname: line.yklogistics.uk
     service: http://127.0.0.1:8020
   - service: http_status:404
 ```
 
-**7. แก้ `start_all.bat` บรรทัดเดียว:**
+**3. แก้ `start_all.bat` บรรทัดเดียว:**
 ```
 set "TUNNEL_NAME=yk-line"
 ```
 
-**8. ตั้ง LINE Webhook URL ครั้งสุดท้าย:**
-`https://line.yklogistics.com/line/webhook` → Verify → Success
+**4. ตั้ง LINE Webhook URL ครั้งสุดท้าย:**
+`https://line.yklogistics.uk/line/webhook` → Verify → Success
 
 เสร็จ! ต่อจากนี้ดับเบิลคลิก `start_all.bat` อย่างเดียว ไม่ต้องแตะ LINE อีกเลย
-URL `line.yklogistics.com` ไม่เปลี่ยน bandwidth ไม่จำกัด รัน 24 ชม.ได้
+URL `line.yklogistics.uk` ไม่เปลี่ยน bandwidth ไม่จำกัด รัน 24 ชม.ได้
 
 ---
 
