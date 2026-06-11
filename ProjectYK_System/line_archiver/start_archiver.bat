@@ -1,9 +1,9 @@
 @echo off
-rem line_archiver — รันบนเครื่อง MVP (เปิดค้างไว้ 24 ชม.)
+rem line_archiver - run on the MVP machine (keep open 24/7)
 cd /d "%~dp0"
 if not exist .env (
-    echo [ERROR] ยังไม่มี .env — copy .env.example เป็น .env แล้วใส่ token ก่อน
-    echo ดูขั้นตอนใน SETUP_CHECKLIST.md
+    echo [ERROR] .env not found - copy .env.example to .env and fill in tokens first
+    echo See SETUP_CHECKLIST.md
     pause
     exit /b 1
 )
