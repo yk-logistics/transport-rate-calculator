@@ -56,45 +56,72 @@ https://xxxx-yyyy-zzzz.trycloudflare.com
 
 ---
 
-## อัปเกรดเป็น NAMED TUNNEL (URL คงที่ — ทำครั้งเดียวจบตลอด)
+## อัปเกรดเป็น NAMED TUNNEL — `line.yklogistics.com` (URL คงที่ ทำครั้งเดียวจบ)
 
-หลังซื้อ/ได้โดเมนและเพิ่มเข้า Cloudflare แล้ว ทำตามนี้ (รันใน PowerShell):
+> ⚠️ **อีเมล @yklogistics.com ใช้งานจริง — ขั้นตอนนี้ออกแบบมาไม่ให้อีเมลล่ม**
+> โดเมนนี้ DNS อยู่ที่ hosting (24webhost) การทำ named tunnel ฟรีต้องย้าย
+> nameserver มา Cloudflare เราจะย้ายแบบ "ตรวจ DNS ให้ครบก่อนสลับ"
 
+### DNS records เดิมที่ "ห้ามหาย" (จดไว้ก่อนเริ่ม)
+
+| Type | Name | Value | หน้าที่ |
+|------|------|-------|--------|
+| A | yklogistics.com | `5.223.56.39` | เว็บ + mail server |
+| MX | yklogistics.com | `0 yklogistics.com` | **รับอีเมล** |
+| TXT | yklogistics.com | `v=spf1 +a +mx +ip4:5.223.56.39 ~all` | **SPF** |
+
+(ถ้ามี record อื่นใน cPanel > Zone Editor เช่น DKIM, autodiscover, www — จดเพิ่มให้หมดก่อน)
+
+### ขั้นตอน (ทำตามลำดับ ห้ามข้าม)
+
+**1. เพิ่มโดเมนเข้า Cloudflare (ยังไม่สลับ NS)**
+- สมัคร cloudflare.com (ฟรี) > Add a site > `yklogistics.com` > เลือก **Free plan**
+- Cloudflare จะสแกน DNS เดิมให้อัตโนมัติ
+
+**2. ⭐ ตรวจ DNS ที่ Cloudflare สแกนมา — จุดชี้เป็นชี้ตายของอีเมล**
+- ในหน้า DNS ของ Cloudflare เทียบกับตาราง "ห้ามหาย" ข้างบน
+- **A, MX, TXT(SPF) ต้องมาครบทั้ง 3** — ถ้าขาด **เพิ่มเองด้วยมือ** ให้ตรงเป๊ะ
+- MX/อีเมล records ตั้งเป็น **DNS only (เมฆเทา)** ไม่ใช่ Proxied (เมฆส้ม)
+
+**3. ค่อยสลับ nameserver ที่ผู้ให้บริการโดเมน**
+- Cloudflare จะให้ NS 2 ตัว (เช่น `xxx.ns.cloudflare.com`)
+- เข้าที่จดทะเบียนโดเมน/24webhost > เปลี่ยน nameserver เป็นของ Cloudflare
+- รอ propagate (ไม่กี่นาที — ไม่กี่ชั่วโมง)
+
+**4. ✅ ตรวจว่าอีเมลยังทำงาน (ก่อนทำ tunnel)**
+- ลองส่งอีเมลเข้า @yklogistics.com จากเมลอื่น → ต้องเข้าได้ปกติ
+- ถ้าเข้าไม่ได้ → กลับไปเช็คข้อ 2 (MX/SPF หาย) **อย่าไปต่อจนกว่าอีเมลปกติ**
+
+**5. สร้าง tunnel (รันใน PowerShell บนเครื่อง server)**
 ```powershell
 $cf = "C:\Program Files (x86)\cloudflared\cloudflared.exe"
-
-# 1) login (เปิดเบราว์เซอร์ให้เลือกโดเมน)
-& $cf tunnel login
-
-# 2) สร้าง tunnel ชื่อ yk-line
-& $cf tunnel create yk-line
-
-# 3) ผูกชื่อโดเมนย่อยเข้ากับ tunnel (เปลี่ยน line.YOURDOMAIN เป็นของจริง)
-& $cf tunnel route dns yk-line line.YOURDOMAIN.com
+& $cf tunnel login                                   # เลือก yklogistics.com
+& $cf tunnel create yk-line                          # จำ <tunnel-id> ที่โชว์
+& $cf tunnel route dns yk-line line.yklogistics.com  # สร้าง CNAME ให้อัตโนมัติ
 ```
 
-จากนั้นสร้างไฟล์ config ที่ `C:\Users\<user>\.cloudflared\config.yml`:
-
+**6. สร้าง config** ที่ `C:\Users\<user>\.cloudflared\config.yml`
+(แทน `<user>` และ `<tunnel-id>` เป็นของจริง):
 ```yaml
 tunnel: yk-line
 credentials-file: C:\Users\<user>\.cloudflared\<tunnel-id>.json
 
 ingress:
-  - hostname: line.YOURDOMAIN.com
+  - hostname: line.yklogistics.com
     service: http://127.0.0.1:8020
   - service: http_status:404
 ```
 
-(`<tunnel-id>.json` คือไฟล์ที่ขั้นที่ 2 สร้างให้ — ชื่อจะโชว์ตอนรัน `tunnel create`)
-
-**สุดท้าย — แก้ `start_all.bat` บรรทัดเดียว:**
+**7. แก้ `start_all.bat` บรรทัดเดียว:**
 ```
 set "TUNNEL_NAME=yk-line"
 ```
 
-เสร็จแล้ว! ตั้ง Webhook URL ใน LINE เป็น
-`https://line.YOURDOMAIN.com/line/webhook` กด Verify **ครั้งสุดท้าย**
-ต่อจากนี้ดับเบิลคลิก `start_all.bat` อย่างเดียว ไม่ต้องแตะ LINE อีกเลย
+**8. ตั้ง LINE Webhook URL ครั้งสุดท้าย:**
+`https://line.yklogistics.com/line/webhook` → Verify → Success
+
+เสร็จ! ต่อจากนี้ดับเบิลคลิก `start_all.bat` อย่างเดียว ไม่ต้องแตะ LINE อีกเลย
+URL `line.yklogistics.com` ไม่เปลี่ยน bandwidth ไม่จำกัด รัน 24 ชม.ได้
 
 ---
 
