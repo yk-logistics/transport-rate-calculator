@@ -46,10 +46,23 @@ if not exist "%TARGET%\.venv\Scripts\python.exe" goto :venv_failed
 "%TARGET%\.venv\Scripts\python.exe" -m pip install --quiet -r "%TARGET%\requirements-archiver.txt"
 if errorlevel 1 goto :pip_failed
 
-rem ---- 5) place cloudflare cert/config ----
+rem ---- 5) place cloudflare cert/creds, then WRITE config.yml for THIS user ----
+rem    (don't copy the dev machine's config.yml - its paths are hardcoded to
+rem     another username. Generate it fresh from %USERPROFILE% here.)
 echo [5/6] Setting up cloudflare tunnel ...
 if not exist "%USERPROFILE%\.cloudflared" mkdir "%USERPROFILE%\.cloudflared"
-copy /Y "%HERE%cloudflared_home\*" "%USERPROFILE%\.cloudflared\" >nul
+copy /Y "%HERE%cloudflared_home\cert.pem" "%USERPROFILE%\.cloudflared\" >nul
+copy /Y "%HERE%cloudflared_home\*.json" "%USERPROFILE%\.cloudflared\" >nul
+set "TID=741eef82-38c6-4243-be04-a4b4e287a303"
+(
+echo tunnel: yk-line
+echo credentials-file: %USERPROFILE%\.cloudflared\%TID%.json
+echo.
+echo ingress:
+echo   - hostname: line.yklogistics.uk
+echo     service: http://127.0.0.1:8020
+echo   - service: http_status:404
+) > "%USERPROFILE%\.cloudflared\config.yml"
 
 rem ---- 6) put START.bat in the real folder ----
 echo [6/6] Creating start button ...
