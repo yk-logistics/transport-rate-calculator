@@ -1,9 +1,11 @@
 @echo off
+setlocal enableextensions
 rem ============================================================
 rem  INSTALL.bat - run on the SERVER machine (double-click once)
-rem  Installs Python(if missing) + cloudflared + code + venv + cert
+rem  Installs cloudflared + code + venv + cert
+rem  REQUIRES Python 3.12 already installed (from python.org, with
+rem  "Add python.exe to PATH" ticked). See README.txt.
 rem ============================================================
-setlocal
 set "HERE=%~dp0"
 set "TARGET=%USERPROFILE%\YK_LINE_ARCHIVER"
 
@@ -14,18 +16,13 @@ echo   Target: %TARGET%
 echo ============================================================
 echo.
 
-rem ---- 1) Python ----
+rem ---- 1) Python (run it for real, not just "where") ----
 echo [1/6] Checking Python ...
-where python >nul 2>nul
-if errorlevel 1 (
-    echo     Python not found - installing via winget ...
-    winget install -e --id Python.Python.3.12 --accept-source-agreements --accept-package-agreements
-    echo     *** Close this window and run INSTALL.bat again ***
-    echo     *** so Windows can detect python. ***
-    pause & exit /b 0
-) else (
-    echo     Python found
-)
+python --version >nul 2>nul
+if errorlevel 1 goto :no_python
+rem detect the Microsoft Store stub (it exits 0 but does nothing useful)
+for /f "delims=" %%v in ('python --version 2^>^&1') do set "PYVER=%%v"
+echo     Found: %PYVER%
 
 rem ---- 2) cloudflared ----
 echo [2/6] Checking cloudflared ...
@@ -44,8 +41,10 @@ robocopy "%HERE%project" "%TARGET%" /E >nul
 rem ---- 4) create venv + install libs ----
 echo [4/6] Creating venv + installing libs (please wait) ...
 python -m venv "%TARGET%\.venv"
+if not exist "%TARGET%\.venv\Scripts\python.exe" goto :venv_failed
 "%TARGET%\.venv\Scripts\python.exe" -m pip install --quiet --upgrade pip
 "%TARGET%\.venv\Scripts\python.exe" -m pip install --quiet -r "%TARGET%\requirements-archiver.txt"
+if errorlevel 1 goto :pip_failed
 
 rem ---- 5) place cloudflare cert/config ----
 echo [5/6] Setting up cloudflare tunnel ...
@@ -64,3 +63,29 @@ echo   (launching it now...)
 echo ============================================================
 pause
 start "" "%TARGET%\START.bat"
+exit /b 0
+
+:no_python
+echo.
+echo [ERROR] Python not found (or it's the Microsoft Store stub).
+echo   1) Install Python 3.12 from https://www.python.org/downloads
+echo      -- TICK "Add python.exe to PATH" during setup.
+echo   2) Settings -^> "Manage app execution aliases" -^> turn OFF
+echo      python.exe and python3.exe.
+echo   3) Run INSTALL.bat again.
+pause
+exit /b 1
+
+:venv_failed
+echo.
+echo [ERROR] venv was not created. Python is likely the Store stub.
+echo   Settings -^> "Manage app execution aliases" -^> turn OFF
+echo   python.exe / python3.exe, then re-run INSTALL.bat.
+pause
+exit /b 1
+
+:pip_failed
+echo.
+echo [ERROR] pip install failed (network? proxy?). See messages above.
+pause
+exit /b 1
