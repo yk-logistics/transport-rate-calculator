@@ -10,6 +10,7 @@ import mimetypes
 from pathlib import Path
 
 import db
+from categories import category_for
 from discord_api import MAX_UPLOAD, channel_name_for
 
 log = logging.getLogger("line_archiver")
@@ -70,7 +71,18 @@ class Archiver:
             except Exception:
                 log.exception("create_channel failed for %s", group_id)
                 return None
+            self._assign_category(group_id, channel_id, name)  # best-effort, ครั้งเดียวตอนสร้าง
         return channel_id
+
+    def _assign_category(self, group_id: str, channel_id: str, name: str | None) -> None:
+        """จัด channel เข้า Discord category ตามชื่อกลุ่ม — fail ไม่กระทบ forward"""
+        category = category_for(name)
+        try:
+            parent_id = self.discord.ensure_category(category)
+            self.discord.move_channel(channel_id, parent_id)
+            db.set_group_category(self.conn, group_id, category)
+        except Exception:
+            log.exception("assign_category failed for %s (channel ยังอยู่ root)", group_id)
 
     def _on_join(self, group_id: str, ts: int | None) -> None:
         db.ensure_group(self.conn, group_id, joined_at=_thai_time(ts) if ts else None)

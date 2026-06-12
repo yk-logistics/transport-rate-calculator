@@ -39,6 +39,14 @@ def test_ensure_group_and_channel():
     assert g["name"] == "ทีมงาน LCB" and g["discord_channel_id"] == "ch99"
 
 
+def test_set_group_category():
+    conn = make_conn()
+    db.ensure_group(conn, "g1")
+    db.set_group_category(conn, "g1", "ซ่อมบำรุง")
+    g = db.ensure_group(conn, "g1")
+    assert g["category"] == "ซ่อมบำรุง"
+
+
 def test_upsert_user_keeps_alias():
     conn = make_conn()
     db.upsert_user(conn, "u1", "สมชาย")

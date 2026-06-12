@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS line_group (
     name TEXT,
     discord_channel_id TEXT,
     joined_at TEXT,
-    active INTEGER DEFAULT 1
+    active INTEGER DEFAULT 1,
+    category TEXT
 );
 CREATE TABLE IF NOT EXISTS line_user (
     user_id TEXT PRIMARY KEY,
@@ -37,6 +38,12 @@ def connect(db_path=DB_PATH) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA)
+    # idempotent migration สำหรับ DB เก่าที่สร้างก่อนมีคอลัมน์ category
+    try:
+        conn.execute("ALTER TABLE line_group ADD COLUMN category TEXT")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # คอลัมน์มีอยู่แล้ว
     return conn
 
 
@@ -55,6 +62,12 @@ def set_group_name(conn, group_id: str, name: str) -> None:
 def set_group_channel(conn, group_id: str, channel_id: str) -> None:
     conn.execute("UPDATE line_group SET discord_channel_id=? WHERE group_id=?",
                  (channel_id, group_id))
+    conn.commit()
+
+
+def set_group_category(conn, group_id: str, category: str) -> None:
+    conn.execute("UPDATE line_group SET category=? WHERE group_id=?",
+                 (category, group_id))
     conn.commit()
 
 
