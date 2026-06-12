@@ -12,6 +12,12 @@ import time
 from collections import Counter
 from pathlib import Path
 
+
+def echo(msg: str) -> None:
+    """พิมพ์ปลอดภัยกับ Windows console codepage เพี้ยน (cp1252)"""
+    sys.stdout.buffer.write((msg + "\n").encode("utf-8", "replace"))
+    sys.stdout.buffer.flush()
+
 import httpx
 
 import db
@@ -63,8 +69,8 @@ def apply(conn, discord: DiscordClient) -> None:
             db.set_group_category(conn, gid, target)
             moved += 1
         except Exception as e:
-            print(f"FAIL {name!r}: {e}", flush=True)
-    print(f"apply เสร็จ: จัดสำเร็จ {moved}/{len(items)} channel", flush=True)
+            echo(f"FAIL {name!r}: {e}")
+    echo(f"apply เสร็จ: จัดสำเร็จ {moved}/{len(items)} channel")
 
 
 def _move_with_retry(discord: DiscordClient, channel_id: str, parent_id: str) -> None:
