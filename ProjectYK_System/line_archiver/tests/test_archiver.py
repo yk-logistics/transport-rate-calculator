@@ -19,6 +19,8 @@ class FakeDiscord:
     def __init__(self):
         self.created = []   # [name, ...]
         self.posts = []     # [("text", channel_id, content) | ("file", channel_id, filename, content)]
+        self.categories = {}  # {name: cat_id}
+        self.moves = []     # [(channel_id, parent_id), ...]
 
     def create_channel(self, name):
         self.created.append(name)
@@ -29,6 +31,12 @@ class FakeDiscord:
 
     def post_file(self, channel_id, filename, data, content=""):
         self.posts.append(("file", channel_id, filename, content))
+
+    def ensure_category(self, name):
+        return self.categories.setdefault(name, f"cat-{len(self.categories) + 1}")
+
+    def move_channel(self, channel_id, parent_id):
+        self.moves.append((channel_id, parent_id))
 
 
 def make_archiver(tmp_path) -> tuple[Archiver, FakeDiscord]:
@@ -52,6 +60,43 @@ def test_join_creates_group_and_channel(tmp_path):
     assert g["discord_channel_id"] == "ch-1"
     assert discord.created == ["line-ทีมงาน-lcb"]
     assert discord.posts[0][0] == "text"  # ข้อความแจ้งเริ่มเก็บ
+
+
+class GarageLine(FakeLine):
+    def get_group_summary(self, group_id):
+        return {"groupId": group_id, "groupName": "อู่ช่างไสว & YK"}
+
+
+def test_new_channel_moved_into_category(tmp_path):
+    discord = FakeDiscord()
+    arch = Archiver(db.connect(":memory:"), GarageLine(), discord, Path(tmp_path))
+    arch.handle_event({"type": "join", "timestamp": 1780000000000,
+                       "source": {"type": "group", "groupId": "g1"}})
+    assert discord.moves == [("ch-1", "cat-1")]
+    assert discord.categories == {"ซ่อมบำรุง": "cat-1"}
+    g = db.ensure_group(arch.conn, "g1")
+    assert g["category"] == "ซ่อมบำรุง"
+
+
+def test_category_failure_does_not_block_forward(tmp_path):
+    class FailCategory(FakeDiscord):
+        def ensure_category(self, name):
+            raise RuntimeError("discord category down")
+
+    discord = FailCategory()
+    arch = Archiver(db.connect(":memory:"), GarageLine(), discord, Path(tmp_path))
+    arch.handle_event(text_event(text="ยังต้อง forward ได้"))
+    row = arch.conn.execute("SELECT * FROM line_message").fetchone()
+    assert row["discord_forwarded"] == 1  # ข้อความยังไปถึง Discord แม้จัด category พลาด
+
+
+def test_existing_channel_not_re_moved(tmp_path):
+    discord = FakeDiscord()
+    arch = Archiver(db.connect(":memory:"), GarageLine(), discord, Path(tmp_path))
+    db.ensure_group(arch.conn, "g1")
+    db.set_group_channel(arch.conn, "g1", "ch-existing")  # มี channel แล้ว
+    arch.handle_event(text_event(text="ข้อความใหม่"))
+    assert discord.moves == []  # ไม่ย้ายซ้ำ — โอย้ายเองทีหลังได้ ไม่ดึงกลับ
 
 
 def test_text_message_stored_and_forwarded(tmp_path):
