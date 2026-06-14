@@ -3,3 +3,4 @@ groups_dump.txt
 line_archive.db
 line_media/
 .env
+cloudflared_home/
