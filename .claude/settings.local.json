@@ -1,6 +1,5 @@
 {
   "permissions": {
-    "defaultMode": "bypassPermissions",
     "allow": [
       "Bash(*)",
       "PowerShell(*)",
@@ -9,23 +8,26 @@
       "mcp__plugin_claude-mem_mcp-search__get_observations",
       "Skill(update-config)",
       "Skill(update-config:*)"
-    ]
+    ],
+    "defaultMode": "bypassPermissions"
   },
-  "skipDangerousModePermissionPrompt": true,
-  "autoMemoryDirectory": "C:\\Users\\guole\\Desktop\\2026.5.28\\Desktop\\Project YK\\.claude\\memory",
   "hooks": {
-    "Stop": [
+    "SessionStart": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -ExecutionPolicy Bypass -WindowStyle Hidden -File \"$env:USERPROFILE\\.claude\\on_stop.ps1\"",
+            "command": "powershell -ExecutionPolicy Bypass -WindowStyle Hidden -File \"$env:USERPROFILE\\.claude\\save_session.ps1\"",
             "shell": "powershell",
-            "statusMessage": "Saving session & arming auto-resume...",
+            "statusMessage": "Saving session id...",
             "async": true
           }
         ]
       }
     ]
-  }
+  },
+  "prefersReducedMotion": true,
+  "autoMemoryDirectory": "C:\\Users\\guole\\Desktop\\2026.5.28\\Desktop\\Project YK\\.claude\\memory",
+  "skipDangerousModePermissionPrompt": true,
+  "alwaysThinkingEnabled": false
 }

@@ -1,0 +1,25 @@
+---
+name: project-superpowers-9arm-models
+description: "superpowers plugin install plan + why the 9arm free-Qwen session can't host it (separate CLAUDE_CONFIG_DIR, no plugins dir); model/cost strategy"
+metadata: 
+  node_type: memory
+  type: project
+  originSessionId: b9b9a200-2374-4a55-af76-1571b3e28d15
+---
+
+โอ wants the **superpowers** plugin (esp. the `subagent-driven-development` skill) installed in his MAIN Claude (Desktop App → Code tab, Opus 4.8) via `/plugin install superpowers@claude-plugins-official` — already available in his existing `claude-plugins-official` marketplace, no need to add obra's marketplace. `subagent-driven-development` is NOT standalone: it pulls sibling superpowers skills (writing-plans, using-git-worktrees, requesting-code-review, finishing-a-development-branch, test-driven-development), so the whole plugin must be installed.
+
+**Auto + confirm-before-run (DONE 2026-06-09):** Installed **v5.1.0 at project scope = Project YK only** (NOT user/global — so it auto-triggers only when working in Project YK, not other projects). โอ wants auto-detect but **confirm before actually spawning** (token-heavy: 1 implementer + 2 reviewer subagents per task, plus review loops). The skill itself says "do NOT pause between tasks — run continuously," so the confirm gate is ONE point **before starting**, not per-task. The skill has its own *Model Selection* section (cheap model for mechanical 1-2 file tasks, standard for integration, most-capable for design/review) and dispatches general-purpose subagents whose model the controller picks at dispatch — so "subagents→Sonnet/Haiku" is a dispatch-time choice, no config knob. The skill also forbids running on `main` (it commits per task → needs a worktree/branch). All of this is encoded as a guardrail block in **Project YK `CLAUDE.md`** ("Superpowers — subagent-driven-development (การ์ดถามก่อนใช้)"), loaded every session.
+
+**9arm free-Qwen ≠ a place superpowers runs.** โอ's `9arm` launcher runs `%USERPROFILE%\.local\bin\claude.exe --model qwen3.6-35b-a3b` with `ANTHROPIC_BASE_URL=https://gateway.9arm.co` AND `CLAUDE_CONFIG_DIR=%TEMP%\qwen_9arm_cfg`. That temp config dir was verified (2026-06-09) to have its own sessions/projects/cache but **no `plugins/` folder** — so superpowers installed under `~/.claude/plugins` does NOT load in the 9arm session. It is a separate free-Qwen sandbox, not "superpowers on free." To host superpowers there you'd drop the `CLAUDE_CONFIG_DIR` override (share `~/.claude`), but qwen3.6-35b-a3b is too weak to drive the full multi-agent methodology reliably.
+
+**Hard rule:** never run Project YK money work (payroll/billing) on the 9arm/Qwen session — weak free model + money rules = risk. Recommended shape = **two doors**: paid Claude (Code tab) for real/money work + superpowers; free 9arm Qwen as a cheap throwaway/recon sandbox only. See [[claude-code-multiple-installs]] (โอ's primary surface is the Desktop Code tab; FS-virtualization quirks) and [[feedback-qwen-and-subagent-cost]] (keep main context lean, delegate cheap bulky reads).
+
+## External-worker delegation (tested 2026-06-10) — qwen YES, agy NO
+
+Idea โอ liked: main-Claude shells out to a cheap CLI as a worker (qwen.ps1-style) to save Opus tokens. No foreign model can be a *subagent* of a Claude/superpowers run (Task-tool subagents always run on the Claude session's model) — the only way is "main-Claude calls an external CLI via Bash." Results:
+
+- **qwen / 9arm = WORKS as a Claude-callable worker.** `_Claude Tools/qwen-readonly.ps1 "<task>"` (read-only, real guard) demoed live: read 11 import/preflight scripts → returned an accurate table; spot-checked 2/2 correct against the files. Use for read-heavy recon→short-summary; verify money-relevant claims in main. "9arm" and "qwen" are the SAME thing (9arm = gateway, qwen3.6-35b-a3b = model). See [[reference-qwen-subagent]].
+- **agy (Antigravity CLI / Gemini) = CANNOT be a Claude-callable non-interactive worker on โอ's machine.** Installed v1.0.6 at `%LOCALAPPDATA%\agy\bin\agy.exe` (tool-reachable by full path); logged in (guolekung@gmail, Gemini 3.5 Flash). But `agy -p/--print` returns empty + exit 0 from the non-interactive tool env — it renders a TUI and emits nothing to a piped stdout. Tested exhaustively (DON'T redo): plain, `--dangerously-skip-permissions`, `--sandbox`, prompt-as-arg, prompt-via-stdin, untrusted folder, AND Project-YK-folder-trusted — all empty exit 0. NOT auth (logged in), NOT just the "Trust folder?" prompt. `agy models` hangs similarly. → **agy = standalone only**: โอ runs it in his own terminal; it has its OWN native subagent-driven mode on Gemini (`/goal`, parallel subagents) — the Gemini equivalent of superpowers SDD, stronger than Qwen.
+
+**Bottom line:** Claude-orchestrated token-saving → use the **qwen worker** (recon→summary only, per [[reference-qwen-subagent]] safety: read-only, clean git tree first, never money decisions). Powerful agentic work on Gemini → โอ drives **agy standalone**. Don't re-investigate agy's non-interactive output (machine has AppData/virtualization quirks — see [[claude-code-multiple-installs]]).

@@ -1,6 +1,79 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+---
+
 # Project YK — คู่มือสำหรับ Claude Code
 
 ไฟล์นี้อยู่ที่ราก repo เพื่อให้ **Claude Code** จับบริบทและทำงาน **ทีละก้อน** โดยไม่ต้องเท context ยาวทุกเซสชัน
+
+## Commands (สั่งรันจากราก repo)
+
+```powershell
+# เริ่มแอป (Windows — จาก ProjectYK_System/app/)
+.\ProjectYK_System\app\start.bat          # auto-create venv, pip install, เปิด browser
+
+# หรือรันตรง (venv ต้อง activate แล้ว)
+cd ProjectYK_System\app
+.venv\Scripts\python.exe main.py          # default port 8010, bind 0.0.0.0
+
+# install deps เฉพาะ (ถ้า venv มีอยู่แล้ว)
+.venv\Scripts\pip install -r requirements.txt
+
+# import scripts (รันจากราก repo, ต้องการ openpyxl)
+python ProjectYK_System\tools\import_daily.py
+python ProjectYK_System\tools\import_petty_cash.py
+ProjectYK_System\tools\phase2_import.bat  # รันทั้งสองพร้อมกัน
+
+# migrate to PostgreSQL (cloud demo)
+python ProjectYK_System\tools\sqlite_to_postgres.py
+```
+
+**ไม่มี test suite / linter อยู่ใน repo** — ตรวจความถูกต้องผ่าน preflight scripts ใน `tools/`
+
+## Architecture ที่ต้องรู้ก่อนแก้โค้ด
+
+### โครงสร้างหลัก `ProjectYK_System/app/`
+
+```
+main.py          — FastAPI app + route handlers ทั้งหมด (monolith, SCHEMA_VERSION=18)
+models.py        — SQLModel table definitions (Employee, DailyJob, FuelTxn, PayRun, …)
+db_config.py     — สลับ SQLite↔PostgreSQL ด้วย env var DATABASE_URL (ถ้าไม่ set = SQLite)
+preview_auth.py  — HTTP Basic auth middleware สำหรับ cloud demo
+services/
+  payroll.py     — engine คำนวณ pay run (cycle dates, pay modes, deductions)
+  finance.py     — P&L / cashflow queries
+  email_ingest.py / email_oauth.py — inbox sync (Gmail OAuth)
+  promote.py     — link driver ↔ vehicle ↔ plate
+  import_wizard.py — import from Excel
+  alias_map.py   — normalize ชื่อคนขับ/ทะเบียน
+templates/       — Jinja2 HTML (HTMX + Tailwind CDN, ไม่มี Node build)
+```
+
+### Schema migration
+
+ไม่ใช้ Alembic — เพิ่ม `SCHEMA_VERSION` ใน `main.py:SCHEMA_VERSION` แล้วใส่ `ALTER TABLE` block ใน `lifespan()` ที่ตรวจ version ก่อนรัน เมื่อแก้ schema ต้องอัปเดต `SCHEMA_VERSION` พร้อมกันทุกครั้ง
+
+### Pay cycles (critical — อย่าเดา)
+
+| Site | วงรอบ | cycle_tag |
+|------|-------|-----------|
+| BIGC | 1 → สิ้นเดือน | YYYY-MM |
+| LCB  | 16 → 15 ถัดไป | เดือนที่ cycle จบ |
+| AYU  | 26 → 25 ถัดไป | เดือนที่ cycle จบ |
+
+### Jinja2 filters (ใช้ใน template เสมอ — อย่าฟอร์แมตวันตรง)
+
+- `{{ value | dmy }}` → dd/mm/yyyy (CE)
+- `{{ value | dmy_hm }}` → dd/mm/yyyy HH:MM
+
+### Version pins (ห้ามอัปเกรดโดยไม่ทดสอบ)
+
+```
+fastapi<0.115   # fastapi 0.115+ ดึง starlette 1.0 ซึ่งทำ Jinja2 globals พัง
+starlette<0.40
+```
 
 ## Memory ถาวร (อ่านเมื่อเริ่ม session ใหม่)
 
@@ -41,6 +114,15 @@
 - **ห้ามเดา** เมื่อกำกวมเรื่อง ไซท์, รอบเดือน (วิ่ง vs จ่าย), ชื่อคนขับคล้ายกัน, cross-site
 - เตือนเรื่อง **unlinked records**, **cycle tag**, **source mismatch** (daily / fuel / petty / payroll)
 - ถ้าเปลี่ยน logic ที่กระทบเงิน ต้องระบุวิธี **ตรวจย้อนกลับ** / preflight
+
+## Superpowers — subagent-driven-development (การ์ดถามก่อนใช้)
+
+ลง **superpowers v5.1.0** แล้ว (scope = Project YK เท่านั้น) — skills auto-trigger ได้ แต่ `subagent-driven-development` กิน token สูง (1 implementer + 2 reviewer ต่อ 1 task + วน review) จึงมีกฎ:
+
+1. **ถามก่อน "เริ่ม" ทุกครั้ง** — สกิลออกแบบให้วิ่งรวดเดียว ไม่หยุดถามระหว่าง task ฉะนั้น gate อยู่ **ก่อนสตาร์ทจุดเดียว**: สรุปให้โอก่อนว่ากี่ task, ใช้โมเดลอะไร, ประมาณค่าใช้จ่าย แล้วรอ "go"
+2. **subagent ใช้โมเดลถูกก่อน** — งาน mechanical (1–2 ไฟล์ สเปคชัด) → Haiku/Sonnet; integration → Sonnet; เก็บ Opus เฉพาะ design + final review (ตรงกับหัวข้อ *Model Selection* ของสกิลเอง)
+3. **ห้ามรันบน `main`** — สกิล commit ทีละ task ต้องอยู่บน worktree/branch แยกก่อน (สกิลบังคับ `using-git-worktrees`) ปัจจุบัน repo มักอยู่ `main` + มีไฟล์ค้าง → จัดการ branch ให้เรียบร้อยก่อน
+4. **งานเงิน (payroll/billing) ยังต้องผ่าน preflight ตามปกติ** — subagent ไม่ข้ามกฎ "กฎเงิน" ด้านบน
 
 ## ทำงานกับ Cursor vs Claude Code
 
