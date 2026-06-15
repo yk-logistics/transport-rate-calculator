@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="th">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>เข้าสู่ระบบ — Project YK</title>
+<script src="https://cdn.tailwindcss.com"></script></head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+  <form method="post" action="/login" class="bg-white p-8 rounded-xl shadow w-80 space-y-4">
+    <h1 class="text-xl font-bold text-center">Project YK</h1>
+    {% if error %}<p class="text-red-600 text-sm text-center">{{ error }}</p>{% endif %}
+    <input name="username" placeholder="ชื่อผู้ใช้" autofocus
+           class="w-full border rounded px-3 py-2" required>
+    <input name="password" type="password" placeholder="รหัสผ่าน"
+           class="w-full border rounded px-3 py-2" required>
+    <button class="w-full bg-blue-600 text-white rounded py-2">เข้าสู่ระบบ</button>
+  </form>
+</body></html>

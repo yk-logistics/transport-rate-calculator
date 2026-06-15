@@ -406,10 +406,56 @@ def ops_lcb_fuel_dispatch():
 
 app.add_middleware(PreviewAuthMiddleware)
 
+# Session cookie (signed) for per-user login. Added after PreviewAuthMiddleware so it
+# is the outermost user middleware -> request.session is populated before RBAC runs.
+from starlette.middleware.sessions import SessionMiddleware  # noqa: E402
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.environ.get("YK_SESSION_SECRET", "dev-insecure-secret-change-me"),
+    same_site="lax",
+    https_only=False,
+)
+
 
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
+
+
+# ---- Auth: login / logout ----
+from auth import (  # noqa: E402
+    current_user,
+    get_user_by_username,
+    login_session,
+    logout_session,
+    verify_password,
+)
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+
+
+@app.post("/login")
+async def login_submit(request: Request, username: str = Form(...), password: str = Form(...)):
+    u = get_user_by_username(username.strip())
+    if u is None or u.status != "active" or not verify_password(password, u.password_hash):
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "error": "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"},
+            status_code=401,
+        )
+    login_session(request, u)
+    dest = "/account/password" if u.must_change_pw else "/daily"
+    return RedirectResponse(dest, status_code=303)
+
+
+@app.get("/logout")
+async def logout(request: Request):
+    logout_session(request)
+    return RedirectResponse("/login", status_code=303)
 
 
 def base_context(request: Request) -> dict:
