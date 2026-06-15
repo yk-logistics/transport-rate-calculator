@@ -3,10 +3,10 @@
 {% block content %}
 <div class="max-w-3xl mx-auto space-y-6 p-6">
   <h1 class="text-xl font-bold">จัดการผู้ใช้</h1>
-  <p class="text-xs text-gray-500 bg-amber-50 border border-amber-200 rounded p-2">
-    🔒 ระบบเก็บรหัสผ่านแบบเข้ารหัส (hash) เพื่อความปลอดภัย — ดูรหัสจริงไม่ได้แม้แต่แอดมิน
-    ถ้าพนักงานลืมรหัส ให้กด “รีเซ็ตรหัส” ตั้งรหัสชั่วคราว แล้วเขาเปลี่ยนเองตอน login
-  </p>
+  <div class="text-xs text-gray-600 bg-amber-50 border border-amber-200 rounded p-3 space-y-1">
+    <p>🔒 <b>ดูรหัสผ่านจริงไม่ได้</b> — ระบบเก็บแบบเข้ารหัส (hash) แม้แต่แอดมินก็ดูไม่ได้ (เพื่อความปลอดภัย)</p>
+    <p>🔁 <b>พนักงานลืมรหัส?</b> พิมพ์รหัสชั่วคราว (อย่างน้อย 8 ตัว) ในช่องท้ายแถวของคนนั้น → กด “รีเซ็ตรหัส” → บอกรหัสนั้นให้เขา → เขาเอาไป login แล้วระบบจะให้เขาตั้งรหัสใหม่เอง</p>
+  </div>
   <table class="w-full bg-white rounded shadow text-sm">
     <thead class="bg-gray-200"><tr>
       <th class="p-2 text-left">username</th><th class="p-2 text-left">ชื่อ</th>
@@ -20,8 +20,9 @@
         <td class="p-2 text-right whitespace-nowrap">
           <form method="post" action="/admin/users/{{ u.id }}/reset" class="inline"
                 onsubmit="return confirm('ตั้งรหัสชั่วคราวให้ {{ u.username }}? เขาจะต้องเปลี่ยนรหัสเองตอน login');">
-            <input name="temp_password" placeholder="รหัสใหม่" class="border rounded px-1 py-0.5 w-24 text-xs" required>
-            <button class="text-blue-600">รีเซ็ตรหัส</button>
+            <input name="temp_password" placeholder="รหัสชั่วคราว ≥8 ตัว" title="พิมพ์รหัสชั่วคราวที่จะตั้งให้คนนี้ แล้วกดปุ่มรีเซ็ตรหัส"
+                   class="border rounded px-1 py-0.5 w-32 text-xs" required minlength="8">
+            <button class="text-blue-600 font-medium">รีเซ็ตรหัส</button>
           </form>
           {% if u.username != 'yk1' %}
           {% if u.status == 'active' %}
@@ -40,14 +41,15 @@
 
   <form method="post" action="/admin/users/new"
         class="bg-white p-4 rounded shadow grid grid-cols-2 gap-3">
-    <h2 class="col-span-2 font-semibold">เพิ่มผู้ใช้</h2>
+    <h2 class="col-span-2 font-semibold">เพิ่มผู้ใช้ใหม่</h2>
+    <p class="col-span-2 text-xs text-gray-500">ตั้งรหัสชั่วคราวให้ก่อน — คนใหม่เอาไป login แล้วระบบจะให้เขาตั้งรหัสของตัวเอง</p>
     <input name="username" placeholder="username (เช่น yk2)" class="border rounded px-2 py-1" required>
-    <input name="display_name" placeholder="ชื่อแสดง" class="border rounded px-2 py-1">
+    <input name="display_name" placeholder="ชื่อแสดง (เช่น สมชาย)" class="border rounded px-2 py-1">
     <select name="role" class="border rounded px-2 py-1">
       {% for r in roles %}<option value="{{ r }}">{{ r }}</option>{% endfor %}
     </select>
-    <input name="temp_password" placeholder="รหัสชั่วคราว" class="border rounded px-2 py-1" required>
-    <button class="col-span-2 bg-blue-600 text-white rounded py-2">เพิ่ม</button>
+    <input name="temp_password" placeholder="รหัสชั่วคราว ≥8 ตัว" class="border rounded px-2 py-1" required minlength="8">
+    <button class="col-span-2 bg-blue-600 text-white rounded py-2">เพิ่มผู้ใช้</button>
   </form>
 </div>
 {% endblock %}
