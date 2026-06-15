@@ -484,6 +484,44 @@ async def logout(request: Request):
     return RedirectResponse("/login", status_code=303)
 
 
+# ---- Self-service password change (any logged-in user) ----
+from auth import hash_password  # noqa: E402
+
+
+@app.get("/account/password", response_class=HTMLResponse)
+async def password_page(request: Request):
+    u = current_user(request)
+    return templates.TemplateResponse("account_password.html",
+                                      {"request": request, "error": None, "user": u})
+
+
+@app.post("/account/password")
+async def password_submit(request: Request,
+                          old_password: str = Form(...),
+                          new_password: str = Form(...),
+                          confirm: str = Form(...)):
+    u = current_user(request)
+
+    def fail(msg):
+        return templates.TemplateResponse(
+            "account_password.html",
+            {"request": request, "error": msg, "user": u}, status_code=400)
+
+    if not verify_password(old_password, u.password_hash):
+        return fail("รหัสผ่านเดิมไม่ถูกต้อง")
+    if new_password != confirm:
+        return fail("รหัสผ่านใหม่ไม่ตรงกัน")
+    if len(new_password) < 8:
+        return fail("รหัสผ่านใหม่ต้องยาวอย่างน้อย 8 ตัวอักษร")
+    with Session(engine) as s:
+        db_u = s.get(AppUser, u.id)
+        db_u.password_hash = hash_password(new_password)
+        db_u.must_change_pw = False
+        s.add(db_u)
+        s.commit()
+    return RedirectResponse("/daily", status_code=303)
+
+
 # RBAC enforcement is registered as a class middleware (see RbacMiddleware below),
 # added BEFORE SessionMiddleware so the session is available when it runs.
 
