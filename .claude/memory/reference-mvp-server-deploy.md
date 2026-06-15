@@ -15,4 +15,8 @@ The Project YK MVP is deployed to the YK server (Tailscale `100.97.150.114`, use
 - **Tunnel:** one shared `yk-line` cloudflared tunnel. ingress `app.yklogistics.uk→8010` (MVP) + `line.yklogistics.uk→8020` (LINE archiver). Config `C:\Users\yklog\.cloudflared\config.yml` (backup `.bak_before_mvp`). `.com` email domain untouched.
 - **Auth = RBAC login** (not preview_auth). Roles admin/office/accountant/viewer; office/viewer can't see payroll/finance. Matrix in `app/permissions.py` — โอ edits to adjust. Session secret in server-only `YK_MVP\start_mvp.bat` (not in git).
 
+**Security (red-team + app hardening 2026-06-15):** XAMPP disabled (Apache/mysql), SSH key-only + port22 scoped to Tailscale/LAN, SMB scoped, Firewall+Defender+UAC on, RDP off, AnyDesk kept (outbound relay). App: bcrypt passwords (admin can't view → reset only), brute-force guard (`login_guard.py`: user lockout + per-IP via CF-Connecting-IP), secure session cookie (Secure/HttpOnly/SameSite=Lax/8h), security headers (HSTS/X-Frame DENY/nosniff/Referrer). Residual: keylogger on user PC (unfixable server-side), cookie-based sessions (no remote kill). `YK_INSECURE_COOKIES=1` only for local http tests. โอ-facing explainer: `docs/SECURITY_FOR_OAT.md`.
+
+**Deploy gotcha:** `Restart-ScheduledTask` does NOT kill the old python (it keeps holding 8010 with stale code) — must Stop-Process the YK_MVP python first. `deploy_mvp_to_server.sh` does this now.
+
 Runbook: `ProjectYK_System/docs/MVP_SERVER_DEPLOY.md`. Design/plan: `docs/superpowers/specs/2026-06-15-user-accounts-rbac-design.md` + `docs/superpowers/plans/2026-06-15-user-accounts-rbac.md`. Built on branch `feat/mvp-server-deploy`. See [[reference-ssh-to-yk-machine]], [[reference-line-archiver]], [[reference-yklogistics-dns]].
