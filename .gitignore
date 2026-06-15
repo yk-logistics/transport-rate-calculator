@@ -70,7 +70,13 @@ transport-rate-calculator-repo/
 # Backups
 *.bak
 *.backup
+*.backup_*
+*.db.backup*
 backup_*/
+
+# BitLocker / recovery keys (NEVER commit — full-disk unlock secret)
+*RecoveryKey*
+BitLocker*.txt
 
 # Docs scratch
 .cursor/history/
@@ -80,6 +86,13 @@ backup_*/
 # Temporary inspection/scratch files
 _tmp*
 _tmp_*.txt
+
+# Generated/scratch JSON data (re-creatable from source — not source of truth)
+plan_parse.json
+ProjectYK_System/app/missing_fee_may.json
+ProjectYK_System/reports/pump_credit_latest.json
+ProjectYK_System/reports/gps_inbox/
+ProjectYK_System/reports/pump_inbox/
 
 # Temporary commit messages
 .git/COMMIT_MSG*.txt
@@ -91,3 +104,15 @@ dist/
 
 # git worktrees
 .worktrees/
+
+# Personal tooling / scratch (NOT Project YK source — local to dev machine)
+Claude Usage/
+_Claude Tools/
+_SETUP/
+assets/
+Delete/
+run_claude_9arm.bat
+node_modules/
+
+# Generated reports (re-creatable from builders)
+ProjectYK_System/reports/*.xlsx
