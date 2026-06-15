@@ -457,6 +457,18 @@ from auth import (  # noqa: E402
     logout_session,
     verify_password,
 )
+import login_guard  # noqa: E402
+
+
+def _client_ip(request: Request) -> str:
+    # Behind Cloudflare: the real client IP is in CF-Connecting-IP.
+    cf = request.headers.get("cf-connecting-ip")
+    if cf:
+        return cf.strip()
+    fwd = request.headers.get("x-forwarded-for")
+    if fwd:
+        return fwd.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
 
 
 @app.get("/login", response_class=HTMLResponse)
@@ -466,13 +478,27 @@ async def login_page(request: Request):
 
 @app.post("/login")
 async def login_submit(request: Request, username: str = Form(...), password: str = Form(...)):
-    u = get_user_by_username(username.strip())
+    uname = username.strip()
+    ip = _client_ip(request)
+
+    # Brute-force guards (fail closed before touching the DB).
+    if login_guard.is_ip_blocked(ip) or login_guard.is_username_locked(uname):
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request,
+             "error": "พยายามเข้าสู่ระบบบ่อยเกินไป — โปรดลองใหม่อีกครั้งในภายหลัง"},
+            status_code=429,
+        )
+
+    u = get_user_by_username(uname)
     if u is None or u.status != "active" or not verify_password(password, u.password_hash):
+        login_guard.record_failure(username=uname, ip=ip)
         return templates.TemplateResponse(
             "login.html",
             {"request": request, "error": "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"},
             status_code=401,
         )
+    login_guard.record_success(username=uname, ip=ip)
     login_session(request, u)
     dest = "/account/password" if u.must_change_pw else "/daily"
     return RedirectResponse(dest, status_code=303)
