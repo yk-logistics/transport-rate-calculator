@@ -11,4 +11,6 @@
 | 4 | 2026-06-15 | payroll หักสดย่อย (petty) | รายการ direction=in "คืนค่าน้ำมัน" (พิชิต 120.66฿) ตั้ง deduct_from_driver=1 → `_sum_petty_cash_deduction` ไม่สนใจ direction เลยหักคนขับเพิ่มแทนลด. ขอบเขตแคบ: 1 แถวทั้ง DB. ราก = ฟังก์ชันหักไม่ลบ amount ของ direction=in | บั๊ก (เล็ก) | 🔧 แก้แล้วในโค้ด (รอโอยืนยัน) |
 | 5 | 2026-06-15 | reimport_lcb_daily.py | column mapping (col Y/AJ + ชื่อ sheet) ไม่ตรง layout ไฟล์วางบิลปัจจุบัน — ห้ามรันก่อนแก้ | บั๊ก | ⬜ |
 
+| 6 | 2026-06-16 | revenue งาน DHL Overflow (เทียบไฟล์วางบิล) | revenue_customer ใน DB ขาดจากไฟล์วางบิลรวม 304,287฿ กระจุกที่งาน "DHL Overflow" 5,500฿/เที่ยว — เนื้อหายมากสุด 165,000฿ (แถวมีครบแต่ revenue=0), สุวิทย์ 47,242, กฤษฎา 38,500. **ต้องถามโอ:** งาน DHL Overflow นับ revenue เข้าคนขับไหม หรือจ่าย/คิดแยก? (A=บั๊ก import ตก, B=by design) — ห้ามเดา | คำถาม-business rule | ⬜ รอโอตอบ |
+
 > รายละเอียดเต็ม + แผนแก้ + วิธีตรวจย้อน: [`AUDIT_LCB_MAY2026.md`](AUDIT_LCB_MAY2026.md) (ตรวจคืน 15 มิ.ย. 2026)
