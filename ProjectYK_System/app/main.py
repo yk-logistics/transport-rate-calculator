@@ -587,6 +587,18 @@ async def admin_users_reset(request: Request, user_id: int, temp_password: str =
     return RedirectResponse("/admin/users", status_code=303)
 
 
+# Template helper: nav templates call can_see(request, "/payroll") to hide links
+# the current user's role may not access.
+def _can_see(request, prefix: str) -> bool:
+    u = current_user(request)
+    if u is None:
+        return False
+    return perm_check(u.role, prefix, "GET") != "deny"
+
+
+templates.env.globals["can_see"] = _can_see
+
+
 # RBAC enforcement is registered as a class middleware (see RbacMiddleware below),
 # added BEFORE SessionMiddleware so the session is available when it runs.
 

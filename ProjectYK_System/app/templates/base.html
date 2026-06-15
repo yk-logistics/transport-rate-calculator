@@ -29,17 +29,19 @@
         <a href="/vehicles" class="hover:underline">รถ</a>
         <a href="/customers" class="hover:underline">ลูกค้า</a>
         <a href="/admin/promote" class="hover:underline text-sky-300">สร้าง Master</a>
-        <a href="/payroll" class="hover:underline text-emerald-300 font-medium">Payroll</a>
+        {% if can_see(request, "/payroll") %}<a href="/payroll" class="hover:underline text-emerald-300 font-medium">Payroll</a>{% endif %}
         <a href="/rates" class="hover:underline text-cyan-300 font-medium">เรทราคา</a>
         <a href="/fuel-index" class="hover:underline text-cyan-300" title="ราคาน้ำมันรายเดือน + Fuel Surcharge">⛽ Fuel</a>
         <a href="/maint" class="hover:underline text-orange-300 font-medium">ซ่อม/ยาง/PM</a>
         <span class="text-slate-500">|</span>
         <a href="/dispatch/planner" class="hover:underline text-rose-300 font-medium">📋 Dispatch</a>
         <a href="/billing" class="hover:underline text-amber-300 font-medium">Billing</a>
-        <a href="/finance" class="hover:underline text-violet-300 font-medium">💰 CFO</a>
+        {% if can_see(request, "/finance") %}<a href="/finance" class="hover:underline text-violet-300 font-medium">💰 CFO</a>{% endif %}
         <a href="/admin/submissions" class="hover:underline text-pink-300 font-medium" title="รายการส่งจากคนขับ (PWA)">📱 Driver</a>
         <span class="text-slate-500">|</span>
         <a href="/import" class="hover:underline text-teal-300 font-medium">⬆ Import</a>
+        {% if can_see(request, "/admin/users") %}<a href="/admin/users" class="hover:underline text-pink-300 font-medium">👤 ผู้ใช้</a>{% endif %}
+        <a href="/logout" class="hover:underline text-slate-300">ออกจากระบบ</a>
       </div>
     </div>
   </nav>
