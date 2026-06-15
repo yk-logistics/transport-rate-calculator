@@ -700,7 +700,11 @@ def _sum_petty_cash_deduction(
     rows = session.exec(stmt).all()
     total = 0.0
     for r in rows:
-        total += (r.deduct_amount if r.deduct_amount is not None else (r.amount or 0.0))
+        amt = r.deduct_amount if r.deduct_amount is not None else (r.amount or 0.0)
+        # direction=in = เงินที่คนขับคืนเข้ามา (เช่น "คืนค่าน้ำมัน") → ลดยอดหัก ไม่ใช่เพิ่ม
+        if (r.direction or "").strip() == "in":
+            amt = -amt
+        total += amt
     return round(total, 2)
 
 
