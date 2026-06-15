@@ -22,9 +22,10 @@
 - `ProjectYK_System/app/tests/` (new) — test modules.
 
 **Convention notes for the engineer:**
-- No Alembic. Schema changes bump `SCHEMA_VERSION` in `main.py` and add an `ALTER/CREATE` block in `lifespan()`.
+- No Alembic. Schema changes bump `SCHEMA_VERSION` in `main.py` and add an `ALTER/CREATE` block in `lifespan()`. **NOTE: `SCHEMA_VERSION` is already 19** — use 19, do not bump again.
 - Config via `os.environ.get("YK_...")`. Session secret = `YK_SESSION_SECRET`.
 - Run python as `.venv/Scripts/python.exe` from `ProjectYK_System/app/`. Run pytest as `.venv/Scripts/python.exe -m pytest`.
+- **Engine location (discovered):** `engine` is created in `main.py` (lines 86-95), NOT in `db_config.py`. To let `auth.py` import `engine` without a circular import (main imports auth), **Task 1 moves engine creation into `db_config.py`** and `main.py` imports it. Nothing else imports `engine` from `main`, so this is safe. After the move, both `main.py` and `auth.py` do `from db_config import engine`.
 
 ---
 

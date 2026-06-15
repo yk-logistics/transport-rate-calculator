@@ -24,9 +24,9 @@ from fastapi.responses import (
 )
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, SQLModel, select
 
-from db_config import APP_DIR, DB_PATH, resolve_database_url
+from db_config import APP_DIR, DB_PATH, engine, resolve_database_url
 from preview_auth import PreviewAuthMiddleware
 
 import models
@@ -85,14 +85,6 @@ from services.email_ingest import classify_email_item, get_inbox_scope, sync_inb
 
 SCHEMA_VERSION = 19
 DATABASE_URL, IS_SQLITE = resolve_database_url()
-if IS_SQLITE:
-    engine = create_engine(
-        DATABASE_URL,
-        echo=False,
-        connect_args={"check_same_thread": False},
-    )
-else:
-    engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
 
