@@ -7,15 +7,17 @@
   table.site-BIGC .col-bigc { display: table-cell; }
   #batchTable td input, #batchTable td select { width: 100%; border: 1px solid #e2e8f0; border-radius: 4px; padding: 2px 6px; min-width: 5rem; }
   #batchTable td input[type=number] { text-align: right; }
+  #batchTable td input:focus, #batchTable td select:focus { outline: 2px solid #6366f1; outline-offset: -1px; border-color: #6366f1; }
   .lnk-ok { background: #dcfce7; }
   .lnk-raw { background: #fef9c3; }
   tr.saved input, tr.saved select { background: #f8fafc; color: #94a3b8; }
-  tr.rowerr { background: #fef2f2; }
+  tr.rowerr > td { background: #fef2f2; }
+  tfoot td { background: #f1f5f9; font-weight: 600; }
 </style>
 
 <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
   <h1 class="text-2xl font-bold">เพิ่มงานประจำวัน</h1>
-  <div class="text-xs text-slate-500">Enter=ช่องถัดไป (สุดแถว=ขึ้นแถวใหม่) · Ctrl+D=ก๊อปจากแถวบน · <span class="lnk-ok px-1 rounded">เขียว=ตรง master</span> <span class="lnk-raw px-1 rounded">เหลือง=เก็บชื่อดิบ (ยังไม่ลิงก์)</span></div>
+  <div class="text-xs text-slate-500 leading-5">Enter/↓=ช่องถัดไป · ↑=ขึ้น · ปุ่ม <span class="text-indigo-500">⎘</span> หรือ Shift+F2=ก๊อปทั้งแถวบน · F2=ก๊อปเฉพาะช่อง · วางจาก Excel ได้ (Ctrl+V) · <span class="lnk-ok px-1 rounded">เขียว=ตรง master</span> <span class="lnk-raw px-1 rounded">เหลือง=เก็บชื่อดิบ</span></div>
 </div>
 
 <div class="bg-white rounded-lg border p-3 mb-3 flex items-end gap-3 flex-wrap sticky top-0 z-10 shadow-sm">
@@ -55,9 +57,18 @@
       <th class="px-2 py-2 text-left col-lcb">Doc no</th>
       <th class="px-2 py-2 w-8"></th>
       <th class="px-2 py-2 w-8"></th>
+      <th class="px-2 py-2 w-8"></th>
     </tr>
   </thead>
   <tbody id="batchBody"></tbody>
+  <tfoot>
+    <tr class="text-xs border-t-2">
+      <td colspan="8" class="px-2 py-2 text-right text-slate-600">รวม (<span id="sumRows">0</span> แถว)</td>
+      <td class="px-2 py-2 text-right" id="sumRevenue">0</td>
+      <td class="px-2 py-2 text-right" id="sumFee">0</td>
+      <td colspan="7"></td>
+    </tr>
+  </tfoot>
 </table>
 </div>
 
@@ -70,7 +81,16 @@
 <script>
 const M = {{ masters_json | safe }};
 const LEAVE = [{% for c, l in leave_status_choices %}["{{ c }}", "{{ l }}"],{% endfor %}];
-const TRIP_HINTS = { AYU: ["mao", "trip"], BIGC: ["รับรถ", "1DH", "1Big c", "1+", "2BigC", "2++"], LCB: ["Export", "Import", "Domestic"] };
+const TRIP_TYPES = {{ trip_types_json | safe }};   // {site: [[code,label],...]}
+const NUM_FIELDS = new Set(["revenue_customer", "trip_fee_driver"]);
+// ลำดับคอลัมน์สำหรับ paste = ช่องที่ "มองเห็นจริง" ในแถว (ตามไซต์ — tail/LCB-cols ซ่อนได้)
+// อ่านจาก DOM ของแถว job เพื่อให้ตรงกับสิ่งที่ผู้ใช้เห็นบนจอ ตอน copy จาก Excel
+function visibleColNames(jobRow) {
+  return [...jobRow.querySelectorAll("td")]
+    .filter(td => td.offsetParent !== null)        // เฉพาะ cell ที่ไม่ถูกซ่อน
+    .map(td => { const inp = td.querySelector("[name]"); return inp ? inp.name : null; })
+    .filter(Boolean);
+}
 
 const tbody = document.getElementById("batchBody");
 const table = document.getElementById("batchTable");
@@ -90,7 +110,10 @@ fillDatalist("dl_cust", M.customers, "name");
 
 function applySite() {
   table.className = table.className.replace(/site-\S+/g, "").trim() + " site-" + hdrSite.value;
-  fillDatalist("dl_trip", (TRIP_HINTS[hdrSite.value] || []).map(t => ({ t })), "t");
+  // trip-type: โชว์ code + label เป็น hint (เว้น code ว่าง)
+  const choices = (TRIP_TYPES[hdrSite.value] || []).filter(([c]) => c);
+  document.getElementById("dl_trip").innerHTML =
+    choices.map(([c, l]) => `<option value="${esc(c)}">${esc(l)}</option>`).join("");
 }
 hdrSite.addEventListener("change", applySite);
 
@@ -111,12 +134,13 @@ function rowHtml(n) {
   <td class="col-lcb"><input name="container_no"></td>
   <td class="col-lcb"><input name="container_size" placeholder="20/40"></td>
   <td class="col-lcb"><input name="doc_no"></td>
+  <td class="text-center"><button type="button" class="copyRowBtn text-indigo-400 hover:text-indigo-600" tabindex="-1" title="ก๊อปทั้งแถวจากแถวบน (หรือกด Shift+F2)">⎘</button></td>
   <td class="text-center"><button type="button" class="moreBtn text-slate-400 hover:text-slate-700" tabindex="-1" title="ช่องเพิ่มเติม">⋯</button></td>
   <td class="text-center"><button type="button" class="delBtn text-rose-400 hover:text-rose-600" tabindex="-1" title="ลบแถว">✕</button></td>
 </tr>
 <tr class="extra hidden bg-slate-50 border-t text-xs">
   <td></td>
-  <td colspan="15" class="px-2 py-2">
+  <td colspan="16" class="px-2 py-2">
     <div class="grid md:grid-cols-4 gap-2">
       <label>สถานะงาน<input name="status_code" placeholder="MOL, รถจอด"></label>
       <label>สถานะลา<select name="leave_status">${LEAVE.map(([c, l]) => `<option value="${esc(c)}">${esc(l)}</option>`).join("")}</select></label>
@@ -140,8 +164,22 @@ function addRow() {
   updateCount();
   return tbody.querySelector(`tr.job[data-n="${rowSeq}"]`);
 }
+const fmt = n => n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 function updateCount() {
   document.getElementById("rowCount").textContent = tbody.querySelectorAll("tr.job:not(.saved)").length;
+  recalcSum();
+}
+function recalcSum() {
+  let rev = 0, fee = 0, n = 0;
+  tbody.querySelectorAll("tr.job").forEach(tr => {
+    const r = parseFloat(tr.querySelector('[name="revenue_customer"]').value) || 0;
+    const f = parseFloat(tr.querySelector('[name="trip_fee_driver"]').value) || 0;
+    if (r || f) n += 1;
+    rev += r; fee += f;
+  });
+  document.getElementById("sumRevenue").textContent = fmt(rev);
+  document.getElementById("sumFee").textContent = fmt(fee);
+  document.getElementById("sumRows").textContent = n;
 }
 
 function linkPaint(inp) {
@@ -151,42 +189,124 @@ function linkPaint(inp) {
   if (!v) return;
   inp.classList.add(M[coll].some(x => String(x[key]) === v) ? "lnk-ok" : "lnk-raw");
 }
-tbody.addEventListener("input", e => { if (e.target.dataset.link) linkPaint(e.target); });
+tbody.addEventListener("input", e => {
+  if (e.target.dataset.link) linkPaint(e.target);
+  if (NUM_FIELDS.has(e.target.name)) recalcSum();
+});
 
 // ── keyboard ──
 function visibleInputs(scope) {
   return [...scope.querySelectorAll("input, select")].filter(el => !el.disabled && el.offsetParent !== null);
 }
+// แถว job ที่ยังไม่บันทึก ก่อนหน้า tr ที่ระบุ (ใช้กับก๊อปจากแถวบน)
+function prevJobRow(tr) {
+  let p = tr.previousElementSibling;
+  while (p && !p.classList.contains("job")) p = p.previousElementSibling;
+  return p;
+}
+function setVal(el, v) {
+  if (!el || el.disabled) return;
+  el.value = v;
+  if (el.dataset.link) linkPaint(el);
+  if (NUM_FIELDS.has(el.name)) recalcSum();
+}
+// ก๊อปทุกช่องจากแถวบนมาแถวนี้ (job + extra)
+function copyWholeRow(tr) {
+  const prev = prevJobRow(tr);
+  if (!prev) return;
+  const srcInputs = [...prev.querySelectorAll("[name]"), ...prev.nextElementSibling.querySelectorAll("[name]")];
+  const srcByName = {};
+  srcInputs.forEach(s => { srcByName[s.name] = s.value; });
+  [...tr.querySelectorAll("[name]"), ...tr.nextElementSibling.querySelectorAll("[name]")]
+    .forEach(el => { if (el.name in srcByName) setVal(el, srcByName[el.name]); });
+}
+
 tbody.addEventListener("keydown", e => {
   const el = e.target;
   if (!el.matches("input, select")) return;
+  const all = visibleInputs(tbody);
+  const i = all.indexOf(el);
+
+  // Enter → ช่องถัดไป (สุดตาราง = แถวใหม่)
   if (e.key === "Enter") {
     e.preventDefault();
-    const all = visibleInputs(tbody);
-    const i = all.indexOf(el);
-    if (i === all.length - 1) {
-      // ช่องสุดท้ายของตาราง → ขึ้นแถวใหม่
-      visibleInputs(addRow())[0].focus();
-    } else if (i >= 0) {
-      all[i + 1].focus();
-    }
+    if (i === all.length - 1) visibleInputs(addRow())[0].focus();
+    else if (i >= 0) all[i + 1].focus();
+    return;
   }
-  if (e.ctrlKey && e.key.toLowerCase() === "d") {
+  // ↓ / ↑ → ช่องชื่อเดียวกันแถวถัด/แถวบน (ข้ามแถว) — ไม่ขวาง dropdown ของ datalist
+  if ((e.key === "ArrowDown" || e.key === "ArrowUp") && el.tagName === "INPUT" && el.type !== "number") {
+    const tr = el.closest("tr.job, tr.extra");
+    if (!tr) return;
+    const kindSel = tr.classList.contains("job") ? "tr.job" : "tr.extra";
+    const rows = [...tbody.querySelectorAll(kindSel)];
+    const ri = rows.indexOf(tr);
+    const target = e.key === "ArrowDown" ? rows[ri + 1] : rows[ri - 1];
+    if (e.key === "ArrowDown" && !target) { e.preventDefault(); visibleInputs(addRow())[0].focus(); return; }
+    if (target) {
+      const dst = target.querySelector(`[name="${el.name}"]`);
+      if (dst && !dst.disabled) { e.preventDefault(); dst.focus(); }
+    }
+    return;
+  }
+  // Shift+F2 → ก๊อปทั้งแถวจากแถวบน (Chrome ไม่หวง F2 ต่างจาก Ctrl+D)
+  if (e.key === "F2" && e.shiftKey) {
     e.preventDefault();
-    // หาแถวชนิดเดียวกัน (job↔job, extra↔extra) ก่อนหน้า แล้วก๊อปช่องชื่อเดียวกัน
-    const tr = el.closest("tr");
-    const kind = tr.classList.contains("job") ? "job" : "extra";
-    let prev = tr.previousElementSibling;
-    while (prev && !prev.classList.contains(kind)) prev = prev.previousElementSibling;
+    const tr = el.closest("tr.job");
+    if (tr) copyWholeRow(tr);
+    return;
+  }
+  // F2 → ก๊อปเฉพาะช่องนี้จากแถวบน
+  if (e.key === "F2" && !e.shiftKey) {
+    e.preventDefault();
+    const tr = el.closest("tr.job, tr.extra");
+    const kind = tr && tr.classList.contains("extra") ? "extra" : "job";
+    let prev = tr;
+    do { prev = prev.previousElementSibling; } while (prev && !prev.classList.contains(kind));
     if (prev) {
       const src = prev.querySelector(`[name="${el.name}"]`);
-      if (src) { el.value = src.value; if (el.dataset.link) linkPaint(el); }
+      if (src) setVal(el, src.value);
     }
+    return;
   }
+});
+
+// ── วางจาก Excel (Ctrl+V) ──
+// หลายช่อง/หลายแถว: แตก \t = คอลัมน์, \n = แถว แล้วเทลงตั้งแต่ช่องที่ focus เป็นต้นไป
+tbody.addEventListener("paste", e => {
+  const el = e.target;
+  if (!el.matches("input")) return;
+  const text = (e.clipboardData || window.clipboardData).getData("text");
+  if (!text || (!text.includes("\t") && !text.includes("\n"))) return;   // ช่องเดียว → ปล่อย default
+  const startRow = el.closest("tr.job");
+  if (!startRow) return;
+  const cols = visibleColNames(startRow);            // ลำดับคอลัมน์ตามที่เห็นบนจอจริง
+  const startCol = cols.indexOf(el.name);
+  if (startCol < 0) return;   // ช่องนอกชุดหลัก (remark/fuel) → ปล่อย default
+  e.preventDefault();
+  const grid = text.replace(/\r/g, "").replace(/\n$/, "").split("\n").map(r => r.split("\t"));
+  let curRow = startRow;
+  grid.forEach((cells, ri) => {
+    if (ri > 0) {
+      let nxt = curRow.nextElementSibling;            // ข้าม extra row
+      while (nxt && !nxt.classList.contains("job")) nxt = nxt.nextElementSibling;
+      curRow = (nxt && !nxt.classList.contains("saved")) ? nxt : addRow();
+    }
+    cells.forEach((val, ci) => {
+      const colName = cols[startCol + ci];
+      if (!colName) return;
+      setVal(curRow.querySelector(`[name="${colName}"]`), val.trim());
+    });
+  });
+  updateCount();
 });
 
 // ── ปุ่มในแถว ──
 tbody.addEventListener("click", e => {
+  if (e.target.classList.contains("copyRowBtn")) {
+    const tr = e.target.closest("tr.job");
+    if (tr && !tr.classList.contains("saved")) copyWholeRow(tr);
+  }
   if (e.target.classList.contains("moreBtn")) {
     e.target.closest("tr.job").nextElementSibling.classList.toggle("hidden");
   }

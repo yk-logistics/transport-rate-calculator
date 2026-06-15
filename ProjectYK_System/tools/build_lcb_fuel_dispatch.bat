@@ -1,12 +1,21 @@
 @echo off
 setlocal EnableDelayedExpansion
 chcp 65001 >nul
+REM Test: double-click -> prompts plan then fuel; Enter on both -> auto *05.26*.txt + *Fuel_Level*LCB*.xlsx
+REM Test: drag plan.txt only -> %1=plan, fuel prompt still shown
+REM Test: drag plan.txt + fuel.xlsx onto .bat -> %1 and %2 set, no prompts
 
 cd /d "%~dp0..\.."
 
 set "PLAN=%~1"
 set "FUEL=%~2"
 set "DIESEL=42.20"
+
+REM ลากไฟล์ .xlsx มาวางบน bat ตัวเดียว -> ใช้เป็น GPS
+if /i "%~x1"==".xlsx" (
+  set "FUEL=%~1"
+  set "PLAN="
+)
 
 echo.
 echo === LCB fuel dispatch: LINE plan .txt + GPS ===
@@ -23,6 +32,11 @@ if "%PLAN%"=="" (
 
 if "%PLAN%"=="" (
   set "PLAN="
+  for /f "delims=" %%F in ('dir /b /o-d "%CD%\ProjectYK_System\reports\gps_inbox\*.txt" 2^>nul') do (
+    set "PLAN=%CD%\ProjectYK_System\reports\gps_inbox\%%F"
+    echo Auto-selected plan from gps_inbox: %%F
+    goto :plan_done
+  )
   for /f "delims=" %%F in ('dir /b /o-d "%USERPROFILE%\Downloads\*05.26*.txt" 2^>nul') do (
     set "PLAN=%USERPROFILE%\Downloads\%%F"
     echo Using default plan: !PLAN!
@@ -48,37 +62,75 @@ if not exist "%PLAN%" (
   exit /b 1
 )
 
-set "FUEL_ARG="
-if not "%FUEL%"=="" (
-  echo %FUEL% | findstr /i "\.xlsx" >nul && (
-    set "FUEL_ARG=--fuel-xlsx "%FUEL%""
-    echo Fuel file: %FUEL%
-  ) || (
-    set "FUEL_ARG=--fuel-csv "%FUEL%""
-    echo Fuel file: %FUEL%
+if "%FUEL%"=="" (
+  echo.
+  echo GPS fuel file (.xlsx or .csv)
+  echo RECOMMENDED: Press Enter alone = newest .xlsx in gps_inbox (avoids Thai filename paste bugs in cmd).
+  echo Or drag .xlsx onto this .bat file (two files: plan.txt then fuel.xlsx).
+  set /p "FUEL=GPS fuel file path (Enter=auto): "
+  set "FUEL=!FUEL:"=!"
+)
+
+if not "%FUEL%"=="" if not exist "%FUEL%" (
+  echo.
+  echo [WARN] File not found - Thai/special chars often break when pasted in cmd.
+  echo        Will auto-pick newest .xlsx in gps_inbox instead.
+  echo        Broken path was: %FUEL%
+  set "FUEL="
+)
+
+if "%FUEL%"=="" (
+  for /f "delims=" %%F in ('dir /b /o-d "%CD%\ProjectYK_System\reports\gps_inbox\*.xlsx" 2^>nul') do (
+    set "FUEL=%CD%\ProjectYK_System\reports\gps_inbox\%%F"
+    echo Auto-selected from gps_inbox: %%F
+    goto :fuel_resolved
   )
-) else (
   for /f "delims=" %%F in ('dir /b /o-d "%USERPROFILE%\Downloads\*Fuel_Level*LCB*.xlsx" 2^>nul') do (
-    set "FUEL_ARG=--fuel-xlsx "%USERPROFILE%\Downloads\%%F""
-    echo Latest GPS xlsx in Downloads: %%F
-    goto :fuel_done
+    set "FUEL=%USERPROFILE%\Downloads\%%F"
+    echo Auto-selected GPS xlsx: %%F
+    goto :fuel_resolved
   )
-  if exist "ProjectYK_System\reports\fuel_level_latest_LCB_2026-05-20.csv" (
-    set "FUEL_ARG=--fuel-csv "ProjectYK_System\reports\fuel_level_latest_LCB_2026-05-20.csv""
-    echo Using CSV: ProjectYK_System\reports\fuel_level_latest_LCB_2026-05-20.csv
-  ) else (
-    echo [WARN] No *Fuel_Level*LCB*.xlsx in Downloads - pass fuel path as 2nd argument.
+  for /f "delims=" %%F in ('dir /b /o-d "%USERPROFILE%\Downloads\*LCB*Fuel*.xlsx" 2^>nul') do (
+    set "FUEL=%USERPROFILE%\Downloads\%%F"
+    echo Auto-selected GPS xlsx: %%F
+    goto :fuel_resolved
+  )
+  for /f "delims=" %%F in ('dir /b /o-d "%USERPROFILE%\Downloads\*tracking_report*.xlsx" 2^>nul') do (
+    set "FUEL=%USERPROFILE%\Downloads\%%F"
+    echo Auto-selected GPS xlsx: %%F
+    goto :fuel_resolved
   )
 )
-:fuel_done
 
-set "ADD_FUEL=--add-fuel 72-0420=30 --add-fuel 71-6803=20"
+if "%FUEL%"=="" (
+  echo [ERROR] No GPS .xlsx in ProjectYK_System\reports\gps_inbox
+  echo         Export Wialon Fuel Level LCB and copy .xlsx into that folder.
+  pause
+  exit /b 1
+)
+if not exist "%FUEL%" (
+  echo [ERROR] Fuel file not found: %FUEL%
+  pause
+  exit /b 1
+)
+echo Using fuel file: %FUEL%
+:fuel_resolved
+
+set "BUDGET_LOW=5000"
+set "BUDGET_HIGH=10000"
+set "ADD_FUEL=--add-fuel 72-0420=30 --add-fuel 71-6803=20 --add-fuel 71-6804=30"
 
 echo Plan: %PLAN%
-echo Diesel price: %DIESEL% THB/L  (extra fuel: 0420 +30L, 6803 +20L)
+echo Diesel price: %DIESEL% THB/L  (เติมแล้ว: 0420+30, 6803+20, 6804+30 ล.)
+echo Budget cap: %BUDGET_LOW% - %BUDGET_HIGH% baht
+echo Pump PDF: auto from ProjectYK_System\reports\pump_inbox\ (วางรายงานปั๊มเช้า)
 echo.
 
-python ProjectYK_System\tools\build_lcb_fuel_dispatch_from_plan.py "%PLAN%" %FUEL_ARG% %ADD_FUEL% --diesel-price %DIESEL%
+if "%FUEL%"=="" (
+  python ProjectYK_System\tools\build_lcb_fuel_dispatch_from_plan.py "%PLAN%" %ADD_FUEL% --diesel-price %DIESEL% --budget-low %BUDGET_LOW% --budget-high %BUDGET_HIGH%
+) else (
+  python ProjectYK_System\tools\build_lcb_fuel_dispatch_from_plan.py "%PLAN%" "%FUEL%" %ADD_FUEL% --diesel-price %DIESEL% --budget-low %BUDGET_LOW% --budget-high %BUDGET_HIGH%
+)
 if errorlevel 1 (
   echo.
   echo [ERROR] Build failed - see messages above.
@@ -103,10 +155,7 @@ echo.
 
 start "" "%HTML_PRINT%"
 
-set /p "DO_PUSH=Push to GitHub Pages now? (Y/N) [N]: "
-if /i "!DO_PUSH!"=="Y" (
-  call "%~dp0push_lcb_fuel_dispatch_pages.bat"
-) else (
-  echo Skipped push. Run: ProjectYK_System\tools\push_lcb_fuel_dispatch_pages.bat
-)
+echo.
+echo Pushing to GitHub Pages...
+call "%~dp0push_lcb_fuel_dispatch_pages.bat"
 pause

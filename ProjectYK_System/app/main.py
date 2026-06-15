@@ -968,8 +968,11 @@ def daily_new_form(request: Request):
         "tails": [{"id": v.id, "plate": v.plate_no} for v in vehicles if v.vehicle_kind == "tail"],
         "customers": [{"id": c.id, "name": c.name} for c in customers],
     }, ensure_ascii=False)
+    trip_types_json = _json.dumps(
+        {site: [list(t) for t in choices] for site, choices in models.TRIP_TYPE_CODES_BY_SITE.items()},
+        ensure_ascii=False)
     ctx = base_context(request)
-    ctx.update({"masters_json": masters_json})
+    ctx.update({"masters_json": masters_json, "trip_types_json": trip_types_json})
     return templates.TemplateResponse("daily_batch.html", ctx)
 
 

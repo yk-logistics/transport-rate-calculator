@@ -58,6 +58,19 @@ def _find_default_xlsx() -> Path | None:
     return candidates[0] if candidates else None
 
 
+PLATE_IN_GROUP_RE = re.compile(r"(\d{2}-\d{4}|บษ-\d{4})")
+
+
+def plate_from_wialon_group(val) -> str | None:
+    if pd.isna(val):
+        return None
+    s = str(val).strip()
+    if not s or s == "รวมทั้งหมด":
+        return None
+    m = PLATE_IN_GROUP_RE.search(s)
+    return m.group(1) if m else None
+
+
 def parse_fuel(val) -> float | None:
     if pd.isna(val):
         return None
@@ -72,9 +85,13 @@ def load_trucks(xlsx: Path) -> tuple[list[dict], datetime | None]:
     df = pd.read_excel(xlsx, sheet_name="Fuel Level Sensor (L)")
     trucks = []
     max_ts = None
+    current_plate: str | None = None
     for _, r in df.iterrows():
-        plate = str(r["การจัดกลุ่ม"]).split()[0] if pd.notna(r["การจัดกลุ่ม"]) else ""
-        if not plate or plate in ("รวมทั้งหมด",):
+        p = plate_from_wialon_group(r.get("การจัดกลุ่ม"))
+        if p:
+            current_plate = p
+        plate = current_plate
+        if not plate:
             continue
         ts = pd.to_datetime(r["Time"], errors="coerce")
         fuel = parse_fuel(r["Fuel Level Sensor (L)"])

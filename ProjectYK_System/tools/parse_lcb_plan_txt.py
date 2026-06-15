@@ -16,12 +16,16 @@ L_PER_TRIP: dict[str, float] = {
     "Conti": 50.0,
     "Haier": 100.0,
     "Lacation": 50.0,
+    "KATOEN": 40.0,  # โอยืนยัน ~40 ล./เที่ยว
     "คลังวาฬ": 25.0,
+    "ฟรีโซน": 25.0,  # NHL ตู้ฟรีโซน (มัก Con.[20])
+    "เหรินเหอ": 70.0,  # WHALE / RENHER — โอยืนยัน ~70 ล./เที่ยว (ตู้ 40' หัว 10 ล้อ)
     "Oatside": 110.0,  # per day midpoint
 }
 
 SECTION_JOB_HINTS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"Oatsite|Oatside|DHLOatsite", re.I), "Oatside"),
+    (re.compile(r"WHALE|เหรินเหอ|RERNHER|RENHER|เปิดRERNHER", re.I), "เหรินเหอ"),
     (re.compile(r"KAO", re.I), "KAO"),
     (re.compile(r"CONTINENTAL|KLND|Conti", re.I), "Conti"),
     (re.compile(r"HAIER|CJ\d", re.I), "Haier"),
@@ -53,6 +57,7 @@ class TruckAssignment:
     need_liters: float
     driver: str = ""
     section: str = ""
+    customer_label: str = ""  # ชื่อลูกค้าจากหัวข้อ *** ในแผน LINE (โชว์บน HTML)
     notes: list[str] = field(default_factory=list)
 
 
@@ -101,14 +106,60 @@ def _detect_section_job(header: str) -> str | None:
     return None
 
 
+def _is_whale_bol_line(ln: str) -> bool:
+    """Bol. ที่เป็นตู้คลังปลาวาฬ — ไม่นับ Bol. นำหน้าบล็อกฟรีโซน (เช่น 53-449 Agent.)."""
+    s = ln.strip()
+    if not RE_BOL.search(s):
+        return False
+    if re.search(r"ฟรีโซน|free\s*zone", s, re.I):
+        return False
+    if re.search(r"^Bol\.\s+\S+\s+Agent\.\s*$", s, re.I):
+        return False
+    return True
+
+
+def _subjob_customer_label(subjob: str) -> str:
+    if subjob == "ฟรีโซน":
+        return "ฟรีโซน"
+    if subjob == "คลังวาฬ":
+        return "คลังวาฬ"
+    if subjob == "KATOEN":
+        return "KATOEN"
+    return subjob
+
+
+def _customer_label_from_header(header: str, job: str) -> str:
+    """ชื่อลูกค้า/กลุ่มงานสำหรับแสดงผล — จากหัวข้อบล็อก *** ในแผน LINE."""
+    h = (header or "").strip()
+    m = re.search(r"\[([^\]]+)\]", h)
+    if m:
+        raw = re.sub(r"\*.*$", "", m.group(1)).strip()
+        raw = re.sub(r"\d+$", "", raw).strip()
+        if raw:
+            return raw
+    if re.search(r"Oatsite|Oatside|DHLOatsite", h, re.I):
+        return "Oatside"
+    if re.search(r"WHALE|เหรินเหอ|RERNHER", h, re.I):
+        return "เหรินเหอ"
+    if re.search(r"วาฬ|NHL|คลัง", h, re.I):
+        return "คลังวาฬ"
+    if job and job != "Unknown":
+        return job
+    return h[:32] if h else job or "Unknown"
+
+
 def _parse_remarks(block: str) -> tuple[dict[str, str], set[str], list[str]]:
     replacements: dict[str, str] = {}
     broken: set[str] = set()
     lines: list[str] = []
     text = block
     if "Remark" in text or "หมายเหตุ" in text:
-        # 8681 broken, 8684 temp for พัฒิยะ
-        if "8681" in text and "8684" in text:
+        # 8681 broken + 8684 แทน — เฉพาะเมื่อ Remark ระบุชัด (ไม่ดึงจาก Spare)
+        if (
+            "8681" in text
+            and "8684" in text
+            and re.search(r"พัฒิยะ|ใช้ชั่วคราว|แทน", text, re.I)
+        ):
             replacements["71-8681"] = "71-8684"
             broken.add("71-8681")
         if "1219" in text and "ซ่อม" in text:
@@ -144,8 +195,15 @@ def parse_plan_text(text: str) -> ParsedPlan:
             remark_start = i
             break
     if remark_start is not None:
+        remark_lines: list[str] = []
+        for ln in lines[remark_start:]:
+            if ln.strip().startswith("***"):
+                break
+            if re.search(r"Spare\s*\[รองาน\]", ln, re.I):
+                break
+            remark_lines.append(ln)
         plan.replacements, plan.broken_plates, plan.remarks = _parse_remarks(
-            "\n".join(lines[remark_start:])
+            "\n".join(remark_lines)
         )
 
     spare_start = None
@@ -196,6 +254,7 @@ def parse_plan_text(text: str) -> ParsedPlan:
         if not header or re.search(r"Remark|Spare|ตู้วาย", header, re.I):
             continue
         section_job = _detect_section_job(header) or "Unknown"
+        customer_label = _customer_label_from_header(header, section_job)
         if section_job == "Oatside":
             # Single truck section — count as 1 day job
             plate = driver = ""
@@ -215,27 +274,36 @@ def parse_plan_text(text: str) -> ParsedPlan:
                     need_liters=L_PER_TRIP["Oatside"],
                     driver=driver,
                     section=header[:40],
+                    customer_label=customer_label,
                     notes=["ประจำ Oatside — นอกชุด 16 เที่ยว"],
                 )
             continue
 
         current_plate = ""
         current_driver = ""
+        current_subjob = section_job
+        pending_freezone = False
         trip_markers: list[str] = []
         location_mode = False
-        section_has_whale = "วาฬ" in header or "คลัง" in header
 
         def flush_plate():
-            nonlocal current_plate, current_driver, trip_markers, location_mode
+            nonlocal current_plate, current_driver, trip_markers, location_mode, current_subjob
             if not current_plate or current_plate in plan.broken_plates:
                 trip_markers = []
                 return
             if location_mode:
-                job = "Lacation"
-                lpt = L_PER_TRIP["Lacation"]
+                if re.search(r"KATOEN", header, re.I):
+                    job = "KATOEN"
+                    lpt = L_PER_TRIP["KATOEN"]
+                    label = "KATOEN"
+                else:
+                    job = "Lacation"
+                    lpt = L_PER_TRIP["Lacation"]
+                    label = _subjob_customer_label(job)
             else:
-                job = section_job
+                job = current_subjob
                 lpt = L_PER_TRIP.get(job, 50.0)
+                label = _subjob_customer_label(job)
 
             trips = len(trip_markers) if trip_markers else 0
             if trips == 0:
@@ -263,6 +331,7 @@ def parse_plan_text(text: str) -> ParsedPlan:
                     need_liters=need,
                     driver=current_driver,
                     section=header[:40],
+                    customer_label=label,
                     notes=note_extra,
                 )
             trip_markers = []
@@ -276,6 +345,10 @@ def parse_plan_text(text: str) -> ParsedPlan:
                 flush_plate()
                 current_plate = ""
                 continue
+            if section_job == "คลังวาฬ" and re.search(r"ฟรีโซน", stripped, re.I):
+                flush_plate()
+                pending_freezone = True
+                continue
             if stripped.startswith("- นาย"):
                 flush_plate()
                 current_driver = stripped.lstrip("- ").strip()
@@ -286,6 +359,11 @@ def parse_plan_text(text: str) -> ParsedPlan:
                 flush_plate()
                 raw = hm.group(1)
                 current_plate = _apply_plate(raw, plan.replacements)
+                if pending_freezone:
+                    current_subjob = "ฟรีโซน"
+                    pending_freezone = False
+                else:
+                    current_subjob = section_job
                 continue
 
             if not current_plate:
@@ -294,8 +372,11 @@ def parse_plan_text(text: str) -> ParsedPlan:
             if location_mode:
                 if RE_CON.search(ln):
                     trip_markers.append(ln.strip()[:60])
-            elif section_job == "คลังวาฬ":
-                if RE_BOL.search(ln):
+            elif current_subjob == "คลังวาฬ":
+                if _is_whale_bol_line(ln):
+                    trip_markers.append(ln.strip()[:60])
+            elif current_subjob == "ฟรีโซน":
+                if RE_CON.search(ln):
                     trip_markers.append(ln.strip()[:60])
             elif RE_CON.search(ln):
                 trip_markers.append(ln.strip()[:60])
@@ -305,11 +386,31 @@ def parse_plan_text(text: str) -> ParsedPlan:
     plan.assignments = sorted(
         agg.values(),
         key=lambda a: (
-            ["Haier", "KAO", "Conti", "Lacation", "คลังวาฬ", "Oatside", "Unknown"].index(
-                a.job
-            )
+            [
+                "Haier",
+                "KAO",
+                "Conti",
+                "Lacation",
+                "KATOEN",
+                "คลังวาฬ",
+                "ฟรีโซน",
+                "เหรินเหอ",
+                "Oatside",
+                "Unknown",
+            ].index(a.job)
             if a.job
-            in ["Haier", "KAO", "Conti", "Lacation", "คลังวาฬ", "Oatside", "Unknown"]
+            in [
+                "Haier",
+                "KAO",
+                "Conti",
+                "Lacation",
+                "KATOEN",
+                "คลังวาฬ",
+                "ฟรีโซน",
+                "เหรินเหอ",
+                "Oatside",
+                "Unknown",
+            ]
             else 99,
             a.plate,
         ),
@@ -358,6 +459,7 @@ def main() -> int:
                 "liters_per_trip": a.liters_per_trip,
                 "need_liters": a.need_liters,
                 "driver": a.driver,
+                "customer_label": a.customer_label,
                 "notes": a.notes,
             }
             for a in plan.assignments
