@@ -47,3 +47,12 @@ Copies source, syncs deps, restarts `YK_MVP_APP`, verifies the public endpoint. 
 ## Daily DB backup
 
 `YK_MVP_DB_BACKUP` scheduled task copies `app.db` to `YK_MVP\backups\app-YYYYMMDD.db` daily, keeping the last 14.
+
+## Security posture
+
+- **HTTPS only** via Cloudflare; app binds `127.0.0.1:8010` (reachable only through the tunnel, never directly).
+- **Passwords:** bcrypt-hashed. Nobody (incl. admin) can read them. Forgotten password → admin "รีเซ็ตรหัส" sets a temp pw + `must_change_pw`.
+- **Brute-force:** `login_guard.py` — username locks after 5 bad passwords (15 min); IP blocked after 20 login hits/60s (10 min); real client IP from `CF-Connecting-IP`. Returns 429 when throttled.
+- **RBAC** enforced server-side on every request (can't be bypassed from the browser).
+- **Windows Firewall:** ON (all 3 profiles). SSH(22) inbound allowed; Tailscale rules present; cloudflared is outbound (unaffected). **Windows Defender real-time: ON. UAC: ON.** Do not disable these.
+- Importing a Dev `app.db` re-seeds `yk1`/`changeme1` (the old DB predates the AppUser table) — โอ must re-set the yk1 password after any DB import.
