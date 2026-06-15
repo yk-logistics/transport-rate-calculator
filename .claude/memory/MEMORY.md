@@ -13,3 +13,4 @@
 - [LINE archiver](reference-line-archiver.md) — เก็บข้อความ+รูปกลุ่ม LINE ลง SQLite/Discord; service แยก port 8020; start_all.bat; tunnel = Cloudflare (quick→named line.yklogistics.com)
 - [yklogistics.com DNS](reference-yklogistics-dns.md) — DNS snapshot ก่อนย้าย Cloudflare; A/MX/SPF ที่ห้ามหาย (อีเมลใช้จริง ห้ามล่ม)
 - [SSH to YK machine](reference-ssh-to-yk-machine.md) — passwordless SSH from Home/.178 → YK/.197 (user yklog); admin keys file; LAN-only, plan Tailscale for off-LAN
+- [MVP server deploy](reference-mvp-server-deploy.md) — MVP live at app.yklogistics.uk (copy-folder deploy, Py3.12 venv, unattended boot tasks, RBAC login yk1/changeme1); deploy_mvp_to_server.sh; runbook MVP_SERVER_DEPLOY.md
