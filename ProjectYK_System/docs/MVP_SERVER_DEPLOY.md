@@ -56,3 +56,13 @@ Copies source, syncs deps, restarts `YK_MVP_APP`, verifies the public endpoint. 
 - **RBAC** enforced server-side on every request (can't be bypassed from the browser).
 - **Windows Firewall:** ON (all 3 profiles). SSH(22) inbound allowed; Tailscale rules present; cloudflared is outbound (unaffected). **Windows Defender real-time: ON. UAC: ON.** Do not disable these.
 - Importing a Dev `app.db` re-seeds `yk1`/`changeme1` (the old DB predates the AppUser table) — โอ must re-set the yk1 password after any DB import.
+
+### Server hardening (red-team pass, 2026-06-15)
+
+Attack-surface reduction after reviewing the box as an outside attacker:
+
+- **XAMPP disabled** — `Apache2.4` + `mysql` services stopped + StartupType=Disabled. Closed ports 80/443/3306 (XAMPP defaults are a classic break-in path; โอ doesn't use it).
+- **SSH key-only** — `sshd_config`: `PasswordAuthentication no`, `PermitRootLogin no` (backup `sshd_config.bak_before_harden`). Port 22 firewall scoped to `192.168.0.0/16` + `100.64.0.0/10` (Tailscale) — not reachable from the public internet. We log in via Tailscale key.
+- **SMB 445/139** scoped to LAN/Tailscale only.
+- **AnyDesk kept** (โอ uses it; long unattended password). Works via outbound cloud relay, so no public inbound port needed.
+- Already-good baseline left as-is: Windows Defender real-time ON, UAC ON, RDP disabled, Firewall ON (all profiles).
