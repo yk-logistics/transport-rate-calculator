@@ -1,46 +1,44 @@
-<!doctype html>
-<html lang="th"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>จัดการผู้ใช้</title><script src="https://cdn.tailwindcss.com"></script></head>
-<body class="bg-gray-100 p-6">
-  <div class="max-w-3xl mx-auto space-y-6">
-    <h1 class="text-xl font-bold">จัดการผู้ใช้</h1>
-    <table class="w-full bg-white rounded shadow text-sm">
-      <thead class="bg-gray-200"><tr>
-        <th class="p-2 text-left">username</th><th class="p-2 text-left">ชื่อ</th>
-        <th class="p-2 text-left">role</th><th class="p-2 text-left">สถานะ</th>
-        <th class="p-2"></th></tr></thead>
-      <tbody>
-      {% for u in users %}
-        <tr class="border-t">
-          <td class="p-2">{{ u.username }}</td><td class="p-2">{{ u.display_name }}</td>
-          <td class="p-2">{{ u.role }}</td><td class="p-2">{{ u.status }}</td>
-          <td class="p-2 text-right">
-            {% if u.username != 'yk1' %}
-            {% if u.status == 'active' %}
-              <form method="post" action="/admin/users/{{ u.id }}/disable" class="inline">
-                <button class="text-red-600">ปิด</button></form>
-            {% else %}
-              <form method="post" action="/admin/users/{{ u.id }}/enable" class="inline">
-                <button class="text-green-600">เปิด</button></form>
-            {% endif %}
-            {% endif %}
-          </td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
+{% extends "base.html" %}
+{% block title %}จัดการผู้ใช้{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6 p-6">
+  <h1 class="text-xl font-bold">จัดการผู้ใช้</h1>
+  <table class="w-full bg-white rounded shadow text-sm">
+    <thead class="bg-gray-200"><tr>
+      <th class="p-2 text-left">username</th><th class="p-2 text-left">ชื่อ</th>
+      <th class="p-2 text-left">role</th><th class="p-2 text-left">สถานะ</th>
+      <th class="p-2"></th></tr></thead>
+    <tbody>
+    {% for u in users %}
+      <tr class="border-t">
+        <td class="p-2">{{ u.username }}</td><td class="p-2">{{ u.display_name }}</td>
+        <td class="p-2">{{ u.role }}</td><td class="p-2">{{ u.status }}</td>
+        <td class="p-2 text-right">
+          {% if u.username != 'yk1' %}
+          {% if u.status == 'active' %}
+            <form method="post" action="/admin/users/{{ u.id }}/disable" class="inline">
+              <button class="text-red-600">ปิด</button></form>
+          {% else %}
+            <form method="post" action="/admin/users/{{ u.id }}/enable" class="inline">
+              <button class="text-green-600">เปิด</button></form>
+          {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
 
-    <form method="post" action="/admin/users/new"
-          class="bg-white p-4 rounded shadow grid grid-cols-2 gap-3">
-      <h2 class="col-span-2 font-semibold">เพิ่มผู้ใช้</h2>
-      <input name="username" placeholder="username (เช่น yk2)" class="border rounded px-2 py-1" required>
-      <input name="display_name" placeholder="ชื่อแสดง" class="border rounded px-2 py-1">
-      <select name="role" class="border rounded px-2 py-1">
-        {% for r in roles %}<option value="{{ r }}">{{ r }}</option>{% endfor %}
-      </select>
-      <input name="temp_password" placeholder="รหัสชั่วคราว" class="border rounded px-2 py-1" required>
-      <button class="col-span-2 bg-blue-600 text-white rounded py-2">เพิ่ม</button>
-    </form>
-  </div>
-</body></html>
+  <form method="post" action="/admin/users/new"
+        class="bg-white p-4 rounded shadow grid grid-cols-2 gap-3">
+    <h2 class="col-span-2 font-semibold">เพิ่มผู้ใช้</h2>
+    <input name="username" placeholder="username (เช่น yk2)" class="border rounded px-2 py-1" required>
+    <input name="display_name" placeholder="ชื่อแสดง" class="border rounded px-2 py-1">
+    <select name="role" class="border rounded px-2 py-1">
+      {% for r in roles %}<option value="{{ r }}">{{ r }}</option>{% endfor %}
+    </select>
+    <input name="temp_password" placeholder="รหัสชั่วคราว" class="border rounded px-2 py-1" required>
+    <button class="col-span-2 bg-blue-600 text-white rounded py-2">เพิ่ม</button>
+  </form>
+</div>
+{% endblock %}
