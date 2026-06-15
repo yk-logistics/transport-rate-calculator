@@ -29,8 +29,8 @@ echo "== 3/4 sync any new pinned deps into the server venv =="
 ssh "$SERVER" "powershell -NoProfile -Command \"Set-Location $APP_REMOTE; .\\.venv\\Scripts\\python.exe -m pip install --quiet -r requirements.lock.txt; Write-Output DEPS_OK\"" \
     2>/dev/null | grep -E "DEPS_OK" || echo "(dep sync output suppressed)"
 
-echo "== 4/4 restart MVP app task =="
-ssh "$SERVER" "powershell -NoProfile -Command \"Restart-ScheduledTask -TaskName 'YK_MVP_APP'; Start-Sleep 8; if (Get-NetTCPConnection -LocalPort 8010 -State Listen -ErrorAction SilentlyContinue) { Write-Output MVP_UP } else { Write-Output MVP_DOWN }\"" \
+echo "== 4/4 restart MVP app task (kill lingering python first so new code loads) =="
+ssh "$SERVER" "powershell -NoProfile -Command \"Stop-ScheduledTask -TaskName 'YK_MVP_APP' -ErrorAction SilentlyContinue; Get-CimInstance Win32_Process -Filter \\\"Name='python.exe'\\\" | Where-Object { \$_.CommandLine -match 'YK_MVP' } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force -ErrorAction SilentlyContinue }; Start-Sleep 3; Start-ScheduledTask -TaskName 'YK_MVP_APP'; Start-Sleep 10; if (Get-NetTCPConnection -LocalPort 8010 -State Listen -ErrorAction SilentlyContinue) { Write-Output MVP_UP } else { Write-Output MVP_DOWN }\"" \
     2>/dev/null | grep -E "MVP_UP|MVP_DOWN"
 
 echo "== verify public endpoint =="
