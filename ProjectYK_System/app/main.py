@@ -8,6 +8,7 @@ URL:   http://localhost:8000
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -33,6 +34,7 @@ import models
 from models import (
     AccidentCase,
     AccidentInstallment,
+    AppUser,
     BigcBranch,
     Customer,
     DailyJob,
@@ -361,6 +363,22 @@ def seed_initial_data(s: Session) -> None:
         if not existing:
             s.add(pc)
     s.commit()
+
+    # v19: seed first admin account (yk1) for the RBAC trial.
+    from auth import hash_password
+    yk1 = s.exec(select(AppUser).where(AppUser.username == "yk1")).first()
+    if not yk1:
+        temp_pw = os.environ.get("YK_ADMIN_TEMP_PW", "changeme1")
+        s.add(AppUser(
+            username="yk1",
+            password_hash=hash_password(temp_pw),
+            display_name="โอ (admin)",
+            role="admin",
+            status="active",
+            must_change_pw=True,
+        ))
+        s.commit()
+        print("[seed] created admin user yk1 (must change password on first login)")
 
 
 app = FastAPI(title="Project YK - One Platform")

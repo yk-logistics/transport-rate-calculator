@@ -16,6 +16,18 @@ class SchemaInfo(SQLModel, table=True):
     applied_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class AppUser(SQLModel, table=True):
+    """A person who logs in to the back-office system (distinct from Employee, a payroll subject)."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    username: str = Field(index=True, unique=True)
+    password_hash: str
+    display_name: str = ""
+    role: str = Field(default="viewer", index=True)    # admin|office|accountant|viewer
+    status: str = Field(default="active", index=True)  # active|disabled
+    must_change_pw: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class Employee(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     code: str = Field(index=True, unique=True)
