@@ -1,6 +1,8 @@
 # Memory Index
 
+- [Concise, no code dump](feedback-concise-no-code-dump.md) — EVERY session, all projects: short plain-language summaries, hide commands/code/paths unless โอ asks
 - [MVP test plan](project-mvp-test-plan.md) — โอทดสอบ MVP end-to-end (เริ่ม 2026-06-10); เปิดด้วย `MVP S<n> ทำต่อ` → อ่าน docs/MVP_TEST_PLAN.md; ground truth ที่ Work\Salary\2026\5.May\LCB
+- [Audit LCB May2026](project-audit-lcb-may2026.md) — ผลตรวจเงินเดือน LCB พ.ค. (Excel vs ระบบ): payrun draft ล้าสมัยต้อง recompute, เหมาน้ำมัน gross=0, 5 findings; รายงานเต็ม docs/AUDIT_LCB_MAY2026.md
 - [Test-data cleanup safety](feedback-test-data-cleanup-safety.md) — ลบ test row ที่ POST เข้า app.db จริง ต้องลบด้วย id ที่ได้คืน ห้ามลบด้วย filter (work_date/...) เพราะชนข้อมูลจริง — เคยลบงานจริง 3 แถวต้องกู้จาก backup
 - [Claude Code multiple installs](claude-code-multiple-installs.md) — which `claude` actually runs on โอ's machine + how updates / model-picker versions work
 - [Qwen subagent pattern](reference-qwen-subagent.md) — offload read-only recon/summarize to cheap Qwen via _Claude Tools/qwen.ps1; safety is by discipline (no technical guardrail)

@@ -31,6 +31,7 @@ from sqlmodel import Session, create_engine, select  # noqa: E402
 from models import DailyJob, Employee, FuelTxn, PayRun, PayRunItem, PettyCashTxn  # noqa: E402
 from services.alias_map import canonical_person_name, normalize_person_name, normalize_site_code, site_from_requester  # noqa: E402
 from services.payroll import compute_pay_cycle_tag, compute_pay_cycle_tag_by_policy, normalize_pay_cycle_policy  # noqa: E402
+from services.payroll import _count_work_days  # noqa: E402
 
 DB_PATH = APP_DIR / "app.db"
 engine = create_engine(f"sqlite:///{DB_PATH}", echo=False, connect_args={"check_same_thread": False})
@@ -239,6 +240,57 @@ def _write_resolution_queue(report: dict[str, Any]) -> dict[str, str]:
         "unresolved_json": str(unresolved_json),
         "quick_win_json": str(quick_win_json),
         "unresolved_csv": str(unresolved_csv),
+    }
+
+
+def _check_implicit_absent(pr: PayRun, s: Session) -> dict[str, Any]:
+    """ตรวจคนขับในรอบที่ payroll engine นับเป็น 'ขาดงานเงียบ' (implicit absent) — มัก
+    เกิดจากแถววันหยุด/รถจอดที่หายตอน import แล้ว engine ตีความว่าวันนั้นขาดงาน → หักเงิน.
+
+    เกณฑ์เตือน: คนขับ pay_mode ที่ prorate ฐานเงินเดือน (lcb_monthly/lcb_trip/...) ที่มี
+    days_absent >= ABSENT_FLAG วัน. ใช้ _count_work_days ตัวเดียวกับ engine จริง.
+    """
+    ABSENT_FLAG = 3
+    PRORATE_MODES = {"lcb_monthly", "lcb_trip", "bigc_monthly", "ayu_trip"}
+    start, end = pr.period_start, pr.period_end
+    site = (pr.site_code or "").strip().upper()
+    emp_ids = [
+        int(x) for x in s.exec(
+            select(PayRunItem.employee_id).where(PayRunItem.pay_run_id == pr.id)
+        ).all()
+    ]
+    flagged: list[dict] = []
+    total_absent_days = 0.0
+    for eid in emp_ids:
+        emp = s.get(Employee, eid)
+        if emp is None:
+            continue
+        mode = (emp.pay_mode or "").strip()
+        days = _count_work_days(s, eid, start, end, site_code=emp.home_site_code or site)
+        absent = float(days.get("absent", 0.0))
+        if absent >= ABSENT_FLAG and mode in PRORATE_MODES:
+            base = (emp.base_salary or 0.0) + (emp.care_allowance or 0.0)
+            period_days = (end - start).days + 1
+            est_deduct = round((base / period_days) * absent, 2) if period_days else 0.0
+            flagged.append({
+                "employee_id": eid,
+                "full_name": emp.full_name,
+                "pay_mode": mode,
+                "days_absent": absent,
+                "days_worked": float(days.get("worked", 0.0)),
+                "est_salary_deducted_thb": est_deduct,
+            })
+            total_absent_days += absent
+    flagged.sort(key=lambda x: -x["days_absent"])
+    return {
+        "risk": "HIGH" if flagged else "LOW",
+        "flagged_driver_count": len(flagged),
+        "total_implicit_absent_days": total_absent_days,
+        "note": (
+            "คนขับที่ถูกนับขาดงานเงียบ >= 3 วัน — มักเกิดจากแถววันหยุด/รถจอดหายตอน import "
+            "ทำให้ engine หักเงินเดือนผิด. ตรวจ daily ของคนนั้นว่ามีแถวครบทุกวันทำงานไหม"
+        ),
+        "flagged_drivers": flagged[:50],
     }
 
 
@@ -463,9 +515,13 @@ def run_preflight(pr: PayRun, s: Session) -> dict[str, Any]:
                     }
                 )
 
+    implicit_absent = _check_implicit_absent(pr, s)
+
     summary_risk = _risk_level(
         unlinked_count, drift_count, fuel_unlinked_count, lcb_explicit_mismatch_count
     )
+    if implicit_absent["flagged_driver_count"] > 0 and summary_risk == "LOW":
+        summary_risk = "MEDIUM"
     total_pending_amount = round(pending_petty_amount, 2)
     unresolved_amount = float(unlinked_resolution["unresolved_amount"])
     quick_win_amount = float(unlinked_resolution["quick_win_amount"])
@@ -560,6 +616,7 @@ def run_preflight(pr: PayRun, s: Session) -> dict[str, Any]:
             "note": "missing driver_id or unclear driver pay_cycle_policy (review required before finalize)",
             "sample_rows": policy_review_rows,
         },
+        "dimension_implicit_absent": implicit_absent,
         "dimension_cross_site_collision": {
             "risk": "MEDIUM" if collision_employees else "LOW",
             "drivers_with_multi_site_jobs_in_period": len(collision_employees),
