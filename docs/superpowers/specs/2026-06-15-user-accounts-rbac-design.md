@@ -104,7 +104,7 @@ Implementation (surgical, not per-route edits):
 
 ### 5. First-run seed
 
-On first deploy, create one admin user (username chosen by โอ) with a temp password and `must_change_pw=True`. โอ logs in, changes the password, then adds the team via the admin UI.
+On first deploy, create one admin user `yk1` with a temp password and `must_change_pw=True`. โอ logs in, changes the password, then adds the team via the admin UI. During the trial, usernames are sequential: `yk1`, `yk2`, `yk3`, … (real names can come later).
 
 ---
 
