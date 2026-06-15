@@ -406,10 +406,36 @@ def ops_lcb_fuel_dispatch():
 
 app.add_middleware(PreviewAuthMiddleware)
 
-# Session cookie (signed) for per-user login. Added after PreviewAuthMiddleware so it
-# is the outermost user middleware -> request.session is populated before RBAC runs.
+# RBAC middleware: enforces login + permission matrix. Defined here, but it needs
+# request.session, so it is added BEFORE SessionMiddleware (later add_middleware =
+# outer wrapper). Result: Session wraps RBAC -> session is populated when RBAC runs.
+from starlette.middleware.base import BaseHTTPMiddleware  # noqa: E402
 from starlette.middleware.sessions import SessionMiddleware  # noqa: E402
 
+from permissions import check as perm_check  # noqa: E402
+
+PUBLIC_PREFIXES = ("/login", "/logout", "/static/", "/uploads/", "/health")
+
+
+class RbacMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        from auth import current_user  # local import: auth -> models -> db ready by now
+        path = request.url.path
+        if path == "/" or any(path == p or path.startswith(p) for p in PUBLIC_PREFIXES):
+            return await call_next(request)
+        user = current_user(request)
+        if user is None:
+            return RedirectResponse("/login", status_code=303)
+        if user.must_change_pw and not path.startswith("/account/password"):
+            return RedirectResponse("/account/password", status_code=303)
+        if path.startswith("/account/"):
+            return await call_next(request)
+        if perm_check(user.role, path, request.method) == "deny":
+            return PlainTextResponse("ไม่มีสิทธิ์เข้าถึงส่วนนี้", status_code=403)
+        return await call_next(request)
+
+
+app.add_middleware(RbacMiddleware)
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.environ.get("YK_SESSION_SECRET", "dev-insecure-secret-change-me"),
@@ -456,6 +482,10 @@ async def login_submit(request: Request, username: str = Form(...), password: st
 async def logout(request: Request):
     logout_session(request)
     return RedirectResponse("/login", status_code=303)
+
+
+# RBAC enforcement is registered as a class middleware (see RbacMiddleware below),
+# added BEFORE SessionMiddleware so the session is available when it runs.
 
 
 def base_context(request: Request) -> dict:
