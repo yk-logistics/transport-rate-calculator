@@ -12,25 +12,41 @@ ROLES = ["admin", "office", "accountant", "viewer"]
 WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 # Logical menu key -> list of URL prefixes that belong to it.
+# /api/* endpoints are mapped to the menu they serve so AJAX calls inherit the
+# same permission as the page that makes them.
 MENUS = {
-    "daily": ["/daily"],
-    "petty": ["/petty-cash"],
+    "daily": ["/daily", "/api/daily", "/api/daily-jobs", "/api/cycle-tag"],
+    "petty": ["/petty-cash", "/api/petty"],
     "payroll": ["/payroll"],
     "finance": ["/finance"],
     "maint": ["/maint"],
     "master": ["/employees", "/vehicles"],
+    "billing": ["/billing"],
+    "rates": ["/rates", "/api/rates"],
+    "customers": ["/customers"],
+    "fuel": ["/fuel", "/fuel-index", "/fuel-surcharge", "/api/fuel"],
+    "dispatch": ["/dispatch", "/ops/lcb-fuel-dispatch"],
+    "email": ["/email"],
+    "import": ["/import"],
     "admin": ["/admin"],
 }
 
 # menu -> role -> "edit" | "view" | "deny"
 MATRIX = {
-    "daily":   {"admin": "edit", "office": "edit", "accountant": "view", "viewer": "view"},
-    "petty":   {"admin": "edit", "office": "edit", "accountant": "view", "viewer": "view"},
-    "payroll": {"admin": "edit", "office": "deny", "accountant": "edit", "viewer": "deny"},
-    "finance": {"admin": "edit", "office": "deny", "accountant": "view", "viewer": "deny"},
-    "maint":   {"admin": "edit", "office": "edit", "accountant": "view", "viewer": "view"},
-    "master":  {"admin": "edit", "office": "view", "accountant": "view", "viewer": "view"},
-    "admin":   {"admin": "edit", "office": "deny", "accountant": "deny", "viewer": "deny"},
+    "daily":     {"admin": "edit", "office": "edit", "accountant": "view", "viewer": "view"},
+    "petty":     {"admin": "edit", "office": "edit", "accountant": "view", "viewer": "view"},
+    "payroll":   {"admin": "edit", "office": "deny", "accountant": "edit", "viewer": "deny"},
+    "finance":   {"admin": "edit", "office": "deny", "accountant": "view", "viewer": "deny"},
+    "maint":     {"admin": "edit", "office": "edit", "accountant": "view", "viewer": "view"},
+    "master":    {"admin": "edit", "office": "view", "accountant": "view", "viewer": "view"},
+    "billing":   {"admin": "edit", "office": "edit", "accountant": "edit", "viewer": "view"},
+    "rates":     {"admin": "edit", "office": "edit", "accountant": "view", "viewer": "view"},
+    "customers": {"admin": "edit", "office": "edit", "accountant": "view", "viewer": "view"},
+    "fuel":      {"admin": "edit", "office": "edit", "accountant": "view", "viewer": "view"},
+    "dispatch":  {"admin": "edit", "office": "edit", "accountant": "view", "viewer": "view"},
+    "email":     {"admin": "edit", "office": "deny", "accountant": "view", "viewer": "deny"},
+    "import":    {"admin": "edit", "office": "deny", "accountant": "deny", "viewer": "deny"},
+    "admin":     {"admin": "edit", "office": "deny", "accountant": "deny", "viewer": "deny"},
 }
 
 

@@ -414,7 +414,10 @@ from starlette.middleware.sessions import SessionMiddleware  # noqa: E402
 
 from permissions import check as perm_check  # noqa: E402
 
-PUBLIC_PREFIXES = ("/login", "/logout", "/static/", "/uploads/", "/health")
+# /driver/* is the driver PWA — it has its OWN auth (DriverSession + PIN) and each
+# handler calls get_current_driver(), redirecting to /driver/login when absent.
+# So RBAC (AppUser-based) must NOT gate it, or drivers get bounced to the admin login.
+PUBLIC_PREFIXES = ("/login", "/logout", "/static/", "/uploads/", "/health", "/driver")
 
 
 class RbacMiddleware(BaseHTTPMiddleware):

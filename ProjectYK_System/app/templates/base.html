@@ -21,7 +21,7 @@
         <a href="/daily/grid" class="hover:underline text-lime-300">Daily Grid</a>
         <a href="/fuel" class="hover:underline">น้ำมัน</a>
         <a href="/petty-cash" class="hover:underline">สดย่อย</a>
-        <a href="/email/inbox" class="hover:underline text-indigo-300">Email Inbox</a>
+        {% if can_see(request, "/email") %}<a href="/email/inbox" class="hover:underline text-indigo-300">Email Inbox</a>{% endif %}
         <a href="/petty-cash/pending" class="hover:underline text-amber-300">รอหักคนขับ</a>
         <a href="/petty-cash/clearance" class="hover:underline text-yellow-300">รอเคลียร์</a>
         <span class="text-slate-500">|</span>
@@ -39,7 +39,7 @@
         {% if can_see(request, "/finance") %}<a href="/finance" class="hover:underline text-violet-300 font-medium">💰 CFO</a>{% endif %}
         <a href="/admin/submissions" class="hover:underline text-pink-300 font-medium" title="รายการส่งจากคนขับ (PWA)">📱 Driver</a>
         <span class="text-slate-500">|</span>
-        <a href="/import" class="hover:underline text-teal-300 font-medium">⬆ Import</a>
+        {% if can_see(request, "/import") %}<a href="/import" class="hover:underline text-teal-300 font-medium">⬆ Import</a>{% endif %}
         {% if can_see(request, "/admin/users") %}<a href="/admin/users" class="hover:underline text-pink-300 font-medium">👤 ผู้ใช้</a>{% endif %}
         <a href="/logout" class="hover:underline text-slate-300">ออกจากระบบ</a>
       </div>
