@@ -435,12 +435,29 @@ class RbacMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Defensive response headers: force HTTPS (HSTS), block clickjacking and
+    MIME-sniffing, trim referrer leakage."""
+    async def dispatch(self, request: Request, call_next):
+        resp = await call_next(request)
+        resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        resp.headers["X-Frame-Options"] = "DENY"
+        resp.headers["X-Content-Type-Options"] = "nosniff"
+        resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return resp
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RbacMiddleware)
+# Secure cookie ON by default (production is HTTPS). Set YK_INSECURE_COOKIES=1 only
+# for local http dev / tests where TestClient speaks plain http.
+_secure_cookies = os.environ.get("YK_INSECURE_COOKIES", "").lower() not in ("1", "true", "yes")
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.environ.get("YK_SESSION_SECRET", "dev-insecure-secret-change-me"),
     same_site="lax",
-    https_only=False,
+    https_only=_secure_cookies,   # Secure flag: cookie never sent over plain HTTP
+    max_age=8 * 60 * 60,          # session expires after 8h (limits stolen-cookie window)
 )
 
 

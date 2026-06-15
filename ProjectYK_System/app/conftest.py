@@ -7,6 +7,9 @@ _tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
 _tmp.close()
 os.environ["DATABASE_URL"] = f"sqlite:///{_tmp.name}"
 os.environ["YK_SESSION_SECRET"] = "test-secret-key-not-for-prod"
+# TestClient speaks plain http; allow the session cookie without the Secure flag
+# so login-dependent tests work. Production leaves this unset -> Secure cookies.
+os.environ["YK_INSECURE_COOKIES"] = "1"
 
 from sqlmodel import SQLModel  # noqa: E402
 from starlette.testclient import TestClient  # noqa: E402
