@@ -588,6 +588,8 @@ async def admin_users_create(request: Request,
                              temp_password: str = Form(...)):
     if role not in ROLES:
         role = "viewer"
+    if len(temp_password) < 8:
+        return PlainTextResponse("รหัสชั่วคราวต้องยาวอย่างน้อย 8 ตัวอักษร", status_code=400)
     with Session(engine) as s:
         exists = s.exec(select(AppUser).where(AppUser.username == username.strip())).first()
         if not exists:
@@ -623,6 +625,8 @@ async def admin_users_enable(request: Request, user_id: int):
 
 @app.post("/admin/users/{user_id}/reset")
 async def admin_users_reset(request: Request, user_id: int, temp_password: str = Form(...)):
+    if len(temp_password) < 8:
+        return PlainTextResponse("รหัสชั่วคราวต้องยาวอย่างน้อย 8 ตัวอักษร", status_code=400)
     with Session(engine) as s:
         u = s.get(AppUser, user_id)
         if u:
@@ -7197,14 +7201,27 @@ async def import_sheets(
     file: UploadFile = File(...),
 ):
     """Step 1: receive file, return sheet picker HTML fragment."""
+    from html import escape as _esc
     data = await file.read()
-    temp_id = iwiz.save_upload(data, file.filename or "upload.xlsx")
-    sheets = iwiz.read_sheets(temp_id)
-    options = "".join(f'<option value="{s}">{s}</option>' for s in sheets)
+    raw_name = file.filename or "upload.xlsx"
+    temp_id = iwiz.save_upload(data, raw_name)
+    try:
+        sheets = iwiz.read_sheets(temp_id)
+    except Exception:
+        return HTMLResponse(
+            '<div class="mt-4 text-red-600 text-sm">อ่านไฟล์ไม่ได้ — '
+            'กรุณาอัปโหลดไฟล์ Excel (.xlsx) ที่ถูกต้อง</div>',
+            status_code=400,
+        )
+    # Escape every value interpolated into HTML (filename + sheet names are
+    # attacker-influenced). temp_id is a UUID hex so it's safe, but escape anyway.
+    options = "".join(
+        f'<option value="{_esc(s)}">{_esc(s)}</option>' for s in sheets
+    )
     html = f"""
 <div id="sheet-picker" class="mt-4 space-y-3">
-  <input type="hidden" name="temp_id" value="{temp_id}">
-  <input type="hidden" name="file_name" value="{file.filename or ''}">
+  <input type="hidden" name="temp_id" value="{_esc(temp_id)}">
+  <input type="hidden" name="file_name" value="{_esc(raw_name)}">
   <div>
     <label class="block text-sm font-medium text-gray-700 mb-1">เลือก Sheet</label>
     <select name="sheet_name" class="border rounded px-3 py-2 w-full"
