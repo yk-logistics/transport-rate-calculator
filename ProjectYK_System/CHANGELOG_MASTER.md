@@ -19,6 +19,13 @@
 - spec/plan: `docs/superpowers/specs/2026-06-10-daily-batch-entry-design.md` · branch `feature/daily-batch-entry`
 - พบบั๊กเก่า (ยังไม่แก้): `petty_save` main.py ใช้ `driver_obj` ที่ไม่ถูกประกาศ → NameError ถ้าบันทึก petty โดยไม่ใส่ pay_cycle_tag เอง
 
+## 2026-06-10 (Dispatch Booking — สเปคฟีเจอร์รับงาน→จัดรถ→ร่างเดลี่ + แผน GPS)
+
+- grill-me รอบ 2 กับโอ → **`docs/DISPATCH_BOOKING_SPEC.md`**: booking = ออเดอร์มีจำนวนคัน, บอร์ดจัดรถแตะสองครั้ง (หัวหน้าลานใช้บนคอม แทน Notepad), จัดแล้วสร้างข้อความไลน์กลุ่ม + **ร่างเดลี่อัตโนมัติ** (เกณฑ์ผ่านหลัก), Location master = POI ของ GPS ในอนาคต
+- แผนสร้าง B1–B4 เข้า MVP_TEST_PLAN (เริ่มหลัง S1, คู่ขนาน S3–S6, ทดสอบจริงใน S2)
+- GPS: Mobile Innovation vs Cartrack ยังไม่สรุป — ออกแบบเป็น adapter ไม่ผูกเจ้า; เฟส เห็นรถ→Timeline→เตือน; โอมีการบ้านส่งคำถาม API 5 ข้อให้สองเจ้า
+- ลำดับ backlog ใหม่: fuel เหมา → GPS 1–2 → ต้นทุนคงที่ → pricing engine
+
 ## 2026-06-10 (MVP Test Plan — เริ่มทดสอบ end-to-end)
 
 - เคาะแผนทดสอบ MVP กับโอ (grill-me 9 ข้อ) → **`docs/MVP_TEST_PLAN.md`** (S1–S7 + กติกาเปิด/ปิดเซสชัน + findings ที่ `docs/MVP_TEST_FINDINGS.md`)

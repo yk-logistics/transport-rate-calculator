@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>สต็อกอะไหล่ — แผ่น A4 (6 หน้า)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Sarabun", "Tahoma", "Segoe UI", sans-serif;
+      font-size: 20pt;
+      color: #111;
+      background: #e8e8e8;
+      padding: 12px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .toolbar {
+      max-width: 210mm;
+      margin: 0 auto 12px;
+      padding: 10px 14px;
+      background: #fff;
+      border-radius: 8px;
+      font-size: 11pt;
+      line-height: 1.55;
+    }
+
+    .toolbar strong { color: #b45309; }
+    .toolbar ul { margin: 6px 0 0 18px; }
+
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto 16px;
+      padding: 10mm 6mm 10mm 12mm;
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,.12);
+    }
+
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-bottom: 4px solid #111;
+      padding-bottom: 5px;
+      margin-bottom: 8px;
+    }
+
+    .page-title {
+      font-size: 32pt;
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: 0.01em;
+    }
+
+    .page-meta {
+      font-size: 13pt;
+      text-align: right;
+      line-height: 1.5;
+    }
+
+    .page-meta .line {
+      display: inline-block;
+      min-width: 55px;
+      border-bottom: 2px solid #333;
+    }
+
+    .subgroup {
+      font-size: 16pt;
+      font-weight: 800;
+      color: #333;
+      margin: 0 0 5px;
+      letter-spacing: 0.02em;
+    }
+
+    .subgroup:first-of-type {
+      margin-top: 4mm;
+    }
+
+    /* หัวข้อย่อยหลังรายการ — เว้นระยะไม่ให้ติดแถวบน */
+    .stock-list + .subgroup {
+      margin-top: 8mm;
+      padding-top: 1mm;
+    }
+
+    .stock-list { list-style: none; }
+
+    .stock-list li {
+      display: flex;
+      align-items: flex-end;
+      width: 100%;
+      min-height: 12mm;
+      padding: 2px 0 3px;
+    }
+
+    .stock-list .item-name {
+      flex-shrink: 0;
+      padding-right: 10px;
+      font-size: 21pt;
+      font-weight: 600;
+      line-height: 1.15;
+    }
+
+    .stock-list .dot-line {
+      flex: 1 1 auto;
+      border-bottom: 2px dotted #666;
+      margin-bottom: 5px;
+      min-width: 5mm;
+    }
+
+    /* ตัวเลขอ้างอิง — ดูมือถือตอนเขียนบนกระดาน (ไม่พิมพ์ลงกระดาษ) */
+    .qty-ref {
+      flex-shrink: 0;
+      min-width: 14mm;
+      text-align: right;
+      font-size: 26pt;
+      font-weight: 800;
+      color: #c2410c;
+      line-height: 1;
+      margin: 0 0 4px 6px;
+    }
+
+    /* บรรทัดว่าง — จุดเต็มแถว */
+    .stock-list.extra { margin-top: 6px; }
+
+    .stock-list.extra .blank-row {
+      min-height: 13mm;
+    }
+
+    .stock-list.extra .blank-row .dot-line {
+      width: 100%;
+      border-bottom-style: dashed;
+      border-bottom-color: #aaa;
+      opacity: 0.85;
+    }
+
+    .page-footer {
+      margin-top: 6px;
+      font-size: 10pt;
+      color: #aaa;
+      text-align: center;
+    }
+
+    /* แผ่นที่รายการเยอะ — ลดความสูงแถวเล็กน้อยไม่ให้ล้นหน้า */
+    .page.page-full .stock-list li { min-height: 10.5mm; }
+    .page.page-full .stock-list .item-name { font-size: 19pt; }
+    .page.page-full .subgroup { font-size: 15pt; margin: 0 0 3px; }
+    .page.page-full .subgroup:first-of-type { margin-top: 3mm; }
+    .page.page-full .stock-list + .subgroup { margin-top: 6mm; }
+
+    @media print {
+      body { background: #fff; padding: 0; }
+      .toolbar { display: none !important; }
+      .qty-ref { display: none !important; }
+      .page {
+        margin: 0;
+        box-shadow: none;
+        page-break-after: always;
+      }
+      .page:last-child { page-break-after: auto; }
+    }
+
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="toolbar">
+    <strong>ถือมือถือเขียนบนกระดาน:</strong> ตัวเลขสีส้มขวามือ = ยอดอ้างอิง (ไม่ขึ้นตอนพิมพ์กระดาษ)
+    <ul>
+      <li>พิมพ์ 6 แผ่น → แปะบนกระดาน → เปิดไฟล์นี้ในมือถือ → เขียนตัวเลขปลายเส้นจุดบนไวท์บอร์ด</li>
+      <li>กรอง 195 / 240 / 360 — ยังไม่มียอดในรายการเดิม (—) นับแล้วเขียนเอง</li>
+    </ul>
+  </div>
+
+  <!-- ① ไฟ -->
+  <section class="page page-full">
+    <header class="page-header">
+      <h1 class="page-title">① ไฟ / ไฟฟ้า</h1>
+      <div class="page-meta">
+        วันที่เช็ค: <span class="line">&nbsp;</span><br>
+        ผู้เช็ค: <span class="line">&nbsp;</span>
+      </div>
+    </header>
+    <p class="subgroup">หลอด / ไฟส่อง</p>
+    <ul class="stock-list">
+      <li><span class="item-name">H4 ไฟหน้า</span><span class="dot-line"></span><span class="qty-ref">5</span></li>
+      <li><span class="item-name">H3 ไฟตัดหมอก</span><span class="dot-line"></span><span class="qty-ref">12</span></li>
+      <li><span class="item-name">หลอดไฟ ใหญ่ 1 จุด</span><span class="dot-line"></span><span class="qty-ref">11</span></li>
+      <li><span class="item-name">หลอดไฟ ใหญ่ 2 จุด</span><span class="dot-line"></span><span class="qty-ref">20</span></li>
+      <li><span class="item-name">หลอดไฟ เล็ก 1 จุด</span><span class="dot-line"></span><span class="qty-ref">6</span></li>
+      <li><span class="item-name">หลอดไฟ ส้มเอียง</span><span class="dot-line"></span><span class="qty-ref">9</span></li>
+      <li><span class="item-name">หลอดไฟ หรี่ (เสียบ)</span><span class="dot-line"></span><span class="qty-ref">4</span></li>
+      <li><span class="item-name">หลอดไฟ ในหัวเก๋ง</span><span class="dot-line"></span><span class="qty-ref">7</span></li>
+      <li><span class="item-name">เฟรชเชอร์ไฟเลี้ยว</span><span class="dot-line"></span><span class="qty-ref">5</span></li>
+    </ul>
+
+    <p class="subgroup">โคม / มอเตอร์ / อื่น</p>
+    <ul class="stock-list">
+      <li><span class="item-name">โคมไฟหน้า ISUZU</span><span class="dot-line"></span><span class="qty-ref">3</span></li>
+      <li><span class="item-name">โคมไฟเลี้ยวหน้าล่าง</span><span class="dot-line"></span><span class="qty-ref">1</span></li>
+      <li><span class="item-name">โคมไฟหน้า UD</span><span class="dot-line"></span><span class="qty-ref">1</span></li>
+      <li><span class="item-name">มอเตอร์กระจก ขวา 3 ฟัน</span><span class="dot-line"></span><span class="qty-ref">2</span></li>
+      <li><span class="item-name">มอเตอร์กระจก ขวา 7 ฟัน</span><span class="dot-line"></span><span class="qty-ref">1</span></li>
+      <li><span class="item-name">ฝาครอบไฟท้าย เหลือง</span><span class="dot-line"></span><span class="qty-ref">1</span></li>
+      <li><span class="item-name">ฝาครอบไฟท้าย แดง</span><span class="dot-line"></span><span class="qty-ref">1</span></li>
+      <li><span class="item-name">ฟิวส์ ยาว 60A 32V เหลือง</span><span class="dot-line"></span><span class="qty-ref">2</span></li>
+      <li><span class="item-name">ฟิวส์ ยาว เขียว</span><span class="dot-line"></span><span class="qty-ref">4</span></li>
+      <li><span class="item-name">ขั้วแบต +</span><span class="dot-line"></span><span class="qty-ref">2</span></li>
+      <li><span class="item-name">ขั้วแบต −</span><span class="dot-line"></span><span class="qty-ref">2</span></li>
+    </ul>
+    <p class="page-footer">YK สต็อกอะไหล่ — แผ่นที่ 1/6</p>
+  </section>
+
+  <!-- ② ลม -->
+  <section class="page">
+    <header class="page-header">
+      <h1 class="page-title">② ลม / เบรก / น้ำมัน</h1>
+      <div class="page-meta">
+        วันที่เช็ค: <span class="line">&nbsp;</span><br>
+        ผู้เช็ค: <span class="line">&nbsp;</span>
+      </div>
+    </header>
+    <p class="subgroup">ลม / ไฮดรอลิก</p>
+    <ul class="stock-list">
+      <li><span class="item-name">สายไฮดรอลิค</span><span class="dot-line"></span><span class="qty-ref">2</span></li>
+      <li><span class="item-name">สายลมเหลือง</span><span class="dot-line"></span><span class="qty-ref">2</span></li>
+      <li><span class="item-name">หม้อลมเบรก 360 ซ้าย</span><span class="dot-line"></span><span class="qty-ref">4</span></li>
+      <li><span class="item-name">หม้อลมเบรก 360 ขวา</span><span class="dot-line"></span><span class="qty-ref">2</span></li>
+      <li><span class="item-name">วาล์วแบ่งลมควบคุม (ท้ายแชสซี) 360</span><span class="dot-line"></span><span class="qty-ref">1</span></li>
+      <li><span class="item-name">วาล์จ่ายลม ลมหาง ตัวใหญ่ 360</span><span class="dot-line"></span><span class="qty-ref">1</span></li>
+    </ul>
+
+    <p class="subgroup">เบรก / คลัทช์ / น้ำมัน</p>
+    <ul class="stock-list">
+      <li><span class="item-name">ปั้มคลัทช์ 195</span><span class="dot-line"></span><span class="qty-ref">1</span></li>
+      <li><span class="item-name">ขาเบรคจิฟฟี่ 360</span><span class="dot-line"></span><span class="qty-ref">1</span></li>
+      <li><span class="item-name">ผ้าเบรค</span><span class="dot-line"></span><span class="qty-ref">4</span></li>
+      <li><span class="item-name">แย็กน้ำมัน</span><span class="dot-line"></span><span class="qty-ref">1</span></li>
+    </ul>
+    <ul class="stock-list extra">
+      <li class="blank-row"><span class="dot-line"></span></li>
+      <li class="blank-row"><span class="dot-line"></span></li>
+      <li class="blank-row"><span class="dot-line"></span></li>
+    </ul>
+    <p class="page-footer">YK สต็อกอะไหล่ — แผ่นที่ 2/6</p>
+  </section>
+
+  <!-- ③ เครื่อง -->
+  <section class="page">
+    <header class="page-header">
+      <h1 class="page-title">③ เครื่อง</h1>
+      <div class="page-meta">
+        วันที่เช็ค: <span class="line">&nbsp;</span><br>
+        ผู้เช็ค: <span class="line">&nbsp;</span>
+      </div>
+    </header>
+    <ul class="stock-list">
+      <li><span class="item-name">กรอง 195</span><span class="dot-line"></span><span class="qty-ref">—</span></li>
+      <li><span class="item-name">กรอง 240</span><span class="dot-line"></span><span class="qty-ref">—</span></li>
+      <li><span class="item-name">กรอง 360</span><span class="dot-line"></span><span class="qty-ref">—</span></li>
+      <li><span class="item-name">สายเกียร์ 360 เข้า</span><span class="dot-line"></span><span class="qty-ref">1</span></li>
+      <li><span class="item-name">สายเกียร์ 360 เลือก</span><span class="dot-line"></span><span class="qty-ref">1</span></li>
+      <li><span class="item-name">กรองแอร์ 360</span><span class="dot-line"></span><span class="qty-ref">1</span></li>
+      <li><span class="item-name">ไดสตาร์ท Fuso</span><span class="dot-line"></span><span class="qty-ref">1</span></li>
+      <li><span class="item-name">หม้อพัก 360</span><span class="dot-line"></span><span class="qty-ref">1</span></li>
+    </ul>
+    <ul class="stock-list extra">
+      <li class="blank-row"><span class="dot-line"></span></li>
+      <li class="blank-row"><span class="dot-line"></span></li>
+      <li class="blank-row"><span class="dot-line"></span></li>
+      <li class="blank-row"><span class="dot-line"></span></li>
+    </ul>
+    <p class="page-footer">YK สต็อกอะไหล่ — แผ่นที่ 3/6</p>
+  </section>
+
+  <!-- ④ ช่วงล่าง + หาง -->
+  <section class="page">
+    <header class="page-header">
+      <h1 class="page-title">④ ช่วงล่าง + หาง</h1>
+      <div class="page-meta">
+        วันที่เช็ค: <span class="line">&nbsp;</span><br>
+        ผู้เช็ค: <span class="line">&nbsp;</span>
+      </div>
+    </header>
+    <p class="subgroup">ช่วงล่าง</p>
+    <ul class="stock-list">
+      <li><span class="item-name">ลิ่มบ่า 360</span><span class="dot-line"></span><span class="qty-ref">1</span></li>
+      <li><span class="item-name">ปิ้นเพลาแหนบ 360</span><span class="dot-line"></span><span class="qty-ref">1</span></li>
+      <li><span class="item-name">ติ่งเพลาโบกี้ 360</span><span class="dot-line"></span><span class="qty-ref">2</span></li>
+      <li><span class="item-name">บูชเฉียง เล็ก</span><span class="dot-line"></span><span class="qty-ref">8</span></li>
+      <li><span class="item-name">บูชเฉียง ใหญ่</span><span class="dot-line"></span><span class="qty-ref">8</span></li>
+    </ul>
+
+    <p class="subgroup">หาง</p>
+    <ul class="stock-list">
+      <li><span class="item-name">ทวิสล็อค</span><span class="dot-line"></span><span class="qty-ref">2</span></li>
+      <li><span class="item-name">ตีนช้าง</span><span class="dot-line"></span><span class="qty-ref">1</span></li>
+    </ul>
+    <ul class="stock-list extra">
+      <li class="blank-row"><span class="dot-line"></span></li>
+      <li class="blank-row"><span class="dot-line"></span></li>
+      <li class="blank-row"><span class="dot-line"></span></li>
+      <li class="blank-row"><span class="dot-line"></span></li>
+    </ul>
+    <p class="page-footer">YK สต็อกอะไหล่ — แผ่นที่ 4/6</p>
+  </section>
+
+  <!-- ⑤ ลิฟท์ -->
+  <section class="page">
+    <header class="page-header">
+      <h1 class="page-title">⑤ ลิฟท์ท้าย</h1>
+      <div class="page-meta">
+        วันที่เช็ค: <span class="line">&nbsp;</span><br>
+        ผู้เช็ค: <span class="line">&nbsp;</span>
+      </div>
+    </header>
+    <ul class="stock-list">
+      <li><span class="item-name">ตะขอลิฟท์ท้าย</span><span class="dot-line"></span><span class="qty-ref">4</span></li>
+      <li><span class="item-name">ปลั๊กลิฟท์</span><span class="dot-line"></span><span class="qty-ref">4</span></li>
+      <li><span class="item-name">รีโมทลิฟท์</span><span class="dot-line"></span><span class="qty-ref">3</span></li>
+      <li><span class="item-name">ออโต้ลิฟท์</span><span class="dot-line"></span><span class="qty-ref">1</span></li>
+    </ul>
+    <ul class="stock-list extra">
+      <li class="blank-row"><span class="dot-line"></span></li>
+      <li class="blank-row"><span class="dot-line"></span></li>
+      <li class="blank-row"><span class="dot-line"></span></li>
+      <li class="blank-row"><span class="dot-line"></span></li>
+      <li class="blank-row"><span class="dot-line"></span></li>
+      <li class="blank-row"><span class="dot-line"></span></li>
+    </ul>
+    <p class="page-footer">YK สต็อกอะไหล่ — แผ่นที่ 5/6</p>
+  </section>
+
+  <!-- ⑥ เซฟตี้ -->
+  <section class="page">
+    <header class="page-header">
+      <h1 class="page-title">⑥ เซฟตี้ + อื่นๆ</h1>
+      <div class="page-meta">
+        วันที่เช็ค: <span class="line">&nbsp;</span><br>
+        ผู้เช็ค: <span class="line">&nbsp;</span>
+      </div>
+    </header>
+    <p class="subgroup">อุปกรณ์เซฟตี้</p>
+    <ul class="stock-list">
+      <li><span class="item-name">หมอนหนุนล้อ ใหม่</span><span class="dot-line"></span><span class="qty-ref">1</span></li>
+      <li><span class="item-name">หมอนหนุนล้อ เก่า</span><span class="dot-line"></span><span class="qty-ref">2</span></li>
+      <li><span class="item-name">ดับเพลิง เล็ก</span><span class="dot-line"></span><span class="qty-ref">4</span></li>
+      <li><span class="item-name">ดับเพลิง ใหญ่</span><span class="dot-line"></span><span class="qty-ref">3</span></li>
+      <li><span class="item-name">กรวย</span><span class="dot-line"></span><span class="qty-ref">4</span></li>
+      <li><span class="item-name">รองเท้าเซฟตี้</span><span class="dot-line"></span><span class="qty-ref">2+1</span></li>
+    </ul>
+
+    <p class="subgroup">อื่นๆ</p>
+    <ul class="stock-list">
+      <li><span class="item-name">ซิลิโคน</span><span class="dot-line"></span><span class="qty-ref">16</span></li>
+    </ul>
+    <ul class="stock-list extra">
+      <li class="blank-row"><span class="dot-line"></span></li>
+      <li class="blank-row"><span class="dot-line"></span></li>
+      <li class="blank-row"><span class="dot-line"></span></li>
+    </ul>
+    <p class="page-footer">YK สต็อกอะไหล่ — แผ่นที่ 6/6</p>
+  </section>
+
+</body>
+</html>

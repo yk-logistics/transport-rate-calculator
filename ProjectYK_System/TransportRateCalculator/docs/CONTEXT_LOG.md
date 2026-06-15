@@ -3483,6 +3483,45 @@ o_work_outbound_rows ใช้เรทตาม **วัน anchor R** ไม�
 
 ---
 
+## 2026-05-26 (Session Summary #115 - Oatside: อัปเดต GPS พ.ค. + push Pages)
+
+### บริบทจากผู้ใช้
+- ส่งไฟล์ GPS ใหม่ 2 ไฟล์ (26.05.2026) ขออัปเดตเที่ยวเดือน **พ.ค.** แล้ว **push** ขึ้นรายงานบนเว็บ
+
+### การตัดสินใจรอบนี้
+- คัดลอกไฟล์จาก Downloads → `Oatside/` (เก็บของเก่าใน `Oatside/gps_archive/`)
+- พบ `report_end_date=2026-04-30` ใน `oatside_config.json` ทำให้ build แรกได้ **0 เที่ยว** → ขยายเป็น **`2026-05-31`**
+- Deploy + push ไป `transport-rate-calculator-repo` โฟลเดอร์ `reports/oatside-pg-2026` (commit `32e815b`)
+
+### สิ่งที่ทำแล้ว
+- Build สำเร็จ: **Trips 123 | Unmatched 18**; exports 16 ไฟล์ (รวม `15_Trips_Pricing_All.xlsx`)
+- Push สำเร็จ: https://yk-logistics.github.io/transport-rate-calculator/reports/oatside-pg-2026/index.html
+
+### Action ถัดไป
+- โอเปิดหน้าเว็บแล้ว hard refresh (Ctrl+F5); ถ้าต้องการเติมราคาน้ำมันรายวัน พ.ค. ให้ครบ (ลด carry-forward) ส่งไฟล์/ตารางราคามาได้
+
+---
+
+## 2026-05-26 (Session Summary #116 - ราคาบางจาก พ.ค. + ล็อกเรท เม.ย. + โชว์ลูกค้าเฉพาะ พ.ค.)
+
+### บริบทจากผู้ใช้
+- คัดลอกตารางราคาน้ำมันย้อนหลังบางจาก (ไม่ดึงเว็บตรงเพราะ captcha) — ขอใส่ราคาพ.ค. และจำเงื่อนไขค่าขนส่ง **เม.ย.** (วางบิลแล้ว) แต่เว็บลูกค้าโชว์แค่ **พ.ค.**
+
+### การตัดสินใจรอบนี้
+- ราคาน้ำมันพ.ค.: ใช้ **คอลัมน์ที่ 5** ของแถวบางจาก = ไฮดีเซล S (~31–34 บ./ล.) ให้ตรงแถบ `base_fuel_min 31.00` ของเรทพ.ค.
+- `report_start_date=2026-05-01`; `customer_rate_summary` แทนข้อความเรทรวม (ไม่โชว์ 7,500/8,000 เม.ย.)
+- เก็บเรทเม.ย.ใน `Oatside/docs/BILLING_LOCKED_APR2026.md` + `_billing_locked_april_2026` ใน config
+
+### สิ่งที่ทำแล้ว
+- Anchor พ.ค. 7 วัน (1,8,13,14,19,20,26) + carry-forward วันอื่น; build `exact=35, carry_forward=88`
+- Push Pages commit `38b6166`
+- **แก้:** โอยืนยันใช้ **ไฮดีเซล S คอลัมน์ที่ 2** (~40–42 บ./ล.) ไม่ใช่คอลัมน์ที่ 5 — rebuild + push ใหม่
+
+### Action ถัดไป
+- โอ hard refresh รายงาน; ถ้าต้องการราคาน้ำมันทุกวันพ.ค. แบบไม่ carry-forward ส่งวันที่ประกาศเพิ่มได้
+
+---
+
 ## 2026-05-06 (Session Summary #115 - Claude Code Vibecoding: prompt อังกฤษ + guardrail ตรวจเงินครบ 3 ไซท์)
 
 ### บริบทจากผู้ใช้
@@ -5671,4 +5710,37 @@ o_work_outbound_rows ใช้เรทตาม **วัน anchor R** ไม�
 
 ### Action ถัดไป
 - โอวาง PDF เช้าใน pump_inbox แล้วรัน bat · Ctrl+F5 ดูแถบเหลือง · ถ้าปั๊มส่ง Excel ได้จะแม่นขึ้น
+
+---
+
+## 2026-05-25 (Session Summary #197 - ราคาน้ำมันขยายถึงวันนี้)
+
+### บริบทจากผู้ใช้
+- ปรับราคาน้ำมันล่าสุด 20/5 แต่เรทเดิมคงจนถึง 25/5 — เลือกช่วงวันที่ในปฏิทินได้แค่ถึง 20/5 ไม่ถึงวันนี้
+
+### การตัดสินใจรอบนี้
+- หลัง `fillMissingHistoricalDates`: **carry-forward** ราคาล่าสุดจากวันปรับราคาสุดท้าย → วันนี้ (local) — นับเป็น `imputed` + badge `ราคาล่าสุด`
+- ปฏิทิน/คลุมช่วงใช้แถวที่ขยายแล้ว — ค่าเฉลี่ยรวมวัน 21–25 ได้ด้วยเรทเดิม
+
+### สิ่งที่ทำแล้ว
+- แก้ `transport_rate_calculator.html` + sync `index.html`
+- push Pages: `yk-logistics/transport-rate-calculator` commit `48d9a21`
+
+### Action ถัดไป
+- รอ Pages 1–2 นาที แล้ว Ctrl+F5 หน้า Calculator — ดึงข้อมูลย้อนหลัง → เลือกช่วงถึง 25/5 ควรได้
+
+---
+
+## 2026-05-25 (Session Summary #198 - หัวตารางใบสรุปมองไม่เห็น)
+
+### บริบทจากผู้ใช้
+- แถบหัวตารางสีน้ำเงินใน “ใบสรุปเสนอราคา” ไม่เห็นชื่อคอลัมน์ (โรงงาน / Base / ราคาเสนอ ฯลฯ)
+
+### สิ่งที่ทำแล้ว
+- บังคับ `color:#fff` + class `rate-th-head` บนหัวตาราง quote + factory
+- แก้ html2canvas onclone ที่เคยตั้งสีหัวตารางเป็น `#1e3a5f` (ชนกับพื้นหลัง)
+- push `e1017c9`
+
+### Action ถัดไป
+- Ctrl+F5 หน้า Calculator → สร้างตารางใหม่ → ตรวจหัวตารางในใบสรุปเสนอราคา
 
