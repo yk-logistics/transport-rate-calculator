@@ -522,6 +522,71 @@ async def password_submit(request: Request,
     return RedirectResponse("/daily", status_code=303)
 
 
+# ---- Admin: user management (admin role only; enforced by RBAC matrix /admin) ----
+from permissions import ROLES  # noqa: E402
+
+
+@app.get("/admin/users", response_class=HTMLResponse)
+async def admin_users_list(request: Request):
+    with Session(engine) as s:
+        users = s.exec(select(AppUser).order_by(AppUser.username)).all()
+    return templates.TemplateResponse("admin_users.html",
+                                      {"request": request, "users": users, "roles": ROLES})
+
+
+@app.post("/admin/users/new")
+async def admin_users_create(request: Request,
+                             username: str = Form(...),
+                             display_name: str = Form(""),
+                             role: str = Form(...),
+                             temp_password: str = Form(...)):
+    if role not in ROLES:
+        role = "viewer"
+    with Session(engine) as s:
+        exists = s.exec(select(AppUser).where(AppUser.username == username.strip())).first()
+        if not exists:
+            s.add(AppUser(username=username.strip(),
+                          password_hash=hash_password(temp_password),
+                          display_name=display_name.strip(), role=role,
+                          status="active", must_change_pw=True))
+            s.commit()
+    return RedirectResponse("/admin/users", status_code=303)
+
+
+@app.post("/admin/users/{user_id}/disable")
+async def admin_users_disable(request: Request, user_id: int):
+    with Session(engine) as s:
+        u = s.get(AppUser, user_id)
+        if u and u.username != "yk1":   # never disable the seed admin
+            u.status = "disabled"
+            s.add(u)
+            s.commit()
+    return RedirectResponse("/admin/users", status_code=303)
+
+
+@app.post("/admin/users/{user_id}/enable")
+async def admin_users_enable(request: Request, user_id: int):
+    with Session(engine) as s:
+        u = s.get(AppUser, user_id)
+        if u:
+            u.status = "active"
+            s.add(u)
+            s.commit()
+    return RedirectResponse("/admin/users", status_code=303)
+
+
+@app.post("/admin/users/{user_id}/reset")
+async def admin_users_reset(request: Request, user_id: int, temp_password: str = Form(...)):
+    with Session(engine) as s:
+        u = s.get(AppUser, user_id)
+        if u:
+            u.password_hash = hash_password(temp_password)
+            u.must_change_pw = True
+            s.add(u)
+            s.commit()
+    return RedirectResponse("/admin/users", status_code=303)
+
+
 # RBAC enforcement is registered as a class middleware (see RbacMiddleware below),
 # added BEFORE SessionMiddleware so the session is available when it runs.
 
