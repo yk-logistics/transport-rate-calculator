@@ -3,6 +3,10 @@
 {% block content %}
 <div class="max-w-3xl mx-auto space-y-6 p-6">
   <h1 class="text-xl font-bold">จัดการผู้ใช้</h1>
+  <p class="text-xs text-gray-500 bg-amber-50 border border-amber-200 rounded p-2">
+    🔒 ระบบเก็บรหัสผ่านแบบเข้ารหัส (hash) เพื่อความปลอดภัย — ดูรหัสจริงไม่ได้แม้แต่แอดมิน
+    ถ้าพนักงานลืมรหัส ให้กด “รีเซ็ตรหัส” ตั้งรหัสชั่วคราว แล้วเขาเปลี่ยนเองตอน login
+  </p>
   <table class="w-full bg-white rounded shadow text-sm">
     <thead class="bg-gray-200"><tr>
       <th class="p-2 text-left">username</th><th class="p-2 text-left">ชื่อ</th>
@@ -13,13 +17,18 @@
       <tr class="border-t">
         <td class="p-2">{{ u.username }}</td><td class="p-2">{{ u.display_name }}</td>
         <td class="p-2">{{ u.role }}</td><td class="p-2">{{ u.status }}</td>
-        <td class="p-2 text-right">
+        <td class="p-2 text-right whitespace-nowrap">
+          <form method="post" action="/admin/users/{{ u.id }}/reset" class="inline"
+                onsubmit="return confirm('ตั้งรหัสชั่วคราวให้ {{ u.username }}? เขาจะต้องเปลี่ยนรหัสเองตอน login');">
+            <input name="temp_password" placeholder="รหัสใหม่" class="border rounded px-1 py-0.5 w-24 text-xs" required>
+            <button class="text-blue-600">รีเซ็ตรหัส</button>
+          </form>
           {% if u.username != 'yk1' %}
           {% if u.status == 'active' %}
-            <form method="post" action="/admin/users/{{ u.id }}/disable" class="inline">
+            <form method="post" action="/admin/users/{{ u.id }}/disable" class="inline ml-2">
               <button class="text-red-600">ปิด</button></form>
           {% else %}
-            <form method="post" action="/admin/users/{{ u.id }}/enable" class="inline">
+            <form method="post" action="/admin/users/{{ u.id }}/enable" class="inline ml-2">
               <button class="text-green-600">เปิด</button></form>
           {% endif %}
           {% endif %}
