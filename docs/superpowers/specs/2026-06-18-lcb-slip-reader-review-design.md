@@ -59,8 +59,25 @@ default '') ตาม pattern เดิม.
 | `slip_source` | อ่าน archive: ดึงสลิปฝั่งบริษัทกลุ่ม LCB ที่ยังไม่ประมวลผล (by message_id) | line_archive.db (RO) |
 | `slip_classifier` | คัด: รูปนี้เป็นสลิปโอนไหม (vs ใบงาน/แพลน/ตารางสรุป) | engine |
 | `slip_ocr` | อ่านสลิป → {amount, recipient_name, memo, ref_code, time, direction} | **engine (สลับได้)** |
-| `entry_builder` | ประกอบ PettyCashTxn draft (map ชื่อ→driver_id, งาน→category, confidence) | alias_map |
+| `plan_context` | อ่านแพลนงานล่าสุดของวันนั้น (รวมที่แก้ไข) → lookup "วันนี้ใครวิ่งงานอะไร/คืนลานไหน/ลูกค้า" | line_archive.db (RO) |
+| `entry_builder` | ประกอบ PettyCashTxn draft (map ชื่อ→driver_id, งาน→category, confidence) + ใช้ plan_context เติม note/ยืนยันคน/ตีธงถ้าไม่ตรง | alias_map, plan_context |
 | `mvp_push` | POST รายการเข้า MVP ผ่าน endpoint ใหม่ (idempotent by slip_line_message_id) | MVP API |
+
+### plan_context — ตัวช่วย ไม่ใช่ระบบแพลนเต็ม (กัน scope บวม)
+
+แพลนในกลุ่มมีโครงสร้างชัด (หัวหน้า KhaoFang/Mark แจ้งทุกวัน; แก้ไขแจ้งกลุ่มเดิม):
+```
+**16.06.26** ...
+Job. 26-0914  Agent. YANG MING
+รับตู้หนักKERRY ... คืนลานUNIWISE
+- นายปกรณ์ ศรีบุญเรือง   หัว72-1220 หาง72-2952
+```
+- parse แพลน text ของวัน → dict: `{driver_name: [{job, customer, return_yard, plate, date}]}`
+- ถ้ามีหลายเวอร์ชัน (แก้ไข) → **ใช้อันล่าสุด** ที่ระบุวันเดียวกัน
+- ป้อนให้ `entry_builder`: (1) เติม `memo`/note แบบที่ชีตใช้ (เช่น "KLND CNC 17/6/26");
+  (2) ถ้าแท็กกำกวม ใช้แพลนยืนยันคน; (3) ถ้าสลิป-คน ไม่อยู่ในแพลนวันนั้น → ตีธง confidence ต่ำ
+- **ทำเฉพาะ best-effort** — แพลน parse ไม่ได้/ไม่เจอ ไม่บล็อก (สลิปยังสร้าง draft ได้ตามปกติ)
+- ❌ ไม่สร้างตารางแพลน ไม่มีหน้าจัดการแพลน (นั่นคืออนาคต "แบบ C")
 
 ### engine interface (สลับได้ — กุญแจของ "สลับ Claude↔Qwen")
 ```
@@ -88,7 +105,8 @@ slip-reader (รอบ ๆ / cron บน server):
   1. slip_source: หา company image กลุ่ม LCB ที่ slip_line_message_id ยังไม่เคยส่ง
   2. slip_classifier: ใช่สลิปไหม → ไม่ใช่ ข้าม (log)
   3. slip_ocr (engine): อ่านยอด/ชื่อ/memo/ref/time
-  4. entry_builder: map → draft + confidence
+  3b. plan_context: โหลดแพลนของวันนั้น (best-effort)
+  4. entry_builder: map + เติม note/ยืนยันคนจากแพลน → draft + confidence
   5. mvp_push → POST /api/petty/ingest (idempotent)
 MVP:
   6. /petty/review : หมิวเห็น draft → อนุมัติ/แก้/ทิ้ง
