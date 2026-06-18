@@ -16,7 +16,7 @@ WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 # same permission as the page that makes them.
 MENUS = {
     "daily": ["/daily", "/api/daily", "/api/daily-jobs", "/api/cycle-tag"],
-    "petty": ["/petty-cash", "/api/petty"],
+    "petty": ["/petty-cash", "/petty/review", "/api/petty"],
     "payroll": ["/payroll"],
     "finance": ["/finance"],
     "maint": ["/maint"],

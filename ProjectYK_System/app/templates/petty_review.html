@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}รออนุมัติ · สดย่อย LCB{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">รออนุมัติ — สดย่อย LCB (จากสลิป LINE)</h1>
+<table class="w-full text-sm border">
+  <thead><tr class="bg-gray-100 text-left">
+    <th class="p-2">วันที่</th><th class="p-2">คนขับ</th><th class="p-2 text-right">ยอด</th>
+    <th class="p-2">รายการ</th><th class="p-2">มั่นใจ</th><th class="p-2">สลิป</th><th class="p-2"></th>
+  </tr></thead>
+  <tbody>
+  {% for t in rows %}
+    <tr class="border-t">
+      <td class="p-2">{{ t.txn_date | dmy }}</td>
+      <td class="p-2">{{ t.requester_raw }}</td>
+      <td class="p-2 text-right">{{ "%.2f"|format(t.amount) }}</td>
+      <td class="p-2">{{ t.memo }}</td>
+      <td class="p-2">{{ "%.0f"|format(t.parsed_confidence * 100) }}%</td>
+      <td class="p-2">{% if t.slip_media_path %}มี{% else %}-{% endif %}</td>
+      <td class="p-2 whitespace-nowrap">
+        <form method="post" action="/petty/review/{{ t.id }}/approve" class="inline">
+          <input name="amount" value="{{ t.amount }}" size="7" class="border rounded px-1">
+          <button class="text-green-700 font-medium">อนุมัติ</button>
+        </form>
+        <form method="post" action="/petty/review/{{ t.id }}/reject" class="inline ml-2">
+          <button class="text-red-600">ทิ้ง</button>
+        </form>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="text-center p-4 text-gray-500">ไม่มีรายการรออนุมัติ</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

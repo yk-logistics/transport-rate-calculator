@@ -2850,6 +2850,55 @@ async def petty_ingest(request: Request):
         return JSONResponse({"status": "created", "id": t.id})
 
 
+@app.get("/petty/review", response_class=HTMLResponse)
+def petty_review(request: Request):
+    """Human review queue for AI-read slip drafts (admin/office, LCB only).
+
+    Money rule: AI never posts directly. Drafts sit at pending_review until a
+    person approves here. RBAC is governed by the 'petty' menu (see permissions).
+    """
+    with Session(engine) as s:
+        rows = s.exec(select(PettyCashTxn).where(
+            PettyCashTxn.status == "pending_review",
+            PettyCashTxn.site_code == "LCB",
+        ).order_by(PettyCashTxn.txn_date, PettyCashTxn.id)).all()
+    ctx = base_context(request)
+    ctx["rows"] = rows
+    return templates.TemplateResponse("petty_review.html", ctx)
+
+
+@app.post("/petty/review/{pid}/approve")
+async def petty_review_approve(pid: int, request: Request):
+    form = await request.form()
+    with Session(engine) as s:
+        t = s.get(PettyCashTxn, pid)
+        if t and t.status == "pending_review":
+            if form.get("amount"):
+                try:
+                    t.amount = float(form["amount"])
+                except (TypeError, ValueError):
+                    pass
+            if form.get("requester_raw"):
+                t.requester_raw = str(form["requester_raw"]).strip()
+            if form.get("category"):
+                t.category = str(form["category"]).strip()
+            if form.get("memo"):
+                t.memo = str(form["memo"]).strip()
+            t.status = "posted"
+            s.add(t); s.commit()
+    return RedirectResponse("/petty/review", status_code=303)
+
+
+@app.post("/petty/review/{pid}/reject")
+def petty_review_reject(pid: int):
+    with Session(engine) as s:
+        t = s.get(PettyCashTxn, pid)
+        if t and t.status == "pending_review":
+            t.status = "draft"
+            s.add(t); s.commit()
+    return RedirectResponse("/petty/review", status_code=303)
+
+
 # ==========================================================================
 # /admin/promote — Promote raw driver names / plates into Master
 # ==========================================================================
