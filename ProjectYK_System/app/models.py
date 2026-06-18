@@ -254,6 +254,11 @@ class PettyCashTxn(SQLModel, table=True):
     parsed_confidence: float = 0.0
     parsed_payload_json: str = ""
 
+    # provenance for LINE-slip-sourced entries (phase: lcb-slip-reader)
+    slip_line_message_id: str = Field(default="", index=True)
+    slip_media_path: str = ""
+    slip_ref_code: str = ""
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -1225,9 +1230,10 @@ DEDUCTION_STATUS = (
 )
 
 PETTY_TXN_STATUS = (
-    ("draft",  "ร่าง"),
-    ("posted", "บันทึกแล้ว"),
-    ("locked", "ปิดรอบแล้ว (แก้ไม่ได้)"),
+    ("draft",          "ร่าง"),
+    ("pending_review", "รอ AI อ่าน—รออนุมัติ"),
+    ("posted",         "บันทึกแล้ว"),
+    ("locked",         "ปิดรอบแล้ว (แก้ไม่ได้)"),
 )
 
 class ImportLog(SQLModel, table=True):

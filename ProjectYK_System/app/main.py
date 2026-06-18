@@ -85,7 +85,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 19
+SCHEMA_VERSION = 20
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -321,6 +321,10 @@ def _apply_additive_migrations() -> None:
     # v16: InboxEmail / InboxSyncRun tables for IMAP ingestion are create_all-only.
     # v17: Employee.pay_cycle_policy for driver-policy-first cycle resolution.
     _ensure_column("employee", "pay_cycle_policy", "TEXT", default="site_default")
+    # v20: PettyCashTxn LINE-slip provenance (lcb-slip-reader phase)
+    _ensure_column("pettycashtxn", "slip_line_message_id", "TEXT", default="")
+    _ensure_column("pettycashtxn", "slip_media_path", "TEXT", default="")
+    _ensure_column("pettycashtxn", "slip_ref_code", "TEXT", default="")
 
 
 def init_db() -> None:
