@@ -421,7 +421,8 @@ from permissions import check as perm_check  # noqa: E402
 # /driver/* is the driver PWA — it has its OWN auth (DriverSession + PIN) and each
 # handler calls get_current_driver(), redirecting to /driver/login when absent.
 # So RBAC (AppUser-based) must NOT gate it, or drivers get bounced to the admin login.
-PUBLIC_PREFIXES = ("/login", "/logout", "/static/", "/uploads/", "/health", "/driver")
+PUBLIC_PREFIXES = ("/login", "/logout", "/static/", "/uploads/", "/health", "/driver",
+                   "/api/petty/")  # service-token auth (not session); checked in-handler
 
 
 class RbacMiddleware(BaseHTTPMiddleware):
@@ -2803,6 +2804,50 @@ async def petty_grid_save(request: Request):
                 s.rollback()
                 errors.append({"id": rid, "error": str(exc)})
     return JSONResponse({"ok": True, "updated": updated, "errors": errors})
+
+
+@app.post("/api/petty/ingest")
+async def petty_ingest(request: Request):
+    """Service endpoint: the LINE slip-reader pushes AI-read draft entries here.
+
+    Auth is a shared service token (X-Service-Token), NOT a session login — this
+    runs from the slip-reader service, not a browser. Every row lands as
+    status=pending_review for a human to approve on /petty/review. Idempotent by
+    slip_line_message_id so re-running the reader never double-posts.
+    """
+    expected = os.environ.get("YK_SLIP_INGEST_TOKEN", "")
+    if not expected or request.headers.get("X-Service-Token") != expected:
+        raise HTTPException(status_code=401, detail="bad service token")
+    body = await request.json()
+    msg_id = str(body.get("slip_line_message_id", "")).strip()
+    if not msg_id:
+        return JSONResponse({"status": "error", "error": "missing slip_line_message_id"},
+                            status_code=400)
+    txn_date = _parse_date(str(body.get("txn_date", "")))
+    if not txn_date:
+        return JSONResponse({"status": "error", "error": "bad txn_date"}, status_code=400)
+    with Session(engine) as s:
+        existing = s.exec(select(PettyCashTxn).where(
+            PettyCashTxn.slip_line_message_id == msg_id)).first()
+        if existing:
+            return JSONResponse({"status": "duplicate", "id": existing.id})
+        t = PettyCashTxn(
+            txn_date=txn_date,
+            site_code=str(body.get("site_code", "")).strip(),
+            direction=str(body.get("direction", "out")).strip() or "out",
+            amount=float(body.get("amount") or 0.0),
+            category=str(body.get("category", "other")).strip() or "other",
+            requester_raw=str(body.get("requester_raw", "")).strip(),
+            memo=str(body.get("memo", "")).strip(),
+            status="pending_review", source="line_slip",
+            slip_line_message_id=msg_id,
+            slip_media_path=str(body.get("slip_media_path", "")).strip(),
+            slip_ref_code=str(body.get("slip_ref_code", "")).strip(),
+            parsed_confidence=float(body.get("parsed_confidence") or 0.0),
+            parsed_payload_json=str(body.get("parsed_payload_json", "")),
+        )
+        s.add(t); s.commit(); s.refresh(t)
+        return JSONResponse({"status": "created", "id": t.id})
 
 
 # ==========================================================================
