@@ -7,11 +7,15 @@ import glob
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 
 from .engine import get_engine
+from . import config
 
 # repo_root/reports/lcb_slips_0615 — slips saved during the accuracy-proof phase
 _HERE = os.path.dirname(__file__)
 SLIP_DIR = os.path.abspath(os.path.join(_HERE, "..", "..", "reports", "lcb_slips_0615"))
-OUT_PATH = os.path.abspath(os.path.join(_HERE, "..", "..", "reports", "slip_reader_dryrun.md"))
+# Output filename carries the model so multiple runs (e.g. Haiku vs Sonnet) coexist.
+_MODEL_TAG = config.CLAUDE_MODEL.replace(".", "-")
+OUT_PATH = os.path.abspath(os.path.join(
+    _HERE, "..", "..", "reports", f"slip_reader_dryrun_{_MODEL_TAG}.md"))
 
 
 def main():
