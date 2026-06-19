@@ -124,3 +124,5 @@ ProjectYK_System/reports/*.xlsx
 
 # LCB petty proof — raw bank slips (contain account numbers, do not commit)
 reports/lcb_slips_*/
+# slip-reader dry-run output (contains recipient account names)
+reports/slip_reader_dryrun.md
