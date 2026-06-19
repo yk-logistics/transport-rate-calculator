@@ -126,3 +126,6 @@ ProjectYK_System/reports/*.xlsx
 reports/lcb_slips_*/
 # slip-reader dry-run output (contains recipient account names)
 reports/slip_reader_dryrun*.md
+
+# slip-reader local test data (archive copy + slip images — bank account data)
+ProjectYK_System/slip_reader/_devdata/

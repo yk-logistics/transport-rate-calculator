@@ -9,13 +9,19 @@ from .engine import get_engine
 from .plan_context import parse_plan
 from .entry_builder import build_entry
 
-DB = r"C:\Users\yklog\YK_LINE_ARCHIVER\line_archive.db"
+# Server default; override on dev with SLIP_ARCHIVE_DB env var.
+import os
+DB = os.environ.get("SLIP_ARCHIVE_DB", r"C:\Users\yklog\YK_LINE_ARCHIVER\line_archive.db")
 GROUP = "หัวลาก LCB"
 
 
 def main(since=None) -> int:
     engine = get_engine(config.SLIP_ENGINE)
     slips = slip_source.company_slips(DB, GROUP, since=since)
+    # Optional single-day filter (SLIP_ONLY_DAY=16.06.26) — for targeted/test runs.
+    only_day = os.environ.get("SLIP_ONLY_DAY", "")
+    if only_day:
+        slips = [s for s in slips if s["day_ddmmyy"] == only_day]
     plan_cache: dict[str, dict] = {}
     pushed = 0
     for s in slips:
