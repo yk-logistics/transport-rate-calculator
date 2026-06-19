@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json
 from .engine import SlipReadout
+from .name_match import best_name_match
 
 
 def _category(memo: str) -> str:
@@ -31,11 +32,16 @@ def build_entry(readout: SlipReadout, *, day: str, plan: dict,
         return None
     name = (readout.recipient_name or "").strip()
     first = name.split()[0] if name.split() else name
+    # Fuzzy-match the OCR'd name to the day's plan roster (correctly-spelled
+    # driver names). On a hit, use the plan's canonical spelling — corrects OCR
+    # typos like วิไรจน์→วิโรจน์. This is what drives who gets paid, so accuracy matters.
+    roster = [k for k in (plan or {}) if k]
+    matched = best_name_match(name, roster)
     plan_entry = None
-    for k, lst in (plan or {}).items():
-        if k and (k in name or name in k) and lst:
-            plan_entry = lst[0]
-            break
+    if matched:
+        first = matched  # canonical spelling from the plan
+        lst = plan.get(matched)
+        plan_entry = lst[0] if lst else None
     memo = readout.memo or ""
     if plan_entry:
         extra = " ".join(x for x in (plan_entry.get("agent", ""),

@@ -29,9 +29,16 @@ def test_plan_enriches_memo_and_confidence():
 
 
 def test_no_plan_match_lower_confidence():
-    p = build_entry(_ro(recipient_name="ใครก็ไม่รู้", memo="คืนตู้"),
+    p = build_entry(_ro(recipient_name="ใครก็ไม่รู้สักคน", memo="คืนตู้"),
                     day="16.06.26", plan=PLAN, slip_line_message_id="z", slip_media_path="")
     assert p["parsed_confidence"] == 0.6
+
+
+def test_fuzzy_corrects_ocr_misread_name_from_plan():
+    # OCR misread ปกรณ์ as ปกรน์ — plan roster corrects requester_raw to ปกรณ์
+    p = build_entry(_ro(recipient_name="ปกรน์ ศรีบุญเรือง"),
+                    day="16.06.26", plan=PLAN, slip_line_message_id="f", slip_media_path="")
+    assert p["requester_raw"] == "ปกรณ์" and p["parsed_confidence"] == 0.9
 
 
 def test_advance_category_from_memo():
