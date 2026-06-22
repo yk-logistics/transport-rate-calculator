@@ -484,6 +484,7 @@ from permissions import check as perm_check  # noqa: E402
 # So RBAC (AppUser-based) must NOT gate it, or drivers get bounced to the admin login.
 PUBLIC_PREFIXES = ("/login", "/logout", "/static/", "/uploads/", "/health", "/driver",
                    "/check",       # magic-link tire check; gated in-handler by signed token
+                   "/c/",          # short-URL redirect to /check (resolves token from DB)
                    "/api/petty/")  # service-token auth (not session); checked in-handler
 
 
@@ -5968,6 +5969,17 @@ def check_landing(request: Request):
         "request": request, "token": request.query_params.get("t"),
         "role": link.role, "role_th": role_th,
     })
+
+
+@app.get("/c/{code}")
+def check_short_redirect(code: str):
+    """Resolve a short code to its full magic-link token and redirect to /check."""
+    with Session(engine) as s:
+        link = s.exec(select(AccessLink).where(AccessLink.short_code == code)).first()
+        if not link:
+            raise HTTPException(404, "ลิงก์ไม่ถูกต้องหรือหมดอายุ")
+        tok = link.token
+    return RedirectResponse(f"/check?t={tok}", status_code=303)
 
 
 @app.get("/admin/check-links", response_class=HTMLResponse)
