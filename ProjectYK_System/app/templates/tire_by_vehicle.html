@@ -84,6 +84,8 @@
         <th class="text-left py-1 px-2">จาก</th>
         <th class="text-left py-1 px-2">ไป</th>
         <th class="text-right py-1 px-2">ไมล์</th>
+        <th class="text-left py-1 px-2">ผู้ตรวจ/สภาพ</th>
+        <th class="text-left py-1 px-2">รูป</th>
         <th class="text-left py-1 px-2">หมายเหตุ</th>
       </tr>
     </thead>
@@ -96,6 +98,15 @@
         <td class="py-1 px-2 text-xs font-mono">{{ e.from_position or '-' }}</td>
         <td class="py-1 px-2 text-xs font-mono">{{ e.to_position or '-' }}</td>
         <td class="py-1 px-2 text-right text-xs font-mono">{{ "%.0f"|format(e.mile) if e.mile else '-' }}</td>
+        <td class="py-1 px-2 text-xs text-slate-600">
+          {% if e.actor_name %}{{ e.actor_name }}{% if e.actor_role %} <span class="text-slate-400">({{ e.actor_role }})</span>{% endif %}{% endif %}
+          {% if e.condition_flag %}<span class="text-amber-600">· {{ e.condition_flag }}</span>{% endif %}
+        </td>
+        <td class="py-1 px-2 text-xs">
+          {% for p in (e.photo_paths or '').split(',') if p %}
+            <a href="/uploads/{{ p }}" target="_blank" class="text-sky-600 hover:underline">📷</a>
+          {% endfor %}
+        </td>
         <td class="py-1 px-2 text-xs text-slate-600">{{ e.note or '' }}</td>
       </tr>
       {% endfor %}
