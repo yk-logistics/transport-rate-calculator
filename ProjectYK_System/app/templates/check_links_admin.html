@@ -25,10 +25,18 @@
     <td>
       <span class="font-mono text-xs" data-short="/c/{{ l.short_code }}">/c/{{ l.short_code }}</span>
     </td>
-    <td>
-      {% if l.short_code %}
+    <td class="whitespace-nowrap">
+      {% if l.short_code and not l.revoked %}
       <button type="button" onclick="copyShort(this)" data-code="/c/{{ l.short_code }}"
               class="bg-green-600 text-white text-xs px-3 py-1 rounded">คัดลอก</button>
+      {% endif %}
+      {% if l.revoked %}
+        <span class="text-xs text-red-400">ปิดใช้งานแล้ว</span>
+      {% else %}
+        <form method="post" action="/admin/check-links/{{ l.id }}/revoke" class="inline"
+              onsubmit="return confirm('ปิดใช้งานลิงก์นี้? ลิงก์จะใช้ไม่ได้ทันที');">
+          <button class="bg-red-600 text-white text-xs px-3 py-1 rounded">ปิดใช้งาน</button>
+        </form>
       {% endif %}
     </td>
   </tr>

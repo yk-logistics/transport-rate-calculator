@@ -6020,6 +6020,17 @@ async def admin_check_links_create(request: Request):
     return RedirectResponse("/admin/check-links", status_code=303)
 
 
+@app.post("/admin/check-links/{link_id}/revoke")
+def admin_check_link_revoke(link_id: int):
+    """Disable a link immediately. Row is kept (audit) but the link stops working."""
+    with Session(engine) as s:
+        link = s.get(AccessLink, link_id)
+        if link:
+            link.revoked = True
+            s.add(link); s.commit()
+    return RedirectResponse("/admin/check-links", status_code=303)
+
+
 def _last_inspect_mile(session: Session, vehicle_id: int) -> float:
     row = session.exec(select(TireEvent).where(
         TireEvent.event_type == "inspect", TireEvent.to_vehicle_id == vehicle_id,
