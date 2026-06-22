@@ -16,8 +16,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ตรวจยาง</title><script src="https://cdn.tailwindcss.com"></script>
 <style>
-  .tire{width:70px;border-radius:11px;padding:7px 3px 6px;text-align:center;
-    background:#1e293b;border:1.5px solid #334155;}
+  .tire{width:64px;border-radius:11px;padding:7px 3px 6px;text-align:center;
+    background:#1e293b;border:1.5px solid #334155;flex:0 0 auto;}
   .tire .lbl{font-size:10px;color:#cbd5e1;line-height:1.15;min-height:24px;
     display:flex;align-items:center;justify-content:center;}
   .tire.sel-ok{border-color:#22c55e;background:#11281b;}
@@ -79,7 +79,7 @@
              class="w-full p-2 rounded bg-slate-800 border border-slate-600 mt-1"></label>
 
     <!-- TOP VIEW -->
-    <div class="relative bg-slate-950/40 border border-slate-800 rounded-2xl p-3 mb-5">
+    <div class="relative bg-slate-950/40 border border-slate-800 rounded-2xl p-3 mb-5 overflow-x-auto">
       <div class="spine"></div>
       <div class="text-center text-xs text-slate-500 mb-1">▲ หน้ารถ</div>
       {% for ax in axles %}
