@@ -6133,10 +6133,16 @@ def check_mechanic_form(request: Request):
         rows = [{"ev": e, "label": tire_view.th_label(e.to_position or "")} for e in queue]
         tires = s.exec(select(Tire)).all()
         vehicles = s.exec(select(Vehicle).order_by(Vehicle.plate_no)).all()
+        vid = _parse_int(request.query_params.get("vehicle_id") or "") or 0
+        insp_v = s.get(Vehicle, vid) if vid else None
+        positions = _tire_positions_for_vehicle(insp_v) if insp_v else ()
+        axles = tire_view.axle_layout(positions) if positions else []
     return templates.TemplateResponse("check_mechanic.html", {
         "request": request, "token": request.query_params.get("t"),
         "queue": rows, "tires": tires, "vehicles": vehicles,
         "event_types": models.TIRE_EVENT_TYPES,
+        "insp_vehicle": insp_v, "axles": axles,
+        "conditions": models.TIRE_CONDITION_FLAGS,
     })
 
 
@@ -6184,6 +6190,56 @@ async def check_mechanic_job(request: Request):
         )
         s.commit()
     return RedirectResponse(f"/check/mechanic?t={form.get('t')}", status_code=303)
+
+
+@app.post("/check/mechanic/inspect")
+async def check_mechanic_inspect(request: Request):
+    """Mechanic inspects a whole vehicle via the top-view: condition + measured mm
+    + photos per tyre. Like the driver flow but tread is filled now (not awaiting)."""
+    form = await request.form()
+    with Session(engine) as s:
+        link = _check_link_guard(request, s)
+        if not link or link.role != "mechanic":
+            return HTMLResponse("ลิงก์ไม่ถูกต้องหรือหมดอายุ", status_code=403)
+        actor_name = (form.get("actor_name") or "").strip()
+        vehicle_id = _parse_int(form.get("vehicle_id") or "") or 0
+        mile = _parse_float(form.get("mile") or "0")
+        v = s.get(Vehicle, vehicle_id)
+        if not v:
+            raise HTTPException(400, "เลือกทะเบียนรถก่อน")
+        positions = _tire_positions_for_vehicle(v)
+        today = date.today()
+        created = 0
+        for pos in positions:
+            cond = (form.get(f"cond_{pos}") or "").strip()
+            mm = _parse_float(form.get(f"mm_{pos}") or "0")
+            if not cond and not mm:
+                continue   # untouched tyre
+            paths = []
+            files = form.getlist(f"photo_{pos}") if hasattr(form, "getlist") else []
+            for f in files:
+                if hasattr(f, "read"):
+                    data = await f.read()
+                    if data and len(data) > 100:
+                        paths.append(drv.save_photo(0, "check", data, ext="jpg"))
+            tire = s.exec(select(Tire).where(
+                Tire.current_vehicle_id == vehicle_id, Tire.current_position == pos)).first()
+            ev = TireEvent(
+                tire_id=(tire.id if tire else 0),
+                event_date=today, event_type="inspect",
+                to_vehicle_id=vehicle_id, to_position=pos, mile=mile,
+                tread_before_mm=(tire.tread_depth_mm if tire else 0.0),
+                tread_after_mm=mm,
+                actor_name=actor_name, actor_role="mechanic",
+                condition_flag=cond, photo_paths=",".join(paths),
+            )
+            s.add(ev)
+            if tire and mm:
+                tire.tread_depth_mm = mm
+                s.add(tire)
+            created += 1
+        s.commit()
+    return RedirectResponse(f"/check/mechanic?t={form.get('t')}&done={created}", status_code=303)
 
 
 @app.post("/check/add-vehicle")

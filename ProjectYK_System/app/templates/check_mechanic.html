@@ -1,9 +1,77 @@
+{% macro mech_cell(c) %}
+  <div class="tire">
+    <div class="lbl">{{ c.label }}</div>
+    <input name="mm_{{ c.pos }}" inputmode="decimal" placeholder="มม."
+           class="w-full mt-1 p-1 rounded bg-slate-900 border border-slate-600 text-[12px] text-center">
+    <select name="cond_{{ c.pos }}"
+            class="w-full mt-1 p-1 rounded bg-slate-900 border border-slate-600 text-[10px]">
+      <option value="">สภาพ</option>
+      {% for code, th in conditions %}<option value="{{ code }}">{{ th }}</option>{% endfor %}
+    </select>
+    <input type="file" name="photo_{{ c.pos }}" accept="image/*" capture="environment"
+           multiple class="hidden" id="mph_{{ c.pos }}">
+    <label for="mph_{{ c.pos }}" class="block text-[9px] text-slate-500 mt-1 cursor-pointer">
+      📷 {{ "ข้าง+หน้า" if c.photos == 2 else "หน้ายาง" }}</label>
+  </div>
+{% endmacro %}
 <!doctype html><html lang="th"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ช่าง — ตรวจ/วัดยาง</title><script src="https://cdn.tailwindcss.com"></script></head>
+<title>ช่าง — ตรวจ/วัดยาง</title><script src="https://cdn.tailwindcss.com"></script>
+<style>
+  .tire{width:64px;border-radius:11px;padding:7px 3px 6px;text-align:center;flex:0 0 auto;
+    background:#1e293b;border:1.5px solid #334155;}
+  .tire .lbl{font-size:10px;color:#cbd5e1;line-height:1.15;min-height:24px;
+    display:flex;align-items:center;justify-content:center;}
+  .spine{position:absolute;top:46px;bottom:14px;left:50%;width:16px;
+    transform:translateX(-50%);background:#15233c;border-radius:8px;}
+</style></head>
 <body class="bg-slate-900 text-slate-100 p-4 max-w-md mx-auto">
 
-  <h1 class="text-lg font-bold mb-3">ช่าง — งานยาง</h1>
+  <h1 class="text-lg font-bold mb-3">ช่าง — ตรวจ/วัดยาง</h1>
+
+  <!-- Section 0: full-vehicle inspection (top view, mechanic measures mm) -->
+  <h2 class="text-sm font-bold mb-2 text-slate-300">ตรวจรถทั้งคัน (วัดดอกยาง)</h2>
+  <form method="get" action="/check/mechanic" class="flex gap-2 mb-3">
+    <input type="hidden" name="t" value="{{ token }}">
+    <select name="vehicle_id" class="flex-1 p-2 rounded bg-slate-800 border border-slate-600 text-sm"
+            onchange="this.form.submit()">
+      <option value="">— เลือกทะเบียนเพื่อตรวจทั้งคัน —</option>
+      {% for v in vehicles %}
+        <option value="{{ v.id }}" {{ 'selected' if insp_vehicle and insp_vehicle.id == v.id }}>
+          {{ v.plate_no }}{% if v.nickname %} ({{ v.nickname }}){% endif %}</option>
+      {% endfor %}
+    </select>
+  </form>
+
+  {% if insp_vehicle %}
+  <form method="post" action="/check/mechanic/inspect?t={{ token }}" enctype="multipart/form-data" class="mb-6">
+    <input type="hidden" name="t" value="{{ token }}">
+    <input type="hidden" name="vehicle_id" value="{{ insp_vehicle.id }}">
+    <div class="flex items-center gap-2 mb-2">
+      <span class="font-semibold">{{ insp_vehicle.plate_no }}</span>
+      <span class="text-xs text-slate-400">{{ insp_vehicle.truck_type }}</span>
+    </div>
+    <div class="flex gap-2 mb-3">
+      <input name="actor_name" placeholder="ชื่อช่าง"
+             class="flex-1 p-2 rounded bg-slate-800 border border-slate-600 text-sm">
+      <input name="mile" inputmode="numeric" placeholder="เลขไมล์"
+             class="w-28 p-2 rounded bg-slate-800 border border-slate-600 text-sm">
+    </div>
+
+    <div class="relative bg-slate-950/40 border border-slate-800 rounded-2xl p-3 mb-3 overflow-x-auto">
+      <div class="spine"></div>
+      <div class="text-center text-xs text-slate-500 mb-1">▲ หน้ารถ</div>
+      {% for ax in axles %}
+        <div class="text-center text-[10px] text-slate-500 mt-2 mb-1">{{ ax.tag }}</div>
+        <div class="flex items-start justify-between gap-1">
+          <div class="flex gap-1">{% for c in ax.left %}{{ mech_cell(c) }}{% endfor %}</div>
+          <div class="flex gap-1">{% for c in ax.right %}{{ mech_cell(c) }}{% endfor %}</div>
+        </div>
+      {% endfor %}
+    </div>
+    <button class="w-full p-3 rounded-lg bg-blue-600 font-bold">บันทึกตรวจทั้งคัน ▸</button>
+  </form>
+  {% endif %}
 
   <!-- Section 1: queue awaiting mechanic measurement -->
   <h2 class="text-sm font-bold mb-2 text-slate-300">รอช่างวัด ({{ queue|length }})</h2>
