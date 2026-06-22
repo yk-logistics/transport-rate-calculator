@@ -1,0 +1,61 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ช่าง — ตรวจ/วัดยาง</title><script src="https://cdn.tailwindcss.com"></script></head>
+<body class="bg-slate-900 text-slate-100 p-4 max-w-md mx-auto">
+
+  <h1 class="text-lg font-bold mb-3">ช่าง — งานยาง</h1>
+
+  <!-- Section 1: queue awaiting mechanic measurement -->
+  <h2 class="text-sm font-bold mb-2 text-slate-300">รอช่างวัด ({{ queue|length }})</h2>
+  <div class="space-y-3 mb-6">
+    {% for row in queue %}
+    <div class="rounded-lg border border-amber-700/50 bg-slate-800 p-3">
+      <div class="text-sm font-semibold mb-1">{{ row.label or row.ev.to_position }}
+        <span class="text-xs text-amber-400">· {{ row.ev.condition_flag }}</span></div>
+      {% if row.ev.photo_paths %}
+        <div class="flex gap-2 mb-2 overflow-x-auto">
+          {% for p in row.ev.photo_paths.split(',') if p %}
+            <a href="/uploads/{{ p }}" target="_blank"><img src="/uploads/{{ p }}"
+               class="h-16 w-16 object-cover rounded border border-slate-600"></a>
+          {% endfor %}
+        </div>
+      {% endif %}
+      <form method="post" action="/check/mechanic/measure?t={{ token }}" class="flex gap-2 items-center">
+        <input type="hidden" name="t" value="{{ token }}">
+        <input type="hidden" name="event_id" value="{{ row.ev.id }}">
+        <input name="tread_mm" inputmode="decimal" step="0.1" placeholder="มม."
+               class="w-20 p-2 rounded bg-slate-900 border border-slate-600 text-sm">
+        <input name="actor_name" placeholder="ชื่อช่าง"
+               class="flex-1 p-2 rounded bg-slate-900 border border-slate-600 text-sm">
+        <button class="px-3 py-2 rounded bg-green-600 text-sm font-bold">บันทึก</button>
+      </form>
+    </div>
+    {% else %}
+    <p class="text-sm text-slate-500">— ไม่มีรายการรอวัด —</p>
+    {% endfor %}
+  </div>
+
+  <!-- Section 2: tire job (rotate/unmount/mount/scrap) -->
+  <h2 class="text-sm font-bold mb-2 text-slate-300">บันทึกงานยาง (สลับ/ถอด/ใส่/ทิ้ง)</h2>
+  <form method="post" action="/check/mechanic/job?t={{ token }}" enctype="multipart/form-data"
+        class="rounded-lg border border-slate-700 bg-slate-800 p-3 space-y-2">
+    <input type="hidden" name="t" value="{{ token }}">
+    <select name="tire_id" class="w-full p-2 rounded bg-slate-900 border border-slate-600 text-sm">
+      <option value="">— เลือกยาง —</option>
+      {% for t in tires %}<option value="{{ t.id }}">{{ t.code }} · {{ t.brand }} {{ t.model }} {{ t.spec }}</option>{% endfor %}
+    </select>
+    <select name="event_type" class="w-full p-2 rounded bg-slate-900 border border-slate-600 text-sm">
+      {% for code, th in event_types %}<option value="{{ code }}">{{ th }}</option>{% endfor %}
+    </select>
+    <input name="to_position" placeholder="ตำแหน่งปลายทาง (ถ้าสลับ/ใส่)"
+           class="w-full p-2 rounded bg-slate-900 border border-slate-600 text-sm">
+    <input name="mile" inputmode="numeric" placeholder="เลขไมล์"
+           class="w-full p-2 rounded bg-slate-900 border border-slate-600 text-sm">
+    <input name="note" placeholder="หมายเหตุ (เช่น ระเบิดข้างทาง)"
+           class="w-full p-2 rounded bg-slate-900 border border-slate-600 text-sm">
+    <input name="actor_name" placeholder="ชื่อช่าง"
+           class="w-full p-2 rounded bg-slate-900 border border-slate-600 text-sm">
+    <button class="w-full p-2 rounded bg-blue-600 font-bold text-sm">บันทึกงานยาง</button>
+  </form>
+
+</body></html>

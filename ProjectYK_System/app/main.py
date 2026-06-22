@@ -6022,6 +6022,69 @@ async def check_driver_submit(request: Request):
         status_code=303)
 
 
+@app.get("/check/mechanic", response_class=HTMLResponse)
+def check_mechanic_form(request: Request):
+    with Session(engine) as s:
+        link = _check_link_guard(request, s)
+        if not link or link.role != "mechanic":
+            return HTMLResponse("ลิงก์ไม่ถูกต้องหรือหมดอายุ", status_code=403)
+        queue = tire_view.awaiting_mechanic(s)
+        rows = [{"ev": e, "label": tire_view.th_label(e.to_position or "")} for e in queue]
+        tires = s.exec(select(Tire)).all()
+        vehicles = s.exec(select(Vehicle).order_by(Vehicle.plate_no)).all()
+    return templates.TemplateResponse("check_mechanic.html", {
+        "request": request, "token": request.query_params.get("t"),
+        "queue": rows, "tires": tires, "vehicles": vehicles,
+        "event_types": models.TIRE_EVENT_TYPES,
+    })
+
+
+@app.post("/check/mechanic/measure")
+async def check_mechanic_measure(request: Request):
+    form = await request.form()
+    with Session(engine) as s:
+        link = _check_link_guard(request, s)
+        if not link or link.role != "mechanic":
+            return HTMLResponse("ลิงก์ไม่ถูกต้องหรือหมดอายุ", status_code=403)
+        ev = s.get(TireEvent, _parse_int(form.get("event_id") or "") or 0)
+        if not ev:
+            raise HTTPException(404, "ไม่พบรายการ")
+        ev.tread_after_mm = _parse_float(form.get("tread_mm") or "0")
+        ev.actor_role = "mechanic"
+        ev.actor_name = (form.get("actor_name") or "").strip() or ev.actor_name
+        t = s.get(Tire, ev.tire_id) if ev.tire_id else None
+        if t and ev.tread_after_mm:
+            t.tread_depth_mm = ev.tread_after_mm
+            s.add(t)
+        s.add(ev); s.commit()
+    return RedirectResponse(f"/check/mechanic?t={form.get('t')}", status_code=303)
+
+
+@app.post("/check/mechanic/job")
+async def check_mechanic_job(request: Request):
+    form = await request.form()
+    with Session(engine) as s:
+        link = _check_link_guard(request, s)
+        if not link or link.role != "mechanic":
+            return HTMLResponse("ลิงก์ไม่ถูกต้องหรือหมดอายุ", status_code=403)
+        t = s.get(Tire, _parse_int(form.get("tire_id") or "") or 0)
+        if not t:
+            raise HTTPException(404, "ไม่พบยาง")
+        _apply_tire_event(
+            s, t,
+            event_type=(form.get("event_type") or "").strip(),
+            event_date=_parse_date(form.get("event_date") or "") or date.today(),
+            mile=_parse_float(form.get("mile") or "0"),
+            to_vehicle_id=_parse_int(form.get("to_vehicle_id") or "") or None,
+            to_position=(form.get("to_position") or "").strip().upper(),
+            note=(form.get("note") or "").strip(),
+            actor_name=(form.get("actor_name") or "").strip(),
+            actor_role="mechanic",
+        )
+        s.commit()
+    return RedirectResponse(f"/check/mechanic?t={form.get('t')}", status_code=303)
+
+
 # =====================================================================
 # Maintenance — Tires (Wave 2)
 # =====================================================================
@@ -6296,103 +6359,118 @@ def maint_tire_delete(tire_id: int):
     return RedirectResponse("/maint/tires", status_code=303)
 
 
+def _apply_tire_event(s: Session, t: Tire, *, event_type: str, event_date: date,
+                      mile: float, to_vehicle_id: Optional[int] = None,
+                      to_position: str = "", tread_before: float = 0.0,
+                      tread_after: float = 0.0, note: str = "",
+                      actor_name: str = "", actor_role: str = "",
+                      photo_paths: str = "") -> TireEvent:
+    """Create a TireEvent + mutate Tire state atomically (caller commits).
+
+    Shared by the office route (/maint/tires/{id}/event) and the mechanic
+    magic-link route (/check/mechanic/job). Behavior must stay identical.
+    """
+    ev = TireEvent(
+        tire_id=t.id,
+        event_date=event_date,
+        event_type=event_type,
+        from_vehicle_id=t.current_vehicle_id,
+        from_position=t.current_position,
+        mile=mile,
+        tread_before_mm=tread_before or t.tread_depth_mm or 0.0,
+        tread_after_mm=tread_after,
+        note=note,
+        actor_name=actor_name, actor_role=actor_role, photo_paths=photo_paths,
+    )
+
+    if event_type == "mount":
+        if not to_vehicle_id or not to_position:
+            raise HTTPException(400, "mount requires to_vehicle_id and to_position")
+        # If another tire occupies this position on the target vehicle, auto-unmount it
+        existing = s.exec(
+            select(Tire).where(
+                Tire.current_vehicle_id == to_vehicle_id,
+                Tire.current_position == to_position,
+            )
+        ).all()
+        for other in existing:
+            if other.id != t.id:
+                other.current_vehicle_id = None
+                other.current_position = ""
+                other.status = "stored"
+                s.add(other)
+                s.add(TireEvent(
+                    tire_id=other.id,
+                    event_date=event_date,
+                    event_type="unmount",
+                    from_vehicle_id=to_vehicle_id,
+                    from_position=to_position,
+                    mile=mile,
+                    note=f"auto-unmount (displaced by T{t.id})",
+                ))
+        ev.to_vehicle_id = to_vehicle_id
+        ev.to_position = to_position
+        t.current_vehicle_id = to_vehicle_id
+        t.current_position = to_position
+        t.status = "in_use"
+        t.mounted_at = event_date
+        t.mounted_mile = mile
+
+    elif event_type == "unmount":
+        t.current_vehicle_id = None
+        t.current_position = ""
+        t.status = "stored"
+
+    elif event_type == "rotate":
+        # rotate = same vehicle, different position
+        if not to_position:
+            raise HTTPException(400, "rotate requires to_position")
+        ev.to_vehicle_id = t.current_vehicle_id
+        ev.to_position = to_position
+        t.current_position = to_position
+
+    elif event_type == "retread":
+        t.retread_count = (t.retread_count or 0) + 1
+        t.status = "retreaded"
+        t.tread_depth_mm = tread_after or 16.0   # assume 16mm after retread if not given
+
+    elif event_type == "scrap":
+        t.current_vehicle_id = None
+        t.current_position = ""
+        t.status = "scrapped"
+
+    elif event_type == "inspect":
+        if tread_after:
+            t.tread_depth_mm = tread_after
+
+    if tread_after:
+        t.tread_depth_mm = tread_after
+
+    s.add(ev)
+    s.add(t)
+    return ev
+
+
 @app.post("/maint/tires/{tire_id}/event")
 async def maint_tire_event(tire_id: int, request: Request):
     """Mount / unmount / rotate / inspect / retread / scrap + update Tire state atomically."""
     form = await request.form()
-    event_type = (form.get("event_type") or "").strip()
-    event_date = _parse_date(form.get("event_date") or "") or date.today()
-    mile       = _parse_float(form.get("mile") or "0")
-    to_vid_s   = form.get("to_vehicle_id") or ""
-    to_pos     = (form.get("to_position") or "").strip().upper()
-    tread_before = _parse_float(form.get("tread_before_mm") or "0")
-    tread_after  = _parse_float(form.get("tread_after_mm") or "0")
-    note       = (form.get("note") or "").strip()
-
+    to_vid_s = form.get("to_vehicle_id") or ""
     with Session(engine) as s:
         t = s.get(Tire, tire_id)
         if not t:
             raise HTTPException(404, "Tire not found")
-
-        ev = TireEvent(
-            tire_id=tire_id,
-            event_date=event_date,
-            event_type=event_type,
-            from_vehicle_id=t.current_vehicle_id,
-            from_position=t.current_position,
-            mile=mile,
-            tread_before_mm=tread_before or t.tread_depth_mm or 0.0,
-            tread_after_mm=tread_after,
-            note=note,
+        _apply_tire_event(
+            s, t,
+            event_type=(form.get("event_type") or "").strip(),
+            event_date=_parse_date(form.get("event_date") or "") or date.today(),
+            mile=_parse_float(form.get("mile") or "0"),
+            to_vehicle_id=(int(to_vid_s) if to_vid_s.isdigit() else None),
+            to_position=(form.get("to_position") or "").strip().upper(),
+            tread_before=_parse_float(form.get("tread_before_mm") or "0"),
+            tread_after=_parse_float(form.get("tread_after_mm") or "0"),
+            note=(form.get("note") or "").strip(),
         )
-
-        if event_type == "mount":
-            new_vid = int(to_vid_s) if to_vid_s.isdigit() else None
-            if not new_vid or not to_pos:
-                raise HTTPException(400, "mount requires to_vehicle_id and to_position")
-            # If another tire occupies this position on the target vehicle, auto-unmount it
-            existing = s.exec(
-                select(Tire).where(
-                    Tire.current_vehicle_id == new_vid,
-                    Tire.current_position == to_pos,
-                )
-            ).all()
-            for other in existing:
-                if other.id != tire_id:
-                    other.current_vehicle_id = None
-                    other.current_position = ""
-                    other.status = "stored"
-                    s.add(other)
-                    s.add(TireEvent(
-                        tire_id=other.id,
-                        event_date=event_date,
-                        event_type="unmount",
-                        from_vehicle_id=new_vid,
-                        from_position=to_pos,
-                        mile=mile,
-                        note=f"auto-unmount (displaced by T{tire_id})",
-                    ))
-            ev.to_vehicle_id = new_vid
-            ev.to_position = to_pos
-            t.current_vehicle_id = new_vid
-            t.current_position = to_pos
-            t.status = "in_use"
-            t.mounted_at = event_date
-            t.mounted_mile = mile
-
-        elif event_type == "unmount":
-            t.current_vehicle_id = None
-            t.current_position = ""
-            t.status = "stored"
-
-        elif event_type == "rotate":
-            # rotate = same vehicle, different position
-            if not to_pos:
-                raise HTTPException(400, "rotate requires to_position")
-            ev.to_vehicle_id = t.current_vehicle_id
-            ev.to_position = to_pos
-            t.current_position = to_pos
-
-        elif event_type == "retread":
-            t.retread_count = (t.retread_count or 0) + 1
-            t.status = "retreaded"
-            t.tread_depth_mm = tread_after or 16.0   # assume 16mm after retread if not given
-
-        elif event_type == "scrap":
-            t.current_vehicle_id = None
-            t.current_position = ""
-            t.status = "scrapped"
-
-        elif event_type == "inspect":
-            # only update tread
-            if tread_after:
-                t.tread_depth_mm = tread_after
-
-        if tread_after:
-            t.tread_depth_mm = tread_after
-
-        s.add(ev)
-        s.add(t)
         s.commit()
 
     return RedirectResponse(f"/maint/tires/{tire_id}", status_code=303)
