@@ -988,7 +988,8 @@ class DriverSubmission(SQLModel, table=True):
     job photo, signature, etc. Generic + flexible.
     """
     id: Optional[int] = Field(default=None, primary_key=True)
-    employee_id: int = Field(foreign_key="employee.id", index=True)
+    # Nullable: magic-link (login-less) submissions have no Employee; actor goes in data_json.
+    employee_id: Optional[int] = Field(default=None, foreign_key="employee.id", index=True)
     submitted_at: datetime = Field(default_factory=datetime.utcnow, index=True)
 
     kind: str = Field(index=True)

@@ -6016,6 +6016,28 @@ async def check_driver_submit(request: Request):
                 condition_flag=cond, photo_paths=",".join(paths),
             )
             s.add(ev); created += 1
+
+        # Weekly fluid/equipment check -> reuse DriverSubmission (no Employee for link entry).
+        if form.get("weekly"):
+            answers = {}
+            any_fail = False
+            for key, _ in models.VEHICLE_CHECK_ITEMS:
+                val = (form.get(f"item_{key}") or "").strip()
+                if not val:
+                    continue
+                answers[key] = val
+                if val == "fail":
+                    any_fail = True
+            if answers:
+                s.add(DriverSubmission(
+                    employee_id=None, kind="vehicle_check",
+                    vehicle_id=vehicle_id, plate_raw=(v.plate_no if v else ""),
+                    data_json=_json.dumps(
+                        {"items": answers, "actor_name": actor_name, "source": "check_link"},
+                        ensure_ascii=False),
+                    review_status="flagged" if any_fail else "pending",
+                    device_info=request.headers.get("user-agent", "")[:200],
+                ))
         s.commit()
     return RedirectResponse(
         f"/check/driver?t={form.get('t')}&done={created}&warn_mile={int(warn_mile)}",
