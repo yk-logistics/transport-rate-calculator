@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -112,13 +112,27 @@ def _fmt_dmy(value, sep: str = "/") -> str:
         return str(value)
 
 
+def _to_ict(dt: datetime) -> datetime:
+    """Shift a stored UTC datetime to Thai local time (ICT, UTC+7) for display.
+
+    All timestamps in this app are stored via datetime.utcnow() (naive UTC).
+    Thai users read them as local time, so convert for presentation only.
+    A tz-aware value is converted properly; a naive value is assumed UTC.
+    """
+    ict = timezone(timedelta(hours=7))
+    if dt.tzinfo is not None:
+        return dt.astimezone(ict)
+    return dt + timedelta(hours=7)
+
+
 def _fmt_dmy_hm(value) -> str:
-    """Format a datetime as dd/mm/yyyy HH:MM (CE)."""
+    """Format a datetime as dd/mm/yyyy HH:MM (Thai local time, CE)."""
     if value is None or value == "":
         return ""
     try:
         if isinstance(value, datetime):
-            return f"{value.day:02d}/{value.month:02d}/{value.year:04d} {value.strftime('%H:%M')}"
+            dt = _to_ict(value)
+            return f"{dt.day:02d}/{dt.month:02d}/{dt.year:04d} {dt.strftime('%H:%M')}"
         if isinstance(value, date):
             return _fmt_dmy(value)
         text = str(value).strip()
@@ -126,7 +140,7 @@ def _fmt_dmy_hm(value) -> str:
             return ""
         # try ISO datetime
         try:
-            dt = datetime.fromisoformat(text.replace("Z", ""))
+            dt = _to_ict(datetime.fromisoformat(text.replace("Z", "")))
             return f"{dt.day:02d}/{dt.month:02d}/{dt.year:04d} {dt.strftime('%H:%M')}"
         except Exception:
             return _fmt_dmy(text)
