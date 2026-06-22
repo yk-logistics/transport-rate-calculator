@@ -1032,6 +1032,7 @@ class AccessLink(SQLModel, table=True):
     """
     id: Optional[int] = Field(default=None, primary_key=True)
     token: str = Field(index=True, unique=True)
+    short_code: str = Field(default="", index=True)   # short slug for /c/<code> URLs
     role: str = Field(default="driver", index=True)   # driver | mechanic
     created_by: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)

@@ -86,7 +86,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 21
+SCHEMA_VERSION = 22
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -383,6 +383,9 @@ def _apply_additive_migrations() -> None:
     _ensure_column("tireevent", "condition_flag", "TEXT", default="")
     # Magic-link weekly checks have no Employee → relax legacy NOT NULL on employee_id.
     _drop_not_null("driversubmission", "employee_id")
+
+    # v21 → v22: short code for /c/<code> magic-link URLs.
+    _ensure_column("accesslink", "short_code", "TEXT", default="")
 
 
 def init_db() -> None:
