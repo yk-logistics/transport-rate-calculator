@@ -33,6 +33,7 @@
         <a href="/rates" class="hover:underline text-cyan-300 font-medium">เรทราคา</a>
         <a href="/fuel-index" class="hover:underline text-cyan-300" title="ราคาน้ำมันรายเดือน + Fuel Surcharge">⛽ Fuel</a>
         <a href="/maint" class="hover:underline text-orange-300 font-medium">ซ่อม/ยาง/PM</a>
+        {% if can_see(request, "/admin/users") %}<a href="/admin/check-links" class="hover:underline text-orange-300" title="สร้างลิงก์ให้คนขับ/ช่างตรวจยาง (ไม่ต้องล็อกอิน)">🔗 ลิงก์ตรวจยาง</a>{% endif %}
         <span class="text-slate-500">|</span>
         <a href="/dispatch/planner" class="hover:underline text-rose-300 font-medium">📋 Dispatch</a>
         <a href="/billing" class="hover:underline text-amber-300 font-medium">Billing</a>
