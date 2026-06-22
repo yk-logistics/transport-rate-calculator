@@ -429,6 +429,7 @@ from permissions import check as perm_check  # noqa: E402
 # handler calls get_current_driver(), redirecting to /driver/login when absent.
 # So RBAC (AppUser-based) must NOT gate it, or drivers get bounced to the admin login.
 PUBLIC_PREFIXES = ("/login", "/logout", "/static/", "/uploads/", "/health", "/driver",
+                   "/check",       # magic-link tire check; gated in-handler by signed token
                    "/api/petty/")  # service-token auth (not session); checked in-handler
 
 
@@ -5873,6 +5874,72 @@ async def maint_pm_mark_done(plan_id: int, request: Request):
         s.add(p)
         s.commit()
     return RedirectResponse(f"/maint/pm/{plan_id}", status_code=303)
+
+
+# =====================================================================
+# Tire Check — magic-link (login-less) data entry for drivers & mechanics
+# =====================================================================
+import services.access_link as access_link
+import services.tire_view as tire_view
+
+LINK_MAX_AGE_DEFAULT = 3600   # seconds; UI lets admin pick ttl in hours
+LINK_HARD_CAP_SECONDS = 7 * 24 * 3600   # signature never honored beyond 7 days
+
+
+def _check_link_guard(request: Request, session: Session):
+    """Return the live AccessLink for a request's ?t= token, or None."""
+    tok = request.query_params.get("t") or ""
+    if not tok:
+        return None
+    payload = access_link.read_token(tok, max_age_seconds=LINK_HARD_CAP_SECONDS)
+    if not payload:
+        return None
+    link = session.exec(select(AccessLink).where(AccessLink.token == tok)).first()
+    if not link or link.revoked or link.expires_at < datetime.utcnow():
+        return None
+    link.use_count += 1
+    link.last_used_at = datetime.utcnow()
+    session.add(link); session.commit()
+    return link
+
+
+@app.get("/check", response_class=HTMLResponse)
+def check_landing(request: Request):
+    with Session(engine) as s:
+        link = _check_link_guard(request, s)
+        if not link:
+            return HTMLResponse("ลิงก์ไม่ถูกต้องหรือหมดอายุ", status_code=403)
+        role_th = dict(models.ACCESS_LINK_ROLES).get(link.role, link.role)
+    return templates.TemplateResponse("check_landing.html", {
+        "request": request, "token": request.query_params.get("t"),
+        "role": link.role, "role_th": role_th,
+    })
+
+
+@app.get("/admin/check-links", response_class=HTMLResponse)
+def admin_check_links(request: Request):
+    u = current_user(request)
+    with Session(engine) as s:
+        links = s.exec(select(AccessLink).order_by(AccessLink.created_at.desc()).limit(50)).all()
+    return templates.TemplateResponse("check_links_admin.html", {
+        "request": request, "links": links, "roles": models.ACCESS_LINK_ROLES, "user": u,
+    })
+
+
+@app.post("/admin/check-links")
+async def admin_check_links_create(request: Request):
+    u = current_user(request)
+    form = await request.form()
+    role = (form.get("role") or "driver").strip()
+    ttl_hours = _parse_int(form.get("ttl_hours") or "1") or 1
+    tok = access_link.make_token(role, ttl_hours * 3600)
+    with Session(engine) as s:
+        s.add(AccessLink(
+            token=tok, role=role, created_by=(u.username if u else ""),
+            expires_at=datetime.utcnow() + timedelta(hours=ttl_hours),
+        ))
+        s.commit()
+    return RedirectResponse("/admin/check-links", status_code=303)
 
 
 # =====================================================================

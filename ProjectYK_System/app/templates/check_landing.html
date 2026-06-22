@@ -1,0 +1,13 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ตรวจรถ</title><script src="https://cdn.tailwindcss.com"></script></head>
+<body class="bg-slate-900 text-slate-100 p-5">
+  <h1 class="text-lg font-bold mb-1">ตรวจรถ — บทบาท: {{ role_th }}</h1>
+  <p class="text-sm text-slate-400 mb-4">พิมพ์ชื่อของคุณเพื่อเริ่ม</p>
+  <form method="get" action="/check/{{ role }}">
+    <input type="hidden" name="t" value="{{ token }}">
+    <input name="actor_name" required placeholder="ชื่อ-สกุล"
+           class="w-full p-3 rounded-lg bg-slate-800 border border-slate-600 mb-4">
+    <button class="w-full p-3 rounded-lg bg-blue-600 font-bold">เริ่ม ▸</button>
+  </form>
+</body></html>

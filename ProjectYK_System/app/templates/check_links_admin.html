@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}สร้างลิงก์ตรวจรถ{% endblock %}
+{% block content %}
+<h1 class="text-xl font-bold mb-3">สร้างลิงก์ตรวจรถ (Magic Link)</h1>
+<form method="post" action="/admin/check-links" class="flex gap-2 items-end mb-5">
+  <label>บทบาท
+    <select name="role" class="border p-2 rounded">
+      {% for code, th in roles %}<option value="{{ code }}">{{ th }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>อายุ (ชม.) <input name="ttl_hours" value="1" class="border p-2 rounded w-20"></label>
+  <button class="bg-blue-600 text-white p-2 rounded">สร้างลิงก์</button>
+</form>
+<table class="w-full text-sm">
+  <tr class="text-left text-gray-500"><th>บทบาท</th><th>หมดอายุ</th><th>ใช้</th><th>ลิงก์</th></tr>
+  {% for l in links %}
+  <tr class="{{ 'opacity-40' if l.revoked }}">
+    <td>{{ l.role }}</td><td>{{ l.expires_at | dmy_hm }}</td><td>{{ l.use_count }}</td>
+    <td><input class="border p-1 w-full text-xs" readonly value="/check?t={{ l.token }}"></td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}
