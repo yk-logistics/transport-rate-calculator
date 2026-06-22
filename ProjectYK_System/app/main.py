@@ -5996,16 +5996,17 @@ def check_driver_form(request: Request):
         vid = _parse_int(request.query_params.get("vehicle_id") or "") or 0
         v = s.get(Vehicle, vid) if vid else None
         positions = _tire_positions_for_vehicle(v) if v else ()
-        cells = [{"pos": p, "label": tire_view.th_label(p),
-                  "photos": tire_view.photo_count(p), "outer": tire_view.is_outer(p)}
-                 for p in positions]
+        axles = tire_view.axle_layout(positions) if positions else []
     return templates.TemplateResponse("check_driver.html", {
         "request": request, "token": request.query_params.get("t"),
         "actor_name": request.query_params.get("actor_name", ""),
-        "vehicles": vehicles, "vehicle": v, "cells": cells,
+        "vehicles": vehicles, "vehicle": v, "axles": axles,
         "conditions": models.TIRE_CONDITION_FLAGS,
         "weekly_items": models.VEHICLE_CHECK_ITEMS,
         "weekly_status": models.VEHICLE_CHECK_STATUS,
+        "type_options": [("6W", "6 ล้อ"), ("10W", "10 ล้อ"),
+                         ("TRL8", "หาง 8 ล้อ"), ("10WL", "หัว+หาง 10 ล้อ"),
+                         ("18W", "18 ล้อ")],
     })
 
 
