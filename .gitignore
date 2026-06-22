@@ -129,3 +129,6 @@ reports/slip_reader_dryrun*.md
 
 # slip-reader local test data (archive copy + slip images — bank account data)
 ProjectYK_System/slip_reader/_devdata/
+
+# Superpowers brainstorm scratch (mockups, transient)
+.superpowers/
