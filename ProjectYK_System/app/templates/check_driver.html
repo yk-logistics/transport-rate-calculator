@@ -1,0 +1,71 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ตรวจยาง</title><script src="https://cdn.tailwindcss.com"></script></head>
+<body class="bg-slate-900 text-slate-100 p-4 max-w-md mx-auto">
+
+  <h1 class="text-lg font-bold mb-1">ตรวจยาง / ตรวจรถ</h1>
+  <p class="text-sm text-slate-400 mb-3">คนตรวจ: {{ actor_name or "—" }}</p>
+
+  <!-- pick vehicle: GET reloads grid -->
+  <form method="get" action="/check/driver" class="flex gap-2 mb-4">
+    <input type="hidden" name="t" value="{{ token }}">
+    <input type="hidden" name="actor_name" value="{{ actor_name }}">
+    <select name="vehicle_id" class="flex-1 p-2 rounded bg-slate-800 border border-slate-600"
+            onchange="this.form.submit()">
+      <option value="">— เลือกทะเบียน (หัว/หาง) —</option>
+      {% for v in vehicles %}
+        <option value="{{ v.id }}" {{ 'selected' if vehicle and vehicle.id == v.id }}>
+          {{ v.plate_no }}{% if v.nickname %} ({{ v.nickname }}){% endif %}</option>
+      {% endfor %}
+    </select>
+  </form>
+
+  {% if vehicle %}
+  <form method="post" action="/check/driver?t={{ token }}" enctype="multipart/form-data">
+    <input type="hidden" name="t" value="{{ token }}">
+    <input type="hidden" name="actor_name" value="{{ actor_name }}">
+    <input type="hidden" name="vehicle_id" value="{{ vehicle.id }}">
+
+    <label class="block text-sm mb-3">เลขไมล์วันนี้
+      <input name="mile" inputmode="numeric"
+             class="w-full p-2 rounded bg-slate-800 border border-slate-600 mt-1">
+    </label>
+
+    <div class="space-y-2 mb-5">
+      {% for c in cells %}
+      <div class="rounded-lg border border-slate-700 bg-slate-800 p-3">
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-semibold text-sm">{{ c.label }}</span>
+          <span class="text-xs text-slate-400">📷 {{ "ข้าง+หน้ายาง" if c.photos == 2 else "หน้ายาง" }}</span>
+        </div>
+        <select name="cond_{{ c.pos }}"
+                class="w-full p-2 rounded bg-slate-900 border border-slate-600 text-sm mb-2">
+          <option value="">— ยังไม่ตรวจ —</option>
+          {% for code, th in conditions %}<option value="{{ code }}">{{ th }}</option>{% endfor %}
+        </select>
+        <input type="file" name="photo_{{ c.pos }}" accept="image/*" capture="environment"
+               multiple class="w-full text-xs text-slate-400">
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- weekly fluid/equipment check (Task 7 wires the backend) -->
+    <h2 class="text-sm font-bold mb-2 text-slate-300">ตรวจน้ำมัน/ของเหลว/อุปกรณ์ (รายสัปดาห์)</h2>
+    <input type="hidden" name="weekly" value="1">
+    <div class="space-y-2 mb-5">
+      {% for key, th in weekly_items %}
+      <div class="flex items-center justify-between text-sm">
+        <span>{{ th }}</span>
+        <select name="item_{{ key }}" class="p-1 rounded bg-slate-800 border border-slate-600 text-xs">
+          <option value="">—</option>
+          {% for code, sth in weekly_status %}<option value="{{ code }}">{{ sth }}</option>{% endfor %}
+        </select>
+      </div>
+      {% endfor %}
+    </div>
+
+    <button class="w-full p-3 rounded-lg bg-blue-600 font-bold">ส่งทั้งคัน ▸</button>
+  </form>
+  {% endif %}
+
+</body></html>

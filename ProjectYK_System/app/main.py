@@ -5942,6 +5942,86 @@ async def admin_check_links_create(request: Request):
     return RedirectResponse("/admin/check-links", status_code=303)
 
 
+def _last_inspect_mile(session: Session, vehicle_id: int) -> float:
+    row = session.exec(select(TireEvent).where(
+        TireEvent.event_type == "inspect", TireEvent.to_vehicle_id == vehicle_id,
+        TireEvent.mile > 0).order_by(TireEvent.event_date.desc(), TireEvent.id.desc())).first()
+    return row.mile if row else 0.0
+
+
+@app.get("/check/driver", response_class=HTMLResponse)
+def check_driver_form(request: Request):
+    with Session(engine) as s:
+        link = _check_link_guard(request, s)
+        if not link or link.role != "driver":
+            return HTMLResponse("ลิงก์ไม่ถูกต้องหรือหมดอายุ", status_code=403)
+        vehicles = s.exec(select(Vehicle).where(Vehicle.status == "active").order_by(Vehicle.plate_no)).all()
+        vid = _parse_int(request.query_params.get("vehicle_id") or "") or 0
+        v = s.get(Vehicle, vid) if vid else None
+        positions = _tire_positions_for_vehicle(v) if v else ()
+        cells = [{"pos": p, "label": tire_view.th_label(p),
+                  "photos": tire_view.photo_count(p), "outer": tire_view.is_outer(p)}
+                 for p in positions]
+    return templates.TemplateResponse("check_driver.html", {
+        "request": request, "token": request.query_params.get("t"),
+        "actor_name": request.query_params.get("actor_name", ""),
+        "vehicles": vehicles, "vehicle": v, "cells": cells,
+        "conditions": models.TIRE_CONDITION_FLAGS,
+        "weekly_items": models.VEHICLE_CHECK_ITEMS,
+        "weekly_status": models.VEHICLE_CHECK_STATUS,
+    })
+
+
+@app.post("/check/driver")
+async def check_driver_submit(request: Request):
+    form = await request.form()
+    with Session(engine) as s:
+        link = _check_link_guard(request, s)
+        if not link or link.role != "driver":
+            return HTMLResponse("ลิงก์ไม่ถูกต้องหรือหมดอายุ", status_code=403)
+
+        actor_name = (form.get("actor_name") or "").strip()
+        vehicle_id = _parse_int(form.get("vehicle_id") or "") or 0
+        mile = _parse_float(form.get("mile") or "0")
+        v = s.get(Vehicle, vehicle_id)
+        if not v:
+            raise HTTPException(400, "เลือกทะเบียนรถก่อน")
+
+        last = _last_inspect_mile(s, vehicle_id)
+        warn_mile = bool(last and mile and mile < last)
+
+        positions = _tire_positions_for_vehicle(v)
+        today = date.today()
+        created = 0
+        for pos in positions:
+            cond = (form.get(f"cond_{pos}") or "").strip()
+            if not cond:
+                continue   # untouched position
+            paths = []
+            files = form.getlist(f"photo_{pos}") if hasattr(form, "getlist") else []
+            for f in files:
+                if hasattr(f, "read"):
+                    data = await f.read()
+                    if data and len(data) > 100:
+                        paths.append(drv.save_photo(0, "check", data, ext="jpg"))
+            tire = s.exec(select(Tire).where(
+                Tire.current_vehicle_id == vehicle_id, Tire.current_position == pos)).first()
+            ev = TireEvent(
+                tire_id=(tire.id if tire else 0),
+                event_date=today, event_type="inspect",
+                to_vehicle_id=vehicle_id, to_position=pos, mile=mile,
+                tread_before_mm=(tire.tread_depth_mm if tire else 0.0),
+                tread_after_mm=0.0,
+                actor_name=actor_name, actor_role="driver",
+                condition_flag=cond, photo_paths=",".join(paths),
+            )
+            s.add(ev); created += 1
+        s.commit()
+    return RedirectResponse(
+        f"/check/driver?t={form.get('t')}&done={created}&warn_mile={int(warn_mile)}",
+        status_code=303)
+
+
 # =====================================================================
 # Maintenance — Tires (Wave 2)
 # =====================================================================
