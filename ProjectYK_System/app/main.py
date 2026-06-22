@@ -6244,6 +6244,8 @@ def _tire_positions_for_vehicle(v: Optional[Vehicle]) -> tuple:
     if v is None:
         return ()
     key = (v.truck_type or "").upper().replace(" ", "")
+    if "TRL8" in key or (("TRL" in key or "TAIL" in key) and "8" in key):
+        return models.TIRE_POSITIONS_BY_KIND["TRL8"]
     if "18" in key:
         return models.TIRE_POSITIONS_BY_KIND["18W"]
     if "10W" in key and ("L" in key or "TRL" in key or "LAK" in key.upper()):
