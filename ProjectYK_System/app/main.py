@@ -267,6 +267,41 @@ def _ensure_column(table: str, column: str, coltype: str, default: Optional[str]
         conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}{default_sql}")
 
 
+def _drop_not_null(table: str, column: str) -> None:
+    """Relax a NOT NULL constraint on an existing SQLite column.
+
+    SQLite cannot ALTER a column to drop NOT NULL, so we rebuild the table
+    (recommended 12-step pattern, simplified): recreate from the live SQLModel
+    schema, copy all current columns over, swap. Idempotent — no-op if the
+    column is already nullable. Runs inside one transaction so a failure leaves
+    the original table intact.
+    """
+    if not IS_SQLITE:
+        return
+    with engine.begin() as conn:
+        info = conn.exec_driver_sql(f"PRAGMA table_info({table})").fetchall()
+        col = next((r for r in info if r[1] == column), None)
+        if col is None or col[3] == 0:   # r[3] == notnull flag; 0 = already nullable
+            return
+        cols = [r[1] for r in info]
+        collist = ", ".join(cols)
+        tmp = f"{table}__rebuild"
+        conn.exec_driver_sql(f"DROP TABLE IF EXISTS {tmp}")
+        # Build the fresh (nullable) table from the current SQLModel metadata.
+        target = SQLModel.metadata.tables[table]
+        from sqlalchemy.schema import CreateTable
+        create_sql = str(CreateTable(target).compile(conn)).strip().rstrip(";")
+        create_sql = create_sql.replace(f"CREATE TABLE {table}", f"CREATE TABLE {tmp}", 1)
+        conn.exec_driver_sql(create_sql)
+        conn.exec_driver_sql(f"INSERT INTO {tmp} ({collist}) SELECT {collist} FROM {table}")
+        conn.exec_driver_sql(f"DROP TABLE {table}")
+        conn.exec_driver_sql(f"ALTER TABLE {tmp} RENAME TO {table}")
+        # Recreate indexes (CreateTable does not emit CREATE INDEX).
+        from sqlalchemy.schema import CreateIndex
+        for ix in target.indexes:
+            conn.exec_driver_sql(str(CreateIndex(ix).compile(conn)).strip().rstrip(";"))
+
+
 def _apply_additive_migrations() -> None:
     """Non-destructive migrations run every startup. Safe to re-run."""
     # v5 → v6: Employee.role — default 'driver' keeps existing rows as drivers.
@@ -332,6 +367,8 @@ def _apply_additive_migrations() -> None:
     _ensure_column("tireevent", "actor_name",     "TEXT", default="")
     _ensure_column("tireevent", "actor_role",     "TEXT", default="")
     _ensure_column("tireevent", "condition_flag", "TEXT", default="")
+    # Magic-link weekly checks have no Employee → relax legacy NOT NULL on employee_id.
+    _drop_not_null("driversubmission", "employee_id")
 
 
 def init_db() -> None:
