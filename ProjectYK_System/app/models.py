@@ -996,6 +996,24 @@ class DriverSubmission(SQLModel, table=True):
     device_info: str = ""
 
 
+class AccessLink(SQLModel, table=True):
+    """Signed, time-limited magic link for login-less data entry (driver | mechanic).
+
+    The signed token is the source of truth for role + expiry; this row is for
+    audit (who generated it, usage) and explicit revocation.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    token: str = Field(index=True, unique=True)
+    role: str = Field(default="driver", index=True)   # driver | mechanic
+    created_by: str = ""
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    expires_at: datetime
+    revoked: bool = Field(default=False, index=True)
+    last_used_at: Optional[datetime] = None
+    use_count: int = 0
+    note: str = ""
+
+
 class InboxEmail(SQLModel, table=True):
     """Inbound email items synced from IMAP for operations review."""
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -1065,6 +1083,11 @@ REVIEW_STATUS = (
     ("approved", "ผ่าน"),
     ("flagged",  "ทักท้วง"),
     ("archived", "เก็บถาวร"),
+)
+
+ACCESS_LINK_ROLES = (
+    ("driver",   "คนขับ"),
+    ("mechanic", "ช่าง"),
 )
 
 INBOX_EMAIL_STATUS = (
