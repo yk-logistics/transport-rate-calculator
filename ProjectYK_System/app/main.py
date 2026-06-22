@@ -6144,6 +6144,34 @@ async def check_mechanic_job(request: Request):
     return RedirectResponse(f"/check/mechanic?t={form.get('t')}", status_code=303)
 
 
+@app.post("/check/add-vehicle")
+async def check_add_vehicle(request: Request):
+    form = await request.form()
+    with Session(engine) as s:
+        link = _check_link_guard(request, s)
+        if not link:
+            return HTMLResponse("ลิงก์ไม่ถูกต้องหรือหมดอายุ", status_code=403)
+        role = (form.get("role") or link.role or "driver").strip()
+        plate = (form.get("plate_no") or "").strip()
+        truck_type = (form.get("truck_type") or "").strip().upper()
+        nickname = (form.get("nickname") or "").strip()
+        if not plate:
+            raise HTTPException(400, "กรอกทะเบียนก่อน")
+
+        existing = s.exec(select(Vehicle).where(Vehicle.plate_no == plate)).first()
+        if existing:
+            vid = existing.id   # reuse, never overwrite truck_type
+        else:
+            kind = "tail" if truck_type.startswith("TRL") else "head"
+            v = Vehicle(plate_no=plate, truck_type=truck_type or "10W",
+                        vehicle_kind=kind, nickname=nickname,
+                        status="active", notes="added via check-link")
+            s.add(v); s.commit(); s.refresh(v)
+            vid = v.id
+    dest = "/check/mechanic" if role == "mechanic" else "/check/driver"
+    return RedirectResponse(f"{dest}?t={form.get('t')}&vehicle_id={vid}", status_code=303)
+
+
 # =====================================================================
 # Maintenance — Tires (Wave 2)
 # =====================================================================
