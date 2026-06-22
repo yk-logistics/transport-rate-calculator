@@ -11,13 +11,41 @@
   <label>อายุ (ชม.) <input name="ttl_hours" value="1" class="border p-2 rounded w-20"></label>
   <button class="bg-blue-600 text-white p-2 rounded">สร้างลิงก์</button>
 </form>
+
+<p class="text-xs text-gray-500 mb-2">กดปุ่ม “คัดลอก” แล้ววางส่งในไลน์ได้เลย · ลิงก์สั้น เปิดง่ายบนมือถือ</p>
 <table class="w-full text-sm">
-  <tr class="text-left text-gray-500"><th>บทบาท</th><th>หมดอายุ</th><th>ใช้</th><th>ลิงก์</th></tr>
+  <tr class="text-left text-gray-500">
+    <th>บทบาท</th><th>หมดอายุ</th><th>ใช้</th><th>ลิงก์สั้น</th><th></th>
+  </tr>
   {% for l in links %}
-  <tr class="{{ 'opacity-40' if l.revoked }}">
-    <td>{{ l.role }}</td><td>{{ l.expires_at | dmy_hm }}</td><td>{{ l.use_count }}</td>
-    <td><input class="border p-1 w-full text-xs" readonly value="/check?t={{ l.token }}"></td>
+  <tr class="{{ 'opacity-40' if l.revoked }} border-t">
+    <td class="py-2">{{ "คนขับ" if l.role == "driver" else "ช่าง" }}</td>
+    <td>{{ l.expires_at | dmy_hm }}</td>
+    <td>{{ l.use_count }}</td>
+    <td>
+      <span class="font-mono text-xs" data-short="/c/{{ l.short_code }}">/c/{{ l.short_code }}</span>
+    </td>
+    <td>
+      {% if l.short_code %}
+      <button type="button" onclick="copyShort(this)" data-code="/c/{{ l.short_code }}"
+              class="bg-green-600 text-white text-xs px-3 py-1 rounded">คัดลอก</button>
+      {% endif %}
+    </td>
   </tr>
   {% endfor %}
 </table>
+
+<script>
+function copyShort(btn){
+  // build absolute URL from current host so it works on any domain
+  var full = location.origin + btn.getAttribute('data-code');
+  navigator.clipboard.writeText(full).then(function(){
+    var old = btn.textContent; btn.textContent = '✓ คัดลอกแล้ว';
+    setTimeout(function(){ btn.textContent = old; }, 1500);
+  }, function(){
+    // fallback: prompt so user can copy manually
+    window.prompt('คัดลอกลิงก์นี้:', full);
+  });
+}
+</script>
 {% endblock %}

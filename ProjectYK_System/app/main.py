@@ -5992,6 +5992,17 @@ def admin_check_links(request: Request):
     })
 
 
+def _gen_short_code(s: Session, n: int = 6) -> str:
+    """Random URL-safe code unique within accesslink.short_code."""
+    import secrets
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"  # no 0/O/1/I/l
+    for _ in range(20):
+        code = "".join(secrets.choice(alphabet) for _ in range(n))
+        if not s.exec(select(AccessLink).where(AccessLink.short_code == code)).first():
+            return code
+    return secrets.token_urlsafe(8)[:n]   # fallback
+
+
 @app.post("/admin/check-links")
 async def admin_check_links_create(request: Request):
     u = current_user(request)
@@ -6001,7 +6012,8 @@ async def admin_check_links_create(request: Request):
     tok = access_link.make_token(role, ttl_hours * 3600)
     with Session(engine) as s:
         s.add(AccessLink(
-            token=tok, role=role, created_by=(u.username if u else ""),
+            token=tok, role=role, short_code=_gen_short_code(s),
+            created_by=(u.username if u else ""),
             expires_at=datetime.utcnow() + timedelta(hours=ttl_hours),
         ))
         s.commit()
