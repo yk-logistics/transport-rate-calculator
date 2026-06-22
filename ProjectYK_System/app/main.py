@@ -45,6 +45,7 @@ from models import (
     DriverDeposit,
     DriverSession,
     DriverSubmission,
+    AccessLink,
     Employee,
     FuelPriceIndex,
     FuelSurchargeBand,
@@ -85,7 +86,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 20
+SCHEMA_VERSION = 21
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -325,6 +326,12 @@ def _apply_additive_migrations() -> None:
     _ensure_column("pettycashtxn", "slip_line_message_id", "TEXT", default="")
     _ensure_column("pettycashtxn", "slip_media_path", "TEXT", default="")
     _ensure_column("pettycashtxn", "slip_ref_code", "TEXT", default="")
+
+    # v20 → v21: TireEvent magic-link fields + AccessLink table (table via create_all).
+    _ensure_column("tireevent", "photo_paths",    "TEXT", default="")
+    _ensure_column("tireevent", "actor_name",     "TEXT", default="")
+    _ensure_column("tireevent", "actor_role",     "TEXT", default="")
+    _ensure_column("tireevent", "condition_flag", "TEXT", default="")
 
 
 def init_db() -> None:

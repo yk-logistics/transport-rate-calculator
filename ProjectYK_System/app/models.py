@@ -563,6 +563,10 @@ class TireEvent(SQLModel, table=True):
 
     maint_record_id: Optional[int] = Field(default=None, foreign_key="maintrecord.id")
     note: str = ""
+    photo_paths: str = ""        # comma-separated relative paths (uploads root)
+    actor_name: str = ""         # name typed at magic-link entry
+    actor_role: str = ""         # driver | mechanic | "" (office)
+    condition_flag: str = ""     # driver report: ok | near | problem | ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -743,6 +747,12 @@ TIRE_EVENT_TYPES = (
     ("inspect",  "ตรวจสภาพ/วัดดอก"),
     ("retread",  "หล่อดอกซ้ำ"),
     ("scrap",    "ทิ้ง/หมดสภาพ"),
+)
+
+TIRE_CONDITION_FLAGS = (
+    ("ok",      "ปกติ"),
+    ("near",    "น่าจะใกล้หมด"),
+    ("problem", "มีปัญหา (รั่ว/บวม/ฉีก)"),
 )
 
 PM_KINDS = (
