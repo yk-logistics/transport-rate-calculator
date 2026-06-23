@@ -59,6 +59,27 @@
     </select>
   </form>
 
+  {% if done %}
+  <div class="mb-4 rounded-xl border border-green-700 bg-green-900/30 p-4">
+    <p class="font-bold text-green-300 mb-1">✓ ตรวจหัวเรียบร้อย ({{ done }} เส้น)</p>
+    {% if trailers %}
+    <p class="text-sm text-slate-300 mb-2">วันนี้ลากหางคันไหน?</p>
+    <form method="get" action="/check/driver" class="space-y-2">
+      <input type="hidden" name="t" value="{{ token }}">
+      <input type="hidden" name="actor_name" value="{{ actor_name }}">
+      <select name="vehicle_id" required class="w-full p-3 rounded-xl bg-slate-800 border border-slate-600 text-base">
+        <option value="">— เลือกทะเบียนหาง —</option>
+        {% for tr in trailers %}<option value="{{ tr.id }}">{{ tr.plate_no }}{% if tr.nickname %} ({{ tr.nickname }}){% endif %}</option>{% endfor %}
+      </select>
+      <button class="w-full p-3 rounded-xl bg-blue-600 font-bold">ตรวจหางต่อ ▸</button>
+    </form>
+    {% else %}
+    <p class="text-sm text-slate-400">— ยังไม่มีทะเบียนหางในระบบ —</p>
+    {% endif %}
+    <a href="/check/driver?t={{ token }}&actor_name={{ actor_name }}" class="block text-center mt-3 text-sm text-slate-400 underline">ไม่มีหาง / เสร็จแล้ว</a>
+  </div>
+  {% endif %}
+
   <details class="mb-4 rounded-xl border border-slate-700 bg-slate-800/60 p-3">
     <summary class="text-sm text-sky-400 cursor-pointer">+ เพิ่มทะเบียนใหม่</summary>
     <form method="post" action="/check/add-vehicle?t={{ token }}" class="mt-3 space-y-2">

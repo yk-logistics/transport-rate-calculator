@@ -6154,6 +6154,13 @@ def check_driver_form(request: Request):
         v = s.get(Vehicle, vid) if vid else None
         positions = _tire_positions_for_vehicle(v) if v else ()
         axles = tire_view.axle_layout(positions) if positions else []
+        # After a head submit (?done=n) offer to inspect a trailer next (optional).
+        done = _parse_int(request.query_params.get("done") or "") or 0
+        trailers = []
+        if done:
+            trailers = s.exec(select(Vehicle).where(
+                Vehicle.vehicle_kind == "tail",
+                Vehicle.status == "active").order_by(Vehicle.plate_no)).all()
     return templates.TemplateResponse("check_driver.html", {
         "request": request, "token": request.query_params.get("t"),
         "actor_name": request.query_params.get("actor_name", ""),
@@ -6164,6 +6171,7 @@ def check_driver_form(request: Request):
         "type_options": [("6W", "6 ล้อ"), ("10W", "10 ล้อ"),
                          ("TRL8", "หาง 8 ล้อ"), ("10WL", "หัว+หาง 10 ล้อ"),
                          ("18W", "18 ล้อ")],
+        "done": done, "trailers": trailers,
     })
 
 
