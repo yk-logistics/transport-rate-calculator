@@ -22,9 +22,10 @@
     <select name="truck_type" class="w-full border rounded px-3 py-2">
       <option value="">—</option>
       {% for t in truck_types %}
-      <option value="{{ t }}" {% if row and row.truck_type==t %}selected{% endif %}>{{ t }}</option>
+      <option value="{{ t }}" {% if row and row.truck_type==t %}selected{% endif %}>{{ truck_type_th.get(t, t) }}</option>
       {% endfor %}
     </select>
+    <p class="text-xs text-slate-500 mt-1">ใช้กำหนดผังล้อตอนตรวจยาง — เลือก "หางลาก (8 ล้อ)" ถ้าเป็นรถหาง</p>
   </div>
   <div>
     <label class="block text-sm mb-1">ไซต์หลัก</label>

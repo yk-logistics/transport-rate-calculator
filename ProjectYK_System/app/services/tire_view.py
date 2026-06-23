@@ -109,14 +109,16 @@ def axle_layout(positions) -> list[dict]:
         if d not in tdigits:
             tdigits.append(d)
     for i, d in enumerate(tdigits):
-        lout, lin = f"TRL_LO{d}", f"TRL_LI{d}"
-        rin, rout = f"TRL_RI{d}", f"TRL_RO{d}"
+        # Twin-tyre trailer (TRL8): outer/inner each side. Single-tyre
+        # trailer (10WL/18W: TRL_L{d}/TRL_R{d}): one tyre each side.
+        left  = [c for c in (f"TRL_LO{d}", f"TRL_LI{d}", f"TRL_L{d}") if c in pos]
+        right = [c for c in (f"TRL_R{d}", f"TRL_RI{d}", f"TRL_RO{d}") if c in pos]
         tag = "หาง · เพลาหน้า" if i == 0 and len(tdigits) > 1 else (
               "หาง · เพลาหลัง" if i == 1 else "หาง")
         axles.append({
             "tag": tag,
-            "left":  [_cell(c) for c in (lout, lin) if c in pos],
-            "right": [_cell(c) for c in (rin, rout) if c in pos],
+            "left":  [_cell(c) for c in left],
+            "right": [_cell(c) for c in right],
         })
 
     return axles

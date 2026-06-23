@@ -193,7 +193,7 @@
             <select name="type_{{ key }}" class="border rounded px-2 py-1 text-xs">
               <option value="">-</option>
               {% for tt in truck_types %}
-              <option value="{{ tt }}">{{ tt }}</option>
+              <option value="{{ tt }}">{{ truck_type_th.get(tt, tt) }}</option>
               {% endfor %}
             </select>
           </td>

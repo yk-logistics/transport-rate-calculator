@@ -791,6 +791,11 @@ TIRE_POSITION_TH = {
     "TRL_RI1": "หาง ขวาใน (เพลาหน้า)", "TRL_RO1": "หาง ขวานอก (เพลาหน้า)",
     "TRL_LO2": "หาง ซ้ายนอก (เพลาหลัง)", "TRL_LI2": "หาง ซ้ายใน (เพลาหลัง)",
     "TRL_RI2": "หาง ขวาใน (เพลาหลัง)", "TRL_RO2": "หาง ขวานอก (เพลาหลัง)",
+    # Single-tyre trailer axles (10WL / 18W layouts)
+    "TRL_L1": "หาง ซ้าย (เพลา 1)", "TRL_R1": "หาง ขวา (เพลา 1)",
+    "TRL_L2": "หาง ซ้าย (เพลา 2)", "TRL_R2": "หาง ขวา (เพลา 2)",
+    "TRL_L3": "หาง ซ้าย (เพลา 3)", "TRL_R3": "หาง ขวา (เพลา 3)",
+    "TRL_L4": "หาง ซ้าย (เพลา 4)", "TRL_R4": "หาง ขวา (เพลา 4)",
 }
 
 
@@ -1233,7 +1238,16 @@ VEHICLE_KINDS = (
     ("tail",  "หางลาก"),
 )
 
-TRUCK_TYPES = ("6W", "10W", "10WL", "18W")
+TRUCK_TYPES = ("6W", "10W", "10WL", "18W", "TRL8")
+
+# Thai display labels for truck types (DB keeps the short code).
+TRUCK_TYPE_TH = {
+    "6W":   "6 ล้อ",
+    "10W":  "10 ล้อ",
+    "10WL": "10 ล้อ + หาง",
+    "18W":  "18 ล้อ (หัวลาก + หาง)",
+    "TRL8": "หางลาก (8 ล้อ คู่ 2 เพลา)",
+}
 
 VEHICLE_STATUS = ("active", "parked", "maintenance", "sold")
 

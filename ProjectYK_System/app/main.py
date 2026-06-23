@@ -730,6 +730,7 @@ def base_context(request: Request) -> dict:
         "pay_cycle_policies": models.PAY_CYCLE_POLICIES,
         "vehicle_kinds": models.VEHICLE_KINDS,
         "truck_types": models.TRUCK_TYPES,
+        "truck_type_th": models.TRUCK_TYPE_TH,
         "vehicle_status": models.VEHICLE_STATUS,
         "employee_status": models.EMPLOYEE_STATUS,
         "leave_status_choices": models.LEAVE_STATUS_CHOICES,
