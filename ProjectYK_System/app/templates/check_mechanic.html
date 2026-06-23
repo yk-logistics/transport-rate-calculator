@@ -8,9 +8,11 @@
       <option value="">สภาพ</option>
       {% for code, th in conditions %}<option value="{{ code }}">{{ th }}</option>{% endfor %}
     </select>
-    <input type="file" name="photo_{{ c.pos }}" accept="image/*" capture="environment"
-           multiple class="hidden" id="mph_{{ c.pos }}">
-    <label for="mph_{{ c.pos }}" class="block text-[9px] text-slate-500 mt-1 cursor-pointer">
+    <input type="file" name="photo_{{ c.pos }}" accept="image/*"
+           multiple class="hidden" id="mph_{{ c.pos }}"
+           onchange="mPreview('{{ c.pos }}')">
+    <div id="mthumb_{{ c.pos }}" class="hidden mt-1 h-7 rounded bg-cover bg-center border border-slate-600"></div>
+    <label for="mph_{{ c.pos }}" id="mlbl_{{ c.pos }}" class="block text-[9px] text-slate-500 mt-1 cursor-pointer">
       📷 {{ "ข้าง+หน้า" if c.photos == 2 else "หน้ายาง" }}</label>
   </div>
 {% endmacro %}
@@ -126,4 +128,22 @@
     <button class="w-full p-2 rounded bg-blue-600 font-bold text-sm">บันทึกงานยาง</button>
   </form>
 
+<script>
+  var mUrls = {};
+  function mPreview(p){
+    var f = document.getElementById('mph_'+p);
+    var th = document.getElementById('mthumb_'+p);
+    var lbl = document.getElementById('mlbl_'+p);
+    if(mUrls[p]){ URL.revokeObjectURL(mUrls[p]); mUrls[p] = null; }
+    if(f && f.files && f.files.length){
+      mUrls[p] = URL.createObjectURL(f.files[0]);
+      th.style.backgroundImage = 'url('+mUrls[p]+')';
+      th.classList.remove('hidden');
+      lbl.textContent = '📷 เลือกแล้ว ' + f.files.length + ' รูป (แตะเปลี่ยน)';
+      lbl.classList.remove('text-slate-500'); lbl.classList.add('text-green-400');
+    } else {
+      th.classList.add('hidden'); th.style.backgroundImage = '';
+    }
+  }
+</script>
 </body></html>

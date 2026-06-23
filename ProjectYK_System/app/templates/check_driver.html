@@ -13,6 +13,8 @@
   .tile .nm{ font-size:9px; color:#cdd9ee; line-height:1.05; min-height:22px;
     display:flex; align-items:center; justify-content:center; }
   .tile .badge{ font-size:11px; margin-top:4px; height:18px; color:#7e8db0; font-weight:600;}
+  .tile .thumb{ height:30px; border-radius:7px; margin-top:3px; background-size:cover;
+    background-position:center; border:1px solid #2b3b57; }
   .tile.done{ border-color:var(--ok); background:#11281b; }
   .tile.done .badge{ color:#4ade80; }
   .tile.bad{ border-color:var(--bad); background:#2a1414; }
@@ -102,9 +104,10 @@
               <div class="tile todo" id="tile_{{ c.pos }}" data-pos="{{ c.pos }}"
                    data-need="{{ c.photos }}" data-label="{{ c.label }}" onclick="openSheet('{{ c.pos }}')">
                 <div class="nm">{{ c.short }}</div>
+                <div class="thumb hidden" id="thumb_{{ c.pos }}"></div>
                 <div class="badge" id="badge_{{ c.pos }}">📷 0/{{ c.photos }}</div>
               </div>
-              <input type="file" name="photo_{{ c.pos }}" accept="image/*" capture="environment"
+              <input type="file" name="photo_{{ c.pos }}" accept="image/*"
                      multiple class="hidden" id="file_{{ c.pos }}"
                      onchange="onFiles('{{ c.pos }}')">
               <input type="hidden" name="cond_{{ c.pos }}" id="cond_{{ c.pos }}" value="">
@@ -116,9 +119,10 @@
               <div class="tile todo" id="tile_{{ c.pos }}" data-pos="{{ c.pos }}"
                    data-need="{{ c.photos }}" data-label="{{ c.label }}" onclick="openSheet('{{ c.pos }}')">
                 <div class="nm">{{ c.short }}</div>
+                <div class="thumb hidden" id="thumb_{{ c.pos }}"></div>
                 <div class="badge" id="badge_{{ c.pos }}">📷 0/{{ c.photos }}</div>
               </div>
-              <input type="file" name="photo_{{ c.pos }}" accept="image/*" capture="environment"
+              <input type="file" name="photo_{{ c.pos }}" accept="image/*"
                      multiple class="hidden" id="file_{{ c.pos }}"
                      onchange="onFiles('{{ c.pos }}')">
               <input type="hidden" name="cond_{{ c.pos }}" id="cond_{{ c.pos }}" value="">
@@ -186,6 +190,7 @@
 
   function tileComplete(p){ return taken(p) >= need(p) && cond(p) !== ''; }
 
+  var thumbUrls = {};
   function paintTile(p){
     var t = document.getElementById('tile_'+p);
     var b = document.getElementById('badge_'+p);
@@ -193,6 +198,17 @@
     if(cond(p) === 'problem'){ t.classList.add('bad'); b.textContent = '⚠ ' + taken(p)+'/'+need(p); }
     else if(tileComplete(p)){ t.classList.add('done'); b.textContent = '✓ '+taken(p)+'/'+need(p); }
     else { t.classList.add('todo'); b.textContent = '📷 '+taken(p)+'/'+need(p); }
+    // show a thumbnail of the first chosen photo on the tile itself
+    var th = document.getElementById('thumb_'+p);
+    var f = fileInput(p);
+    if(thumbUrls[p]){ URL.revokeObjectURL(thumbUrls[p]); thumbUrls[p] = null; }
+    if(f && f.files && f.files.length){
+      thumbUrls[p] = URL.createObjectURL(f.files[0]);
+      th.style.backgroundImage = 'url('+thumbUrls[p]+')';
+      th.classList.remove('hidden');
+    } else {
+      th.style.backgroundImage = ''; th.classList.add('hidden');
+    }
   }
 
   function recount(){
