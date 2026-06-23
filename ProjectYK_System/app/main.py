@@ -6082,18 +6082,33 @@ async def check_driver_submit(request: Request):
 
         positions = _tire_positions_for_vehicle(v)
         today = date.today()
-        created = 0
+
+        # Pass 1: read photos for every touched tyre and ENFORCE the required count
+        # (outer = 2, inner = 1). Validate everything before writing anything, so a
+        # single short tyre rejects the whole submit without saving a partial record.
+        pending = []   # (pos, cond, [photo bytes])
         for pos in positions:
             cond = (form.get(f"cond_{pos}") or "").strip()
             if not cond:
                 continue   # untouched position
-            paths = []
+            need = tire_view.photo_count(pos)
+            shots = []
             files = form.getlist(f"photo_{pos}") if hasattr(form, "getlist") else []
             for f in files:
                 if hasattr(f, "read"):
                     data = await f.read()
                     if data and len(data) > 100:
-                        paths.append(drv.save_photo(0, "check", data, ext="jpg"))
+                        shots.append(data)
+            if len(shots) < need:
+                label = tire_view.th_label(pos)
+                raise HTTPException(
+                    400, f"ต้องถ่ายรูปให้ครบทุกเส้น — “{label}” ต้องมี {need} รูป "
+                         f"(ได้ {len(shots)})")
+            pending.append((pos, cond, shots))
+
+        created = 0
+        for pos, cond, shots in pending:
+            paths = [drv.save_photo(0, "check", data, ext="jpg") for data in shots]
             tire = s.exec(select(Tire).where(
                 Tire.current_vehicle_id == vehicle_id, Tire.current_position == pos)).first()
             ev = TireEvent(

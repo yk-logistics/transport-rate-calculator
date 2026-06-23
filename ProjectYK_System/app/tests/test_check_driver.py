@@ -1,3 +1,4 @@
+import io
 from datetime import datetime, timedelta
 from sqlmodel import Session, select
 from db_config import engine
@@ -16,13 +17,25 @@ def _driver_link():
     return tok, vid
 
 
+def _jpg():
+    return io.BytesIO(b"\xff\xd8\xff\xe0" + b"\x00" * 2000 + b"\xff\xd9")
+
+
 def test_driver_submit_creates_inspect_events_without_tread(client):
     tok, vid = _driver_link()
     data = {
         "t": tok, "actor_name": "สมชาย", "vehicle_id": str(vid), "mile": "103150",
         "cond_FL": "ok", "cond_FR": "problem",
     }
-    r = client.post(f"/check/driver?t={tok}", data=data, follow_redirects=False)
+    # FL & FR are outer wheels -> each needs 2 photos (now mandatory)
+    files = [
+        ("photo_FL", ("a.jpg", _jpg(), "image/jpeg")),
+        ("photo_FL", ("b.jpg", _jpg(), "image/jpeg")),
+        ("photo_FR", ("c.jpg", _jpg(), "image/jpeg")),
+        ("photo_FR", ("d.jpg", _jpg(), "image/jpeg")),
+    ]
+    r = client.post(f"/check/driver?t={tok}", data=data, files=files,
+                    follow_redirects=False)
     assert r.status_code in (200, 303)
     with Session(engine) as s:
         evs = s.exec(select(TireEvent).where(TireEvent.event_type == "inspect")).all()
