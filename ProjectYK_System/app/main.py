@@ -34,7 +34,6 @@ import models
 from models import (
     AccidentCase,
     AccidentInstallment,
-    AppSetting,
     AppUser,
     BigcBranch,
     Customer,
@@ -87,7 +86,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 23
+SCHEMA_VERSION = 22
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -387,9 +386,6 @@ def _apply_additive_migrations() -> None:
 
     # v21 → v22: short code for /c/<code> magic-link URLs.
     _ensure_column("accesslink", "short_code", "TEXT", default="")
-
-    # v22 → v23: AppSetting key/value table (slip-reader on/off control) — created
-    # by create_all(); no ALTER needed. Version bumped for the record.
 
 
 def init_db() -> None:
@@ -723,26 +719,6 @@ templates.env.globals["can_see"] = _can_see
 
 # RBAC enforcement is registered as a class middleware (see RbacMiddleware below),
 # added BEFORE SessionMiddleware so the session is available when it runs.
-
-
-def get_setting(key: str, default: str = "") -> str:
-    """Read an AppSetting value (returns default if unset)."""
-    with Session(engine) as s:
-        row = s.get(AppSetting, key)
-        return row.value if row else default
-
-
-def set_setting(key: str, value: str) -> None:
-    """Upsert an AppSetting value."""
-    with Session(engine) as s:
-        row = s.get(AppSetting, key)
-        if row:
-            row.value = value
-            row.updated_at = datetime.utcnow()
-        else:
-            row = AppSetting(key=key, value=value)
-        s.add(row)
-        s.commit()
 
 
 def base_context(request: Request) -> dict:
@@ -2985,86 +2961,6 @@ def petty_review_reject(pid: int):
             t.status = "draft"
             s.add(t); s.commit()
     return RedirectResponse("/petty/review", status_code=303)
-
-
-# ==========================================================================
-# Slip-reader control — โอ turns the LCB auto-reader on/off from the MVP.
-# Page routes (/petty/slip-control*) are session UI (petty menu: admin/office).
-# Service routes (/api/petty/slip-config*) are service-token (the reader polls them).
-# OFF = the reader makes zero Anthropic calls (the money guarantee).
-# ==========================================================================
-
-SLIP_ENABLED_KEY   = "slip_reader_enabled"     # "1"/"0", default "0" (OFF)
-SLIP_SINCE_KEY     = "slip_reader_since"        # "YYYY-MM-DD" or "" (continue from rolling window)
-SLIP_RUNNOW_KEY    = "slip_reader_run_now"      # "1" one-shot "check now"
-SLIP_LASTRUN_KEY   = "slip_reader_last_run"     # ISO datetime of last reader poll
-SLIP_LASTRESULT_KEY = "slip_reader_last_result" # short human text
-
-
-def _slip_token_ok(request: Request) -> bool:
-    expected = os.environ.get("YK_SLIP_INGEST_TOKEN", "")
-    return bool(expected) and request.headers.get("X-Service-Token") == expected
-
-
-@app.get("/api/petty/slip-config")
-def slip_config_get(request: Request):
-    """Service endpoint: the reader calls this BEFORE any API work to learn if it's
-    enabled and from what date. Token-gated (same as ingest)."""
-    if not _slip_token_ok(request):
-        raise HTTPException(status_code=401, detail="bad service token")
-    return {
-        "enabled": get_setting(SLIP_ENABLED_KEY, "0") == "1",
-        "since": get_setting(SLIP_SINCE_KEY, ""),
-        "run_now": get_setting(SLIP_RUNNOW_KEY, "0") == "1",
-    }
-
-
-@app.post("/api/petty/slip-config/report")
-async def slip_config_report(request: Request):
-    """Service endpoint: the reader posts its run result back + acks the run_now flag."""
-    if not _slip_token_ok(request):
-        raise HTTPException(status_code=401, detail="bad service token")
-    body = await request.json()
-    set_setting(SLIP_LASTRUN_KEY, datetime.utcnow().isoformat(timespec="seconds"))
-    set_setting(SLIP_LASTRESULT_KEY, str(body.get("result", ""))[:200])
-    if body.get("ack_run_now"):
-        set_setting(SLIP_RUNNOW_KEY, "0")
-    return {"status": "ok"}
-
-
-@app.get("/petty/slip-control", response_class=HTMLResponse)
-def slip_control(request: Request):
-    """Admin/office page: on/off switch, read-since, check-now, and status."""
-    ctx = base_context(request)
-    ctx["slip_enabled"] = get_setting(SLIP_ENABLED_KEY, "0") == "1"
-    ctx["slip_since"] = get_setting(SLIP_SINCE_KEY, "")
-    ctx["slip_run_now"] = get_setting(SLIP_RUNNOW_KEY, "0") == "1"
-    ctx["slip_last_run"] = get_setting(SLIP_LASTRUN_KEY, "")
-    ctx["slip_last_result"] = get_setting(SLIP_LASTRESULT_KEY, "")
-    return templates.TemplateResponse("slip_control.html", ctx)
-
-
-@app.post("/petty/slip-control/toggle")
-async def slip_control_toggle(request: Request):
-    form = await request.form()
-    set_setting(SLIP_ENABLED_KEY, "1" if form.get("enable") == "1" else "0")
-    return RedirectResponse("/petty/slip-control", status_code=303)
-
-
-@app.post("/petty/slip-control/since")
-async def slip_control_since(request: Request):
-    form = await request.form()
-    raw = str(form.get("since", "")).strip()
-    # Accept blank (continue from rolling window) or a valid ISO date; ignore garbage.
-    set_setting(SLIP_SINCE_KEY, raw if (not raw or _parse_date(raw)) else
-                get_setting(SLIP_SINCE_KEY, ""))
-    return RedirectResponse("/petty/slip-control", status_code=303)
-
-
-@app.post("/petty/slip-control/run-now")
-def slip_control_run_now():
-    set_setting(SLIP_RUNNOW_KEY, "1")
-    return RedirectResponse("/petty/slip-control", status_code=303)
 
 
 # ==========================================================================
