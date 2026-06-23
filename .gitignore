@@ -41,6 +41,7 @@ logs/
 # Secrets
 .env
 .env.*
+!.env.example
 *.pem
 *.key
 credentials*.json

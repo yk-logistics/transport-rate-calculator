@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}ระบบอ่านสลิปอัตโนมัติ · LCB{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">ระบบอ่านสลิปอัตโนมัติ — LCB</h1>
+
+<div class="max-w-xl space-y-4">
+
+  <div class="border rounded p-4 bg-white">
+    <div class="flex items-center justify-between">
+      <div>
+        <div class="text-sm text-gray-500">สถานะ</div>
+        {% if slip_enabled %}
+          <div class="text-lg font-bold text-green-700">🟢 เปิด (กำลังอ่านสลิป)</div>
+        {% else %}
+          <div class="text-lg font-bold text-gray-600">⚪ ปิด (ไม่อ่าน · ไม่เสียเงิน)</div>
+        {% endif %}
+      </div>
+      <form method="post" action="/petty/slip-control/toggle">
+        {% if slip_enabled %}
+          <input type="hidden" name="enable" value="0">
+          <button class="px-4 py-2 rounded bg-gray-700 text-white font-medium">ปิดระบบ</button>
+        {% else %}
+          <input type="hidden" name="enable" value="1">
+          <button class="px-4 py-2 rounded bg-green-600 text-white font-medium">เปิดระบบ</button>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+
+  <div class="border rounded p-4 bg-white">
+    <form method="post" action="/petty/slip-control/since" class="space-y-2">
+      <label class="block text-sm font-medium">อ่านย้อนตั้งแต่วันที่
+        <span class="text-gray-400 font-normal">(เว้นว่าง = อ่านต่อจากเดิม)</span></label>
+      <div class="flex gap-2">
+        <input type="date" name="since" value="{{ slip_since }}"
+               class="border rounded px-2 py-1 flex-1">
+        <button class="px-3 py-1 rounded bg-blue-600 text-white">บันทึก</button>
+      </div>
+      <p class="text-xs text-gray-500">
+        ใส่วันเมื่ออยากไล่อ่านสลิปย้อนหลัง · รูปที่เคยอ่านแล้วจะไม่ถูกอ่านซ้ำ (กันด้วยรหัสข้อความ)
+      </p>
+    </form>
+  </div>
+
+  <div class="border rounded p-4 bg-white flex items-center justify-between">
+    <div>
+      <div class="text-sm font-medium">สั่งเช็คเดี๋ยวนี้</div>
+      <div class="text-xs text-gray-500">
+        {% if slip_run_now %}⏳ ตั้งคิวไว้แล้ว — จะอ่านในรอบถัดไป{% else %}กดเพื่ออ่านทันที (ไม่ต้องรอรอบ){% endif %}
+      </div>
+    </div>
+    <form method="post" action="/petty/slip-control/run-now">
+      <button class="px-4 py-2 rounded bg-amber-500 text-white font-medium"
+              {% if not slip_enabled %}disabled title="เปิดระบบก่อน"{% endif %}>เช็คเดี๋ยวนี้</button>
+    </form>
+  </div>
+
+  <div class="border rounded p-4 bg-gray-50 text-sm text-gray-700">
+    <div>รอบล่าสุด: <b>{{ slip_last_run | dmy_hm if slip_last_run else "—" }}</b></div>
+    <div>ผลล่าสุด: <b>{{ slip_last_result or "—" }}</b></div>
+    <div class="mt-2"><a href="/petty/review" class="text-blue-600 hover:underline">ดูรายการรออนุมัติ →</a></div>
+  </div>
+
+</div>
+{% endblock %}

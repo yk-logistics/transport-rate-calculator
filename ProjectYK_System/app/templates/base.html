@@ -24,6 +24,7 @@
         {% if can_see(request, "/email") %}<a href="/email/inbox" class="hover:underline text-indigo-300">Email Inbox</a>{% endif %}
         <a href="/petty-cash/pending" class="hover:underline text-amber-300">รอหักคนขับ</a>
         <a href="/petty-cash/clearance" class="hover:underline text-yellow-300">รอเคลียร์</a>
+        {% if can_see(request, "/petty/review") %}<a href="/petty/slip-control" class="hover:underline text-green-300" title="ระบบอ่านสลิป LINE อัตโนมัติ (เปิด/ปิด)">🤖 อ่านสลิป</a>{% endif %}
         <span class="text-slate-500">|</span>
         <a href="/employees" class="hover:underline">คนขับ</a>
         <a href="/vehicles" class="hover:underline">รถ</a>

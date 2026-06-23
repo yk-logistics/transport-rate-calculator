@@ -2,9 +2,7 @@ from __future__ import annotations
 import sys
 import io
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
-
-from . import config, slip_source, mvp_push
+from . import config, slip_source, mvp_push, mvp_config
 from .engine import get_engine
 from .plan_context import parse_plan
 from .entry_builder import build_entry
@@ -16,6 +14,18 @@ GROUP = "หัวลาก LCB"
 
 
 def main(since=None) -> int:
+    # Money gate: ask the MVP if we're enabled BEFORE building the engine or making
+    # any Anthropic call. OFF (and no "check now") → exit early, zero API spend.
+    cfg = mvp_config.fetch_config()
+    if not cfg.get("enabled") and not cfg.get("run_now"):
+        msg = "DISABLED" if "error" not in cfg else f"CONFIG_UNREACHABLE {cfg['error']}"
+        print(msg)
+        return 0
+    # MVP-set since-date wins over the CLI/rolling-window arg (blank = keep `since`).
+    cfg_since = (cfg.get("since") or "").strip()
+    if cfg_since:
+        since = f"{cfg_since} 00:00:00"
+
     engine = get_engine(config.SLIP_ENGINE)
     slips = slip_source.company_slips(DB, GROUP, since=since)
     # Optional single-day filter (SLIP_ONLY_DAY=16.06.26) — for targeted/test runs.
@@ -47,8 +57,12 @@ def main(since=None) -> int:
         if res["status"] == "created":
             pushed += 1
     print("PUSHED", pushed, "of", len(slips))
+    # Report status back + ack any "check now" so it fires once, not every poll.
+    mvp_config.report(f"pushed {pushed} of {len(slips)}", ack_run_now=bool(cfg.get("run_now")))
     return pushed
 
 
 if __name__ == "__main__":
+    # Force UTF-8 stdout so Thai names print on the Windows (cp1252) server console.
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
     main(since=sys.argv[1] if len(sys.argv) > 1 else None)

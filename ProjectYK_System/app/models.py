@@ -1103,6 +1103,17 @@ class InboxSyncRun(SQLModel, table=True):
     error_message: str = ""
 
 
+class AppSetting(SQLModel, table=True):
+    """Tiny generic key/value store for back-office runtime settings.
+
+    First use: the LCB slip-reader on/off switch + read-since watermark, so โอ can
+    control the auto-reader from the MVP UI instead of editing files on the server.
+    """
+    key: str = Field(primary_key=True)
+    value: str = ""
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 SUBMISSION_KINDS = (
     ("vehicle_check", "ตรวจรถก่อนวิ่ง"),
     ("alcohol_test",  "เป่าแอลกอฮอล์"),
