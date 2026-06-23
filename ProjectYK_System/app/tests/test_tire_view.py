@@ -54,3 +54,9 @@ def test_distance_since_last(client):
         assert tv.distance_since_last(s, 5, 103150.0) == 3150.0
         assert tv.distance_since_last(s, 5, 99000.0) == 0.0   # negative clamped
         assert tv.distance_since_last(s, 999, 5000.0) == 0.0  # no prior
+
+
+def test_short_label_strips_axle_qualifier():
+    assert tv.short_label("RLO1") == "ซ้ายหลังนอก"   # drops " (เพลาหน้า)"
+    assert tv.short_label("FL") == "ซ้ายหน้า"          # unchanged when no qualifier
+    assert tv.short_label("TRL_RO2") == "หาง ขวานอก"   # drops " (เพลาหลัง)"

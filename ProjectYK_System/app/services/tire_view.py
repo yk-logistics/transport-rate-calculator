@@ -11,6 +11,14 @@ def th_label(pos: str) -> str:
     return models.TIRE_POSITION_TH.get((pos or "").upper(), pos)
 
 
+def short_label(pos: str) -> str:
+    """Tile-sized label: position name without the axle qualifier in parentheses.
+    The axle caption above the tile already says which axle, so '(เพลาหน้า)' is
+    redundant inside each tile and makes them too wide for a phone.
+    e.g. 'ซ้ายหลังนอก (เพลาหน้า)' -> 'ซ้ายหลังนอก'."""
+    return re.sub(r"\s*\(.*\)\s*$", "", th_label(pos)).strip()
+
+
 def is_outer(pos: str) -> bool:
     p = (pos or "").upper()
     if p in ("FL", "FR"):
@@ -54,7 +62,7 @@ def distance_since_last(session: Session, vehicle_id: int, current_mile: float) 
 
 
 def _cell(pos: str) -> dict:
-    return {"pos": pos, "label": th_label(pos),
+    return {"pos": pos, "label": th_label(pos), "short": short_label(pos),
             "photos": photo_count(pos), "outer": is_outer(pos)}
 
 

@@ -1,42 +1,55 @@
-{% macro tire_cell(c) %}
-  <div class="tire">
-    <div class="lbl">{{ c.label }}</div>
-    <select name="cond_{{ c.pos }}" onchange="paint(this)"
-            class="w-full mt-1 p-1 rounded bg-slate-900 border border-slate-600 text-[11px]">
-      <option value="">—</option>
-      {% for code, th in conditions %}<option value="{{ code }}">{{ th }}</option>{% endfor %}
-    </select>
-    <input type="file" name="photo_{{ c.pos }}" accept="image/*" capture="environment"
-           multiple class="hidden" id="ph_{{ c.pos }}">
-    <label for="ph_{{ c.pos }}" class="block text-[9px] text-slate-500 mt-1 cursor-pointer">
-      📷 {{ "ข้าง+หน้า" if c.photos == 2 else "หน้ายาง" }}</label>
-  </div>
-{% endmacro %}
 <!doctype html><html lang="th"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ตรวจยาง</title><script src="https://cdn.tailwindcss.com"></script>
 <style>
-  .tire{width:64px;border-radius:11px;padding:7px 3px 6px;text-align:center;
-    background:#1e293b;border:1.5px solid #334155;flex:0 0 auto;}
-  .tire .lbl{font-size:10px;color:#cbd5e1;line-height:1.15;min-height:24px;
-    display:flex;align-items:center;justify-content:center;}
-  .tire.sel-ok{border-color:#22c55e;background:#11281b;}
-  .tire.sel-problem{border-color:#ef4444;background:#2a1414;}
-  .tire.sel-near{border-color:#f59e0b;background:#2a2113;}
-  .spine{position:absolute;top:46px;bottom:14px;left:50%;width:16px;
-    transform:translateX(-50%);background:#15233c;border-radius:8px;}
+  :root{ --ok:#22c55e; --bad:#ef4444; --todo:#3a4a63; }
+  *{ -webkit-tap-highlight-color:transparent; }
+  body{ background:#0b1220; }
+  /* status tile (display only — no inputs inside) */
+  .tile{ width:60px; border-radius:13px; padding:7px 2px 6px; text-align:center;
+    background:#16223a; border:2px solid var(--todo); cursor:pointer; user-select:none;
+    transition:transform .06s, border-color .15s, background .15s; }
+  .tile:active{ transform:scale(.92); }
+  .tile .nm{ font-size:9px; color:#cdd9ee; line-height:1.05; min-height:22px;
+    display:flex; align-items:center; justify-content:center; }
+  .tile .badge{ font-size:11px; margin-top:4px; height:18px; color:#7e8db0; font-weight:600;}
+  .tile.done{ border-color:var(--ok); background:#11281b; }
+  .tile.done .badge{ color:#4ade80; }
+  .tile.bad{ border-color:var(--bad); background:#2a1414; }
+  .tile.bad .badge{ color:#f87171; }
+  .spine{ position:absolute; top:44px; bottom:14px; left:50%; width:12px;
+    transform:translateX(-50%); background:#15233c; border-radius:7px; }
+  /* sheet */
+  .mask{ position:fixed; inset:0; background:rgba(2,6,16,.66); z-index:40;
+    display:none; align-items:flex-end; justify-content:center; }
+  .mask.open{ display:flex; }
+  .sheet{ width:100%; max-width:480px; background:#0f1b30;
+    border-radius:22px 22px 0 0; padding:20px 18px calc(22px + env(safe-area-inset-bottom));
+    border-top:1px solid #24344f; }
+  .grip{ width:40px; height:4px; border-radius:99px; background:#33445f; margin:0 auto 14px;}
+  .slot{ aspect-ratio:1; border-radius:14px; border:2px dashed #3a4a63; background:#0b1626;
+    display:flex; flex-direction:column; gap:6px; align-items:center; justify-content:center;
+    color:#8294b5; font-size:12px; cursor:pointer; overflow:hidden; position:relative;}
+  .slot.filled{ border-style:solid; border-color:var(--ok); }
+  .slot .ic{ font-size:26px; }
+  .slot img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .seg{ display:flex; gap:10px; }
+  .seg button{ flex:1; padding:14px 6px; border-radius:14px; font-size:14px; font-weight:700;
+    border:2px solid #2b3b57; background:#16223a; color:#cdd9ee; }
+  .seg button.on-ok{ border-color:var(--ok); background:#11281b; color:#7ef0a8; }
+  .seg button.on-bad{ border-color:var(--bad); background:#2a1414; color:#ffb4b4; }
 </style></head>
-<body class="bg-slate-900 text-slate-100 p-4 max-w-md mx-auto">
+<body class="text-slate-100 max-w-md mx-auto px-4 pt-4 pb-28">
 
-  <h1 class="text-lg font-bold mb-1">ตรวจยาง / ตรวจรถ</h1>
-  <p class="text-sm text-slate-400 mb-3">คนตรวจ: {{ actor_name or "—" }}</p>
+  <h1 class="text-lg font-bold">ตรวจยาง</h1>
+  <p class="text-sm text-slate-400 mb-3">คนตรวจ: <b class="text-slate-200">{{ actor_name or "—" }}</b></p>
 
-  <form method="get" action="/check/driver" class="flex gap-2 mb-2">
+  <form method="get" action="/check/driver" class="mb-2">
     <input type="hidden" name="t" value="{{ token }}">
     <input type="hidden" name="actor_name" value="{{ actor_name }}">
-    <select name="vehicle_id" class="flex-1 p-2 rounded bg-slate-800 border border-slate-600"
+    <select name="vehicle_id" class="w-full p-3 rounded-xl bg-slate-800 border border-slate-600 text-base"
             onchange="this.form.submit()">
-      <option value="">— เลือกทะเบียน —</option>
+      <option value="">— เลือกทะเบียนรถ —</option>
       {% for v in vehicles %}
         <option value="{{ v.id }}" {{ 'selected' if vehicle and vehicle.id == v.id }}>
           {{ v.plate_no }}{% if v.nickname %} ({{ v.nickname }}){% endif %}</option>
@@ -44,52 +57,72 @@
     </select>
   </form>
 
-  <!-- add vehicle -->
-  <details class="mb-4 rounded-lg border border-slate-700 bg-slate-800 p-3">
+  <details class="mb-4 rounded-xl border border-slate-700 bg-slate-800/60 p-3">
     <summary class="text-sm text-sky-400 cursor-pointer">+ เพิ่มทะเบียนใหม่</summary>
     <form method="post" action="/check/add-vehicle?t={{ token }}" class="mt-3 space-y-2">
       <input type="hidden" name="t" value="{{ token }}">
       <input type="hidden" name="role" value="driver">
       <input name="plate_no" required placeholder="ทะเบียน เช่น 71-2345"
-             class="w-full p-2 rounded bg-slate-900 border border-slate-600 text-sm">
-      <div class="text-xs text-slate-400">ประเภทรถ (กำหนดจำนวนล้อ)</div>
-      <select name="truck_type" class="w-full p-2 rounded bg-slate-900 border border-slate-600 text-sm">
+             class="w-full p-3 rounded-lg bg-slate-900 border border-slate-600 text-sm">
+      <select name="truck_type" class="w-full p-3 rounded-lg bg-slate-900 border border-slate-600 text-sm">
         {% for code, th in type_options %}<option value="{{ code }}">{{ th }}</option>{% endfor %}
       </select>
       <input name="nickname" placeholder="ชื่อเล่น (ไม่บังคับ)"
-             class="w-full p-2 rounded bg-slate-900 border border-slate-600 text-sm">
-      <button class="w-full p-2 rounded bg-sky-600 font-bold text-sm">บันทึกทะเบียน</button>
+             class="w-full p-3 rounded-lg bg-slate-900 border border-slate-600 text-sm">
+      <button class="w-full p-3 rounded-lg bg-sky-600 font-bold text-sm">บันทึกทะเบียน</button>
     </form>
   </details>
 
   {% if vehicle %}
-  <form method="post" action="/check/driver?t={{ token }}" enctype="multipart/form-data">
+  <form method="post" action="/check/driver?t={{ token }}" enctype="multipart/form-data" id="mainform">
     <input type="hidden" name="t" value="{{ token }}">
     <input type="hidden" name="actor_name" value="{{ actor_name }}">
     <input type="hidden" name="vehicle_id" value="{{ vehicle.id }}">
 
     <div class="flex items-center gap-2 mb-3">
-      <span class="font-semibold">{{ vehicle.plate_no }}</span>
-      <span class="text-xs text-slate-400">{{ vehicle.truck_type }}</span>
-      <span class="ml-auto text-xs text-slate-400"><b id="cnt">0</b> เส้น</span>
+      <span class="font-semibold text-base">{{ vehicle.plate_no }}</span>
+      <span class="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-300">{{ vehicle.truck_type }}</span>
     </div>
 
-    <label class="block text-sm mb-3">เลขไมล์วันนี้
-      <input name="mile" inputmode="numeric"
-             class="w-full p-2 rounded bg-slate-800 border border-slate-600 mt-1"></label>
+    <label class="block text-sm mb-4">เลขไมล์วันนี้
+      <input name="mile" inputmode="numeric" placeholder="เช่น 123456"
+             class="w-full p-3 rounded-xl bg-slate-800 border border-slate-600 mt-1 text-base"></label>
 
-    <!-- TOP VIEW -->
-    <div class="relative bg-slate-950/40 border border-slate-800 rounded-2xl p-3 mb-5 overflow-x-auto">
+    <p class="text-xs text-slate-400 mb-2">👆 แตะที่ล้อเพื่อถ่ายรูป · ต้องถ่ายครบทุกเส้นถึงส่งได้</p>
+
+    <!-- TOP VIEW: tiles are status only -->
+    <div class="relative bg-slate-950/50 border border-slate-800 rounded-3xl p-3 mb-4 overflow-x-auto">
       <div class="spine"></div>
       <div class="text-center text-xs text-slate-500 mb-1">▲ หน้ารถ</div>
       {% for ax in axles %}
         <div class="text-center text-[10px] text-slate-500 mt-2 mb-1">{{ ax.tag }}</div>
-        <div class="flex items-start justify-between gap-1">
+        <div class="flex items-start justify-center gap-1">
           <div class="flex gap-1">
-            {% for c in ax.left %}{{ tire_cell(c) }}{% endfor %}
+            {% for c in ax.left %}
+              <div class="tile todo" id="tile_{{ c.pos }}" data-pos="{{ c.pos }}"
+                   data-need="{{ c.photos }}" data-label="{{ c.label }}" onclick="openSheet('{{ c.pos }}')">
+                <div class="nm">{{ c.short }}</div>
+                <div class="badge" id="badge_{{ c.pos }}">📷 0/{{ c.photos }}</div>
+              </div>
+              <input type="file" name="photo_{{ c.pos }}" accept="image/*" capture="environment"
+                     multiple class="hidden" id="file_{{ c.pos }}"
+                     onchange="onFiles('{{ c.pos }}')">
+              <input type="hidden" name="cond_{{ c.pos }}" id="cond_{{ c.pos }}" value="">
+            {% endfor %}
           </div>
+          <div class="w-6 shrink-0"></div>
           <div class="flex gap-1">
-            {% for c in ax.right %}{{ tire_cell(c) }}{% endfor %}
+            {% for c in ax.right %}
+              <div class="tile todo" id="tile_{{ c.pos }}" data-pos="{{ c.pos }}"
+                   data-need="{{ c.photos }}" data-label="{{ c.label }}" onclick="openSheet('{{ c.pos }}')">
+                <div class="nm">{{ c.short }}</div>
+                <div class="badge" id="badge_{{ c.pos }}">📷 0/{{ c.photos }}</div>
+              </div>
+              <input type="file" name="photo_{{ c.pos }}" accept="image/*" capture="environment"
+                     multiple class="hidden" id="file_{{ c.pos }}"
+                     onchange="onFiles('{{ c.pos }}')">
+              <input type="hidden" name="cond_{{ c.pos }}" id="cond_{{ c.pos }}" value="">
+            {% endfor %}
           </div>
         </div>
       {% endfor %}
@@ -102,28 +135,127 @@
       {% for key, th in weekly_items %}
       <div class="flex items-center justify-between text-sm">
         <span>{{ th }}</span>
-        <select name="item_{{ key }}" class="p-1 rounded bg-slate-800 border border-slate-600 text-xs">
+        <select name="item_{{ key }}" class="p-2 rounded-lg bg-slate-800 border border-slate-600 text-xs">
           <option value="">—</option>
           {% for code, sth in weekly_status %}<option value="{{ code }}">{{ sth }}</option>{% endfor %}
         </select>
       </div>
       {% endfor %}
     </div>
-
-    <button class="w-full p-3 rounded-lg bg-blue-600 font-bold">ส่งทั้งคัน ▸</button>
   </form>
+
+  <!-- sticky submit -->
+  <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3
+              bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent">
+    <button form="mainform" id="submitBtn" disabled
+            class="w-full p-4 rounded-2xl font-bold text-base bg-slate-700 text-slate-400">
+      เหลืออีก <span id="left">0</span> เส้น
+    </button>
+  </div>
+
+  <!-- bottom sheet -->
+  <div class="mask" id="mask" onclick="if(event.target===this)closeSheet()">
+    <div class="sheet">
+      <div class="grip"></div>
+      <h3 class="text-base font-bold mb-1" id="sheetTitle">—</h3>
+      <p class="text-xs text-slate-400 mb-4" id="sheetReq">—</p>
+
+      <div class="grid grid-cols-2 gap-3 mb-4" id="slots"></div>
+
+      <div class="seg mb-4">
+        <button type="button" id="segOk" onclick="setCond('ok')">✓ ปกติ</button>
+        <button type="button" id="segBad" onclick="setCond('problem')">⚠ มีปัญหา</button>
+      </div>
+
+      <button type="button" id="sheetDone" onclick="closeSheet()"
+              class="w-full p-3.5 rounded-2xl font-bold text-base bg-blue-600 text-white mb-2">เสร็จ</button>
+      <button type="button" onclick="clearTile()"
+              class="w-full p-2 text-xs text-slate-500 underline">ล้างค่าล้อนี้ / ถ่ายใหม่</button>
+    </div>
+  </div>
   {% endif %}
 
 <script>
-  function paint(sel){
-    var box = sel.closest('.tire');
-    box.classList.remove('sel-ok','sel-problem','sel-near');
-    if(sel.value) box.classList.add('sel-'+sel.value);
-    var n=0; document.querySelectorAll('select[name^="cond_"]').forEach(function(s){ if(s.value)n++; });
-    var c=document.getElementById('cnt'); if(c)c.textContent=n;
+  var POS = [{% for ax in axles %}{% for c in ax.left %}"{{ c.pos }}",{% endfor %}{% for c in ax.right %}"{{ c.pos }}",{% endfor %}{% endfor %}];
+  var cur = null;
+
+  function fileInput(p){ return document.getElementById('file_'+p); }
+  function need(p){ return +document.getElementById('tile_'+p).dataset.need; }
+  function taken(p){ var f=fileInput(p); return f && f.files ? f.files.length : 0; }
+  function cond(p){ return document.getElementById('cond_'+p).value; }
+
+  function tileComplete(p){ return taken(p) >= need(p) && cond(p) !== ''; }
+
+  function paintTile(p){
+    var t = document.getElementById('tile_'+p);
+    var b = document.getElementById('badge_'+p);
+    t.classList.remove('todo','done','bad');
+    if(cond(p) === 'problem'){ t.classList.add('bad'); b.textContent = '⚠ ' + taken(p)+'/'+need(p); }
+    else if(tileComplete(p)){ t.classList.add('done'); b.textContent = '✓ '+taken(p)+'/'+need(p); }
+    else { t.classList.add('todo'); b.textContent = '📷 '+taken(p)+'/'+need(p); }
   }
-  document.querySelectorAll('select[name^="cond_"]').forEach(function(s){
-    s.addEventListener('change', function(){ paint(s); });
-  });
+
+  function recount(){
+    var left = 0;
+    POS.forEach(function(p){ if(!tileComplete(p)) left++; });
+    document.getElementById('left').textContent = left;
+    var btn = document.getElementById('submitBtn');
+    if(left === 0){
+      btn.disabled = false; btn.className = 'w-full p-4 rounded-2xl font-bold text-base bg-blue-600 text-white';
+      btn.textContent = 'ส่งทั้งคัน ▸';
+    } else {
+      btn.disabled = true; btn.className = 'w-full p-4 rounded-2xl font-bold text-base bg-slate-700 text-slate-400';
+      btn.innerHTML = 'เหลืออีก <span id="left">'+left+'</span> เส้น';
+    }
+  }
+
+  function openSheet(p){
+    cur = p;
+    var t = document.getElementById('tile_'+p);
+    document.getElementById('sheetTitle').textContent = t.dataset.label;
+    document.getElementById('sheetReq').textContent = need(p) === 2
+      ? 'ถ่าย 2 รูป: ด้านข้าง + หน้ายาง' : 'ถ่าย 1 รูป: หน้ายาง';
+    drawSlots(); drawSeg();
+    document.getElementById('mask').classList.add('open');
+  }
+  function closeSheet(){ document.getElementById('mask').classList.remove('open'); }
+
+  function drawSlots(){
+    var p = cur, n = need(p), have = taken(p);
+    var labels = n === 2 ? ['ด้านข้าง','หน้ายาง'] : ['หน้ายาง'];
+    var f = fileInput(p);
+    var html = '';
+    for(var i=0;i<n;i++){
+      if(i < have){
+        var url = URL.createObjectURL(f.files[i]);
+        html += '<div class="slot filled" onclick="retake()"><img src="'+url+'"></div>';
+      } else {
+        html += '<div class="slot" onclick="retake()"><div class="ic">📷</div>'+labels[i]+'</div>';
+      }
+    }
+    document.getElementById('slots').innerHTML = html;
+  }
+  function drawSeg(){
+    var c = cond(cur);
+    var ok=document.getElementById('segOk'), bad=document.getElementById('segBad');
+    ok.classList.toggle('on-ok', c==='ok'); bad.classList.toggle('on-bad', c==='problem');
+  }
+  // tapping any slot (re)opens the camera; native multi-select replaces all shots
+  function retake(){ fileInput(cur).click(); }
+  function onFiles(p){
+    // default condition to ok the first time photos arrive, so a normal tyre is one decision
+    if(taken(p) > 0 && cond(p) === '') document.getElementById('cond_'+p).value = 'ok';
+    if(cur === p){ drawSlots(); drawSeg(); }
+    paintTile(p); recount();
+  }
+  function setCond(v){ document.getElementById('cond_'+cur).value = v; drawSeg(); paintTile(cur); recount(); }
+  function clearTile(){
+    var f = fileInput(cur); f.value = '';
+    document.getElementById('cond_'+cur).value = '';
+    drawSlots(); drawSeg(); paintTile(cur); recount(); closeSheet();
+  }
+
+  // init
+  POS.forEach(paintTile); recount();
 </script>
 </body></html>
