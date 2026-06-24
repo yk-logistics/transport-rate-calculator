@@ -33,3 +33,9 @@ Key lives in `_Claude Tools/9arm.key` (gitignored via `*.key`), not hardcoded in
 ## qwen-readonly.ps1 (read-only variant)
 
 เหมือน qwen.ps1 แต่ `--allowedTools 'Read,Grep,Glob'` → เขียน/ลบ/รัน shell ไม่ได้ทางเทคนิค (guard จริง ไม่ใช่ discipline). ใช้กับงาน recon/propose ที่อยากให้ qwen "ดูแต่ไม่แตะ" แล้ว Opus เอาผลมา apply เอง.
+
+## Context limit 128k — ต้องหั่นงานเล็ก (พิสูจน์สด 2026-06-15)
+
+qwen3.6-35b-a3b มี context window **131,072 tokens**. โยนงานก้อนใหญ่ทีเดียวจะ **400 ContextWindowExceededError** กลางทาง (ทดสอบจริง: สั่งให้อ่าน .py ทั้ง 110 ไฟล์ใน `ProjectYK_System/tools/` พร้อมกัน → input ~99k tokens + 32k output ที่ขอ = เกินเพดาน → fail, ไม่มี fallback). หั่นเหลือ 4 ไฟล์/ครั้ง → ทำได้ดี, 4/4 ถูก, จับศัพท์โดเมน (cycle drift / cross-site / source mismatch) ถูก = อ่านโค้ดจริงไม่ได้มั่ว.
+
+**Rule:** ก่อน delegate ประมาณ footprint (bytes ÷ 4 ≈ tokens) เผื่อ output ~32k. เกิน ~90k input → **split เป็นก้อนอิสระ** แล้วเรียกหลายรอบ. ตรงกับที่ 9arm `qwen-agent` skill เตือนไว้เอง. นี่คือเหตุผลย้ำว่า "Opus เขียนกรอบดี → Qwen ทำได้" จริง **เฉพาะเมื่อหั่นงานเล็กพอ** — งานใหญ่/งานคิดยังเป็นของ Opus. See [[project-superpowers-9arm-models]].

@@ -1,12 +1,19 @@
 # Memory Index
 
 - [Concise, no code dump](feedback-concise-no-code-dump.md) — EVERY session, all projects: short plain-language summaries, hide commands/code/paths unless โอ asks
+- [Keep working autonomously](feedback-keep-working-autonomously.md) — keep going step-to-step; when a clarifying Q would block, answer AS โอ would and proceed (state assumption); STOP only for money/destructive/outward/spend/true-fork
+- [Windows vs Linux stack choice](reference-windows-vs-linux-stack-choice.md) — โอ's Windows dev+server, no-tmux, no-Docker setup is RIGHT for him; rebuttal to "use Linux/tmux" advice + 3-question new-tool test
+- [Google Sheets access](reference-google-sheets-access.md) — Claude reads/edits โอ's Sheets via service account + gspread (key at repo root, gitignored); open_by_key only, 60 reads/min limit, UTF-8 rule
+- [Daily LCB sheet](project-daily-lcb-sheet.md) — เดลี่แหลม sheet structure + driver-name validation fix (range A23→A2); find cols by header not letter; old tabs left as-is
+- [LCB payroll 16/5–15/6](project-lcb-payroll-may-jun-2026.md) — payrun #2 (2026-06) draft: petty deducted, ปกรณ์/วราวุฒิ→mao, net 298,275; NOT finalized (waiting พชร/สุรเดช mixed-mode)
+- [LCB mixed mode](project-lcb-mixed-mode.md) — new lcb_mixed pay_mode (per-day เหมา/เที่ยว, ratio 60% rule); design approved, implementing TDD on branch; spec in docs/superpowers/specs/
 - [MVP test plan](project-mvp-test-plan.md) — โอทดสอบ MVP end-to-end (เริ่ม 2026-06-10); เปิดด้วย `MVP S<n> ทำต่อ` → อ่าน docs/MVP_TEST_PLAN.md; ground truth ที่ Work\Salary\2026\5.May\LCB
 - [Audit LCB May2026](project-audit-lcb-may2026.md) — ผลตรวจเงินเดือน LCB พ.ค. (Excel vs ระบบ): payrun draft ล้าสมัยต้อง recompute, เหมาน้ำมัน gross=0, 5 findings; รายงานเต็ม docs/AUDIT_LCB_MAY2026.md
 - [Test-data cleanup safety](feedback-test-data-cleanup-safety.md) — ลบ test row ที่ POST เข้า app.db จริง ต้องลบด้วย id ที่ได้คืน ห้ามลบด้วย filter (work_date/...) เพราะชนข้อมูลจริง — เคยลบงานจริง 3 แถวต้องกู้จาก backup
 - [Claude Code multiple installs](claude-code-multiple-installs.md) — which `claude` actually runs on โอ's machine + how updates / model-picker versions work
 - [Qwen subagent pattern](reference-qwen-subagent.md) — offload read-only recon/summarize to cheap Qwen via _Claude Tools/qwen.ps1; safety is by discipline (no technical guardrail)
 - [Delegation preference](feedback-qwen-and-subagent-cost.md) — keep MAIN context small first; delegate bulky reads aggressively (free Qwen preferred, native subagents OK), keep synthesis/decisions in main
+- [Delegation ladder: Qwen→Haiku](feedback-delegation-qwen-then-haiku.md) — read-only recon/summarize: try free Qwen first, fall back to Haiku subagent if it stalls/errors; Opus keeps money/decisions/code (confirmed 2026-06-17)
 - [Auto-resume system](reference-auto-resume-system.md) — overnight resume-after-limit: SessionStart hook + ~/.claude watcher; cap/log/arm files; UTF-8 BOM rule
 - [Oatside billing recon](project-oatside-billing-recon.md) — monthly daily↔GPS: BH/ตีเปล่า=manual_return 50%, demurrage system≥keyer rule, no_finish uses waiting-day rate; scripts + file layout
 - [Oatside report UI edits](project-oatside-report-ui-edits.md) — change report HTML without moving billing numbers: edit builder + patch existing HTML (rebuild re-picks newest GPS → numbers shift)
@@ -16,3 +23,13 @@
 - [yklogistics.com DNS](reference-yklogistics-dns.md) — DNS snapshot ก่อนย้าย Cloudflare; A/MX/SPF ที่ห้ามหาย (อีเมลใช้จริง ห้ามล่ม)
 - [SSH to YK machine](reference-ssh-to-yk-machine.md) — passwordless SSH from Home/.178 → YK/.197 (user yklog); admin keys file; LAN-only, plan Tailscale for off-LAN
 - [MVP server deploy](reference-mvp-server-deploy.md) — MVP live at app.yklogistics.uk (copy-folder deploy, Py3.12 venv, unattended boot tasks, RBAC login yk1/changeme1); deploy_mvp_to_server.sh; runbook MVP_SERVER_DEPLOY.md
+- [Branch flips mid-session](reference-branch-switch-during-session.md) — git branch can change under you (external `git checkout`); commits land on wrong branch → verify `git branch --show-current` before each git mutation; cherry-pick can drag whole contaminated files (grep other-task symbols = 0)
+- [MVP deploy restart gotcha](reference-mvp-deploy-restart-gotcha.md) — deploy script copies code OK but its restart leaves OLD code serving (app runs under GLOBAL python, not venv; kill-filter misses it); fix = .ps1-by-path kill of main.py procs + restart task; out-of-proc token mint won't verify
+- [Server has no GPU for LLM](reference-server-no-gpu-llm.md) — .197 = i5-14400/32GB/Intel UHD only, no NVIDIA; don't self-host an LLM on it (worse than free Qwen + risks the live MVP); only ever on a separate GPU box
+- [AI watch LINE group](project-ai-watch-line-group.md) — future idea: AI summarize/alert on LINE chat; start cheap API on existing archiver, defer self-host until proven + volume justifies
+- [Summarize YouTube in Thai](reference-yt-summarize.md) — Claude can't watch YT directly; yt-dlp pulls captions → free Qwen summarizes to Thai (0 Claude tokens); `_Claude Tools/yt-summarize/yt_summary.py`; needs captions to exist
+- [LCB daily↔fuel cross-check](project-lcb-daily-fuel-crosscheck.md) — read-only tool: flags LCB daily rows where keyed driver ≠ who reported fueling in Caltex LINE group; built+19 tests pass, but archive data-starved (10 msgs/1 day vs 609 daily rows) until archiver collects more; rule-based parser (free), API last-resort
+- [LCB fuel cross-check domain rules](project-lcb-fuel-crosscheck-domain-rules.md) — โอ-confirmed truths: drivers cross-site fuel at Caltex (71-5042=BIG-C person → not an error, go check if BIG-C logged it), plate typos in fuel msgs (72-1200=typo of 72-1220), unparseable msgs usually just pump chatter (lowest priority)
+- [LCB slip-reader](project-lcb-slip-reader.md) — AI reads LINE transfer slips → draft → human approve in MVP /petty/review; proof done (OCR 100%), code merged to main, awaiting API key for live dry-run; follow slip_reader/RUNBOOK.md
+- [UPS power-alert LIVE](project-ups-power-alert.md) — DONE 24 Jun: ZIRCON UPS (generic VID_0001, no Win battery) → NUT for Windows (upsc reads ups.status OL/OB) → scheduled task YK_UPS_Watch polls 15s → Discord + 2min wait + real shutdown; armed & boot-persistent; pull-plug test passed
+- [HOME pwsh+terminal setup](reference-home-pwsh-terminal-setup.md) — เครื่อง HOME/.178: Desktop "Claude (Admin)" shortcut → Windows Terminal(Admin)+pwsh 7.6.3; Thai tone-marks drop in old conhost (fix=use WT, not font); don't Remove-AppxPackage the pwsh the session runs on
