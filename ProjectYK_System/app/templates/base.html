@@ -13,40 +13,92 @@
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
-  <nav class="bg-slate-900 text-white">
+  <nav class="bg-slate-900 text-white" id="yk-nav">
     <div class="w-full px-3 py-3 flex items-center justify-between flex-wrap gap-2">
       <a href="/daily" class="font-bold text-lg">Project YK · One Platform</a>
-      <div class="flex gap-3 text-sm flex-wrap">
-        <a href="/daily" class="hover:underline">Daily</a>
-        <a href="/daily/grid" class="hover:underline text-lime-300">Daily Grid</a>
-        <a href="/fuel" class="hover:underline">น้ำมัน</a>
-        <a href="/petty-cash" class="hover:underline">สดย่อย</a>
-        {% if can_see(request, "/email") %}<a href="/email/inbox" class="hover:underline text-indigo-300">Email Inbox</a>{% endif %}
-        <a href="/petty-cash/pending" class="hover:underline text-amber-300">รอหักคนขับ</a>
-        <a href="/petty-cash/clearance" class="hover:underline text-yellow-300">รอเคลียร์</a>
-        {% if can_see(request, "/petty/review") %}<a href="/petty/slip-control" class="hover:underline text-green-300" title="ระบบอ่านสลิป LINE อัตโนมัติ (เปิด/ปิด)">🤖 อ่านสลิป</a>{% endif %}
-        <span class="text-slate-500">|</span>
-        <a href="/employees" class="hover:underline">คนขับ</a>
-        <a href="/vehicles" class="hover:underline">รถ</a>
-        <a href="/customers" class="hover:underline">ลูกค้า</a>
-        <a href="/admin/promote" class="hover:underline text-sky-300">สร้าง Master</a>
-        {% if can_see(request, "/payroll") %}<a href="/payroll" class="hover:underline text-emerald-300 font-medium">Payroll</a>{% endif %}
-        <a href="/rates" class="hover:underline text-cyan-300 font-medium">เรทราคา</a>
-        <a href="/fuel-index" class="hover:underline text-cyan-300" title="ราคาน้ำมันรายเดือน + Fuel Surcharge">⛽ Fuel</a>
-        <a href="/maint" class="hover:underline text-orange-300 font-medium">ซ่อม/ยาง/PM</a>
-        {% if can_see(request, "/admin/users") %}<a href="/admin/check-links" class="hover:underline text-orange-300" title="สร้างลิงก์ให้คนขับ/ช่างตรวจยาง (ไม่ต้องล็อกอิน)">🔗 ลิงก์ตรวจยาง</a>{% endif %}
-        <span class="text-slate-500">|</span>
-        <a href="/dispatch/planner" class="hover:underline text-rose-300 font-medium">📋 Dispatch</a>
-        <a href="/billing" class="hover:underline text-amber-300 font-medium">Billing</a>
-        {% if can_see(request, "/finance") %}<a href="/finance" class="hover:underline text-violet-300 font-medium">💰 CFO</a>{% endif %}
-        <a href="/admin/submissions" class="hover:underline text-pink-300 font-medium" title="รายการส่งจากคนขับ (PWA)">📱 Driver</a>
-        <span class="text-slate-500">|</span>
-        {% if can_see(request, "/import") %}<a href="/import" class="hover:underline text-teal-300 font-medium">⬆ Import</a>{% endif %}
-        {% if can_see(request, "/admin/users") %}<a href="/admin/users" class="hover:underline text-pink-300 font-medium">👤 ผู้ใช้</a>{% endif %}
-        <a href="/logout" class="hover:underline text-slate-300">ออกจากระบบ</a>
+      <div class="flex gap-1 text-sm flex-wrap items-center">
+
+        {# ---- ปฏิบัติการ ---- #}
+        <div class="yk-menu relative">
+          <button type="button" class="yk-menu-btn px-3 py-1.5 rounded hover:bg-slate-700">ปฏิบัติการ ▾</button>
+          <div class="yk-menu-panel hidden absolute left-0 mt-1 z-50 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 py-1 min-w-[180px]">
+            <a href="/daily" class="block px-4 py-2 hover:bg-slate-100">Daily</a>
+            <a href="/daily/grid" class="block px-4 py-2 hover:bg-slate-100">Daily Grid</a>
+            <a href="/fuel" class="block px-4 py-2 hover:bg-slate-100">น้ำมัน</a>
+            <a href="/petty-cash" class="block px-4 py-2 hover:bg-slate-100">สดย่อย</a>
+            <a href="/petty-cash/pending" class="block px-4 py-2 hover:bg-slate-100">รอหักคนขับ</a>
+            <a href="/petty-cash/clearance" class="block px-4 py-2 hover:bg-slate-100">รอเคลียร์</a>
+            {% if can_see(request, "/petty/review") %}<a href="/petty/slip-control" class="block px-4 py-2 hover:bg-slate-100">🤖 อ่านสลิป</a>{% endif %}
+            {% if can_see(request, "/email") %}<a href="/email/inbox" class="block px-4 py-2 hover:bg-slate-100">Email Inbox</a>{% endif %}
+          </div>
+        </div>
+
+        {# ---- ข้อมูลหลัก ---- #}
+        <div class="yk-menu relative">
+          <button type="button" class="yk-menu-btn px-3 py-1.5 rounded hover:bg-slate-700">ข้อมูลหลัก ▾</button>
+          <div class="yk-menu-panel hidden absolute left-0 mt-1 z-50 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 py-1 min-w-[180px]">
+            <a href="/employees" class="block px-4 py-2 hover:bg-slate-100">คนขับ</a>
+            <a href="/vehicles" class="block px-4 py-2 hover:bg-slate-100">รถ</a>
+            <a href="/customers" class="block px-4 py-2 hover:bg-slate-100">ลูกค้า</a>
+            <a href="/admin/promote" class="block px-4 py-2 hover:bg-slate-100">สร้าง Master</a>
+          </div>
+        </div>
+
+        {# ---- เงิน ---- #}
+        <div class="yk-menu relative">
+          <button type="button" class="yk-menu-btn px-3 py-1.5 rounded hover:bg-slate-700">เงิน ▾</button>
+          <div class="yk-menu-panel hidden absolute left-0 mt-1 z-50 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 py-1 min-w-[180px]">
+            {% if can_see(request, "/payroll") %}<a href="/payroll" class="block px-4 py-2 hover:bg-slate-100">Payroll</a>{% endif %}
+            <a href="/rates" class="block px-4 py-2 hover:bg-slate-100">เรทราคา</a>
+            <a href="/fuel-index" class="block px-4 py-2 hover:bg-slate-100">⛽ Fuel (ราคาน้ำมัน)</a>
+            <a href="/billing" class="block px-4 py-2 hover:bg-slate-100">Billing</a>
+            {% if can_see(request, "/finance") %}<a href="/finance" class="block px-4 py-2 hover:bg-slate-100">💰 CFO</a>{% endif %}
+          </div>
+        </div>
+
+        {# ---- งานรถ / สนาม ---- #}
+        <div class="yk-menu relative">
+          <button type="button" class="yk-menu-btn px-3 py-1.5 rounded hover:bg-slate-700">งานรถ/สนาม ▾</button>
+          <div class="yk-menu-panel hidden absolute left-0 mt-1 z-50 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 py-1 min-w-[180px]">
+            <a href="/dispatch/planner" class="block px-4 py-2 hover:bg-slate-100">📋 Dispatch</a>
+            <a href="/maint" class="block px-4 py-2 hover:bg-slate-100">ซ่อม/ยาง/PM</a>
+            {% if can_see(request, "/admin/users") %}<a href="/admin/check-links" class="block px-4 py-2 hover:bg-slate-100">🔗 ลิงก์ตรวจสภาพรถ</a>{% endif %}
+            <a href="/admin/submissions" class="block px-4 py-2 hover:bg-slate-100">📱 Driver</a>
+          </div>
+        </div>
+
+        {# ---- ระบบ ---- #}
+        <div class="yk-menu relative">
+          <button type="button" class="yk-menu-btn px-3 py-1.5 rounded hover:bg-slate-700">ระบบ ▾</button>
+          <div class="yk-menu-panel hidden absolute right-0 mt-1 z-50 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 py-1 min-w-[180px]">
+            {% if can_see(request, "/import") %}<a href="/import" class="block px-4 py-2 hover:bg-slate-100">⬆ Import</a>{% endif %}
+            {% if can_see(request, "/admin/users") %}<a href="/admin/users" class="block px-4 py-2 hover:bg-slate-100">👤 ผู้ใช้</a>{% endif %}
+            <a href="/logout" class="block px-4 py-2 hover:bg-slate-100 text-rose-600">ออกจากระบบ</a>
+          </div>
+        </div>
+
       </div>
     </div>
   </nav>
+  <script>
+    (function () {
+      const menus = document.querySelectorAll('#yk-nav .yk-menu');
+      function closeAll(except) {
+        menus.forEach(m => { if (m !== except) m.querySelector('.yk-menu-panel').classList.add('hidden'); });
+      }
+      menus.forEach(m => {
+        const btn = m.querySelector('.yk-menu-btn');
+        const panel = m.querySelector('.yk-menu-panel');
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          const willOpen = panel.classList.contains('hidden');
+          closeAll(m);
+          panel.classList.toggle('hidden', !willOpen);
+        });
+      });
+      document.addEventListener('click', () => closeAll(null));
+    })();
+  </script>
 
   <main class="w-full px-2 sm:px-4 lg:px-6 py-4 overflow-x-hidden">
     {% block content %}{% endblock %}
