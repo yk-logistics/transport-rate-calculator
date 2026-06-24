@@ -6433,6 +6433,33 @@ async def check_mechanic_edit_vehicle(request: Request):
     return RedirectResponse(f"/check/mechanic?t={form.get('t')}&vehicle_id={vid}", status_code=303)
 
 
+@app.post("/check/mechanic/edit-vehicles")
+async def check_mechanic_edit_vehicles(request: Request):
+    """Bulk: mechanic fixes truck_type for many vehicles at once.
+    Form has one `type_<vehicle_id>` field per row; only changed rows are saved."""
+    form = await request.form()
+    with Session(engine) as s:
+        link = _check_link_guard(request, s)
+        if not link or link.role != "mechanic":
+            return HTMLResponse("ลิงก์ไม่ถูกต้องหรือหมดอายุ", status_code=403)
+        changed = 0
+        for key in form.keys():
+            if not key.startswith("type_"):
+                continue
+            new_type = (form.get(key) or "").strip().upper()
+            if not new_type:
+                continue
+            v = s.get(Vehicle, _parse_int(key[len("type_"):]) or 0)
+            if not v or v.truck_type == new_type:
+                continue
+            v.truck_type = new_type
+            if new_type.startswith("TRL"):
+                v.vehicle_kind = "tail"
+            s.add(v); changed += 1
+        s.commit()
+    return RedirectResponse(f"/check/mechanic?t={form.get('t')}&saved={changed}", status_code=303)
+
+
 # =====================================================================
 # Maintenance — Tires (Wave 2)
 # =====================================================================

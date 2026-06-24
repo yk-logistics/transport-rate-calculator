@@ -32,17 +32,21 @@
   <h1 class="text-lg font-bold mb-3">ตรวจสภาพรถ (ช่าง)</h1>
 
   <details class="mb-3 rounded-lg border border-slate-700 bg-slate-800/60 p-3">
-    <summary class="text-sm text-amber-400 cursor-pointer">🔧 แก้ประเภทรถ (6/10 ล้อ/หาง)</summary>
-    <form method="post" action="/check/mechanic/edit-vehicle?t={{ token }}" class="mt-3 space-y-2">
+    <summary class="text-sm text-amber-400 cursor-pointer">🔧 แก้ประเภทรถหลายคัน (6/10 ล้อ/หาง)</summary>
+    <form method="post" action="/check/mechanic/edit-vehicles?t={{ token }}" class="mt-3">
       <input type="hidden" name="t" value="{{ token }}">
-      <select name="vehicle_id" required class="w-full p-3 rounded-lg bg-slate-900 border border-slate-600 text-sm">
-        <option value="">— เลือกทะเบียน —</option>
-        {% for v in vehicles %}<option value="{{ v.id }}">{{ v.plate_no }}{% if v.nickname %} ({{ v.nickname }}){% endif %} · {{ truck_type_th.get(v.truck_type, v.truck_type) }}</option>{% endfor %}
-      </select>
-      <select name="truck_type" class="w-full p-3 rounded-lg bg-slate-900 border border-slate-600 text-sm">
-        {% for t in truck_types %}<option value="{{ t }}">{{ truck_type_th.get(t, t) }}</option>{% endfor %}
-      </select>
-      <button class="w-full p-3 rounded-lg bg-amber-600 font-bold text-sm">บันทึกประเภทรถ</button>
+      <p class="text-xs text-slate-400 mb-2">เลือกประเภทให้แต่ละคันได้เลย แล้วกดบันทึกทีเดียว</p>
+      <div class="divide-y divide-slate-700 border border-slate-700 rounded-lg overflow-hidden mb-3">
+        {% for v in vehicles %}
+        <div class="flex items-center gap-2 p-2 bg-slate-900/50">
+          <span class="flex-1 text-sm">{{ v.plate_no }}{% if v.nickname %} <span class="text-slate-500">({{ v.nickname }})</span>{% endif %}</span>
+          <select name="type_{{ v.id }}" class="w-40 p-2 rounded bg-slate-900 border border-slate-600 text-sm">
+            {% for t in truck_types %}<option value="{{ t }}" {{ 'selected' if v.truck_type == t }}>{{ truck_type_th.get(t, t) }}</option>{% endfor %}
+          </select>
+        </div>
+        {% endfor %}
+      </div>
+      <button class="w-full p-3 rounded-lg bg-amber-600 font-bold text-sm">บันทึกทั้งหมด</button>
     </form>
   </details>
 
