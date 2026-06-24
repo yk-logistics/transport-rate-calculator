@@ -24,7 +24,7 @@ app/
   models.py            SQLModel tables (11 ตาราง) + enums/choices
   templates/
     base.html              layout + nav
-    daily_list.html        รายการงาน (มี join ชื่อคนขับ/ทะเบียน/ลูกค้า)
+    daily_grid.html        หน้า Daily รวม (แก้แบบ Excel + คอลัมน์ดิบ/ชื่อจริง) เสิร์ฟที่ /daily
     daily_form.html        ฟอร์มงาน (new + edit ใช้ร่วมกัน)
     employees_list.html    คนขับ
     employee_form.html     ฟอร์มคนขับ + pay contract

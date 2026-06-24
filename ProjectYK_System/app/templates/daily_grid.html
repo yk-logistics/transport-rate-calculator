@@ -1,11 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Daily Grid · แบบ Excel{% endblock %}
+{% block title %}Daily · รายการงานประจำวัน{% endblock %}
 {% block content %}
 <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-  <h1 class="text-2xl font-bold">Daily Grid (Excel-like)</h1>
+  <h1 class="text-2xl font-bold">Daily <span class="text-slate-400 font-normal text-base">(แก้แบบ Excel)</span></h1>
   <div class="flex items-center gap-2 flex-wrap">
     <a href="/daily/new" class="guardedLink bg-emerald-600 text-white px-3 py-1.5 rounded text-sm hover:bg-emerald-700">+ สร้าง Daily</a>
-    <a href="/daily" class="guardedLink bg-white border px-3 py-1.5 rounded text-sm hover:bg-slate-50">กลับ List</a>
     <div class="text-xs text-slate-500">คอลัมน์ที่มี ✎ แก้ได้ · <kbd class="bg-slate-100 border rounded px-1 py-0.5 font-mono">Ctrl+Enter</kbd> ใส่ค่าทุกแถวที่เลือก · ต้องกด Save เอง</div>
   </div>
 </div>
@@ -57,7 +56,7 @@
   </div>
   <div class="md:col-span-6 flex gap-2 items-center flex-wrap">
     <button class="bg-slate-200 px-4 py-1.5 rounded text-sm">โหลดข้อมูล</button>
-    <a href="/daily/grid" class="text-sm text-slate-500 underline">ล้างตัวกรอง</a>
+    <a href="/daily" class="text-sm text-slate-500 underline">ล้างตัวกรอง</a>
     <button type="button" id="columnsBtn" class="bg-indigo-100 text-indigo-800 px-4 py-1.5 rounded text-sm hover:bg-indigo-200">คอลัมน์</button>
     <button type="button" id="saveGridBtn" class="bg-emerald-600 text-white px-4 py-1.5 rounded text-sm hover:bg-emerald-700">Save Grid</button>
     <span id="saveMsg" class="text-xs text-slate-500"></span>
@@ -66,19 +65,19 @@
     <div class="text-xs text-slate-500 mb-1">Preset เร็วตามรอบ payroll (คงจำนวนแถว {{ limit }} แถว)</div>
     <div class="flex flex-wrap gap-2 text-xs">
       <a class="guardedLink px-2 py-1 rounded border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100"
-         href="/daily/grid?site=BIGC&amp;d_from={{ preset_cycles.BIGC.start }}&amp;d_to={{ preset_cycles.BIGC.end }}&amp;limit={{ limit }}">{{ preset_cycles.BIGC.label }}</a>
+         href="/daily?site=BIGC&amp;d_from={{ preset_cycles.BIGC.start }}&amp;d_to={{ preset_cycles.BIGC.end }}&amp;limit={{ limit }}">{{ preset_cycles.BIGC.label }}</a>
       <a class="guardedLink px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
-         href="/daily/grid?site=LCB&amp;d_from={{ preset_cycles.LCB.start }}&amp;d_to={{ preset_cycles.LCB.end }}&amp;limit={{ limit }}">{{ preset_cycles.LCB.label }}</a>
+         href="/daily?site=LCB&amp;d_from={{ preset_cycles.LCB.start }}&amp;d_to={{ preset_cycles.LCB.end }}&amp;limit={{ limit }}">{{ preset_cycles.LCB.label }}</a>
       <a class="guardedLink px-2 py-1 rounded border border-red-400 bg-red-100 text-red-700 font-medium hover:bg-red-200"
-         href="/daily/grid?site=LCB&amp;d_from={{ preset_cycles.LCB_prev.start }}&amp;d_to={{ preset_cycles.LCB_prev.end }}&amp;missing=any&amp;limit=800">🔴 LCB ยังกรอกไม่ครบ ({{ preset_cycles.LCB_prev.tag }})</a>
+         href="/daily?site=LCB&amp;d_from={{ preset_cycles.LCB_prev.start }}&amp;d_to={{ preset_cycles.LCB_prev.end }}&amp;missing=any&amp;limit=800">🔴 LCB ยังกรอกไม่ครบ ({{ preset_cycles.LCB_prev.tag }})</a>
       <a class="guardedLink px-2 py-1 rounded border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
-         href="/daily/grid?site=AYU&amp;d_from={{ preset_cycles.AYU.start }}&amp;d_to={{ preset_cycles.AYU.end }}&amp;limit={{ limit }}">{{ preset_cycles.AYU.label }}</a>
+         href="/daily?site=AYU&amp;d_from={{ preset_cycles.AYU.start }}&amp;d_to={{ preset_cycles.AYU.end }}&amp;limit={{ limit }}">{{ preset_cycles.AYU.label }}</a>
       <a class="guardedLink px-2 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-         href="/daily/grid?status=real&amp;d_from={{ preset_cycles.BIGC.start }}&amp;d_to={{ preset_cycles.BIGC.end }}&amp;limit={{ limit }}">งานจริงช่วง preset</a>
+         href="/daily?status=real&amp;d_from={{ preset_cycles.BIGC.start }}&amp;d_to={{ preset_cycles.BIGC.end }}&amp;limit={{ limit }}">งานจริงช่วง preset</a>
       <a class="guardedLink px-2 py-1 rounded border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
-         href="/daily/grid?status=leave&amp;d_from={{ preset_cycles.BIGC.start }}&amp;d_to={{ preset_cycles.BIGC.end }}&amp;limit={{ limit }}">ลาช่วง preset</a>
+         href="/daily?status=leave&amp;d_from={{ preset_cycles.BIGC.start }}&amp;d_to={{ preset_cycles.BIGC.end }}&amp;limit={{ limit }}">ลาช่วง preset</a>
       <a class="guardedLink px-2 py-1 rounded border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
-         href="/daily/grid?status=placeholder&amp;d_from={{ preset_cycles.BIGC.start }}&amp;d_to={{ preset_cycles.BIGC.end }}&amp;limit={{ limit }}">placeholder ช่วง preset</a>
+         href="/daily?status=placeholder&amp;d_from={{ preset_cycles.BIGC.start }}&amp;d_to={{ preset_cycles.BIGC.end }}&amp;limit={{ limit }}">placeholder ช่วง preset</a>
     </div>
   </div>
 </form>
@@ -208,7 +207,7 @@
 <script>
 (function(){
   const params = new URLSearchParams(window.location.search);
-  const apiUrl = `/api/daily/grid-data?${params.toString()}`;
+  const apiUrl = `/api/daily-data?${params.toString()}`;
   const filterForm = document.getElementById("gridFilterForm");
   const saveBtn = document.getElementById("saveGridBtn");
   const saveMsg = document.getElementById("saveMsg");
@@ -218,7 +217,7 @@
   const columnsChecklist = document.getElementById("columnsChecklist");
   const closeColumnsDialog = document.getElementById("closeColumnsDialog");
   const selBar = document.getElementById("ykSelBar");
-  const HIDDEN_KEY = "yk_daily_grid_hidden_v3";
+  const HIDDEN_KEY = "yk_daily_hidden_v1";
 
   let dirtyRows = new Map();
   let currentEditCell = null;
@@ -228,9 +227,12 @@
   const ALL_FIELDS = [
     ["id","ID",false], ["work_date","วันที่",true], ["site_code","ไซต์",true],
     ["driver_id","driver_id",true], ["driver_raw_name","คนขับ",true],
+    ["driver_name","พขร.(ชื่อจริง)",false],
     ["head_vehicle_id","head_vehicle_id",true], ["tail_vehicle_id","tail_vehicle_id",true],
-    ["plate_no_raw","ทะเบียน",true], ["tail_plate_raw","ทะเบียนหาง",true],
+    ["plate_no_raw","ทะเบียน",true], ["plate_no","ทะเบียน(ชื่อจริง)",false],
+    ["tail_plate_raw","ทะเบียนหาง",true], ["tail_plate","หาง(ชื่อจริง)",false],
     ["customer_id","customer_id",true], ["customer_name_raw","ลูกค้า(linked — ว่าง)",false],
+    ["customer_name","ลูกค้า(ชื่อจริง)",false],
     ["trip_group_id","trip_group_id",true],
     ["status_code","ลูกค้า / Status",true], ["leave_status","leave_status",true],
     ["trip_type_code","STARTING / รับตู้ (H)",true],
@@ -637,7 +639,7 @@
     saveDetails.className = "hidden rounded-lg border p-3 text-xs mb-3";
     saveDetails.innerHTML = "";
     try {
-      const res = await fetch("/api/daily/grid-save", {
+      const res = await fetch("/api/daily-save", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({rows: Array.from(dirtyRows.values())}),
@@ -726,6 +728,7 @@
     const DEFAULT_HIDDEN = [
       "leave_status","pickup_location",
       "customer_name_raw","customer_id","driver_id",
+      "driver_name","plate_no","tail_plate","customer_name",
       "head_vehicle_id","tail_vehicle_id","trip_group_id",
       "tail_plate_raw","store_code","truck_type_raw",
       "invoice_no","invoice_date","wht_53",

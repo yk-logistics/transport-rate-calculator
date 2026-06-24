@@ -1146,126 +1146,46 @@ def _load_masters(s: Session):
 def daily_list(
     request: Request,
     site: str = "",
-    d: str = "",
     d_from: str = "",
     d_to: str = "",
+    q: str = "",
     status: str = "",
-    driver: str = "",
-    plate: str = "",
-    sort: str = "work_date",
-    dir: str = "asc",
+    missing: str = "",
+    limit: int = 400,
 ):
+    """หน้า Daily แบบเดียว (รวม List + Grid เดิม) — แก้แบบ Excel, โหลดข้อมูลผ่าน AJAX."""
     from sqlalchemy import func as sa_func
 
-    SORT_COLS = {
-        "work_date":  DailyJob.work_date,
-        "site_code":  DailyJob.site_code,
-        "driver":     DailyJob.driver_raw_name,
-        "plate":      DailyJob.plate_no_raw,
-        "customer":   DailyJob.customer_name_raw,
-        "revenue":    DailyJob.revenue_customer,
-        "trip":       DailyJob.trip_fee_driver,
-        "fuel":       DailyJob.fuel_amount,
-    }
-    if sort not in SORT_COLS:
-        sort = "work_date"
-    dir = "desc" if dir == "desc" else "asc"
-    _col = SORT_COLS[sort]
-    _order = _col.desc() if dir == "desc" else _col.asc()
-
-    with Session(engine) as s:
-        stmt = select(DailyJob).order_by(_order, DailyJob.id.asc())
-        count_stmt = select(sa_func.count(DailyJob.id))
-        sum_rev = select(sa_func.coalesce(sa_func.sum(DailyJob.revenue_customer), 0.0))
-        sum_trip = select(sa_func.coalesce(sa_func.sum(DailyJob.trip_fee_driver), 0.0))
-        sum_fuel = select(sa_func.coalesce(sa_func.sum(DailyJob.fuel_amount), 0.0))
-
-        def apply_where(stmt_):
-            if site:
-                stmt_ = stmt_.where(DailyJob.site_code == site)
-            parsed = _parse_date(d)
-            if parsed:
-                stmt_ = stmt_.where(DailyJob.work_date == parsed)
-            df = _parse_date(d_from)
-            dt = _parse_date(d_to)
-            if df:
-                stmt_ = stmt_.where(DailyJob.work_date >= df)
-            if dt:
-                stmt_ = stmt_.where(DailyJob.work_date <= dt)
-            if status:
-                if status == "real":
-                    stmt_ = stmt_.where(DailyJob.status_code.notin_(["idle", "placeholder", "leave"]))
-                else:
-                    stmt_ = stmt_.where(DailyJob.status_code == status)
-            if driver:
-                stmt_ = stmt_.where(DailyJob.driver_raw_name.contains(driver))
-            if plate:
-                stmt_ = stmt_.where(DailyJob.plate_no_raw.contains(plate))
-            return stmt_
-
-        stmt = apply_where(stmt)
-        count_stmt = apply_where(count_stmt)
-        sum_rev = apply_where(sum_rev)
-        sum_trip = apply_where(sum_trip)
-        sum_fuel = apply_where(sum_fuel)
-
-        total_rows = s.exec(count_stmt).one()
-        total_rev = float(s.exec(sum_rev).one() or 0)
-        total_trip = float(s.exec(sum_trip).one() or 0)
-        total_fuel = float(s.exec(sum_fuel).one() or 0)
-
-        cap = 3000
-        capped = total_rows > cap
-        rows = s.exec(stmt.limit(cap)).all()
-        emp_map = {e.id: e for e in s.exec(select(Employee)).all()}
-        veh_map = {v.id: v for v in s.exec(select(Vehicle)).all()}
-        cust_map = {c.id: c for c in s.exec(select(Customer)).all()}
-
-    def _display_row(r: DailyJob) -> dict:
-        drv = emp_map.get(r.driver_id) if r.driver_id else None
-        head = veh_map.get(r.head_vehicle_id) if r.head_vehicle_id else None
-        tail = veh_map.get(r.tail_vehicle_id) if r.tail_vehicle_id else None
-        cust = cust_map.get(r.customer_id) if r.customer_id else None
-        return {
-            "id": r.id,
-            "work_date": r.work_date.isoformat() if r.work_date else "",
-            "site_code": r.site_code or "",
-            "driver_name": drv.full_name if drv else (r.driver_raw_name or ""),
-            "driver_raw_name": r.driver_raw_name or "",
-            "plate_no": head.plate_no if head else (r.plate_no_raw or ""),
-            "plate_no_raw": r.plate_no_raw or "",
-            "tail_plate": tail.plate_no if tail else (r.tail_plate_raw or ""),
-            "customer_name": cust.name if cust else (r.customer_name_raw or ""),
-            "origin": r.origin or "",
-            "destination": r.destination or "",
-            "trip_type_code": r.trip_type_code or "",
-            "leave_status": r.leave_status or "",
-            "status_code": r.status_code or "",
-            "pay_mode": drv.pay_mode if drv else "",
-            "revenue_customer": float(r.revenue_customer or 0),
-            "trip_fee_driver": float(r.trip_fee_driver or 0),
-            "fuel_amount": float(r.fuel_amount or 0),
-            "fuel_liter": float(r.fuel_liter or 0),
-            "remark": r.remark or "",
-        }
-
-    display = [_display_row(r) for r in rows]
+    limit = max(1, min(800, limit))
     today = date.today()
     preset_cycles = _daily_site_preset_cycles(today)
+    with Session(engine) as s:
+        rows = s.exec(
+            _daily_grid_filters(
+                select(DailyJob).order_by(DailyJob.work_date.desc(), DailyJob.id.desc()),
+                site, d_from, d_to, q, status, missing,
+            ).limit(limit)
+        ).all()
+        total_rows = s.exec(
+            _daily_grid_filters(select(sa_func.count(DailyJob.id)), site, d_from, d_to, q, status, missing)
+        ).one()
     ctx = base_context(request)
-    ctx.update({
-        "rows": display,
-        "rows_json": json.dumps(display, ensure_ascii=False),
-        "site": site, "d": d,
-        "d_from": d_from, "d_to": d_to, "status": status,
-        "driver": driver, "plate": plate,
-        "sort": sort, "dir": dir,
-        "total_rev": total_rev, "total_trip": total_trip, "total_fuel": total_fuel,
-        "total_rows": total_rows,
-        "capped": capped,
-        "preset_cycles": preset_cycles,
-    })
-    return templates.TemplateResponse("daily_list.html", ctx)
+    ctx.update(
+        {
+            "site": site,
+            "d_from": d_from,
+            "d_to": d_to,
+            "q": q,
+            "status": status,
+            "missing": missing,
+            "limit": limit,
+            "today_iso": today.isoformat(),
+            "total_rows": total_rows,
+            "shown_rows": len(rows),
+            "preset_cycles": preset_cycles,
+        }
+    )
+    return templates.TemplateResponse("daily_grid.html", ctx)
 
 
 def _apply_daily_fields(row: DailyJob, f: dict) -> None:
@@ -1513,49 +1433,12 @@ def _daily_grid_filters(stmt, site: str, d_from: str, d_to: str, q: str, status:
     return stmt
 
 
-@app.get("/daily/grid", response_class=HTMLResponse)
-def daily_grid_page(
-    request: Request,
-    site: str = "",
-    d_from: str = "",
-    d_to: str = "",
-    q: str = "",
-    status: str = "",
-    missing: str = "",
-    limit: int = 400,
-):
-    from sqlalchemy import func as sa_func
-
-    limit = max(1, min(800, limit))
-    today = date.today()
-    preset_cycles = _daily_site_preset_cycles(today)
-    with Session(engine) as s:
-        rows = s.exec(
-            _daily_grid_filters(
-                select(DailyJob).order_by(DailyJob.work_date.desc(), DailyJob.id.desc()),
-                site, d_from, d_to, q, status, missing,
-            ).limit(limit)
-        ).all()
-        total_rows = s.exec(
-            _daily_grid_filters(select(sa_func.count(DailyJob.id)), site, d_from, d_to, q, status, missing)
-        ).one()
-    ctx = base_context(request)
-    ctx.update(
-        {
-            "site": site,
-            "d_from": d_from,
-            "d_to": d_to,
-            "q": q,
-            "status": status,
-            "missing": missing,
-            "limit": limit,
-            "today_iso": today.isoformat(),
-            "total_rows": total_rows,
-            "shown_rows": len(rows),
-            "preset_cycles": preset_cycles,
-        }
-    )
-    return templates.TemplateResponse("daily_grid.html", ctx)
+@app.get("/daily/grid")
+def daily_grid_page(request: Request):
+    """หน้า Grid ถูกยุบรวมเข้า /daily แล้ว — redirect พร้อม query string เดิม (bookmark/preset เก่ายังใช้ได้)."""
+    qs = request.url.query
+    dest = "/daily" + (f"?{qs}" if qs else "")
+    return RedirectResponse(url=dest, status_code=301)
 
 
 @app.get("/api/daily/grid-data")
@@ -1576,15 +1459,33 @@ def daily_grid_data(
                 site, d_from, d_to, q, status, missing,
             ).limit(limit)
         ).all()
-        # Build pay_mode map for driver highlight
+        # Build pay_mode + linked-name maps for driver highlight / linked columns
         driver_ids = {r.driver_id for r in rows if r.driver_id}
+        veh_ids = {r.head_vehicle_id for r in rows if r.head_vehicle_id} | {
+            r.tail_vehicle_id for r in rows if r.tail_vehicle_id
+        }
+        cust_ids = {r.customer_id for r in rows if r.customer_id}
         pay_mode_map: dict[int, str] = {}
+        driver_name_map: dict[int, str] = {}
         if driver_ids:
             emp_rows = s.exec(
-                select(models.Employee.id, models.Employee.pay_mode)
+                select(models.Employee.id, models.Employee.pay_mode, models.Employee.full_name)
                 .where(models.Employee.id.in_(driver_ids))
             ).all()
             pay_mode_map = {e[0]: (e[1] or "") for e in emp_rows}
+            driver_name_map = {e[0]: (e[2] or "") for e in emp_rows}
+        plate_map: dict[int, str] = {}
+        if veh_ids:
+            veh_rows = s.exec(
+                select(models.Vehicle.id, models.Vehicle.plate_no).where(models.Vehicle.id.in_(veh_ids))
+            ).all()
+            plate_map = {v[0]: (v[1] or "") for v in veh_rows}
+        cust_name_map: dict[int, str] = {}
+        if cust_ids:
+            cust_rows = s.exec(
+                select(models.Customer.id, models.Customer.name).where(models.Customer.id.in_(cust_ids))
+            ).all()
+            cust_name_map = {c[0]: (c[1] or "") for c in cust_rows}
     data = [
         {
             "id": r.id,
@@ -1592,13 +1493,17 @@ def daily_grid_data(
             "site_code": r.site_code or "",
             "driver_id": r.driver_id,
             "driver_raw_name": r.driver_raw_name or "",
+            "driver_name": driver_name_map.get(r.driver_id, "") if r.driver_id else "",
             "pay_mode": pay_mode_map.get(r.driver_id, "") if r.driver_id else "",
             "head_vehicle_id": r.head_vehicle_id,
             "tail_vehicle_id": r.tail_vehicle_id,
             "plate_no_raw": r.plate_no_raw or "",
+            "plate_no": plate_map.get(r.head_vehicle_id, "") if r.head_vehicle_id else "",
             "tail_plate_raw": r.tail_plate_raw or "",
+            "tail_plate": plate_map.get(r.tail_vehicle_id, "") if r.tail_vehicle_id else "",
             "customer_id": r.customer_id,
             "customer_name_raw": r.customer_name_raw or "",
+            "customer_name": cust_name_map.get(r.customer_id, "") if r.customer_id else "",
             "trip_group_id": r.trip_group_id,
             "trip_type_code": r.trip_type_code or "",
             "origin": r.origin or "",
