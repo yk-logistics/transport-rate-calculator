@@ -302,12 +302,12 @@ def _classify_lcb_days(
     if site_code:
         stmt = stmt.where(DailyJob.site_code == site_code)
     rows = session.exec(stmt).all()
-    mao, trip, amb = [], [], []
+    mao, trip, amb, no_work = [], [], [], []
     for r in rows:
         rev = r.revenue_customer or 0.0
         fee = r.trip_fee_driver or 0.0
         if rev <= 0:
-            amb.append(r)
+            no_work.append(r)  # rest/off day — no money either way, not "ambiguous"
             continue
         ratio = fee / rev
         if abs(ratio - LCB_MAO_RATIO) <= LCB_MAO_RATIO_TOL:
@@ -315,8 +315,8 @@ def _classify_lcb_days(
         elif ratio < LCB_TRIP_RATIO_MAX:
             trip.append(r)
         else:
-            amb.append(r)
-    return {"mao_days": mao, "trip_days": trip, "ambiguous": amb}
+            amb.append(r)  # has revenue but ratio is neither — needs โอ
+    return {"mao_days": mao, "trip_days": trip, "ambiguous": amb, "no_work": no_work}
 
 
 def _sum_fuel_cost_for_dates(

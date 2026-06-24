@@ -37,7 +37,10 @@ def test_classify_splits_mao_trip_ambiguous():
     out = _classify_lcb_days(s, 1, date(2026, 6, 1), date(2026, 6, 15), "LCB")
     assert {d.work_date for d in out["mao_days"]} == {date(2026, 6, 2)}
     assert {d.work_date for d in out["trip_days"]} == {date(2026, 6, 3)}
-    assert {d.work_date for d in out["ambiguous"]} == {date(2026, 6, 4), date(2026, 6, 5)}
+    # revenue=0 day is a rest day (no_work), NOT ambiguous
+    assert {d.work_date for d in out["no_work"]} == {date(2026, 6, 4)}
+    # only the murky-ratio day (rev>0, ratio 0.30) is ambiguous → needs โอ
+    assert {d.work_date for d in out["ambiguous"]} == {date(2026, 6, 5)}
 
 
 def test_sum_fuel_cost_for_dates_only_listed_days():
