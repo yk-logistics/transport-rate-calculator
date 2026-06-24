@@ -52,7 +52,7 @@ def test_sum_fuel_cost_for_dates_only_listed_days():
 
 def test_lcb_mixed_splits_income_and_prorates_base():
     s = _mk_session()
-    emp = Employee(full_name="ทดสอบ ลูกผสม", home_site_code="LCB",
+    emp = Employee(code="TEST-MIX", full_name="ทดสอบ ลูกผสม", home_site_code="LCB",
                    pay_mode="lcb_mixed", base_salary=9240, care_allowance=3000,
                    gross_share_rate=0.60, start_date=date(2026, 5, 16))
     s.add(emp)

@@ -890,6 +890,42 @@ def calc_one_employee(
         calc.fuel_cost_self = _sum_fuel_cost(session, employee.id, start, end, site_code=site)
         calc.note = f"Gross revenue {revenue:,.2f} × {share_rate*100:.0f}% − น้ำมันจริง"
 
+    elif mode == "lcb_mixed":
+        if base == 0:
+            base = 9240.0
+        if care == 0:
+            care = 3000.0
+        split = _classify_lcb_days(session, employee.id, start, end, site_code=site)
+        mao_days = split["mao_days"]
+        trip_days = split["trip_days"]
+        # เหมา side: 60% of revenue on mao days, minus fuel on those days
+        mao_rev = sum((d.revenue_customer or 0.0) for d in mao_days)
+        share_rate = employee.gross_share_rate or 0.60
+        calc.fuel_share_income = round(mao_rev * share_rate, 2)
+        mao_dates = {d.work_date for d in mao_days}
+        calc.fuel_cost_self = _sum_fuel_cost_for_dates(
+            session, employee.id, mao_dates, site_code=site
+        )
+        # เที่ยว side: trip fees + พิเศษ 100/เที่ยว on trip days only
+        calc.trip_fee_total = round(
+            sum((d.trip_fee_driver or 0.0) for d in trip_days), 2
+        )
+        n_trip = len(trip_days)
+        calc.other_income += round(n_trip * 100.0, 2)
+        # base+care prorate by TRIP days only (mao days have no base)
+        calc.base_salary_earned = round(base * (n_trip / days_in_month), 2)
+        calc.care_allowance_earned = round(care * (n_trip / days_in_month), 2)
+        amb_note = (
+            f" | ⚠ วันกำกวม {len(split['ambiguous'])} (เช็ค)"
+            if split["ambiguous"] else ""
+        )
+        calc.note = (
+            f"ลูกผสม: เหมา {len(mao_days)}วัน {mao_rev:,.0f}×{share_rate*100:.0f}%"
+            f"−น้ำมัน {calc.fuel_cost_self:,.0f} | เที่ยว {n_trip}วัน "
+            f"{calc.trip_fee_total:,.0f}+พิเศษ {n_trip*100} | ฐาน×{n_trip}/{int(days_in_month)}วัน"
+            f"{amb_note}"
+        )
+
     elif mode == "ayu_trip":
         calc.trip_fee_total = _sum_trip_fees(session, employee.id, start, end, site_code=site)
         if employee.has_guarantee and employee.guarantee_monthly_amount > 0:
