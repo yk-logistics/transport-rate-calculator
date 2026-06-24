@@ -4,12 +4,54 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{% block title %}Project YK{% endblock %}</title>
+  <script>
+    // Apply saved theme BEFORE paint to avoid a flash of light mode.
+    (function () {
+      try {
+        if (localStorage.getItem('yk-theme') === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+      } catch (e) {}
+    })();
+  </script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
   <style>
     body { font-family: -apple-system, "Segoe UI", Tahoma, sans-serif; }
     .btn { @apply inline-block px-4 py-2 rounded-lg text-sm; }
     :where(tr.yk-day-b) { background-color: rgb(250 248 245); }
+
+    /* ---- Dark mode: central override of the common Tailwind palette so EVERY
+       page goes dark without editing each template. Covers the classes that
+       actually appear across templates (bg-white, slate scale, gray, borders).
+       Uses !important to win over the utility classes it overrides. ---- */
+    html.dark body { background-color: #0f172a; color: #e2e8f0; }
+    html.dark :where(tr.yk-day-b) { background-color: #1e293b; }
+
+    html.dark .bg-white { background-color: #1e293b !important; }
+    html.dark .bg-slate-50 { background-color: #0f172a !important; }
+    html.dark .bg-slate-100 { background-color: #1e293b !important; }
+    html.dark .bg-slate-200 { background-color: #334155 !important; }
+    html.dark .bg-slate-300 { background-color: #475569 !important; }
+    html.dark .bg-gray-50 { background-color: #0f172a !important; }
+    html.dark .bg-gray-100 { background-color: #1e293b !important; }
+
+    html.dark .text-slate-800, html.dark .text-slate-900,
+    html.dark .text-slate-700 { color: #e2e8f0 !important; }
+    html.dark .text-slate-600 { color: #cbd5e1 !important; }
+    html.dark .text-slate-500, html.dark .text-gray-500,
+    html.dark .text-gray-600, html.dark .text-gray-700 { color: #94a3b8 !important; }
+    html.dark .text-slate-400, html.dark .text-gray-400 { color: #64748b !important; }
+
+    html.dark .border-slate-200 { border-color: #334155 !important; }
+    html.dark .border-slate-300 { border-color: #475569 !important; }
+
+    /* Inputs/selects inherit page colors so forms stay readable */
+    html.dark input, html.dark select, html.dark textarea {
+      background-color: #1e293b; color: #e2e8f0; border-color: #475569;
+    }
+    /* Keep the dark nav/buttons (already slate-900) as-is; they look fine. */
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -77,9 +119,30 @@
           </div>
         </div>
 
+        {# ---- Dark mode toggle ---- #}
+        <button type="button" id="yk-theme-toggle" title="สลับโหมดมืด/สว่าง"
+                class="px-3 py-1.5 rounded hover:bg-slate-700 text-base leading-none">
+          <span id="yk-theme-icon">🌙</span>
+        </button>
+
       </div>
     </div>
   </nav>
+  <script>
+    (function () {
+      const btn = document.getElementById('yk-theme-toggle');
+      const icon = document.getElementById('yk-theme-icon');
+      function syncIcon() {
+        icon.textContent = document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
+      }
+      syncIcon();
+      btn.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        try { localStorage.setItem('yk-theme', isDark ? 'dark' : 'light'); } catch (e) {}
+        syncIcon();
+      });
+    })();
+  </script>
   <script>
     (function () {
       const menus = document.querySelectorAll('#yk-nav .yk-menu');
