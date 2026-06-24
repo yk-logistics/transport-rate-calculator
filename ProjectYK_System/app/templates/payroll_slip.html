@@ -193,17 +193,28 @@
           <div class="line"><span>ค่าดูแลรถ</span><span class="v">{{ '{:,.2f}'.format(item.care_allowance_earned) }}</span></div>
           {% set inc_total = inc_total + item.care_allowance_earned %}
         {% endif %}
-        {% if item.trip_fee_total %}
-          <div class="line"><span>ค่าเที่ยว</span><span class="v">{{ '{:,.2f}'.format(item.trip_fee_total) }}</span></div>
-          {% set inc_total = inc_total + item.trip_fee_total %}
-        {% endif %}
-        {% if item.fuel_rate_income %}
-          <div class="line"><span>ค่าเรทน้ำมัน</span><span class="v">{{ '{:,.2f}'.format(item.fuel_rate_income) }}</span></div>
-          {% set inc_total = inc_total + item.fuel_rate_income %}
-        {% endif %}
-        {% if item.fuel_share_income %}
-          <div class="line"><span>ส่วนแบ่งน้ำมัน</span><span class="v">{{ '{:,.2f}'.format(item.fuel_share_income) }}</span></div>
-          {% set inc_total = inc_total + item.fuel_share_income %}
+        {% if item.pay_mode == "lcb_mixed" %}
+          {% if item.fuel_share_income %}
+            <div class="line"><span>&#9656; เหมา (60% ค่าขนส่ง)</span><span class="v">{{ '{:,.2f}'.format(item.fuel_share_income) }}</span></div>
+            {% set inc_total = inc_total + item.fuel_share_income %}
+          {% endif %}
+          {% if item.trip_fee_total %}
+            <div class="line"><span>&#9656; เที่ยว (ค่าเที่ยว)</span><span class="v">{{ '{:,.2f}'.format(item.trip_fee_total) }}</span></div>
+            {% set inc_total = inc_total + item.trip_fee_total %}
+          {% endif %}
+        {% else %}
+          {% if item.trip_fee_total %}
+            <div class="line"><span>ค่าเที่ยว</span><span class="v">{{ '{:,.2f}'.format(item.trip_fee_total) }}</span></div>
+            {% set inc_total = inc_total + item.trip_fee_total %}
+          {% endif %}
+          {% if item.fuel_rate_income %}
+            <div class="line"><span>ค่าเรทน้ำมัน</span><span class="v">{{ '{:,.2f}'.format(item.fuel_rate_income) }}</span></div>
+            {% set inc_total = inc_total + item.fuel_rate_income %}
+          {% endif %}
+          {% if item.fuel_share_income %}
+            <div class="line"><span>ส่วนแบ่งน้ำมัน</span><span class="v">{{ '{:,.2f}'.format(item.fuel_share_income) }}</span></div>
+            {% set inc_total = inc_total + item.fuel_share_income %}
+          {% endif %}
         {% endif %}
         {% if item.guarantee_topup %}
           <div class="line"><span>ชดเชยการันตี</span><span class="v">{{ '{:,.2f}'.format(item.guarantee_topup) }}</span></div>
