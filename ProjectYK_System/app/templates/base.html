@@ -166,6 +166,10 @@
         const isDark = document.documentElement.classList.toggle('dark');
         try { localStorage.setItem('yk-theme', isDark ? 'dark' : 'light'); } catch (e) {}
         syncIcon();
+        // Let pages that paint theme-dependent inline styles (e.g. the Tabulator
+        // grid's rowFormatter) re-apply themselves — CSS alone can't override
+        // inline styles that were frozen at the theme active when rows rendered.
+        document.dispatchEvent(new CustomEvent('yk-theme-change', { detail: { dark: isDark } }));
       });
     })();
   </script>

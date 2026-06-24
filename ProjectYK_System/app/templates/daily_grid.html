@@ -148,6 +148,9 @@
     background: #fee2e2 !important;
     color: #991b1b !important;
   }
+  /* _mao highlight (light) — class-driven so theme toggle is pure CSS */
+  .tabulator .tabulator-row.yk-mao-row { background: #eff6ff !important; }
+  .tabulator .tabulator-cell.yk-mao-driver { color: #1d4ed8 !important; font-weight: 600; }
   .tabulator .tabulator-row.tabulator-selected {
     background: #dbeafe !important;
   }
@@ -199,6 +202,8 @@
   /* Status-highlight cells: darken the pastel backgrounds but keep meaning */
   html.dark .yk-cell-missing { background: #4c1d1d !important; color: #fca5a5 !important; }
   html.dark .yk-grid-dirty-cell { background: #3d2f12 !important; }
+  html.dark .tabulator .tabulator-row.yk-mao-row { background: #16243a !important; }
+  html.dark .tabulator .tabulator-cell.yk-mao-driver { color: #93c5fd !important; }
 </style>
 <script>
 (function(){
@@ -469,14 +474,14 @@
     dataTree: false,
     headerFilterLiveFilterDelay: 300,
     rowFormatter: function(row) {
+      // Drive the _mao highlight by CSS class only — never inline styles — so a
+      // theme toggle recolours via html.dark CSS with no redraw and no stale cells.
       const d = row.getData();
-      if (!d.pay_mode || !d.pay_mode.endsWith("_mao")) return;
-      const dark = document.documentElement.classList.contains("dark");
-      row.getElement().style.background = dark ? "#16243a" : "#eff6ff";
+      const isMao = !!(d.pay_mode && d.pay_mode.endsWith("_mao"));
+      row.getElement().classList.toggle("yk-mao-row", isMao);
       row.getCells().forEach(cell => {
         if (cell.getField() === "driver_raw_name") {
-          cell.getElement().style.color = dark ? "#93c5fd" : "#1d4ed8";
-          cell.getElement().style.fontWeight = "600";
+          cell.getElement().classList.toggle("yk-mao-driver", isMao);
         }
       });
     },
@@ -786,6 +791,11 @@
     if (!hasUnsavedChanges()) return;
     e.preventDefault();
     e.returnValue = "";
+  });
+  // rowFormatter writes inline bg/colour based on the theme at render time, so a
+  // theme toggle leaves those cells frozen. Re-run the formatters on toggle.
+  document.addEventListener("yk-theme-change", function(){
+    try { table.redraw(true); } catch (e) {}
   });
 })();
 </script>

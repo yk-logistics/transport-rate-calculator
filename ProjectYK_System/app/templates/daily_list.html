@@ -11,12 +11,39 @@
   .yk-missing    { background:#fee2e2!important; color:#991b1b!important; }
   .yk-mao-row    { background:#eff6ff!important; }
   .yk-mao-driver { color:#1d4ed8!important; font-weight:600; }
+  .yk-leave-row  { background:#fffbeb!important; }
   .tabulator .tabulator-header .tabulator-col .tabulator-header-filter input,
   .tabulator .tabulator-header .tabulator-col .tabulator-header-filter select {
     background:#f0f9ff!important; border:1px solid #7dd3fc!important;
     border-radius:3px; font-size:11px; padding:2px 4px; width:100%; box-sizing:border-box;
   }
   #ykSelBar { transition: opacity .15s; }
+
+  /* ── Dark mode for the Tabulator grid ──────────────────────────────── */
+  html.dark .tabulator { background-color:#0f172a; color:#e2e8f0; border-color:#334155; }
+  html.dark .tabulator .tabulator-header,
+  html.dark .tabulator .tabulator-header .tabulator-col {
+    background-color:#1e293b; color:#cbd5e1; border-color:#334155;
+  }
+  html.dark .tabulator .tabulator-row { background-color:#0f172a; color:#e2e8f0; border-color:#1e293b; }
+  html.dark .tabulator .tabulator-row.tabulator-row-even { background-color:#131c2e; }
+  html.dark .tabulator .tabulator-row:hover { background-color:#243042!important; }
+  html.dark .tabulator .tabulator-cell { border-color:#1e293b; }
+  html.dark .tabulator .tabulator-row.tabulator-selected { background-color:#1e3a5f!important; }
+  html.dark .tabulator .tabulator-row.tabulator-selected:hover { background-color:#244a73!important; }
+  html.dark .tabulator .tabulator-header .tabulator-col .tabulator-header-filter input,
+  html.dark .tabulator .tabulator-header .tabulator-col .tabulator-header-filter select {
+    background-color:#0f172a!important; color:#e2e8f0; border-color:#475569!important;
+  }
+  html.dark .tabulator .tabulator-calcs-bottom .tabulator-cell {
+    background-color:#1e293b; color:#93c5fd;
+  }
+  /* Status-highlight rows: darken pastels but keep meaning */
+  html.dark .yk-missing    { background:#4c1d1d!important; color:#fca5a5!important; }
+  html.dark .yk-dirty-cell { background:#3d2f12!important; }
+  html.dark .yk-mao-row    { background:#16243a!important; }
+  html.dark .yk-mao-driver { color:#93c5fd!important; }
+  html.dark .yk-leave-row  { background:#3d3712!important; }
 </style>
 
 {# ── Page header ─────────────────────────────────────────────────── #}
@@ -284,8 +311,8 @@ let table = new Tabulator("#dailyListGrid", {
     el.classList.toggle("yk-mao-row", !!(d.pay_mode&&d.pay_mode.endsWith("_mao")));
     if(["idle","placeholder"].includes(d.status_code)) el.style.opacity=".65";
     else el.style.opacity="";
-    if(d.status_code==="leave") el.style.background="#fffbeb";
-    else if(!d.pay_mode?.endsWith("_mao")) el.style.background="";
+    // Use a class (not inline style) so dark-mode CSS can recolour leave rows.
+    el.classList.toggle("yk-leave-row", d.status_code==="leave");
     row.getCells().forEach(c=>{ if(c.getField()==="driver_name"&&d.pay_mode?.endsWith("_mao")) c.getElement().classList.add("yk-mao-driver"); });
   },
   cellEdited(cell){
@@ -355,6 +382,9 @@ saveBtn.addEventListener("click", async () => {
 });
 
 window.addEventListener("beforeunload", e=>{ if(hasUnsaved()){e.preventDefault();e.returnValue="";} });
+
+// Re-run rowFormatter so theme-dependent styling refreshes on dark/light toggle.
+document.addEventListener("yk-theme-change", ()=>{ try{ table.redraw(true); }catch(e){} });
 
 // ── Column dialog ────────────────────────────────────────────────────
 const colsBtn    = document.getElementById("colsBtn");
