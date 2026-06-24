@@ -176,6 +176,29 @@
     font-size: 11px;
     color: #1e40af;
   }
+
+  /* ---- Dark mode for the Tabulator grid (its CSS ships its own light theme) ---- */
+  html.dark .tabulator { background-color: #0f172a; color: #e2e8f0; border-color: #334155; }
+  html.dark .tabulator .tabulator-header,
+  html.dark .tabulator .tabulator-header .tabulator-col {
+    background-color: #1e293b; color: #cbd5e1; border-color: #334155;
+  }
+  html.dark .tabulator .tabulator-row { background-color: #0f172a; color: #e2e8f0; border-color: #1e293b; }
+  html.dark .tabulator .tabulator-row.tabulator-row-even { background-color: #131c2e; }
+  html.dark .tabulator .tabulator-row:hover { background-color: #243042 !important; }
+  html.dark .tabulator .tabulator-cell { border-color: #1e293b; }
+  html.dark .tabulator .tabulator-row.tabulator-selected { background-color: #1e3a5f !important; }
+  html.dark .tabulator .tabulator-row.tabulator-selected:hover { background-color: #244a73 !important; }
+  html.dark .tabulator .tabulator-header .tabulator-col .tabulator-header-filter input,
+  html.dark .tabulator .tabulator-header .tabulator-col .tabulator-header-filter select {
+    background-color: #0f172a !important; color: #e2e8f0; border-color: #475569 !important;
+  }
+  html.dark .tabulator .tabulator-calcs-bottom .tabulator-cell {
+    background-color: #1e293b; color: #93c5fd;
+  }
+  /* Status-highlight cells: darken the pastel backgrounds but keep meaning */
+  html.dark .yk-cell-missing { background: #4c1d1d !important; color: #fca5a5 !important; }
+  html.dark .yk-grid-dirty-cell { background: #3d2f12 !important; }
 </style>
 <script>
 (function(){
@@ -448,10 +471,11 @@
     rowFormatter: function(row) {
       const d = row.getData();
       if (!d.pay_mode || !d.pay_mode.endsWith("_mao")) return;
-      row.getElement().style.background = "#eff6ff";
+      const dark = document.documentElement.classList.contains("dark");
+      row.getElement().style.background = dark ? "#16243a" : "#eff6ff";
       row.getCells().forEach(cell => {
         if (cell.getField() === "driver_raw_name") {
-          cell.getElement().style.color = "#1d4ed8";
+          cell.getElement().style.color = dark ? "#93c5fd" : "#1d4ed8";
           cell.getElement().style.fontWeight = "600";
         }
       });
