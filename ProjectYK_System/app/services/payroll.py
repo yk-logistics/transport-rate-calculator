@@ -275,6 +275,68 @@ def _sum_fuel_cost(
     return round(sum((r.amount or 0.0) for r in rows), 2)
 
 
+LCB_MAO_RATIO = 0.60
+LCB_MAO_RATIO_TOL = 0.05
+# Real LCB data: trip days cluster < 0.15 (ค่าเที่ยว 200-350 vs rev ~5000),
+# mao days sit at exactly 0.60. Nothing legit lands between. So only a clearly
+# low ratio is "trip"; the 0.15–0.55 middle is abnormal → ambiguous (ask โอ).
+LCB_TRIP_RATIO_MAX = 0.15
+
+
+def _classify_lcb_days(
+    session: Session, emp_id: int, start: date, end: date, site_code: str = ""
+) -> dict:
+    """Split a driver's DailyJob rows in [start,end] into เหมา / เที่ยว / ambiguous.
+
+    Rule (โอ-approved 2026-06-24): ratio = trip_fee_driver / revenue_customer.
+      revenue>0 & |ratio-0.60|<=0.05 -> mao day (60% share formula)
+      revenue>0 & ratio<0.55         -> trip day
+      otherwise (revenue<=0, or ratio in the murky middle) -> ambiguous
+    Ambiguous days are NOT auto-assigned to เหมา (never auto-deduct fuel).
+    """
+    stmt = select(DailyJob).where(
+        DailyJob.driver_id == emp_id,
+        DailyJob.work_date >= start,
+        DailyJob.work_date <= end,
+    )
+    if site_code:
+        stmt = stmt.where(DailyJob.site_code == site_code)
+    rows = session.exec(stmt).all()
+    mao, trip, amb = [], [], []
+    for r in rows:
+        rev = r.revenue_customer or 0.0
+        fee = r.trip_fee_driver or 0.0
+        if rev <= 0:
+            amb.append(r)
+            continue
+        ratio = fee / rev
+        if abs(ratio - LCB_MAO_RATIO) <= LCB_MAO_RATIO_TOL:
+            mao.append(r)
+        elif ratio < LCB_TRIP_RATIO_MAX:
+            trip.append(r)
+        else:
+            amb.append(r)
+    return {"mao_days": mao, "trip_days": trip, "ambiguous": amb}
+
+
+def _sum_fuel_cost_for_dates(
+    session: Session, emp_id: int, dates, site_code: str = ""
+) -> float:
+    """Sum FuelTxn.amount for this driver on only the given set of dates."""
+    date_set = set(dates)
+    if not date_set:
+        return 0.0
+    stmt = select(FuelTxn).where(
+        FuelTxn.driver_id == emp_id,
+        FuelTxn.txn_date >= min(date_set),
+        FuelTxn.txn_date <= max(date_set),
+    )
+    if site_code:
+        stmt = stmt.where(FuelTxn.site_code == site_code)
+    rows = session.exec(stmt).all()
+    return round(sum((r.amount or 0.0) for r in rows if r.txn_date in date_set), 2)
+
+
 # BIGC fuel-rate rebate rate: driver is paid ฿16 per liter of the fuel allowance
 # they did NOT consume. Half of the original ~฿32/L price, sharing the saving 50/50.
 BIGC_FUEL_RATE_REBATE = 16.0
@@ -809,9 +871,15 @@ def calc_one_employee(
         # LCB "พิเศษ" = 100฿ ต่อเที่ยว (เริ่มสมัยโควิท) — เก็บใน other_income
         trip_count = _count_trips(session, employee.id, start, end, site_code=site)
         calc.other_income += round(trip_count * 100.0, 2)
+        miss_bits = []
+        if (calc.days_leave + calc.days_absent) > 0:
+            miss_bits.append(f"ลา/ขาด {int(calc.days_leave + calc.days_absent)}วัน")
+        if not_employed_days > 0:
+            miss_bits.append(f"ยังไม่เริ่มงาน {int(not_employed_days)}วัน")
+        miss_str = f" ({', '.join(miss_bits)})" if miss_bits else ""
         calc.note = (
             f"LCB: base {base:,.0f} + care {care:,.0f} ÷ {int(days_in_month)}วัน"
-            f" (ลา/ขาด {int(missed)}วัน) + trip {calc.trip_fee_total:,.0f}"
+            f"{miss_str} + trip {calc.trip_fee_total:,.0f}"
             f" + พิเศษ {trip_count}เที่ยว×100 = {trip_count*100:,}"
         )
 
