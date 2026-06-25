@@ -217,7 +217,7 @@
   const columnsChecklist = document.getElementById("columnsChecklist");
   const closeColumnsDialog = document.getElementById("closeColumnsDialog");
   const selBar = document.getElementById("ykSelBar");
-  const HIDDEN_KEY = "yk_daily_hidden_v1";
+  const HIDDEN_KEY = "yk_daily_hidden_v2";
 
   let dirtyRows = new Map();
   let currentEditCell = null;
@@ -226,13 +226,13 @@
   // [field, label, editable]
   const ALL_FIELDS = [
     ["id","ID",false], ["work_date","วันที่",true], ["site_code","ไซต์",true],
-    ["driver_id","driver_id",true], ["driver_raw_name","คนขับ",true],
-    ["driver_name","พขร.(ชื่อจริง)",false],
+    ["driver_id","driver_id",true],
+    ["driver_name","คนขับ",false], ["driver_raw_name","คนขับ(raw)",true],
     ["head_vehicle_id","head_vehicle_id",true], ["tail_vehicle_id","tail_vehicle_id",true],
-    ["plate_no_raw","ทะเบียน",true], ["plate_no","ทะเบียน(ชื่อจริง)",false],
-    ["tail_plate_raw","ทะเบียนหาง",true], ["tail_plate","หาง(ชื่อจริง)",false],
-    ["customer_id","customer_id",true], ["customer_name_raw","ลูกค้า(linked — ว่าง)",false],
-    ["customer_name","ลูกค้า(ชื่อจริง)",false],
+    ["plate_no","ทะเบียน",false], ["plate_no_raw","ทะเบียน(raw)",true],
+    ["tail_plate","ทะเบียนหาง",false], ["tail_plate_raw","ทะเบียนหาง(raw)",true],
+    ["customer_id","customer_id",true],
+    ["customer_name","ลูกค้า",false], ["customer_name_raw","ลูกค้า(raw)",true],
     ["trip_group_id","trip_group_id",true],
     ["status_code","ลูกค้า / Status",true], ["leave_status","leave_status",true],
     ["trip_type_code","STARTING / รับตู้ (H)",true],
@@ -250,10 +250,10 @@
   ];
 
   const PRESETS = {
-    basic:     ["work_date","site_code","driver_raw_name","plate_no_raw","status_code","leave_status","trip_type_code","origin","destination"],
-    money:     ["work_date","site_code","driver_raw_name","plate_no_raw","status_code","leave_status","trip_type_code","origin","destination","revenue_customer","trip_fee_driver","remark"],
-    fuel:      ["work_date","site_code","driver_raw_name","plate_no_raw","fuel_liter","fuel_amount","fuel_station","fuel_rate_km_per_l","mile_snapshot"],
-    container: ["work_date","site_code","driver_raw_name","plate_no_raw","status_code","trip_type_code","origin","destination","doc_no","job_ref","container_no","container_size"],
+    basic:     ["work_date","site_code","driver_name","plate_no","status_code","leave_status","trip_type_code","origin","destination"],
+    money:     ["work_date","site_code","driver_name","plate_no","status_code","leave_status","trip_type_code","origin","destination","revenue_customer","trip_fee_driver","remark"],
+    fuel:      ["work_date","site_code","driver_name","plate_no","fuel_liter","fuel_amount","fuel_station","fuel_rate_km_per_l","mile_snapshot"],
+    container: ["work_date","site_code","driver_name","plate_no","status_code","trip_type_code","origin","destination","doc_no","job_ref","container_no","container_size"],
     all:       null,
   };
 
@@ -482,7 +482,7 @@
       const isMao = !!(d.pay_mode && d.pay_mode.endsWith("_mao"));
       row.getElement().classList.toggle("yk-mao-row", isMao);
       row.getCells().forEach(cell => {
-        if (cell.getField() === "driver_raw_name") {
+        if (cell.getField() === "driver_name" || cell.getField() === "driver_raw_name") {
           cell.getElement().classList.toggle("yk-mao-driver", isMao);
         }
       });
@@ -727,10 +727,11 @@
   table.on("tableBuilt", function(){
     const DEFAULT_HIDDEN = [
       "leave_status","pickup_location",
-      "customer_name_raw","customer_id","driver_id",
-      "driver_name","plate_no","tail_plate","customer_name",
+      // โชว์ชื่อจริง (driver_name/plate_no/customer_name) เป็นหลัก — ซ่อน raw ที่ซ้ำ
+      "driver_raw_name","plate_no_raw","tail_plate_raw","customer_name_raw",
+      "customer_id","driver_id",
       "head_vehicle_id","tail_vehicle_id","trip_group_id",
-      "tail_plate_raw","store_code","truck_type_raw",
+      "store_code","truck_type_raw",
       "invoice_no","invoice_date","wht_53",
       "source","created_at","updated_at",
     ];
