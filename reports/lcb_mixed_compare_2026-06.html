@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>เทียบมือ — LCB ลูกผสม รอบ มิ.ย. 2569 (พชร / สุรเดช)</title>
+<style>
+  :root{
+    --mao:#fde68a; --mao-bd:#f59e0b;
+    --trip:#bfdbfe; --trip-bd:#3b82f6;
+    --amb:#fecaca; --amb-bd:#ef4444;
+    --off:#e5e7eb; --off-bd:#9ca3af;
+  }
+  *{box-sizing:border-box}
+  body{font-family:"Segoe UI",Tahoma,sans-serif;margin:0;background:#f3f4f6;color:#111827;font-size:14px}
+  header{background:#1f2937;color:#fff;padding:16px 20px}
+  header h1{margin:0 0 4px;font-size:20px}
+  header .sub{color:#9ca3af;font-size:13px}
+  .wrap{padding:20px;max-width:1100px;margin:0 auto}
+  .legend{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+  .chip{padding:3px 10px;border-radius:999px;font-size:12px;border:1px solid}
+  .chip.mao{background:var(--mao);border-color:var(--mao-bd)}
+  .chip.trip{background:var(--trip);border-color:var(--trip-bd)}
+  .chip.ambiguous{background:var(--amb);border-color:var(--amb-bd)}
+  .chip.no_work{background:var(--off);border-color:var(--off-bd);color:#6b7280}
+  .chip.idle{background:#a7f3d0;border-color:#10b981}
+  .chip.pending{background:#fdba74;border-color:#ea580c}
+  .driver{background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.1);margin-bottom:24px;overflow:hidden}
+  .driver > h2{margin:0;padding:14px 18px;background:#111827;color:#fff;font-size:18px;display:flex;justify-content:space-between;align-items:center}
+  .driver > h2 .net{font-size:22px;font-weight:700;color:#34d399}
+  .counts{padding:10px 18px;background:#f9fafb;border-bottom:1px solid #e5e7eb;display:flex;gap:18px;flex-wrap:wrap;font-size:13px}
+  .counts b{font-size:16px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:6px 10px;text-align:right;border-bottom:1px solid #f3f4f6}
+  th{background:#f9fafb;position:sticky;top:0;font-weight:600;color:#374151;text-align:right}
+  td.l,th.l{text-align:left}
+  tr.mao{background:rgba(253,230,138,.35)}
+  tr.trip{background:rgba(191,219,254,.30)}
+  tr.ambiguous{background:rgba(254,202,202,.45)}
+  tr.idle{background:rgba(167,243,208,.35)}
+  tr.pending{background:rgba(253,186,116,.30)}
+  tr.no_work{color:#9ca3af}
+  .tag{display:inline-block;padding:1px 8px;border-radius:6px;font-size:11px;border:1px solid}
+  .tag.mao{background:var(--mao);border-color:var(--mao-bd)}
+  .tag.trip{background:var(--trip);border-color:var(--trip-bd)}
+  .tag.ambiguous{background:var(--amb);border-color:var(--amb-bd)}
+  .tag.no_work{background:var(--off);border-color:var(--off-bd);color:#6b7280}
+  .tag.idle{background:#a7f3d0;border-color:#10b981}
+  .tag.pending{background:#fdba74;border-color:#ea580c}
+  .calc{padding:14px 18px;background:#f9fafb;border-top:2px solid #e5e7eb}
+  .calc h3{margin:0 0 10px;font-size:14px;color:#374151}
+  .calcgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 24px}
+  .calcgrid .row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dotted #e5e7eb}
+  .calcgrid .row.tot{border-top:2px solid #374151;border-bottom:none;font-weight:700;margin-top:4px;padding-top:6px}
+  .calcgrid .row.sub{border-top:1px solid #9ca3af;border-bottom:none;font-weight:600;margin-top:2px;padding-top:5px}
+  .calcgrid .row .v{font-variant-numeric:tabular-nums}
+  .neg{color:#dc2626}
+  .note{margin-top:10px;padding:8px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;font-size:12px;color:#92400e}
+  .rules{font-size:12px;color:#6b7280;margin:6px 0 0}
+  details summary{cursor:pointer;padding:8px 18px;background:#f3f4f6;font-size:13px;color:#374151}
+  .muted{color:#9ca3af}
+</style>
+</head>
+<body>
+<header>
+  <h1>เทียบมือ — LCB ลูกผสม (lcb_mixed) รอบ มิ.ย. 2569</h1>
+  <div class="sub">รอบ 16/05–15/06/2569 · payrun #2 (DRAFT, ยังไม่ finalize) · ตัวเลขนี้คือที่ "ระบบ" คำนวณ เอาไว้เทียบกับมือคุณ</div>
+</header>
+<div class="wrap">
+  <div class="legend">
+    <span class="chip mao">เหมา (mao)</span>
+    <span class="chip trip">เที่ยว (trip)</span>
+    <span class="chip idle">รถจอด (ได้ฐาน)</span>
+    <span class="chip pending">รอลงราคา</span>
+    <span class="chip ambiguous">กำกวม</span>
+    <span class="chip no_work">หยุด/ลา</span>
+  </div>
+  <div class="rules" id="rules"></div>
+  <div id="app"></div>
+  <details>
+    <summary>วิธีระบบจัดประเภทแต่ละวัน (กฎ ratio)</summary>
+    <div style="padding:12px 18px;font-size:13px;line-height:1.7">
+      ระบบดูทีละวัน คิด <b>ratio = ค่าเที่ยวคนขับ ÷ รายได้ลูกค้า</b> แล้วจัด:
+      <ul>
+        <li><b>เหมา</b> — ratio อยู่ราว 0.60 (±0.05) → ได้ 60% ของรายได้ แล้ว <u>หักน้ำมันวันนั้นเอง</u></li>
+        <li><b>เที่ยว</b> — ratio &lt; 0.15 → ได้ค่าเที่ยวตามจริง + พิเศษ 100/เที่ยว + ฐาน/ดูแล เฉลี่ยตาม <u>(วันเที่ยว + วันรถจอด)</u></li>
+        <li><b>รถจอด</b> — บริษัทไม่มีงาน/อุบัติเหตุ/ซ่อม (คนขับมาแต่ไม่มีงาน) → <u>นับได้ฐาน/ค่าดูแล</u> แม้รายได้วันนั้น = 0</li>
+        <li><b>กำกวม</b> — มีรายได้แต่ ratio ไม่เข้าทั้งสอง → ระบบ <u>ไม่เดา</u> รอถามคุณ (รอบนี้ทั้งคู่ = 0 วันกำกวม)</li>
+        <li><b>วันหยุด/ลา</b> — ลา/ขาด → ไม่ได้ฐาน</li>
+      </ul>
+    </div>
+  </details>
+</div>
+
+<script>
+const DATA = {
+  "rules": {
+    "mao_ratio": 0.6,
+    "mao_tol": 0.05,
+    "trip_max": 0.15
+  },
+  "drivers": [
+    {
+      "emp_id": 86,
+      "name": "พชร",
+      "share_rate": 0.6,
+      "counts": {
+        "mao": 9,
+        "trip": 13,
+        "ambiguous": 0,
+        "no_work": 12,
+        "idle": 11,
+        "base_days": 24
+      },
+      "days": [
+        {
+          "date": "2026-05-16",
+          "revenue": 5100.0,
+          "trip_fee": 350.0,
+          "ratio": 0.0686,
+          "label": "trip",
+          "status": "KAO",
+          "route": "GF-2",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-17",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "idle",
+          "status": "รถจอด",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-18",
+          "revenue": 4831.0,
+          "trip_fee": 350.0,
+          "ratio": 0.0724,
+          "label": "trip",
+          "status": "KLND",
+          "route": "KRC",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-19",
+          "revenue": 4200.0,
+          "trip_fee": 350.0,
+          "ratio": 0.0833,
+          "label": "trip",
+          "status": "CY",
+          "route": "GF-1",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-20",
+          "revenue": 4918.0,
+          "trip_fee": 350.0,
+          "ratio": 0.0712,
+          "label": "trip",
+          "status": "KLND",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-21",
+          "revenue": 5702.0,
+          "trip_fee": 350.0,
+          "ratio": 0.0614,
+          "label": "trip",
+          "status": "KAO",
+          "route": "OM",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-22",
+          "revenue": 5300.0,
+          "trip_fee": 350.0,
+          "ratio": 0.066,
+          "label": "trip",
+          "status": "WHALE",
+          "route": "KRC",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-23",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "idle",
+          "status": "รถจอด",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-24",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "idle",
+          "status": "รถจอด",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-25",
+          "revenue": 4918.0,
+          "trip_fee": 350.0,
+          "ratio": 0.0712,
+          "label": "trip",
+          "status": "KLND",
+          "route": "99",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-26",
+          "revenue": 4831.0,
+          "trip_fee": 350.0,
+          "ratio": 0.0724,
+          "label": "trip",
+          "status": "KLND",
+          "route": "99",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-27",
+          "revenue": 5100.0,
+          "trip_fee": 350.0,
+          "ratio": 0.0686,
+          "label": "trip",
+          "status": "KAO",
+          "route": "OM",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-27",
+          "revenue": 5200.0,
+          "trip_fee": 350.0,
+          "ratio": 0.0673,
+          "label": "trip",
+          "status": "WHALE",
+          "route": "MPJ",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-28",
+          "revenue": 5200.0,
+          "trip_fee": 350.0,
+          "ratio": 0.0673,
+          "label": "trip",
+          "status": "WHALE",
+          "route": "MPJ",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-29",
+          "revenue": 4831.0,
+          "trip_fee": 350.0,
+          "ratio": 0.0724,
+          "label": "trip",
+          "status": "KLND",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-30",
+          "revenue": 5000.0,
+          "trip_fee": 350.0,
+          "ratio": 0.07,
+          "label": "trip",
+          "status": "KAO",
+          "route": "WGD",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-31",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "idle",
+          "status": "รถจอด",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-01",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "idle",
+          "status": "รถจอด",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-02",
+          "revenue": 5000.0,
+          "trip_fee": 3000.0,
+          "ratio": 0.6,
+          "label": "mao",
+          "status": "KAO",
+          "route": "D Depot",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-03",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "idle",
+          "status": "รถจอด",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-04",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "idle",
+          "status": "รถจอด",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-05",
+          "revenue": 4692.0,
+          "trip_fee": 2815.2,
+          "ratio": 0.6,
+          "label": "mao",
+          "status": "CY",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-05",
+          "revenue": 4770.0,
+          "trip_fee": 2862.0,
+          "ratio": 0.6,
+          "label": "mao",
+          "status": "KLND",
+          "route": "B4",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-06",
+          "revenue": 2410.0,
+          "trip_fee": 1446.0,
+          "ratio": 0.6,
+          "label": "mao",
+          "status": "NHL",
+          "route": "HAST2",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-06",
+          "revenue": 2410.0,
+          "trip_fee": 1446.0,
+          "ratio": 0.6,
+          "label": "mao",
+          "status": "NHL",
+          "route": "HAST2",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-07",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "idle",
+          "status": "รถจอด",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-08",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "idle",
+          "status": "รถจอด",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-09",
+          "revenue": 4831.0,
+          "trip_fee": 2898.6,
+          "ratio": 0.6,
+          "label": "mao",
+          "status": "KLND",
+          "route": "SIAM COM",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-10",
+          "revenue": 6000.0,
+          "trip_fee": 3600.0,
+          "ratio": 0.6,
+          "label": "mao",
+          "status": "KTL",
+          "route": "CMA",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-11",
+          "revenue": 4746.0,
+          "trip_fee": 2847.6,
+          "ratio": 0.6,
+          "label": "mao",
+          "status": "KLND",
+          "route": "SIAM COM",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-12",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "idle",
+          "status": "รถจอด",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-13",
+          "revenue": 3322.0,
+          "trip_fee": 1993.2,
+          "ratio": 0.6,
+          "label": "mao",
+          "status": "KLND",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-14",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "idle",
+          "status": "รถจอด",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-15",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "pending",
+          "status": "KAO",
+          "route": "UNIWISE",
+          "plate": ""
+        }
+      ],
+      "calc": {
+        "mao_rev": 38181.0,
+        "fuel_share_income": 22908.6,
+        "fuel_cost_self": 10337.4,
+        "fuel_mao_check": 10337.4,
+        "trip_fee_total": 4550.0,
+        "other_income": 1300.0,
+        "base_salary_earned": 7153.55,
+        "care_allowance_earned": 2322.58,
+        "gross_total": 38234.73,
+        "deduction_total": 21799.4,
+        "net_pay": 16435.33,
+        "note": "ลูกผสม: เหมา 9วัน 38,181×60%−น้ำมัน 10,337 | เที่ยว 13วัน 4,550+พิเศษ 1300 | ฐาน×24/31วัน",
+        "mao_subtotal": 22908.6,
+        "trip_subtotal": 15326.13,
+        "ded": {
+          "fuel_cost_self": 10337.4,
+          "petty_cash": 10000.0,
+          "social_security": 462.0,
+          "income_tax": 0.0,
+          "deposit_install": 1000.0,
+          "accident_install": 0,
+          "other": 0.0
+        }
+      }
+    },
+    {
+      "emp_id": 91,
+      "name": "สุรเดช",
+      "share_rate": 0.6,
+      "counts": {
+        "mao": 5,
+        "trip": 20,
+        "ambiguous": 0,
+        "no_work": 13,
+        "idle": 10,
+        "base_days": 30
+      },
+      "days": [
+        {
+          "date": "2026-05-16",
+          "revenue": 2410.0,
+          "trip_fee": 200.0,
+          "ratio": 0.083,
+          "label": "trip",
+          "status": "NHL",
+          "route": "TICS",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-16",
+          "revenue": 2410.0,
+          "trip_fee": 200.0,
+          "ratio": 0.083,
+          "label": "trip",
+          "status": "NHL",
+          "route": "GF-4",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-17",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "idle",
+          "status": "รถจอด",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-18",
+          "revenue": 8500.0,
+          "trip_fee": 500.0,
+          "ratio": 0.0588,
+          "label": "trip",
+          "status": "CJ",
+          "route": "TIPS CD",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-19",
+          "revenue": 2470.0,
+          "trip_fee": 200.0,
+          "ratio": 0.081,
+          "label": "trip",
+          "status": "NHL",
+          "route": "KCD",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-19",
+          "revenue": 2470.0,
+          "trip_fee": 200.0,
+          "ratio": 0.081,
+          "label": "trip",
+          "status": "NHL",
+          "route": "MPJ",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-20",
+          "revenue": 5202.0,
+          "trip_fee": 350.0,
+          "ratio": 0.0673,
+          "label": "trip",
+          "status": "KAO",
+          "route": "A-ONE",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-21",
+          "revenue": 2470.0,
+          "trip_fee": 200.0,
+          "ratio": 0.081,
+          "label": "trip",
+          "status": "NHL",
+          "route": "OM",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-21",
+          "revenue": 2470.0,
+          "trip_fee": 200.0,
+          "ratio": 0.081,
+          "label": "trip",
+          "status": "NHL",
+          "route": "SIAM COM",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-22",
+          "revenue": 4060.0,
+          "trip_fee": 350.0,
+          "ratio": 0.0862,
+          "label": "trip",
+          "status": "NHL",
+          "route": "EVO",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-23",
+          "revenue": 2470.0,
+          "trip_fee": 200.0,
+          "ratio": 0.081,
+          "label": "trip",
+          "status": "NHL",
+          "route": "OM",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-23",
+          "revenue": 2470.0,
+          "trip_fee": 200.0,
+          "ratio": 0.081,
+          "label": "trip",
+          "status": "NHL",
+          "route": "EVO",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-24",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "idle",
+          "status": "รถจอด",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-25",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "idle",
+          "status": "รถจอด",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-26",
+          "revenue": 5202.0,
+          "trip_fee": 350.0,
+          "ratio": 0.0673,
+          "label": "trip",
+          "status": "KAO",
+          "route": "KTL1",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-27",
+          "revenue": 4831.0,
+          "trip_fee": 350.0,
+          "ratio": 0.0724,
+          "label": "trip",
+          "status": "KLND",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-28",
+          "revenue": 5100.0,
+          "trip_fee": 350.0,
+          "ratio": 0.0686,
+          "label": "trip",
+          "status": "KAO",
+          "route": "CIMC2",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-29",
+          "revenue": 4900.0,
+          "trip_fee": 350.0,
+          "ratio": 0.0714,
+          "label": "trip",
+          "status": "KLND",
+          "route": "B2",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-30",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "idle",
+          "status": "รถจอด",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-05-31",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "idle",
+          "status": "รถจอด",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-01",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "idle",
+          "status": "รถจอด",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-02",
+          "revenue": 2410.0,
+          "trip_fee": 200.0,
+          "ratio": 0.083,
+          "label": "trip",
+          "status": "NHL",
+          "route": "SCS2",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-02",
+          "revenue": 2410.0,
+          "trip_fee": 200.0,
+          "ratio": 0.083,
+          "label": "trip",
+          "status": "NHL",
+          "route": "TICS",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-03",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "idle",
+          "status": "รถจอด",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-04",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "idle",
+          "status": "รถจอด",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-05",
+          "revenue": 2410.0,
+          "trip_fee": 200.0,
+          "ratio": 0.083,
+          "label": "trip",
+          "status": "NHL",
+          "route": "SCS2",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-05",
+          "revenue": 2410.0,
+          "trip_fee": 200.0,
+          "ratio": 0.083,
+          "label": "trip",
+          "status": "NHL",
+          "route": "TICS",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-06",
+          "revenue": 4900.0,
+          "trip_fee": 350.0,
+          "ratio": 0.0714,
+          "label": "trip",
+          "status": "KLND",
+          "route": "B4",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-07",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "idle",
+          "status": "รถจอด",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-08",
+          "revenue": 4900.0,
+          "trip_fee": 2940.0,
+          "ratio": 0.6,
+          "label": "mao",
+          "status": "KLND",
+          "route": "KERRY",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-09",
+          "revenue": 4260.0,
+          "trip_fee": 2556.0,
+          "ratio": 0.6,
+          "label": "mao",
+          "status": "NHL",
+          "route": "KERRY",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-10",
+          "revenue": 2410.0,
+          "trip_fee": 1446.0,
+          "ratio": 0.6,
+          "label": "mao",
+          "status": "NHL",
+          "route": "SCS2",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-10",
+          "revenue": 2410.0,
+          "trip_fee": 1446.0,
+          "ratio": 0.6,
+          "label": "mao",
+          "status": "NHL",
+          "route": "TIPS CD",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-11",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "pending",
+          "status": "Nippon",
+          "route": "D1",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-12",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "pending",
+          "status": "KAO",
+          "route": "KRC",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-13",
+          "revenue": 4800.0,
+          "trip_fee": 2880.0,
+          "ratio": 0.6,
+          "label": "mao",
+          "status": "KLND",
+          "route": "B4",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-14",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "idle",
+          "status": "รถจอด",
+          "route": "",
+          "plate": ""
+        },
+        {
+          "date": "2026-06-15",
+          "revenue": 0.0,
+          "trip_fee": 0.0,
+          "ratio": null,
+          "label": "pending",
+          "status": "KLND",
+          "route": "B4",
+          "plate": ""
+        }
+      ],
+      "calc": {
+        "mao_rev": 18780.0,
+        "fuel_share_income": 11268.0,
+        "fuel_cost_self": 6576.2,
+        "fuel_mao_check": 6576.2,
+        "trip_fee_total": 5350.0,
+        "other_income": 2000.0,
+        "base_salary_earned": 8941.94,
+        "care_allowance_earned": 2903.23,
+        "gross_total": 30463.17,
+        "deduction_total": 13395.2,
+        "net_pay": 17067.97,
+        "note": "ลูกผสม: เหมา 5วัน 18,780×60%−น้ำมัน 6,576 | เที่ยว 20วัน 5,350+พิเศษ 2000 | ฐาน×30/31วัน",
+        "mao_subtotal": 11268.0,
+        "trip_subtotal": 19195.17,
+        "ded": {
+          "fuel_cost_self": 6576.2,
+          "petty_cash": 6357.0,
+          "social_security": 462.0,
+          "income_tax": 0.0,
+          "deposit_install": 0.0,
+          "accident_install": 0,
+          "other": 0.0
+        }
+      }
+    }
+  ],
+  "period": {
+    "start": "2026-05-16",
+    "end": "2026-06-15",
+    "tag": "2026-06"
+  }
+};
+
+const fmt = (n,d=2) => n==null ? "—" : n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+const TH = {mao:"เหมา",trip:"เที่ยว",ambiguous:"กำกวม",no_work:"หยุด/ลา",idle:"รถจอด",pending:"รอลงราคา"};
+
+const DED_LABEL = {
+  fuel_cost_self:"น้ำมัน (วันเหมา)", petty_cash:"เบิก/สดย่อย",
+  social_security:"ประกันสังคม", income_tax:"ภาษีหัก ณ ที่จ่าย",
+  deposit_install:"ผ่อนเงินมัดจำ", accident_install:"ผ่อนค่าอุบัติเหตุ",
+  other:"อื่นๆ",
+};
+function dedRows(ded){
+  // น้ำมันถูกย้ายไปเป็นต้นทุนฝั่งเหมา (หักก่อน gross) — ไม่แสดงในรายการหักเบิก
+  const order=["petty_cash","social_security","income_tax","deposit_install","accident_install","other"];
+  let html="", sum=0;
+  for(const key of order){
+    const v = ded[key]||0;
+    if(v===0) continue;            // ซ่อนรายการที่ = 0
+    sum += v;
+    html += `<div class="row"><span>${DED_LABEL[key]}</span><span class="v neg">−${fmt(v)}</span></div>`;
+  }
+  html += `<div class="row sub"><span>รวมหักทั้งหมด</span><span class="v neg">−${fmt(sum)}</span></div>`;
+  return html;
+}
+
+document.getElementById("rules").textContent =
+  `กฎ: เหมา ≈ ${DATA.rules.mao_ratio} (±${DATA.rules.mao_tol}) · เที่ยว < ${DATA.rules.trip_max} · ช่วงระหว่างนั้น = กำกวม`;
+
+const app = document.getElementById("app");
+for(const d of DATA.drivers){
+  const c = d.calc, k = d.counts;
+  const negNet = c.net_pay < 0 ? "neg" : "";
+  const rows = d.days.map(day=>`
+    <tr class="${day.label}">
+      <td class="l">${day.date}</td>
+      <td class="l">${day.route||'<span class="muted">—</span>'}</td>
+      <td>${fmt(day.revenue,0)}</td>
+      <td>${fmt(day.trip_fee,0)}</td>
+      <td>${day.ratio==null?'<span class="muted">—</span>':fmt(day.ratio,3)}</td>
+      <td class="l"><span class="tag ${day.label}">${TH[day.label]}</span></td>
+    </tr>`).join("");
+
+  app.insertAdjacentHTML("beforeend",`
+  <div class="driver">
+    <h2><span>${d.name} <span class="muted" style="font-size:13px">(emp ${d.emp_id})</span></span>
+        <span class="net ${negNet}">NET ${fmt(c.net_pay)} ฿</span></h2>
+    <div class="counts">
+      <span><b>${k.mao}</b> วันเหมา</span>
+      <span><b>${k.trip}</b> วันเที่ยว</span>
+      <span><b>${k.idle}</b> วันรถจอด <span class="muted">(ได้ฐาน)</span></span>
+      <span><b>${k.ambiguous}</b> วันกำกวม</span>
+      <span><b>${k.no_work}</b> วันหยุด/ลา</span>
+      <span class="muted">share ${(d.share_rate*100).toFixed(0)}%</span>
+    </div>
+    <table>
+      <thead><tr>
+        <th class="l">วันที่</th><th class="l">เส้นทาง</th>
+        <th>รายได้</th><th>ค่าเที่ยว</th><th>ratio</th><th class="l">ประเภท</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="calc">
+      <h3>การคิดเงิน (ระบบ)</h3>
+      <div class="calcgrid">
+        <div>
+          <div class="row"><span>ฝั่งเหมา: รายได้รวม ${k.mao} วัน</span><span class="v">${fmt(c.mao_rev,0)}</span></div>
+          <div class="row"><span>× ${(d.share_rate*100).toFixed(0)}% = ส่วนแบ่ง</span><span class="v">${fmt(c.fuel_share_income)}</span></div>
+          <div class="row"><span>− น้ำมัน (วันเหมา, เป็นต้นทุน)</span><span class="v neg">−${fmt(c.fuel_cost_self)}</span></div>
+          <div class="row sub"><span>รวมฝั่งเหมา (เข้า gross)</span><span class="v">${fmt(c.fuel_share_income - c.fuel_cost_self)}</span></div>
+        </div>
+        <div>
+          <div class="row"><span>ฝั่งเที่ยว: ค่าเที่ยวรวม ${k.trip} วัน</span><span class="v">${fmt(c.trip_fee_total)}</span></div>
+          <div class="row"><span>+ พิเศษ (100/เที่ยว)</span><span class="v">${fmt(c.other_income,0)}</span></div>
+          <div class="row"><span>+ ฐาน (เฉลี่ย ${k.base_days}/31 = เที่ยว${k.trip}+รถจอด${k.idle})</span><span class="v">${fmt(c.base_salary_earned)}</span></div>
+          <div class="row"><span>+ ค่าดูแล (เฉลี่ย ${k.base_days}/31)</span><span class="v">${fmt(c.care_allowance_earned)}</span></div>
+          <div class="row sub"><span>รวมฝั่งเที่ยว (เข้า gross)</span><span class="v">${fmt(c.trip_subtotal)}</span></div>
+        </div>
+      </div>
+      <h3 style="margin-top:14px">หักเบิก / รายการหัก <span class="muted" style="font-weight:400;font-size:12px">(น้ำมันไม่อยู่ในนี้แล้ว — เป็นต้นทุนฝั่งเหมา)</span></h3>
+      <div class="calcgrid">
+        <div>${dedRows(c.ded)}</div>
+        <div></div>
+      </div>
+      <div class="calcgrid" style="margin-top:10px">
+        <div class="row tot"><span>รายรับรวม (gross, สุทธิจากน้ำมันแล้ว)</span><span class="v">${fmt(c.gross_total - c.fuel_cost_self)}</span></div>
+        <div class="row tot"><span>หักเบิก (ไม่รวมน้ำมัน)</span><span class="v neg">−${fmt(c.deduction_total - c.fuel_cost_self)}</span></div>
+        <div class="row tot"><span>สุทธิ (NET)</span><span class="v ${negNet}">${fmt(c.net_pay)}</span></div>
+      </div>
+      <div class="note">${c.note}</div>
+    </div>
+  </div>`);
+}
+</script>
+</body>
+</html>
