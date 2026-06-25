@@ -138,6 +138,37 @@ def delivery_route_text(r) -> str:
 _MAO_RATIO, _MAO_TOL, _TRIP_MAX = 0.60, 0.05, 0.15
 
 
+def mixed_day_kind(r) -> dict:
+    """ชนิดของ DailyJob แถวเดียวสำหรับ lcb_mixed (ใช้แสดงป้ายในตารางเรียงวันที่).
+
+    คืน {kind, label, awaiting_price, abnormal}:
+      kind = mao | trip | idle ; abnormal=True ถ้า rev>0 แต่ ratio อยู่กลาง (ต้องตรวจ)
+    """
+    rev = r.revenue_customer or 0.0
+    fee = r.trip_fee_driver or 0.0
+    if rev > 0:
+        ratio = fee / rev
+        if abs(ratio - _MAO_RATIO) <= _MAO_TOL:
+            return {"kind": "mao", "label": "เหมา", "awaiting_price": False, "abnormal": False}
+        return {
+            "kind": "trip",
+            "label": "เที่ยว",
+            "awaiting_price": False,
+            "abnormal": ratio >= _TRIP_MAX,
+        }
+    has_route = bool(
+        (r.origin or "").strip()
+        or (r.destination or "").strip()
+        or (r.customer_name_raw or "").strip()
+    )
+    return {
+        "kind": "idle",
+        "label": "รอลงราคา" if has_route else ((r.status_code or "").strip() or "รถจอด"),
+        "awaiting_price": has_route,
+        "abnormal": False,
+    }
+
+
 def classify_mixed_days(daily_jobs) -> dict:
     """แบ่งวันของ lcb_mixed เป็น mao / trip(+ambiguous) / idle(รถจอด/รอลงราคา)
     เพื่อ "แสดงผล" — ใช้ตัวเลขที่คำนวณไว้แล้ว ไม่คำนวณเงินใหม่.
@@ -248,6 +279,7 @@ def build_payroll_slip_context(
         "daily_jobs": daily_jobs,
         "mixed": mixed,
         "route_text": delivery_route_text,
+        "day_kind": mixed_day_kind,
         "petty_lines": petty_lines,
         "plates_used": plates_used,
         "mile_start": mile_start,

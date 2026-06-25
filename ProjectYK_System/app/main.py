@@ -3526,7 +3526,7 @@ def payroll_employee_detail(run_id: int, emp_id: int, request: Request):
 
     petty_saved_hint = request.query_params.get("petty_saved") == "1"
 
-    from services.payroll_slip import classify_mixed_days, delivery_route_text
+    from services.payroll_slip import classify_mixed_days, delivery_route_text, mixed_day_kind
     mixed = classify_mixed_days(daily_jobs) if emp.pay_mode == "lcb_mixed" else None
 
     ctx = base_context(request)
@@ -3538,6 +3538,7 @@ def payroll_employee_detail(run_id: int, emp_id: int, request: Request):
         "daily_jobs": daily_jobs,
         "mixed": mixed,
         "route_text": delivery_route_text,
+        "day_kind": mixed_day_kind,
         "petty_rows": petty_rows,
         "fuel_rows": fuel_rows,
         "daily_totals": daily_totals,
