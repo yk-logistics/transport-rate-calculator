@@ -708,12 +708,18 @@ def _count_work_days(
             # Domain rule: คนขับแจ้ง "เข้าบ้าน" = ขอลากลับบ้าน (นับเป็นลา)
             or has_home_visit
         )
+        # ภาษาไทยไม่มีตัวคั่นคำ → "รถอุบัติเหตุ"/"รถซ่อม" เป็น token เดียว
+        # (tokenizer แตกไม่ได้). ใช้ substring match บน status_blob แทน exact token.
+        status_blob = " ".join((r.status_code or "") for r in drows).lower()
         is_company_no_work = (
             ("company_no_work" in leave_statuses)
             or ("idle" in status_codes)
             or ("ไม่มีงาน" in tokens)
             or ("รถจอด" in tokens)
             or ("รองาน" in tokens)
+            or ("อุบัติเหตุ" in status_blob)
+            or ("ซ่อม" in status_blob)
+            or ("dhl overflow" in status_blob)
         )
 
         if is_absent:
