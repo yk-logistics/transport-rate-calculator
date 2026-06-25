@@ -122,6 +122,60 @@ def employee_bank_display_name(emp: Employee, site_code: str) -> str:
     return (canonical_person_name(raw, site_code or "") or raw).strip()
 
 
+def delivery_route_text(r) -> str:
+    """ต้นทาง → [โหลด] pickup → ปลายทาง — leg ที่ว่างยุบหายไป."""
+    parts = []
+    if (r.origin or "").strip():
+        parts.append(r.origin.strip())
+    if (r.pickup_location or "").strip():
+        parts.append("[โหลด] " + r.pickup_location.strip())
+    if (r.destination or "").strip():
+        parts.append(r.destination.strip())
+    return " → ".join(parts)
+
+
+# กติกาเดียวกับ services.payroll._classify_lcb_days (ratio = ค่าเที่ยว/รายได้)
+_MAO_RATIO, _MAO_TOL, _TRIP_MAX = 0.60, 0.05, 0.15
+
+
+def classify_mixed_days(daily_jobs) -> dict:
+    """แบ่งวันของ lcb_mixed เป็น mao / trip(+ambiguous) / idle(รถจอด/รอลงราคา)
+    เพื่อ "แสดงผล" — ใช้ตัวเลขที่คำนวณไว้แล้ว ไม่คำนวณเงินใหม่.
+
+    idle row ที่มี origin/destination/customer แต่ rev=0 ติดธง awaiting_price.
+    """
+    mao, trip, idle = [], [], []
+    for r in daily_jobs:
+        rev = r.revenue_customer or 0.0
+        fee = r.trip_fee_driver or 0.0
+        if rev > 0:
+            ratio = fee / rev
+            if abs(ratio - _MAO_RATIO) <= _MAO_TOL:
+                mao.append(r)
+            else:
+                trip.append(r)  # trip + ambiguous (ambiguous ติดธงในเทมเพลต)
+            continue
+        has_route = bool(
+            (r.origin or "").strip()
+            or (r.destination or "").strip()
+            or (r.customer_name_raw or "").strip()
+        )
+        idle.append({"row": r, "awaiting_price": has_route})
+    mao_rev = sum((r.revenue_customer or 0.0) for r in mao)
+    return {
+        "mao_days": mao,
+        "trip_days": trip,
+        "idle_days": idle,
+        "n_mao": len(mao),
+        "n_trip": len(trip),
+        "n_idle": len(idle),
+        "mao_rev": mao_rev,
+        "mao_share": round(mao_rev * _MAO_RATIO, 2),
+        "trip_fee_sum": sum((r.trip_fee_driver or 0.0) for r in trip),
+        "n_awaiting_price": sum(1 for d in idle if d["awaiting_price"]),
+    }
+
+
 def build_payroll_slip_context(
     session: Session,
     pr,
@@ -185,11 +239,15 @@ def build_payroll_slip_context(
             label = label[:30] + "…"
         petty_lines.append({"txn_date": p.txn_date, "label": label, "amount": amt})
 
+    mixed = classify_mixed_days(daily_jobs) if emp.pay_mode == "lcb_mixed" else None
+
     return {
         "run": pr,
         "employee": emp,
         "item": item,
         "daily_jobs": daily_jobs,
+        "mixed": mixed,
+        "route_text": delivery_route_text,
         "petty_lines": petty_lines,
         "plates_used": plates_used,
         "mile_start": mile_start,
