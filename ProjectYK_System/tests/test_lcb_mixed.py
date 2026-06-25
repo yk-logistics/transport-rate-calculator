@@ -83,3 +83,24 @@ def test_lcb_mixed_splits_income_and_prorates_base():
     period_days = 31  # 16 May..15 Jun inclusive
     assert abs(calc.base_salary_earned - 9240 * (1 / period_days)) < 0.5
     assert abs(calc.care_allowance_earned - 3000 * (1 / period_days)) < 0.5
+
+
+def test_lcb_mixed_idle_day_counts_toward_base():
+    s = _mk_session()
+    emp = Employee(code="TEST-MIX2", full_name="ทดสอบ รถจอด", home_site_code="LCB",
+                   pay_mode="lcb_mixed", base_salary=9240, care_allowance=3000,
+                   gross_share_rate=0.60, start_date=date(2026, 5, 16))
+    s.add(emp); s.commit(); s.refresh(emp)
+    # 1 trip day
+    s.add(DailyJob(driver_id=emp.id, site_code="LCB", work_date=date(2026, 6, 3),
+                   revenue_customer=5000, trip_fee_driver=350))
+    # 1 idle day (รถจอด, rev=0)
+    s.add(DailyJob(driver_id=emp.id, site_code="LCB", work_date=date(2026, 6, 4),
+                   status_code="รถจอด", revenue_customer=0, trip_fee_driver=0))
+    s.commit()
+
+    calc = calc_one_employee(s, emp, date(2026, 5, 16), date(2026, 6, 15), "2026-06")
+    period_days = 31
+    # base prorated by (trip + idle) = 2 days, not 1
+    assert abs(calc.base_salary_earned - 9240 * (2 / period_days)) < 0.5
+    assert abs(calc.care_allowance_earned - 3000 * (2 / period_days)) < 0.5

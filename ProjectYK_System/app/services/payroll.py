@@ -918,9 +918,13 @@ def calc_one_employee(
         )
         n_trip = len(trip_days)
         calc.other_income += round(n_trip * 100.0, 2)
-        # base+care prorate by TRIP days only (mao days have no base)
-        calc.base_salary_earned = round(base * (n_trip / days_in_month), 2)
-        calc.care_allowance_earned = round(care * (n_trip / days_in_month), 2)
+        # base+care prorate by TRIP days + IDLE (รถจอด) days.
+        # mao days have no base; idle days (รถจอด/อุบัติเหตุ/ซ่อม) DO earn base
+        # per โอ policy 2026-06-25 — คนขับมาแต่บริษัทไม่มีงาน ต้องได้ฐาน.
+        n_idle = calc.days_company_no_work
+        base_days = n_trip + n_idle
+        calc.base_salary_earned = round(base * (base_days / days_in_month), 2)
+        calc.care_allowance_earned = round(care * (base_days / days_in_month), 2)
         amb_note = (
             f" | ⚠ วันกำกวม {len(split['ambiguous'])} (เช็ค)"
             if split["ambiguous"] else ""
@@ -928,7 +932,7 @@ def calc_one_employee(
         calc.note = (
             f"ลูกผสม: เหมา {len(mao_days)}วัน {mao_rev:,.0f}×{share_rate*100:.0f}%"
             f"−น้ำมัน {calc.fuel_cost_self:,.0f} | เที่ยว {n_trip}วัน "
-            f"{calc.trip_fee_total:,.0f}+พิเศษ {n_trip*100} | ฐาน×{n_trip}/{int(days_in_month)}วัน"
+            f"{calc.trip_fee_total:,.0f}+พิเศษ {n_trip*100} | ฐาน×{int(base_days)}/{int(days_in_month)}วัน"
             f"{amb_note}"
         )
 
