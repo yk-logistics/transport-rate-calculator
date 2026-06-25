@@ -1373,6 +1373,18 @@ class DispatchPlanAudit(SQLModel, table=True):
     note: str = ""
 
 
+class DailyJobAudit(SQLModel, table=True):
+    """ประวัติการแก้ไข DailyJob ในหน้า /daily — INSERT-only, ไม่แก้ของเดิม."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    daily_job_id: int = Field(index=True)
+    changed_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    changed_by: str = ""
+    action: str = ""  # edit | create | delete
+    field_name: str = ""
+    old_value: str = ""
+    new_value: str = ""
+
+
 TRIP_TYPE_CODES_BY_SITE: dict[str, tuple[tuple[str, str], ...]] = {
     "AYU": (
         ("",         "— ไม่ระบุ —"),

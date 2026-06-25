@@ -87,7 +87,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 23
+SCHEMA_VERSION = 24  # v24: DailyJobAudit table (edit log for /daily grid) — create_all only
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -1583,9 +1583,13 @@ async def daily_grid_save(request: Request):
     }
     allowed_leave = {k for k, _ in models.LEAVE_STATUS_CHOICES}
 
+    _u = current_user(request)
+    changed_by = (_u.username if _u else "") or "?"
+
     updated = 0
     saved_ids: list[int] = []
     errors: list[dict] = []
+    audits: list[models.DailyJobAudit] = []
     with Session(engine) as s:
         for item in rows:
             if not isinstance(item, dict):
@@ -1597,9 +1601,13 @@ async def daily_grid_save(request: Request):
             if not row:
                 errors.append({"id": rid, "error": "not_found"})
                 continue
+            # snapshot ค่าเดิมของช่องที่ส่งมา → diff หลัง apply เพื่อบันทึก audit
+            touched = [k for k in item.keys() if k in editable]
+            before_snap = {k: getattr(row, k, None) for k in touched}
             for key, val in item.items():
                 if key not in editable:
                     continue
+                old_value = getattr(row, key, None)
                 if key in (
                     "revenue_customer",
                     "trip_fee_driver",
@@ -1637,6 +1645,15 @@ async def daily_grid_save(request: Request):
                     errors.append({"id": rid, "error": f"invalid leave_status={text}"})
                     continue
                 setattr(row, key, text)
+            # บันทึก audit เฉพาะช่องที่ค่าเปลี่ยนจริง
+            for k in touched:
+                ov, nv = before_snap.get(k), getattr(row, k, None)
+                if (ov or "") != (nv or "") and ov != nv:
+                    audits.append(models.DailyJobAudit(
+                        daily_job_id=rid, changed_by=changed_by, action="edit",
+                        field_name=k, old_value=("" if ov is None else str(ov)),
+                        new_value=("" if nv is None else str(nv)),
+                    ))
             row.updated_at = datetime.utcnow()
             s.add(row)
             try:
@@ -1645,8 +1662,37 @@ async def daily_grid_save(request: Request):
                 pass
             updated += 1
             saved_ids.append(rid)
+        for a in audits:
+            s.add(a)
         s.commit()
-    return {"ok": True, "updated": updated, "saved_ids": saved_ids, "errors": errors}
+    return {"ok": True, "updated": updated, "saved_ids": saved_ids,
+            "errors": errors, "audited": len(audits)}
+
+
+@app.get("/api/daily/{job_id}/audit")
+def daily_job_audit(job_id: int, limit: int = 50):
+    """ประวัติการแก้ไขของแถวเดลี่นั้น (ล่าสุดก่อน)."""
+    with Session(engine) as s:
+        rows = s.exec(
+            select(models.DailyJobAudit)
+            .where(models.DailyJobAudit.daily_job_id == job_id)
+            .order_by(models.DailyJobAudit.changed_at.desc())
+            .limit(max(1, min(200, limit)))
+        ).all()
+        return {
+            "ok": True,
+            "job_id": job_id,
+            "rows": [
+                {
+                    "at": a.changed_at.strftime("%d/%m/%Y %H:%M"),
+                    "by": a.changed_by,
+                    "field": a.field_name,
+                    "old": a.old_value,
+                    "new": a.new_value,
+                }
+                for a in rows
+            ],
+        }
 
 
 @app.get("/email/inbox", response_class=HTMLResponse)

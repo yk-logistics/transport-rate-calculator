@@ -58,7 +58,11 @@
     <button class="bg-slate-200 px-4 py-1.5 rounded text-sm">โหลดข้อมูล</button>
     <a href="/daily" class="text-sm text-slate-500 underline">ล้างตัวกรอง</a>
     <button type="button" id="columnsBtn" class="bg-indigo-100 text-indigo-800 px-4 py-1.5 rounded text-sm hover:bg-indigo-200">คอลัมน์</button>
-    <button type="button" id="saveGridBtn" class="bg-emerald-600 text-white px-4 py-1.5 rounded text-sm hover:bg-emerald-700">Save Grid</button>
+    <button type="button" id="undoBtn" disabled title="ย้อนการแก้ (Ctrl+Z)" class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded text-sm hover:bg-slate-200 disabled:opacity-40">↶ Undo</button>
+    <button type="button" id="redoBtn" disabled title="ทำซ้ำ (Ctrl+Shift+Z)" class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded text-sm hover:bg-slate-200 disabled:opacity-40">↷ Redo</button>
+    <button type="button" id="fullscreenBtn" title="เต็มจอ" class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded text-sm hover:bg-slate-200">⛶ เต็มจอ</button>
+    <button type="button" id="pageToggleBtn" title="สลับแบ่งหน้า/แสดงทั้งหมด" class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded text-sm hover:bg-slate-200">📄 แบ่งหน้า</button>
+    <button type="button" id="saveGridBtn" class="bg-emerald-600 text-white px-4 py-1.5 rounded text-sm hover:bg-emerald-700 font-semibold">💾 Save Grid</button>
     <span id="saveMsg" class="text-xs text-slate-500"></span>
   </div>
   <div class="md:col-span-6 border-t pt-3">
@@ -99,8 +103,19 @@
   <span class="text-slate-400 ml-1 shrink-0">· เลือกแถว: คลิก / Shift+คลิก</span>
 </div>
 
-<div class="bg-white rounded-lg border p-2">
+<div class="yk-grid-fs-target bg-white rounded-lg border p-2">
   <div id="dailyGridTable" class="w-full"></div>
+</div>
+
+<!-- Audit history modal -->
+<div id="ykAuditModal" class="hidden fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4">
+  <div class="bg-white dark:bg-slate-800 rounded-lg shadow-2xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+    <div class="flex items-center justify-between border-b px-4 py-2">
+      <h3 class="font-semibold text-sm">ประวัติการแก้ไข <span id="ykAuditJob" class="text-slate-400"></span></h3>
+      <button type="button" id="ykAuditClose" class="text-slate-400 hover:text-slate-700 text-lg">✕</button>
+    </div>
+    <div id="ykAuditBody" class="overflow-auto p-3 text-xs"></div>
+  </div>
 </div>
 
 <!-- Selection status bar (fixed at bottom) -->
@@ -136,6 +151,9 @@
 <script src="https://unpkg.com/tabulator-tables@6.2.1/dist/js/tabulator.min.js"></script>
 <link href="https://unpkg.com/tabulator-tables@6.2.1/dist/css/tabulator.min.css" rel="stylesheet" />
 <style>
+  .yk-grid-fs-target:fullscreen { background:#fff; padding:12px; overflow:auto; }
+  .yk-grid-fs-target:fullscreen #dailyGridTable { height: calc(100vh - 90px) !important; }
+  html.dark .yk-grid-fs-target:fullscreen { background:#0f172a; }
   .yk-grid-dirty-cell {
     background: #fef3c7 !important;
     box-shadow: inset 0 -2px 0 #f59e0b;
@@ -470,6 +488,10 @@
     ajaxResponse: function(url, params, resp){ return resp.items || []; },
     layout: "fitDataStretch",
     height: "70vh",
+    pagination: true,
+    paginationSize: 100,
+    paginationSizeSelector: [50, 100, 200, 400, true],
+    paginationCounter: "rows",
     movableColumns: true,
     clipboard: true,
     selectable: true,
@@ -505,10 +527,15 @@
         field: "_actions",
         frozen: true,
         headerSort: false,
-        width: 92,
+        width: 120,
         formatter: function(cell){
           const id = cell.getRow().getData().id;
-          return `<a class="text-sky-700 underline" href="/daily/${id}/edit" target="_blank" rel="noopener">แก้เต็ม</a>`;
+          return `<a class="text-sky-700 underline" href="/daily/${id}/edit" target="_blank" rel="noopener">แก้เต็ม</a>`
+               + ` <button type="button" class="yk-hist-btn text-violet-700 underline" data-id="${id}" title="ประวัติการแก้ไข">ประวัติ</button>`;
+        },
+        cellClick: function(e, cell){
+          const btn = e.target.closest(".yk-hist-btn");
+          if (btn) { e.stopPropagation(); openAuditModal(btn.getAttribute("data-id")); }
         },
         clipboard: false,
       }
@@ -555,6 +582,13 @@
       currentEditCell = null;
       const row = cell.getRow().getData();
       const field = cell.getField();
+      // undo history (skip when the edit IS an undo/redo replay)
+      if (!replayingHistory) {
+        undoStack.push({rowId: row.id, field: field,
+                        oldVal: cell.getOldValue(), newVal: cell.getValue()});
+        redoStack.length = 0;
+        updateUndoButtons();
+      }
       const dirty = dirtyRows.get(row.id) || {id: row.id};
       dirty[field] = cell.getValue();
       dirtyRows.set(row.id, dirty);
@@ -565,6 +599,108 @@
       updateDirtyFeedback();
     }
   });
+
+  // ── Undo / Redo (เฉพาะการแก้ที่ยังไม่ Save) ───────────────────────────────
+  const undoStack = [];
+  const redoStack = [];
+  let replayingHistory = false;
+  const undoBtn = document.getElementById("undoBtn");
+  const redoBtn = document.getElementById("redoBtn");
+  function updateUndoButtons(){
+    if (undoBtn) undoBtn.disabled = undoStack.length === 0;
+    if (redoBtn) redoBtn.disabled = redoStack.length === 0;
+  }
+  function replay(entry, useOld){
+    const row = table.getRow(entry.rowId);
+    if (!row) return;
+    const cell = row.getCell(entry.field);
+    if (!cell) return;
+    replayingHistory = true;
+    cell.setValue(useOld ? entry.oldVal : entry.newVal);
+    replayingHistory = false;
+    const dirty = dirtyRows.get(entry.rowId) || {id: entry.rowId};
+    dirty[entry.field] = useOld ? entry.oldVal : entry.newVal;
+    dirtyRows.set(entry.rowId, dirty);
+    const el = cell.getElement();
+    if (el) el.classList.add("yk-grid-dirty-cell");
+    row.getElement().classList.add("yk-grid-dirty-row");
+    updateDirtyFeedback();
+  }
+  function doUndo(){
+    const e = undoStack.pop();
+    if (!e) return;
+    replay(e, true); redoStack.push(e); updateUndoButtons();
+  }
+  function doRedo(){
+    const e = redoStack.pop();
+    if (!e) return;
+    replay(e, false); undoStack.push(e); updateUndoButtons();
+  }
+  if (undoBtn) undoBtn.addEventListener("click", doUndo);
+  if (redoBtn) redoBtn.addEventListener("click", doRedo);
+  document.addEventListener("keydown", function(e){
+    if (!(e.ctrlKey || e.metaKey)) return;
+    if (e.key === "z" && !e.shiftKey){ e.preventDefault(); doUndo(); }
+    else if ((e.key === "z" && e.shiftKey) || e.key === "y"){ e.preventDefault(); doRedo(); }
+  });
+
+  // ── Fullscreen ตาราง ──────────────────────────────────────────────────────
+  const fsBtn = document.getElementById("fullscreenBtn");
+  const gridWrap = document.getElementById("dailyGridTable");
+  if (fsBtn && gridWrap){
+    fsBtn.addEventListener("click", function(){
+      if (document.fullscreenElement){ document.exitFullscreen(); }
+      else { (gridWrap.closest(".yk-grid-fs-target") || gridWrap).requestFullscreen?.(); }
+    });
+    document.addEventListener("fullscreenchange", function(){
+      fsBtn.textContent = document.fullscreenElement ? "⛶ ออกเต็มจอ" : "⛶ เต็มจอ";
+      setTimeout(() => table.redraw(true), 100);
+    });
+  }
+
+  // ── สลับ แบ่งหน้า / แสดงทั้งหมด ────────────────────────────────────────────
+  const pageToggleBtn = document.getElementById("pageToggleBtn");
+  let paginated = true;
+  if (pageToggleBtn){
+    pageToggleBtn.addEventListener("click", function(){
+      paginated = !paginated;
+      table.setPageSize(paginated ? 100 : true);
+      pageToggleBtn.textContent = paginated ? "📄 แบ่งหน้า" : "📜 แสดงทั้งหมด";
+    });
+  }
+
+  // ── Audit history modal ───────────────────────────────────────────────────
+  const auditModal = document.getElementById("ykAuditModal");
+  const auditBody = document.getElementById("ykAuditBody");
+  const auditJob = document.getElementById("ykAuditJob");
+  document.getElementById("ykAuditClose").addEventListener("click", () => auditModal.classList.add("hidden"));
+  auditModal.addEventListener("click", (e) => { if (e.target === auditModal) auditModal.classList.add("hidden"); });
+  async function openAuditModal(jobId){
+    auditJob.textContent = "#" + jobId;
+    auditBody.innerHTML = '<div class="text-slate-400 py-4 text-center">กำลังโหลด…</div>';
+    auditModal.classList.remove("hidden");
+    try {
+      const r = await fetch(`/api/daily/${jobId}/audit`);
+      const j = await r.json();
+      if (!j.rows || !j.rows.length){
+        auditBody.innerHTML = '<div class="text-slate-400 py-4 text-center">ยังไม่มีประวัติการแก้ไข</div>';
+        return;
+      }
+      const esc = (s) => String(s == null ? "" : s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+      auditBody.innerHTML = '<table class="w-full"><thead><tr class="text-left text-slate-500 border-b">'
+        + '<th class="py-1 pr-2">เวลา</th><th class="pr-2">โดย</th><th class="pr-2">ช่อง</th><th class="pr-2">เดิม</th><th>ใหม่</th></tr></thead><tbody>'
+        + j.rows.map(a => `<tr class="border-b">
+            <td class="py-1 pr-2 whitespace-nowrap font-mono">${esc(a.at)}</td>
+            <td class="pr-2">${esc(a.by)}</td>
+            <td class="pr-2">${esc(a.field)}</td>
+            <td class="pr-2 text-rose-600">${esc(a.old)}</td>
+            <td class="text-emerald-700">${esc(a.new)}</td></tr>`).join("")
+        + '</tbody></table>';
+    } catch(err){
+      auditBody.innerHTML = '<div class="text-rose-500 py-4 text-center">โหลดประวัติไม่สำเร็จ</div>';
+    }
+  }
+  window.openAuditModal = openAuditModal;
 
   // Track the cell currently being edited
   table.on("cellEditing", function(cell) { currentEditCell = cell; });
