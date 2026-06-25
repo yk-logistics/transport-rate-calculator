@@ -123,12 +123,12 @@ def employee_bank_display_name(emp: Employee, site_code: str) -> str:
 
 
 def delivery_route_text(r) -> str:
-    """ต้นทาง → [โหลด] pickup → ปลายทาง — leg ที่ว่างยุบหายไป."""
+    """ต้นทาง → pickup → ปลายทาง — leg ที่ว่างยุบหายไป."""
     parts = []
     if (r.origin or "").strip():
         parts.append(r.origin.strip())
     if (r.pickup_location or "").strip():
-        parts.append("[โหลด] " + r.pickup_location.strip())
+        parts.append(r.pickup_location.strip())
     if (r.destination or "").strip():
         parts.append(r.destination.strip())
     return " → ".join(parts)

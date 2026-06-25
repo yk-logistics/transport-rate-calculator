@@ -136,89 +136,41 @@
   </div>
 
   {% if mixed %}
-  <!-- lcb_mixed: แยกฝั่งเหมา / เที่ยว / รถจอด -->
-  <div style="font-weight:700; font-size:12px; margin:6px 0 4px;">
-    🟢 ฝั่งเหมา · {{ mixed.n_mao }} วัน
-    <span style="font-weight:400; color:#475569;">— ค่าขนส่งรวม {{ '{:,.0f}'.format(mixed.mao_rev) }} × 60% = {{ '{:,.0f}'.format(mixed.mao_share) }} ฿</span>
+  <!-- lcb_mixed: ตารางเดียวเรียงวันที่ + ป้ายบอกเหมา/เที่ยว/รถจอด -->
+  <div style="font-size:11px; margin:6px 0 6px; color:#334155;">
+    <span style="background:#d1fae5; padding:2px 6px; border-radius:4px;">🟢 เหมา {{ mixed.n_mao }} วัน</span>
+    <span style="background:#dbeafe; padding:2px 6px; border-radius:4px;">🔵 เที่ยว {{ mixed.n_trip }} วัน</span>
+    <span style="background:#e2e8f0; padding:2px 6px; border-radius:4px;">⚪ รถจอด {{ mixed.n_idle }} วัน</span>
   </div>
   <table class="daily">
     <thead>
       <tr>
-        <th style="width:62px;">วันที่</th>
-        <th>ต้นทาง → โหลด/บรรจุ → ปลายทาง</th>
-        <th style="width:90px;">ลูกค้า</th>
-        <th style="width:70px;" class="num">ค่าขนส่ง</th>
-        <th style="width:60px;" class="num">× 60%</th>
+        <th style="width:60px;">วันที่</th>
+        <th style="width:54px;">ฝั่ง</th>
+        <th>ส่งสินค้า (ต้นทาง → โรงงาน → ปลายทาง)</th>
+        <th style="width:64px;" class="num">ค่าแรง</th>
       </tr>
     </thead>
     <tbody>
-    {% for r in mixed.mao_days %}
+    {% for r in daily_jobs %}
+      {% set k = day_kind(r) %}
       <tr>
         <td>{{ r.work_date | dmy }}</td>
-        <td>{{ route_text(r) or '—' }}{% if r.container_no %} <span style="color:#94a3b8;">({{ r.container_no }})</span>{% endif %}</td>
-        <td>{{ r.customer_name_raw or '' }}</td>
-        <td class="num">{{ '{:,.0f}'.format(r.revenue_customer) if r.revenue_customer else '' }}</td>
-        <td class="num">{{ '{:,.0f}'.format((r.revenue_customer or 0) * 0.60) }}</td>
+        <td>{% if k.kind == 'mao' %}🟢 เหมา{% elif k.kind == 'trip' %}🔵 เที่ยว{% else %}⚪ {{ k.label }}{% endif %}</td>
+        <td>{{ route_text(r) or '—' }}{% if r.customer_name_raw %} <span style="color:#94a3b8;">· {{ r.customer_name_raw }}</span>{% endif %}</td>
+        <td class="num">
+          {%- if k.kind == 'mao' %}{{ '{:,.0f}'.format((r.revenue_customer or 0) * 0.60) }}
+          {%- elif k.kind == 'trip' %}{{ '{:,.0f}'.format(r.trip_fee_driver) if r.trip_fee_driver else '0' }}
+          {%- else %}—{% endif %}
+        </td>
       </tr>
-    {% else %}
-      <tr><td colspan="5" style="text-align:center; color:#94a3b8;">— ไม่มีวันเหมา —</td></tr>
     {% endfor %}
     </tbody>
   </table>
-
-  <div style="font-weight:700; font-size:12px; margin:10px 0 4px;">
-    🔵 ฝั่งเที่ยว · {{ mixed.n_trip }} วัน
-    <span style="font-weight:400; color:#475569;">— ค่าเที่ยวรวม {{ '{:,.0f}'.format(mixed.trip_fee_sum) }} ฿ (+ พิเศษ 100/เที่ยว)</span>
+  <div style="font-size:10px; color:#64748b; margin-top:2px;">
+    ค่าแรง = วันเหมาได้ 60% ของค่าขนส่ง · วันเที่ยวได้ค่าเที่ยว ·
+    เงินพิเศษ/OT/รับตู้แทน รวมอยู่ใน "รายได้อื่น" ด้านล่าง
   </div>
-  <table class="daily">
-    <thead>
-      <tr>
-        <th style="width:62px;">วันที่</th>
-        <th>ต้นทาง → โหลด/บรรจุ → ปลายทาง</th>
-        <th style="width:90px;">ลูกค้า</th>
-        <th style="width:64px;" class="num">ค่าเที่ยว</th>
-        <th style="width:48px;" class="num">พิเศษ</th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for r in mixed.trip_days %}
-      <tr>
-        <td>{{ r.work_date | dmy }}</td>
-        <td>{{ route_text(r) or '—' }}{% if r.container_no %} <span style="color:#94a3b8;">({{ r.container_no }})</span>{% endif %}</td>
-        <td>{{ r.customer_name_raw or '' }}</td>
-        <td class="num">{% if r.trip_fee_driver %}{{ '{:,.0f}'.format(r.trip_fee_driver) }}{% endif %}</td>
-        <td class="num">100</td>
-      </tr>
-    {% else %}
-      <tr><td colspan="5" style="text-align:center; color:#94a3b8;">— ไม่มีวันเที่ยว —</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-
-  {% if mixed.n_idle %}
-  <div style="font-weight:700; font-size:12px; margin:10px 0 4px;">
-    ⚪ วันรถจอด / รอลงราคา · {{ mixed.n_idle }} วัน
-    {% if mixed.n_awaiting_price %}<span style="font-weight:400; color:#b45309;">(รอลงราคา {{ mixed.n_awaiting_price }} วัน)</span>{% endif %}
-  </div>
-  <table class="daily">
-    <thead>
-      <tr>
-        <th style="width:62px;">วันที่</th>
-        <th style="width:90px;">สถานะ</th>
-        <th>ต้นทาง → โหลด/บรรจุ → ปลายทาง</th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for it in mixed.idle_days %}
-      <tr>
-        <td>{{ it.row.work_date | dmy }}</td>
-        <td>{% if it.awaiting_price %}รอลงราคา{% else %}{{ it.row.status_code or 'รถจอด' }}{% endif %}</td>
-        <td>{{ route_text(it.row) or '—' }}</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% endif %}
   {% else %}
   <table class="daily">
     <thead>
