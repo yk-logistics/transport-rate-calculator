@@ -793,6 +793,36 @@ def _sum_accident_install(
     return round(sum((inst.amount or 0.0) for inst, _case in rows), 2)
 
 
+def find_pending_price_days(
+    session: Session, emp_id: int, start: date, end: date, site_code: str = ""
+) -> list[dict]:
+    """วันที่มี status_code (ปกติเป็นรหัสลูกค้า) แต่ revenue=0 และ trip_fee=0
+    = พี่ตาลยังไม่ลงราคา. ไม่นับวัน idle (รถจอด/อุบัติเหตุ/ซ่อม/DHL Overflow)
+    หรือ leave/absent. READ-ONLY — แค่เตือนให้ไปเติมราคา ไม่เดาเงิน."""
+    IDLE_LEAVE_KW = ("รถจอด", "รองาน", "ไม่มีงาน", "อุบัติเหตุ", "ซ่อม",
+                     "dhl overflow", "ลา", "ขาด", "ป่วย", "หยุด", "idle")
+    stmt = select(DailyJob).where(
+        DailyJob.driver_id == emp_id,
+        DailyJob.work_date >= start,
+        DailyJob.work_date <= end,
+    )
+    if site_code:
+        stmt = stmt.where(DailyJob.site_code == site_code)
+    out = []
+    for r in session.exec(stmt).all():
+        if (r.revenue_customer or 0) > 0 or (r.trip_fee_driver or 0) > 0:
+            continue
+        sc = (r.status_code or "").strip()
+        if not sc:
+            continue
+        low = sc.lower()
+        if any(kw in low for kw in IDLE_LEAVE_KW):
+            continue
+        out.append({"date": str(r.work_date), "status": sc})
+    out.sort(key=lambda x: x["date"])
+    return out
+
+
 def calc_one_employee(
     session: Session,
     employee: Employee,

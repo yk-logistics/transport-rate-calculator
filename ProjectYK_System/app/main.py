@@ -3382,6 +3382,20 @@ def payroll_detail(run_id: int, request: Request, err: str = ""):
             .limit(8)
         ).all()
         policy_review = _collect_policy_review_for_payrun(s, pr, limit=8)
+        from services.payroll import find_pending_price_days
+        pending_price = []
+        for it in items:
+            emp_pp = s.get(Employee, it.employee_id)
+            days = find_pending_price_days(
+                s, it.employee_id, pr.period_start, pr.period_end,
+                site_code=(emp_pp.home_site_code if emp_pp else pr.site_code),
+            )
+            for d in days:
+                pending_price.append({
+                    "name": (emp_pp.nickname or emp_pp.full_name) if emp_pp else str(it.employee_id),
+                    "date": d["date"], "status": d["status"],
+                })
+        pending_price.sort(key=lambda x: (x["date"], x["name"]))
         stale = _detect_payrun_stale(s, pr, items)
     ctx = base_context(request)
     from services.payroll_slip import salary_folder_month_tag
@@ -3403,6 +3417,7 @@ def payroll_detail(run_id: int, request: Request, err: str = ""):
             "rows": cycle_drift_top,
         },
         "policy_review": policy_review,
+        "pending_price": pending_price,
         "salary_export_folder_month": salary_folder_month_tag(pr),
     })
     return templates.TemplateResponse("payroll_detail.html", ctx)
