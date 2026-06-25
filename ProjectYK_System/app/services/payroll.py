@@ -39,6 +39,7 @@ from sqlalchemy import func as sa_func
 from models import (
     AccidentInstallment,
     DailyJob,
+    DailyJobFee,
     Employee,
     FuelTxn,
     PayRun,
@@ -227,25 +228,6 @@ def _sum_trip_fees(
     return round(sum((r.trip_fee_driver or 0.0) for r in rows), 2)
 
 
-def _count_trips(
-    session: Session, emp_id: int, start: date, end: date, site_code: str = ""
-) -> int:
-    """Count DailyJob rows that represent an actual trip (has trip_fee_driver > 0
-    or revenue_customer > 0). Used for LCB "พิเศษ 100฿ per trip" bonus."""
-    stmt = select(DailyJob).where(
-        DailyJob.driver_id == emp_id,
-        DailyJob.work_date >= start,
-        DailyJob.work_date <= end,
-    )
-    if site_code:
-        stmt = stmt.where(DailyJob.site_code == site_code)
-    rows = session.exec(stmt).all()
-    count = 0
-    for r in rows:
-        if (r.trip_fee_driver or 0.0) > 0 or (r.revenue_customer or 0.0) > 0:
-            count += 1
-    return count
-
 
 def _sum_gross_revenue(
     session: Session, emp_id: int, start: date, end: date, site_code: str = ""
@@ -335,6 +317,56 @@ def _sum_fuel_cost_for_dates(
         stmt = stmt.where(FuelTxn.site_code == site_code)
     rows = session.exec(stmt).all()
     return round(sum((r.amount or 0.0) for r in rows if r.txn_date in date_set), 2)
+
+
+# LCB driver-income extras keyed by hand in the Daily sheet (cols AM/AN/AO):
+#   พิเศษ (special) — only trip drivers earn it; เหมา drivers do NOT (โอ 2026-06-25).
+#   OT (ค่าล่วงเวลา ในโซนเงินคนขับ), รับตู้/คืนตู้แทน.
+# These are summed from DailyJobFee and added to other_income. They REPLACE the
+# old "พิเศษ 100฿ per trip" auto-formula, which over-counted (esp. for mao).
+LCB_OT_FEE_TYPES = {"ot", "ค่าล่วงเวลา"}
+LCB_PICKUP_RETURN_FEE_TYPES = {"pickup_return", "รับตู้แทน"}
+LCB_SPECIAL_FEE_TYPES = {"special", "พิเศษ", "ค่าพิเศษ"}
+
+
+def _sum_lcb_driver_extra_fees(
+    session: Session, emp_id: int, start: date, end: date, site_code: str = ""
+) -> dict:
+    """Sum hand-keyed driver-income fees (OT + รับตู้แทน + พิเศษ) for [start,end].
+
+    Returns {"ot", "pickup_return", "special", "total"}. fee_type matched
+    case-insensitively. Reserve fees (lift/yard/clean/shore/port_entry/weighing)
+    are NEVER included — those are สำรองจ่าย, not driver pay.
+    """
+    stmt = (
+        select(DailyJobFee)
+        .join(DailyJob, DailyJobFee.daily_job_id == DailyJob.id)
+        .where(
+            DailyJob.driver_id == emp_id,
+            DailyJob.work_date >= start,
+            DailyJob.work_date <= end,
+        )
+    )
+    if site_code:
+        stmt = stmt.where(DailyJob.site_code == site_code)
+    rows = session.exec(stmt).all()
+    ot = pickup = special = 0.0
+    for f in rows:
+        ft = (f.fee_type or "").lower()
+        amt = f.amount or 0.0
+        if ft in LCB_OT_FEE_TYPES:
+            ot += amt
+        elif ft in LCB_PICKUP_RETURN_FEE_TYPES:
+            pickup += amt
+        elif ft in LCB_SPECIAL_FEE_TYPES:
+            special += amt
+    ot, pickup, special = round(ot, 2), round(pickup, 2), round(special, 2)
+    return {
+        "ot": ot,
+        "pickup_return": pickup,
+        "special": special,
+        "total": round(ot + pickup + special, 2),
+    }
 
 
 # BIGC fuel-rate rebate rate: driver is paid ฿16 per liter of the fuel allowance
@@ -904,9 +936,9 @@ def calc_one_employee(
         calc.base_salary_earned = round(base - (base / days_in_month) * missed, 2)
         calc.care_allowance_earned = round(care - (care / days_in_month) * missed, 2)
         calc.trip_fee_total = _sum_trip_fees(session, employee.id, start, end, site_code=site)
-        # LCB "พิเศษ" = 100฿ ต่อเที่ยว (เริ่มสมัยโควิท) — เก็บใน other_income
-        trip_count = _count_trips(session, employee.id, start, end, site_code=site)
-        calc.other_income += round(trip_count * 100.0, 2)
+        # เงินคนขับพิเศษ จากชีท (พิเศษ/OT/รับตู้แทน) — แทนสูตรเก่า 100/เที่ยว
+        extra = _sum_lcb_driver_extra_fees(session, employee.id, start, end, site_code=site)
+        calc.other_income += extra["total"]
         miss_bits = []
         if (calc.days_leave + calc.days_absent) > 0:
             miss_bits.append(f"ลา/ขาด {int(calc.days_leave + calc.days_absent)}วัน")
@@ -916,7 +948,8 @@ def calc_one_employee(
         calc.note = (
             f"LCB: base {base:,.0f} + care {care:,.0f} ÷ {int(days_in_month)}วัน"
             f"{miss_str} + trip {calc.trip_fee_total:,.0f}"
-            f" + พิเศษ {trip_count}เที่ยว×100 = {trip_count*100:,}"
+            f" + พิเศษ {extra['special']:,.0f} + OT {extra['ot']:,.0f}"
+            f" + รับตู้แทน {extra['pickup_return']:,.0f}"
         )
 
     elif mode == "lcb_mao":
@@ -924,7 +957,13 @@ def calc_one_employee(
         share_rate = employee.gross_share_rate or 0.60
         calc.fuel_share_income = round(revenue * share_rate, 2)
         calc.fuel_cost_self = _sum_fuel_cost(session, employee.id, start, end, site_code=site)
-        calc.note = f"Gross revenue {revenue:,.2f} × {share_rate*100:.0f}% − น้ำมันจริง"
+        # คนเหมาไม่ได้พิเศษ (โอ 2026-06-25) — แต่ได้ OT/รับตู้แทน ถ้ามี
+        extra = _sum_lcb_driver_extra_fees(session, employee.id, start, end, site_code=site)
+        calc.other_income += round(extra["ot"] + extra["pickup_return"], 2)
+        calc.note = (
+            f"Gross revenue {revenue:,.2f} × {share_rate*100:.0f}% − น้ำมันจริง"
+            f" + OT {extra['ot']:,.0f} + รับตู้แทน {extra['pickup_return']:,.0f}"
+        )
 
     elif mode == "lcb_mixed":
         if base == 0:
@@ -942,12 +981,14 @@ def calc_one_employee(
         calc.fuel_cost_self = _sum_fuel_cost_for_dates(
             session, employee.id, mao_dates, site_code=site
         )
-        # เที่ยว side: trip fees + พิเศษ 100/เที่ยว on trip days only
+        # เที่ยว side: trip fees จากวันเที่ยว
         calc.trip_fee_total = round(
             sum((d.trip_fee_driver or 0.0) for d in trip_days), 2
         )
         n_trip = len(trip_days)
-        calc.other_income += round(n_trip * 100.0, 2)
+        # เงินพิเศษ จากชีท (พิเศษ/OT/รับตู้แทน) ทั้งรอบ — แทนสูตรเก่า 100/เที่ยว
+        extra = _sum_lcb_driver_extra_fees(session, employee.id, start, end, site_code=site)
+        calc.other_income += extra["total"]
         # base+care prorate by TRIP days + IDLE (รถจอด) days.
         # mao days have no base; idle days (รถจอด/อุบัติเหตุ/ซ่อม) DO earn base
         # per โอ policy 2026-06-25 — คนขับมาแต่บริษัทไม่มีงาน ต้องได้ฐาน.
@@ -962,7 +1003,8 @@ def calc_one_employee(
         calc.note = (
             f"ลูกผสม: เหมา {len(mao_days)}วัน {mao_rev:,.0f}×{share_rate*100:.0f}%"
             f"−น้ำมัน {calc.fuel_cost_self:,.0f} | เที่ยว {n_trip}วัน "
-            f"{calc.trip_fee_total:,.0f}+พิเศษ {n_trip*100} | ฐาน×{int(base_days)}/{int(days_in_month)}วัน"
+            f"{calc.trip_fee_total:,.0f} | พิเศษ {extra['special']:,.0f}+OT {extra['ot']:,.0f}"
+            f"+รับตู้แทน {extra['pickup_return']:,.0f} | ฐาน×{int(base_days)}/{int(days_in_month)}วัน"
             f"{amb_note}"
         )
 

@@ -308,7 +308,6 @@
             {% if k.kind == 'mao' %}<span class="text-emerald-700">{{ '{:,.0f}'.format((d.revenue_customer or 0) * 0.60) }}</span>
               <span class="text-slate-400 text-[10px]">(60%)</span>
             {% elif k.kind == 'trip' %}<span class="text-sky-700">{{ '{:,.0f}'.format(d.trip_fee_driver) if d.trip_fee_driver else '0' }}</span>
-              <span class="text-slate-400 text-[10px]">+100</span>
             {% else %}—{% endif %}
           </td>
         </tr>
