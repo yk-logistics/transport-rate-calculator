@@ -207,7 +207,7 @@
 <script>
 (function(){
   const params = new URLSearchParams(window.location.search);
-  const apiUrl = `/api/daily-data?${params.toString()}`;
+  const apiUrl = `/api/daily/grid-data?${params.toString()}`;
   const filterForm = document.getElementById("gridFilterForm");
   const saveBtn = document.getElementById("saveGridBtn");
   const saveMsg = document.getElementById("saveMsg");
@@ -639,7 +639,7 @@
     saveDetails.className = "hidden rounded-lg border p-3 text-xs mb-3";
     saveDetails.innerHTML = "";
     try {
-      const res = await fetch("/api/daily-save", {
+      const res = await fetch("/api/daily/grid-save", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({rows: Array.from(dirtyRows.values())}),
