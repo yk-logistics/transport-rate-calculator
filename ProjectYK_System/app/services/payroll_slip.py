@@ -281,9 +281,16 @@ def build_payroll_slip_context(
     _CAT_LABEL = {"driver_advance": "เงินเบิก", "other": "อื่นๆ", "": "อื่นๆ"}
 
     def _mk_line(p, amt, deducted):
-        label = (p.memo or _CAT_LABEL.get(p.category or "", p.category) or "เงินเบิก").strip()
-        if len(label) > 32:
-            label = label[:30] + "…"
+        cat_label = _CAT_LABEL.get(p.category or "", p.category or "เงินเบิก")
+        # ชื่อหมวดนำ + memo สั้นๆ ถ้ามีประโยชน์ (ตัด memo ระบบที่ขึ้นต้นด้วยชื่อ
+        # คนขับ/"รวมหักช่อง" ออก — คนขับไม่ต้องเห็น)
+        memo = (p.memo or "").strip()
+        sys_memo = ("รวมหัก" in memo) or ("ช่อง O" in memo) or ("สดย่อย" in memo)
+        if memo and not sys_memo:
+            extra = memo if len(memo) <= 24 else memo[:22] + "…"
+            label = f"{cat_label} · {extra}"
+        else:
+            label = cat_label
         return {
             "txn_date": p.txn_date,
             "label": label,

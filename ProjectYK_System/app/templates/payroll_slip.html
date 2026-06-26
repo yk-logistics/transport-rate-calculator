@@ -167,7 +167,12 @@
           {%- else %}—{% endif %}
         </td>
         <td class="num">{{ '{:,.0f}'.format(r.fuel_liter) if r.fuel_liter else '' }}</td>
-        <td class="num">{{ '{:,.0f}'.format(r.fuel_amount) if r.fuel_amount else '' }}</td>
+        <td class="num">
+          {%- if r.fuel_amount %}{{ '{:,.0f}'.format(r.fuel_amount) }}
+            {%- if k.kind == 'mao' %}<div style="font-size:8px; color:#b91c1c;">หัก</div>
+            {%- elif k.kind == 'trip' %}<div style="font-size:8px; color:#94a3b8;">บริษัทออก</div>{% endif %}
+          {%- endif %}
+        </td>
       </tr>
     {% endfor %}
     </tbody>
@@ -329,7 +334,7 @@
         </div>
         <div id="pettyHiddenNote" class="no-print" style="font-size:9px; color:#94a3b8; display:none;"></div>
         {% if item.fuel_cost_self %}
-          <div class="line"><span>ค่าน้ำมัน (ออกเอง)</span><span class="v">{{ '{:,.2f}'.format(item.fuel_cost_self) }}</span></div>
+          <div class="line"><span>ค่าน้ำมัน (เหมาน้ำมัน)</span><span class="v">{{ '{:,.2f}'.format(item.fuel_cost_self) }}</span></div>
         {% endif %}
         {% if item.other_deduction %}
           <div class="line"><span>หักอื่นๆ</span><span class="v">{{ '{:,.2f}'.format(item.other_deduction) }}</span></div>
