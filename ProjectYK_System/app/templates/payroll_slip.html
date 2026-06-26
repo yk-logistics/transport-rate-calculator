@@ -91,6 +91,7 @@
     @media print {
       html, body { background: #fff; }
       .toolbar { display: none; }
+      .no-print { display: none !important; }
       .slip {
         max-width: 100%; margin: 0; padding: 8mm; border: none;
         border-radius: 0; page-break-after: always;
@@ -300,12 +301,33 @@
         {% if item.accident_install %}
           <div class="line"><span>ผ่อนอุบัติเหตุ</span><span class="v">{{ '{:,.2f}'.format(item.accident_install) }}</span></div>
         {% endif %}
+        {# เงินเบิก/หัก: รายการที่หัก โชว์เสมอ; รายการไม่หัก ติ๊กซ่อนได้ #}
+        {% if petty_lines or petty_lines_extra %}
+        <div class="pettyControls no-print" style="font-size:10px; color:#475569; margin:4px 0; display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+          <span style="font-weight:600;">เงินเบิก:</span>
+          <label><input type="radio" name="pettyView" value="date" checked> เรียงวันที่</label>
+          <label><input type="radio" name="pettyView" value="cat"> แยกหมวด</label>
+          <span style="border-left:1px solid #cbd5e1; padding-left:8px;">โชว์รายการไม่หัก:</span>
+          {% for cat, catlabel in petty_categories %}
+          <label><input type="checkbox" class="pettyCatChk" value="{{ cat }}" checked> {{ catlabel }}</label>
+          {% endfor %}
+        </div>
+        {% endif %}
+        <div id="pettyLines">
         {% for p in petty_lines %}
-          <div class="line">
-            <span>{{ p.txn_date | dmy }} · {{ p.label }}</span>
+          <div class="line petty-row" data-deducted="1" data-cat="{{ p.category }}" data-date="{{ p.txn_date.isoformat() }}">
+            <span>{{ p.txn_date | dmy }} · {{ p.label }} <span style="color:#b91c1c; font-size:9px;">(หัก)</span></span>
             <span class="v">{{ '{:,.2f}'.format(p.amount) }}</span>
           </div>
         {% endfor %}
+        {% for p in petty_lines_extra %}
+          <div class="line petty-row" data-deducted="0" data-cat="{{ p.category }}" data-date="{{ p.txn_date.isoformat() }}" style="color:#64748b;">
+            <span>{{ p.txn_date | dmy }} · {{ p.label }}{% if p.direction == 'in' %} <span style="color:#047857; font-size:9px;">(รับเข้า)</span>{% else %} <span style="font-size:9px;">(ไม่หัก)</span>{% endif %}</span>
+            <span class="v">{{ '{:,.2f}'.format(p.amount) }}</span>
+          </div>
+        {% endfor %}
+        </div>
+        <div id="pettyHiddenNote" class="no-print" style="font-size:9px; color:#94a3b8; display:none;"></div>
         {% if item.fuel_cost_self %}
           <div class="line"><span>ค่าน้ำมัน (ออกเอง)</span><span class="v">{{ '{:,.2f}'.format(item.fuel_cost_self) }}</span></div>
         {% endif %}
@@ -330,6 +352,55 @@
   </div>
 
 </div>
+
+<script>
+(function(){
+  const box = document.getElementById("pettyLines");
+  if (!box) return;
+  const note = document.getElementById("pettyHiddenNote");
+  const rows = Array.from(box.querySelectorAll(".petty-row"));
+
+  function checkedCats(){
+    return new Set(Array.from(document.querySelectorAll(".pettyCatChk"))
+                        .filter(c => c.checked).map(c => c.value));
+  }
+  function viewMode(){
+    const r = document.querySelector('input[name="pettyView"]:checked');
+    return r ? r.value : "date";
+  }
+  function apply(){
+    const cats = checkedCats();
+    let hidden = 0;
+    rows.forEach(row => {
+      const deducted = row.getAttribute("data-deducted") === "1";
+      const cat = row.getAttribute("data-cat") || "other";
+      // กฎเหล็ก: แถวที่หัก โชว์เสมอ; แถวไม่หัก ซ่อนได้ถ้าไม่ติ๊กหมวด
+      const show = deducted || cats.has(cat);
+      row.style.display = show ? "" : "none";
+      if (!show) hidden++;
+    });
+    // เรียงตามโหมด: date = ตามวันที่ (default DOM), cat = group ตามหมวด
+    if (viewMode() === "cat"){
+      rows.slice().sort((a,b) => {
+        const ca = a.getAttribute("data-cat"), cb = b.getAttribute("data-cat");
+        if (ca !== cb) return ca < cb ? -1 : 1;
+        return (a.getAttribute("data-date") || "").localeCompare(b.getAttribute("data-date") || "");
+      }).forEach(r => box.appendChild(r));
+    } else {
+      rows.slice().sort((a,b) =>
+        (a.getAttribute("data-date") || "").localeCompare(b.getAttribute("data-date") || "")
+      ).forEach(r => box.appendChild(r));
+    }
+    if (note){
+      note.style.display = hidden ? "" : "none";
+      note.textContent = hidden ? `ซ่อน ${hidden} รายการที่ไม่หัก (ยอดรวมหัก/สุทธิคิดเต็มเสมอ)` : "";
+    }
+  }
+  document.querySelectorAll('.pettyCatChk, input[name="pettyView"]').forEach(el =>
+    el.addEventListener("change", apply));
+  apply();
+})();
+</script>
 
 </body>
 </html>

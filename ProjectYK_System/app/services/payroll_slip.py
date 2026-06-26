@@ -260,15 +260,59 @@ def build_payroll_slip_context(
     fuel_used_l = sum((r.liter or 0) for r in fuel_rows) or sum((r.fuel_liter or 0) for r in daily_jobs)
     avg_km_per_l = (km_run / fuel_used_l) if (km_run > 0 and fuel_used_l > 0) else 0
 
+    # รายการ "ไม่หัก" ในรอบเดียวกัน (เบิกที่ไม่หัก / รับเข้า) — สำหรับโชว์เพิ่ม
+    # (ติ๊กซ่อนได้ ไม่กระทบยอดหัก). ไม่รวมตัวที่หักอยู่แล้วใน petty_rows.
+    petty_extra_rows = session.exec(
+        select(PettyCashTxn).where(
+            PettyCashTxn.driver_id == emp.id,
+            PettyCashTxn.pay_cycle_tag == tag,
+            or_(
+                PettyCashTxn.deduct_from_driver == False,  # noqa: E712
+                PettyCashTxn.deduction_status != "pending",
+            ),
+            or_(
+                PettyCashTxn.site_code == pr.site_code,
+                PettyCashTxn.site_code == "",
+                PettyCashTxn.site_code.is_(None),
+            ),
+        ).order_by(PettyCashTxn.txn_date)
+    ).all()
+
+    _CAT_LABEL = {"driver_advance": "เงินเบิก", "other": "อื่นๆ", "": "อื่นๆ"}
+
+    def _mk_line(p, amt, deducted):
+        label = (p.memo or _CAT_LABEL.get(p.category or "", p.category) or "เงินเบิก").strip()
+        if len(label) > 32:
+            label = label[:30] + "…"
+        return {
+            "txn_date": p.txn_date,
+            "label": label,
+            "amount": amt,
+            "category": p.category or "other",
+            "category_label": _CAT_LABEL.get(p.category or "", p.category or "อื่นๆ"),
+            "direction": p.direction,
+            "deducted": deducted,
+        }
+
     petty_lines = []
     for p in petty_rows:
         amt = p.deduct_amount if (p.deduct_amount or 0) > 0 else (p.amount or 0)
         if not amt:
             continue
-        label = (p.memo or p.category or "เงินเบิก").strip()
-        if len(label) > 32:
-            label = label[:30] + "…"
-        petty_lines.append({"txn_date": p.txn_date, "label": label, "amount": amt})
+        petty_lines.append(_mk_line(p, amt, True))
+
+    petty_lines_extra = []
+    for p in petty_extra_rows:
+        amt = p.amount or 0
+        if not amt:
+            continue
+        petty_lines_extra.append(_mk_line(p, amt, False))
+
+    # หมวดที่มีจริง (สำหรับ checkbox) จากทั้งสองชุด
+    petty_categories = sorted({
+        (ln["category"], ln["category_label"])
+        for ln in (petty_lines + petty_lines_extra)
+    })
 
     mixed = classify_mixed_days(daily_jobs) if emp.pay_mode == "lcb_mixed" else None
 
@@ -281,6 +325,8 @@ def build_payroll_slip_context(
         "route_text": delivery_route_text,
         "day_kind": mixed_day_kind,
         "petty_lines": petty_lines,
+        "petty_lines_extra": petty_lines_extra,
+        "petty_categories": petty_categories,
         "plates_used": plates_used,
         "mile_start": mile_start,
         "mile_end": mile_end,
