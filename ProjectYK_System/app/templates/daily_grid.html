@@ -104,6 +104,15 @@
 </div>
 
 <div class="yk-grid-fs-target bg-white rounded-lg border p-2">
+  <!-- Floating toolbar shown only in fullscreen -->
+  <div id="fsToolbar" class="yk-fs-only items-center gap-2 mb-2 pb-2 border-b">
+    <button type="button" id="undoBtnFs" disabled class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded text-sm hover:bg-slate-200 disabled:opacity-40">↶ Undo</button>
+    <button type="button" id="redoBtnFs" disabled class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded text-sm hover:bg-slate-200 disabled:opacity-40">↷ Redo</button>
+    <button type="button" id="saveBtnFs" class="bg-emerald-600 text-white px-4 py-1.5 rounded text-sm hover:bg-emerald-700 font-semibold">💾 Save Grid</button>
+    <span id="saveMsgFs" class="text-xs text-slate-500"></span>
+    <button type="button" id="pageToggleBtnFs" class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded text-sm hover:bg-slate-200 ml-auto">📄 แบ่งหน้า</button>
+    <button type="button" id="exitFsBtn" class="bg-slate-200 text-slate-700 px-3 py-1.5 rounded text-sm hover:bg-slate-300">⛶ ออกเต็มจอ</button>
+  </div>
   <div id="dailyGridTable" class="w-full"></div>
 </div>
 
@@ -152,8 +161,10 @@
 <link href="https://unpkg.com/tabulator-tables@6.2.1/dist/css/tabulator.min.css" rel="stylesheet" />
 <style>
   .yk-grid-fs-target:fullscreen { background:#fff; padding:12px; overflow:auto; }
-  .yk-grid-fs-target:fullscreen #dailyGridTable { height: calc(100vh - 90px) !important; }
+  .yk-grid-fs-target:fullscreen #dailyGridTable { height: calc(100vh - 130px) !important; }
   html.dark .yk-grid-fs-target:fullscreen { background:#0f172a; }
+  .yk-fs-only { display: none; }
+  .yk-grid-fs-target:fullscreen .yk-fs-only { display: flex; }
   .yk-grid-dirty-cell {
     background: #fef3c7 !important;
     box-shadow: inset 0 -2px 0 #f59e0b;
@@ -326,11 +337,12 @@
   function updateDirtyFeedback(){
     const rowCount = dirtyRows.size;
     const fieldCount = Array.from(dirtyRows.values()).reduce((sum, row) => sum + Math.max(0, Object.keys(row).length - 1), 0);
-    saveBtn.textContent = rowCount ? `Save Grid (${rowCount})` : "Save Grid";
-    if (rowCount){
-      saveMsg.textContent = `ยังไม่บันทึก ${rowCount} แถว / ${fieldCount} ช่อง`;
-      saveMsg.className = "text-xs text-amber-700";
-    }
+    saveBtn.textContent = rowCount ? `💾 Save Grid (${rowCount})` : "💾 Save Grid";
+    const msg = rowCount ? `ยังไม่บันทึก ${rowCount} แถว / ${fieldCount} ช่อง` : "";
+    if (rowCount){ saveMsg.textContent = msg; saveMsg.className = "text-xs text-amber-700"; }
+    const sFs = document.getElementById("saveBtnFs"), mFs = document.getElementById("saveMsgFs");
+    if (sFs) sFs.textContent = rowCount ? `💾 Save Grid (${rowCount})` : "💾 Save Grid";
+    if (mFs){ mFs.textContent = msg; mFs.className = "text-xs text-amber-700"; }
   }
   function hasUnsavedChanges(){ return dirtyRows.size > 0; }
   function confirmIfDirty(){
@@ -606,9 +618,14 @@
   let replayingHistory = false;
   const undoBtn = document.getElementById("undoBtn");
   const redoBtn = document.getElementById("redoBtn");
+  const undoBtnFs = document.getElementById("undoBtnFs");
+  const redoBtnFs = document.getElementById("redoBtnFs");
   function updateUndoButtons(){
-    if (undoBtn) undoBtn.disabled = undoStack.length === 0;
-    if (redoBtn) redoBtn.disabled = redoStack.length === 0;
+    const noUndo = undoStack.length === 0, noRedo = redoStack.length === 0;
+    if (undoBtn) undoBtn.disabled = noUndo;
+    if (redoBtn) redoBtn.disabled = noRedo;
+    if (undoBtnFs) undoBtnFs.disabled = noUndo;
+    if (redoBtnFs) redoBtnFs.disabled = noRedo;
   }
   function replay(entry, useOld){
     const row = table.getRow(entry.rowId);
@@ -638,6 +655,8 @@
   }
   if (undoBtn) undoBtn.addEventListener("click", doUndo);
   if (redoBtn) redoBtn.addEventListener("click", doRedo);
+  if (undoBtnFs) undoBtnFs.addEventListener("click", doUndo);
+  if (redoBtnFs) redoBtnFs.addEventListener("click", doRedo);
   document.addEventListener("keydown", function(e){
     if (!(e.ctrlKey || e.metaKey)) return;
     if (e.key === "z" && !e.shiftKey){ e.preventDefault(); doUndo(); }
@@ -661,13 +680,22 @@
   // ── สลับ แบ่งหน้า / แสดงทั้งหมด ────────────────────────────────────────────
   const pageToggleBtn = document.getElementById("pageToggleBtn");
   let paginated = true;
-  if (pageToggleBtn){
-    pageToggleBtn.addEventListener("click", function(){
-      paginated = !paginated;
-      table.setPageSize(paginated ? 100 : true);
-      pageToggleBtn.textContent = paginated ? "📄 แบ่งหน้า" : "📜 แสดงทั้งหมด";
-    });
+  const pageToggleBtnFs = document.getElementById("pageToggleBtnFs");
+  function applyPageToggle(){
+    paginated = !paginated;
+    table.setPageSize(paginated ? 100 : true);
+    const label = paginated ? "📄 แบ่งหน้า" : "📜 แสดงทั้งหมด";
+    if (pageToggleBtn) pageToggleBtn.textContent = label;
+    if (pageToggleBtnFs) pageToggleBtnFs.textContent = label;
   }
+  if (pageToggleBtn) pageToggleBtn.addEventListener("click", applyPageToggle);
+  if (pageToggleBtnFs) pageToggleBtnFs.addEventListener("click", applyPageToggle);
+
+  // Fullscreen toolbar: Save reuses the main button; exit leaves fullscreen
+  const saveBtnFs = document.getElementById("saveBtnFs");
+  if (saveBtnFs) saveBtnFs.addEventListener("click", () => saveBtn.click());
+  const exitFsBtn = document.getElementById("exitFsBtn");
+  if (exitFsBtn) exitFsBtn.addEventListener("click", () => document.exitFullscreen?.());
 
   // ── Audit history modal ───────────────────────────────────────────────────
   const auditModal = document.getElementById("ykAuditModal");
