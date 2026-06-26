@@ -301,6 +301,33 @@ def _classify_lcb_days(
     return {"mao_days": mao, "trip_days": trip, "ambiguous": amb, "no_work": no_work}
 
 
+def _idle_dates_in_mao_phase(split: dict) -> set:
+    """วันรถจอด (no_work + ambiguous ที่ rev=0) ที่ 'ช่วง' เป็นเหมา → น้ำมันต้องหัก.
+
+    กฎ (โอ 2026-06-26): รถจอดคั่นช่วงเหมา → หักน้ำมัน; คั่นช่วงเที่ยว → ไม่หัก.
+    หา 'ช่วง' จากวันทำงาน (เหมา/เที่ยว) ที่ใกล้ที่สุดก่อน-หลัง.
+    """
+    mao = {d.work_date for d in split["mao_days"]}
+    trip = {d.work_date for d in split["trip_days"]}
+    idle = {d.work_date for d in split["no_work"]}
+    if not idle or not mao:
+        return set()
+    working = sorted(mao | trip)
+    out = set()
+    for wd in idle:
+        # วันทำงานที่ใกล้ที่สุด (tie → ฝั่งเหมาชนะ ปลอดภัยกว่า = หัก)
+        best, best_kind = None, None
+        for w in working:
+            dist = abs((w - wd).days)
+            if best is None or dist < best:
+                best, best_kind = dist, ("mao" if w in mao else "trip")
+            elif dist == best and w in mao:
+                best_kind = "mao"
+        if best_kind == "mao":
+            out.add(wd)
+    return out
+
+
 def _sum_fuel_cost_for_dates(
     session: Session, emp_id: int, dates, site_code: str = ""
 ) -> float:
@@ -978,8 +1005,11 @@ def calc_one_employee(
         share_rate = employee.gross_share_rate or 0.60
         calc.fuel_share_income = round(mao_rev * share_rate, 2)
         mao_dates = {d.work_date for d in mao_days}
+        # วันรถจอด 'ช่วงเหมา' ก็ต้องหักน้ำมันด้วย (โอ 2026-06-26)
+        idle_mao_dates = _idle_dates_in_mao_phase(split)
+        fuel_dates = mao_dates | idle_mao_dates
         calc.fuel_cost_self = _sum_fuel_cost_for_dates(
-            session, employee.id, mao_dates, site_code=site
+            session, employee.id, fuel_dates, site_code=site
         )
         # เที่ยว side: trip fees จากวันเที่ยว
         calc.trip_fee_total = round(
@@ -1002,7 +1032,7 @@ def calc_one_employee(
         )
         calc.note = (
             f"ลูกผสม: เหมา {len(mao_days)}วัน {mao_rev:,.0f}×{share_rate*100:.0f}%"
-            f"−น้ำมัน {calc.fuel_cost_self:,.0f} | เที่ยว {n_trip}วัน "
+            f"−น้ำมัน {calc.fuel_cost_self:,.0f}(รวมจอดช่วงเหมา {len(idle_mao_dates)}วัน) | เที่ยว {n_trip}วัน "
             f"{calc.trip_fee_total:,.0f} | พิเศษ {extra['special']:,.0f}+OT {extra['ot']:,.0f}"
             f"+รับตู้แทน {extra['pickup_return']:,.0f} | ฐาน×{int(base_days)}/{int(days_in_month)}วัน"
             f"{amb_note}"
