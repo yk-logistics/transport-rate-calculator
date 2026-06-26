@@ -149,6 +149,8 @@
         <th style="width:54px;">ฝั่ง</th>
         <th>ส่งสินค้า (ต้นทาง → โรงงาน → ปลายทาง)</th>
         <th style="width:64px;" class="num">ค่าแรง</th>
+        <th style="width:46px;" class="num">น้ำมัน(L)</th>
+        <th style="width:60px;" class="num">น้ำมัน(฿)</th>
       </tr>
     </thead>
     <tbody>
@@ -163,9 +165,18 @@
           {%- elif k.kind == 'trip' %}{{ '{:,.0f}'.format(r.trip_fee_driver) if r.trip_fee_driver else '0' }}
           {%- else %}—{% endif %}
         </td>
+        <td class="num">{{ '{:,.0f}'.format(r.fuel_liter) if r.fuel_liter else '' }}</td>
+        <td class="num">{{ '{:,.0f}'.format(r.fuel_amount) if r.fuel_amount else '' }}</td>
       </tr>
     {% endfor %}
     </tbody>
+    <tfoot>
+      <tr style="font-weight:700; border-top:2px solid #cbd5e1;">
+        <td colspan="4" style="text-align:right;">รวมน้ำมัน</td>
+        <td class="num">{{ '{:,.0f}'.format(daily_jobs | sum(attribute='fuel_liter')) }}</td>
+        <td class="num">{{ '{:,.0f}'.format(daily_jobs | sum(attribute='fuel_amount')) }}</td>
+      </tr>
+    </tfoot>
   </table>
   <div style="font-size:10px; color:#64748b; margin-top:2px;">
     ค่าแรง = วันเหมาได้ 60% ของค่าขนส่ง · วันเที่ยวได้ค่าเที่ยว ·
@@ -179,7 +190,8 @@
         <th style="width:70px;">ทะเบียน</th>
         <th>ส่งสินค้า / หมายเหตุ</th>
         <th style="width:80px;">ใบงาน</th>
-        <th style="width:50px;" class="num">น้ำมัน(L)</th>
+        <th style="width:46px;" class="num">น้ำมัน(L)</th>
+        <th style="width:58px;" class="num">น้ำมัน(฿)</th>
         <th style="width:64px;" class="num">ค่าเที่ยว</th>
         <th style="width:48px;" class="num">เรท</th>
       </tr>
@@ -195,11 +207,20 @@
         </td>
         <td>{{ r.doc_no or r.job_ref or r.container_no or '' }}</td>
         <td class="num">{% if r.fuel_liter %}{{ '{:.0f}'.format(r.fuel_liter) }}{% endif %}</td>
+        <td class="num">{% if r.fuel_amount %}{{ '{:,.0f}'.format(r.fuel_amount) }}{% endif %}</td>
         <td class="num">{% if r.trip_fee_driver %}{{ '{:,.0f}'.format(r.trip_fee_driver) }}{% endif %}</td>
         <td class="num">{% if r.fuel_rate_km_per_l %}{{ '{:.2f}'.format(r.fuel_rate_km_per_l) }}{% endif %}</td>
       </tr>
     {% endfor %}
     </tbody>
+    <tfoot>
+      <tr style="font-weight:700; border-top:2px solid #cbd5e1;">
+        <td colspan="4" style="text-align:right;">รวมน้ำมัน</td>
+        <td class="num">{{ '{:,.0f}'.format(daily_jobs | sum(attribute='fuel_liter')) }}</td>
+        <td class="num">{{ '{:,.0f}'.format(daily_jobs | sum(attribute='fuel_amount')) }}</td>
+        <td colspan="2"></td>
+      </tr>
+    </tfoot>
   </table>
   {% endif %}
 
