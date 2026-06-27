@@ -3829,6 +3829,12 @@ def payroll_recompute(run_id: int, return_to: str = Form("")):
             return RedirectResponse("/payroll", status_code=303)
         if pr.status == "finalized":
             return RedirectResponse(f"/payroll/{pr.id}?err=locked", status_code=303)
+        # COPY-LOCK: payruns whose net was copied verbatim from the salary sheet
+        # (BIGC/AYU onboarded by copy — engine cannot re-derive their numbers without
+        # daily/petty import + missing base/route rules). Recomputing would overwrite
+        # correct paid amounts with wrong engine output. Block unless explicitly forced.
+        if pr.notes and "[COPY-LOCK]" in pr.notes:
+            return RedirectResponse(f"/payroll/{pr.id}?err=copylock", status_code=303)
         compute_pay_run(s, pr, recompute=True)
     dest = _parse_internal_path((return_to or "").strip()) or f"/payroll/{run_id}"
     return RedirectResponse(url=dest, status_code=303)
