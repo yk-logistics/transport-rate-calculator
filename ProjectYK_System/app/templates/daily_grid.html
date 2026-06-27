@@ -11,21 +11,26 @@
 
 <form id="gridFilterForm" method="get" class="bg-white rounded-lg border p-4 mb-4 grid md:grid-cols-6 gap-3 items-end">
   <div>
-    <label class="block text-xs text-slate-500 mb-1">เดือน</label>
-    <select name="month" id="monthSelect" class="w-full border rounded px-2 py-1.5 text-sm">
-      <option value="all" {% if month=='all' %}selected{% endif %}>ทุกเดือน</option>
-      {% for m in avail_months %}
-      <option value="{{ m }}" {% if month==m %}selected{% endif %}>{{ m }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div>
     <label class="block text-xs text-slate-500 mb-1">ไซต์</label>
-    <select name="site" class="w-full border rounded px-2 py-1.5 text-sm">
+    <select name="site" id="siteSelect" class="w-full border rounded px-2 py-1.5 text-sm">
       <option value="">ทั้งหมด</option>
       {% for sc in site_codes %}
       <option value="{{ sc }}" {% if site==sc %}selected{% endif %}>{{ sc }}</option>
       {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="block text-xs text-slate-500 mb-1">รอบเงินเดือน</label>
+    <select name="cycle" id="cycleSelect" class="w-full border rounded px-2 py-1.5 text-sm disabled:bg-slate-100 disabled:text-slate-400"
+            {% if not site %}disabled title="เลือกไซต์ก่อน"{% endif %}>
+      {% if not site %}
+      <option value="">— เลือกไซต์ก่อน —</option>
+      {% else %}
+      <option value="all" {% if cycle=='all' %}selected{% endif %}>ทุกรอบ</option>
+      {% for c in site_cycles %}
+      <option value="{{ c.tag }}" {% if cycle==c.tag %}selected{% endif %}>{{ c.label }}</option>
+      {% endfor %}
+      {% endif %}
     </select>
   </div>
   <div>
@@ -248,8 +253,8 @@
 </style>
 <script>
 (function(){
-  // สร้าง URL ดึงข้อมูลจาก "ค่าที่เซิร์ฟเวอร์ resolve แล้ว" (เดือน default → ช่วงวันที่จริง)
-  // ไม่ใช่ raw query string — เปิดหน้าครั้งแรกจึงดึงเฉพาะเดือนปัจจุบันให้ตรงกับที่หน้าแสดง
+  // สร้าง URL ดึงข้อมูลจาก "ค่าที่เซิร์ฟเวอร์ resolve แล้ว" (รอบ payroll → ช่วงวันที่จริง)
+  // ไม่ใช่ raw query string — เปิดหน้าครั้งแรกจึงดึงเฉพาะช่วง default ให้ตรงกับที่หน้าแสดง
   const params = new URLSearchParams();
   {% if site %}params.set("site", {{ site|tojson }});{% endif %}
   {% if d_from %}params.set("d_from", {{ d_from|tojson }});{% endif %}
@@ -260,21 +265,27 @@
   params.set("limit", {{ limit|tojson }});
   const apiUrl = `/api/daily/grid-data?${params.toString()}`;
   const filterForm = document.getElementById("gridFilterForm");
-  // เลือกเดือน → ล้างช่วงวันที่ (เดือนคุมแทน) แล้วโหลดใหม่ทันที
-  const monthSelect = document.getElementById("monthSelect");
+  const siteSelect = document.getElementById("siteSelect");
+  const cycleSelect = document.getElementById("cycleSelect");
   const dFromInput = filterForm.querySelector('input[name="d_from"]');
   const dToInput = filterForm.querySelector('input[name="d_to"]');
-  if (monthSelect) {
-    monthSelect.addEventListener("change", () => {
-      if (dFromInput) dFromInput.value = "";
-      if (dToInput) dToInput.value = "";
+  const clearDates = () => { if (dFromInput) dFromInput.value = ""; if (dToInput) dToInput.value = ""; };
+  // เปลี่ยนไซต์ → ล้างรอบ+วันที่ แล้วโหลดใหม่ (เซิร์ฟเวอร์ regenerate รายการรอบของไซต์ใหม่)
+  if (siteSelect) {
+    siteSelect.addEventListener("change", () => {
+      if (cycleSelect) cycleSelect.value = "";
+      clearDates();
       filterForm.submit();
     });
-    // พิมพ์ช่วงวันที่เอง → ปลดเดือนเป็น "ทุกเดือน" เพื่อให้ช่วงที่กรอกมีผล
-    const clearMonth = () => { if (monthSelect.value !== "all") monthSelect.value = "all"; };
-    if (dFromInput) dFromInput.addEventListener("change", clearMonth);
-    if (dToInput) dToInput.addEventListener("change", clearMonth);
   }
+  // เลือกรอบ → ล้างช่วงวันที่ (รอบคุมแทน) แล้วโหลดใหม่
+  if (cycleSelect) {
+    cycleSelect.addEventListener("change", () => { clearDates(); filterForm.submit(); });
+  }
+  // กรอกช่วงวันที่เอง → ปลดรอบเป็น "ทุกรอบ" เพื่อให้ช่วงที่กรอกมีผล
+  const clearCycle = () => { if (cycleSelect && !cycleSelect.disabled) cycleSelect.value = "all"; };
+  if (dFromInput) dFromInput.addEventListener("change", clearCycle);
+  if (dToInput) dToInput.addEventListener("change", clearCycle);
   // "โหลดทั้งหมด" → ส่ง limit=0 (ฝั่งเซิร์ฟเวอร์ตีความเป็นไม่จำกัด) เพื่อกรอง status/ลูกค้าได้ครบ
   const unlimitedChk = document.getElementById("unlimitedChk");
   const limitInput = document.getElementById("limitInput");

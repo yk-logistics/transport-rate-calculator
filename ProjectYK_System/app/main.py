@@ -1191,27 +1191,44 @@ def daily_list(
     site: str = "",
     d_from: str = "",
     d_to: str = "",
-    month: str = "",
+    cycle: str = "",
     q: str = "",
     status: str = "",
     missing: str = "",
     limit: int = 0,
 ):
-    """หน้า Daily แบบเดียว (รวม List + Grid เดิม) — แก้แบบ Excel, โหลดข้อมูลผ่าน AJAX."""
+    """หน้า Daily แบบเดียว (รวม List + Grid เดิม) — แก้แบบ Excel, โหลดข้อมูลผ่าน AJAX.
+
+    ช่วงเวลา default ผูกกับ "รอบ payroll ตามไซต์":
+    - เลือกไซต์ → dropdown แสดงรอบของไซต์นั้น (LCB 16→15, AYU 26→25, BIGC 1→สิ้นเดือน);
+      default = รอบล่าสุดที่มีข้อมูล. param `cycle` = tag เดือนที่รอบจบ.
+    - ยังไม่เลือกไซต์ → default = ~2 เดือนปฏิทินล่าสุด (รวมทุกไซต์).
+    - กรอก d_from/d_to เอง → ใช้ตามนั้น (ทับ cycle).
+    """
     from sqlalchemy import func as sa_func
 
     today = date.today()
-    # ตัวเลือก "เดือน": ถ้าเลือกเดือน → คุมช่วงเป็นทั้งเดือนนั้น (ทับ d_from/d_to)
-    # เปิดหน้าครั้งแรก (ไม่มีตัวกรองใดเลย) → default = เดือนปัจจุบัน เพื่อจำกัดปริมาณข้อมูล
-    fresh_open = not any([site, d_from, d_to, month, q, status, missing])
-    if fresh_open:
-        month = today.strftime("%Y-%m")
-    if month and month != "all":
-        mf, mt = _month_range_str(month)
-        if mf:
-            d_from, d_to = mf.isoformat(), mt.isoformat()
-    elif month == "all":
-        d_from = d_to = ""
+    with Session(engine) as s:
+        max_wd = s.exec(select(sa_func.max(DailyJob.work_date))).one()
+    anchor = max_wd or today          # ยึดวันล่าสุดที่มีข้อมูลเป็นจุดอ้างอิงของรอบ default
+
+    site_cycles = _site_payroll_cycles(site, today) if site else []
+    explicit_dates = bool(d_from or d_to)
+    # เลือก cycle (เมื่อมีไซต์) → คุมช่วงเป็นรอบนั้น; ไม่อย่างนั้นค่อย default
+    if site and not explicit_dates:
+        chosen = next((c for c in site_cycles if c["tag"] == cycle), None)
+        if chosen is None and cycle != "all":
+            # default = รอบล่าสุดที่ครอบ "วันล่าสุดที่มีข้อมูล" (ไม่ใช่รอบอนาคตที่ยังว่าง)
+            chosen = next((c for c in site_cycles if c["start"] <= anchor.isoformat() <= c["end"]), None)
+            chosen = chosen or (site_cycles[0] if site_cycles else None)
+        if chosen is not None:
+            cycle = chosen["tag"]
+            d_from, d_to = chosen["start"], chosen["end"]
+    elif not site and not explicit_dates and not any([q, status, missing]):
+        # เปิดหน้าครั้งแรก (ยังไม่เลือกอะไร) → ~2 เดือนปฏิทินล่าสุดรอบวันล่าสุดที่มีข้อมูล
+        first_y, first_m = _shift_year_month(anchor.year, anchor.month, -1)
+        d_from = date(first_y, first_m, 1).isoformat()
+        d_to = _month_bounds(anchor.year, anchor.month)[1].isoformat()
 
     unlimited = limit <= 0          # limit=0 → โหลดครบทุกแถวตามตัวกรอง (ไม่ติด cap)
     if not unlimited:
@@ -1228,21 +1245,14 @@ def daily_list(
         total_rows = s.exec(
             _daily_grid_filters(select(sa_func.count(DailyJob.id)), site, d_from, d_to, q, status, missing)
         ).one()
-        # เดือนที่มีข้อมูล (ใหม่→เก่า) สำหรับ dropdown เลือกเดือน
-        avail_months = [
-            r[0] for r in s.exec(
-                select(sa_func.substr(DailyJob.work_date, 1, 7)).distinct()
-                .order_by(sa_func.substr(DailyJob.work_date, 1, 7).desc())
-            ).all() if r[0]
-        ]
     ctx = base_context(request)
     ctx.update(
         {
             "site": site,
             "d_from": d_from,
             "d_to": d_to,
-            "month": month,
-            "avail_months": avail_months,
+            "cycle": cycle,
+            "site_cycles": site_cycles,
             "q": q,
             "status": status,
             "missing": missing,
@@ -2034,6 +2044,46 @@ def _daily_site_preset_cycles(today: date) -> dict[str, dict[str, str]]:
             "label": f"LCB รอบก่อน {lcb_prev_start.strftime('%d/%m')}–{lcb_prev_end.strftime('%d/%m')}",
         },
     }
+
+
+def _site_payroll_cycles(site: str, today: date, n: int = 12) -> list[dict[str, str]]:
+    """รายการรอบ payroll ของไซต์ที่เลือก (ใหม่→เก่า) สำหรับ dropdown ใน /daily.
+
+    ขอบรอบต่อไซต์ (ตรงกับ CLAUDE.md): LCB 16→15, AYU 26→25, BIGC 1→สิ้นเดือน.
+    `tag` = เดือนที่รอบจบ (YYYY-MM) — ใช้เป็น query param `cycle`.
+    """
+    site = (site or "").upper()
+    cycles: list[dict[str, str]] = []
+    # หาเดือนที่รอบ "ปัจจุบัน" จบ แล้วไล่ย้อนทีละเดือน
+    if site == "BIGC":
+        ey, em = today.year, today.month
+        for _ in range(n):
+            start, end = _month_bounds(ey, em)
+            cycles.append({
+                "tag": f"{ey:04d}-{em:02d}",
+                "start": start.isoformat(),
+                "end": end.isoformat(),
+                "label": f"BIGC {start.strftime('%d/%m')}–{end.strftime('%d/%m/%Y')}",
+            })
+            ey, em = _shift_year_month(ey, em, -1)
+        return cycles
+    # LCB / AYU = รอบคร่อมเดือน (start_day → end_day ของเดือนถัดไป)
+    start_day, end_day, lbl = (16, 15, "LCB") if site == "LCB" else (26, 25, "AYU")
+    ey, em = today.year, today.month
+    if today.day >= start_day:                  # ผ่านวันเริ่มรอบแล้ว → รอบจบเดือนหน้า
+        ey, em = _shift_year_month(ey, em, 1)
+    for _ in range(n):
+        sy, sm = _shift_year_month(ey, em, -1)
+        start = date(sy, sm, start_day)
+        end = date(ey, em, end_day)
+        cycles.append({
+            "tag": f"{ey:04d}-{em:02d}",
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "label": f"{lbl} {start.strftime('%d/%m')}–{end.strftime('%d/%m/%Y')}",
+        })
+        ey, em = _shift_year_month(ey, em, -1)
+    return cycles
 
 
 def _parse_internal_path(raw: Optional[str]) -> Optional[str]:
