@@ -105,6 +105,18 @@ class Customer(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class KbRule(SQLModel, table=True):
+    """Default KB (ใต้โต๊ะ) ต่อ status_code (= ชื่อลูกค้าในไฟล์ LCB).
+
+    required=True → แถวที่ status นี้แต่ kb_amount==0 จะถูกเตือน (กันลืม), ไม่บล็อก.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    status_code: str = Field(index=True, unique=True)
+    default_kb: float = 0.0
+    required: bool = False
+    note: str = ""
+
+
 class PayCycle(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     site_code: str = Field(index=True, unique=True)

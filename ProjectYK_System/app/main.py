@@ -54,6 +54,7 @@ from models import (
     ImportLog,
     InboxEmail,
     InboxSyncRun,
+    KbRule,
     LeaveRecord,
     Loan,
     LoanPayment,
@@ -419,6 +420,20 @@ def init_db() -> None:
         seed_initial_data(s)
 
 
+def seed_kb_rules(s: Session) -> None:
+    """Seed default KB rules ต่อ status_code. Idempotent — เพิ่มเฉพาะที่ยังไม่มี."""
+    defaults = [
+        KbRule(status_code="NHL", default_kb=110.0, required=False),
+        KbRule(status_code="MOL", default_kb=100.0, required=False),
+        KbRule(status_code="CY",  default_kb=0.0,   required=True),
+    ]
+    for rule in defaults:
+        existing = s.exec(select(KbRule).where(KbRule.status_code == rule.status_code)).first()
+        if not existing:
+            s.add(rule)
+    s.commit()
+
+
 def seed_initial_data(s: Session) -> None:
     defaults = [
         PayCycle(site_code="AYU", cycle_start_day=26, cycle_end_day=25,
@@ -452,6 +467,8 @@ def seed_initial_data(s: Session) -> None:
         ))
         s.commit()
         print("[seed] created admin user yk1 (must change password on first login)")
+
+    seed_kb_rules(s)
 
 
 app = FastAPI(title="Project YK - One Platform")
