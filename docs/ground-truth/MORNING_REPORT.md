@@ -12,6 +12,8 @@
 
 **✅ Integrity check ครบ** — ไม่มี orphan emp, ไม่มี broken FK, COPY-LOCK ครบทุก payrun ลอกยอด (AYU/BIGC/LCB ม.ค.-เม.ย. = LOCKED; LCB พ.ค./มิ.ย. = open ถูกต้อง). lcb_copy ที่ engine ไม่รู้จัก ไม่เป็นปัญหา (COPY-LOCK กัน recompute 2 ชั้น).
 
+**✅ เพิ่ม regression test** — `tests/test_copy_lock_guard.py` (2 tests ผ่าน, ใช้ temp DB ไม่แตะ app.db จริง): กันคนแก้ route แล้วทำ COPY-LOCK guard พังในอนาคต (= ยอดลอกถูกทับโดยไม่รู้ตัว). รวม 5 passed กับ test_payroll_print_all.
+
 **✅ ทุกไซท์ครบทุกเดือนแล้ว (17 payruns):**
 - LCB: ม.ค.–มิ.ย. (6) · BIGC: ธ.ค.–พ.ค. (6) · AYU: ม.ค.–พ.ค. (5)
 - AYU ย้อนหลังทำได้ (ที่ผมเบรกไว้รอบ 2 จริงๆ ไม่ติดหนัก) — pypdf อ่านแบงค์ได้, จัดการชื่อพม่า/encoding (ำ↔า, ศักดิ์สิทธิ์ dedupe) เรียบร้อย, ไม่มี emp ซ้ำ
