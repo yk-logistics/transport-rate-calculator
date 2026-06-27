@@ -52,7 +52,11 @@
   </div>
   <div>
     <label class="block text-xs text-slate-500 mb-1">จำนวนแถว</label>
-    <input type="number" min="1" max="800" name="limit" value="{{ limit }}" class="w-full border rounded px-2 py-1.5 text-sm" />
+    <input type="number" min="1" max="800" name="limit" id="limitInput" value="{{ limit if not unlimited else 400 }}" {% if unlimited %}disabled{% endif %} class="w-full border rounded px-2 py-1.5 text-sm disabled:bg-slate-100 disabled:text-slate-400" />
+    <label class="mt-1 flex items-center gap-1 text-xs text-slate-600 cursor-pointer">
+      <input type="checkbox" id="unlimitedChk" {% if unlimited %}checked{% endif %} />
+      โหลดทั้งหมด (ไม่จำกัด)
+    </label>
   </div>
   <div class="md:col-span-6 flex gap-2 items-center flex-wrap">
     <button class="bg-slate-200 px-4 py-1.5 rounded text-sm">โหลดข้อมูล</button>
@@ -238,6 +242,16 @@
   const params = new URLSearchParams(window.location.search);
   const apiUrl = `/api/daily/grid-data?${params.toString()}`;
   const filterForm = document.getElementById("gridFilterForm");
+  // "โหลดทั้งหมด" → ส่ง limit=0 (ฝั่งเซิร์ฟเวอร์ตีความเป็นไม่จำกัด) เพื่อกรอง status/ลูกค้าได้ครบ
+  const unlimitedChk = document.getElementById("unlimitedChk");
+  const limitInput = document.getElementById("limitInput");
+  if (unlimitedChk && limitInput) {
+    const syncUnlimited = () => { limitInput.disabled = unlimitedChk.checked; };
+    unlimitedChk.addEventListener("change", syncUnlimited);
+    filterForm.addEventListener("submit", () => {
+      if (unlimitedChk.checked) { limitInput.disabled = false; limitInput.value = "0"; }
+    });
+  }
   const saveBtn = document.getElementById("saveGridBtn");
   const saveMsg = document.getElementById("saveMsg");
   const saveDetails = document.getElementById("saveDetails");

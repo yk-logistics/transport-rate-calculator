@@ -1180,16 +1180,19 @@ def daily_list(
     """หน้า Daily แบบเดียว (รวม List + Grid เดิม) — แก้แบบ Excel, โหลดข้อมูลผ่าน AJAX."""
     from sqlalchemy import func as sa_func
 
-    limit = max(1, min(800, limit))
+    unlimited = limit <= 0          # limit=0 → โหลดครบทุกแถวตามตัวกรอง (ไม่ติด cap)
+    if not unlimited:
+        limit = max(1, min(800, limit))
     today = date.today()
     preset_cycles = _daily_site_preset_cycles(today)
     with Session(engine) as s:
-        rows = s.exec(
-            _daily_grid_filters(
-                select(DailyJob).order_by(DailyJob.work_date.desc(), DailyJob.id.desc()),
-                site, d_from, d_to, q, status, missing,
-            ).limit(limit)
-        ).all()
+        stmt = _daily_grid_filters(
+            select(DailyJob).order_by(DailyJob.work_date.desc(), DailyJob.id.desc()),
+            site, d_from, d_to, q, status, missing,
+        )
+        if not unlimited:
+            stmt = stmt.limit(limit)
+        rows = s.exec(stmt).all()
         total_rows = s.exec(
             _daily_grid_filters(select(sa_func.count(DailyJob.id)), site, d_from, d_to, q, status, missing)
         ).one()
@@ -1202,7 +1205,8 @@ def daily_list(
             "q": q,
             "status": status,
             "missing": missing,
-            "limit": limit,
+            "limit": (0 if unlimited else limit),
+            "unlimited": unlimited,
             "today_iso": today.isoformat(),
             "total_rows": total_rows,
             "shown_rows": len(rows),
@@ -1476,14 +1480,17 @@ def daily_grid_data(
     limit: int = 400,
 ):
     from services.payroll import driver_calc_price
-    limit = max(1, min(800, limit))
+    # limit=0 → ไม่จำกัด (โหลดครบทุกแถวตามตัวกรอง) เพื่อให้ header-filter ในตารางกรองได้ครบ
+    unlimited = limit <= 0
+    stmt = _daily_grid_filters(
+        select(DailyJob).order_by(DailyJob.work_date.desc(), DailyJob.id.desc()),
+        site, d_from, d_to, q, status, missing,
+    )
+    if not unlimited:
+        limit = max(1, min(800, limit))
+        stmt = stmt.limit(limit)
     with Session(engine) as s:
-        rows = s.exec(
-            _daily_grid_filters(
-                select(DailyJob).order_by(DailyJob.work_date.desc(), DailyJob.id.desc()),
-                site, d_from, d_to, q, status, missing,
-            ).limit(limit)
-        ).all()
+        rows = s.exec(stmt).all()
         # Build pay_mode + linked-name maps for driver highlight / linked columns
         driver_ids = {r.driver_id for r in rows if r.driver_id}
         veh_ids = {r.head_vehicle_id for r in rows if r.head_vehicle_id} | {
