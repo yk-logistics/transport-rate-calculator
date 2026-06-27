@@ -1,0 +1,32 @@
+driver_name,net_paid,account_no,marker,notes
+รัตนาวดี พันธ์พานิช,40000,BBL 083-023-5628,office,row1
+พงษกาญจน์ กุลจิตติบารมี,20000,374-221-9531,office,row2
+จุฑามาศ กุลจิตติบารมี,20000,357-275-4840,office,row3
+สมภพ เพ็ชรอำไพ,18950,291-223-4331,office,row4
+Nan khan hon san,16750,กสิกร 523-232-0224,office,row5
+หัสยา สุวรรณ์เวียง (ตาล),19550,กสิกร 150-147-7261,office,row6
+พิชญา บุญชู (ข้าวฟ่าง),14450,กสิกร 204-399-3545,office,row7
+บรรเจิด คุ้มพงษ์ (เอ๊ะ),8550,ออมสิน 020-380-727-899,office,row8
+พบ,5538,SCB 399-443-9212,office,row9 — partial month 26.5 days
+วิชัย ชื่นชม (ช่างน้อย),6500,ออมสิน 020-311-732-125,office,row10
+ศราวุธ,2550,กสิกร 0099-377-6623,office,row11
+สมบูรณ์ ไพราม (ป้าสม),10500,389-230-7616,office,row12
+ซองอู,8500,,cash,row13
+พร,9000,,cash,row14
+จอมิน,8500,,cash,row15
+เก้า,7000,,cash,row16
+ลา,4667,,cash,row17 — partial month 20 days
+ติ๋ว,3900,SCB 345-423-7964,driver,row18 flat500/trip
+ทองสุข,14950,417-057-1359,driver,row19 flat700/trip
+เรืองฤทธิ์,2670,กรุงไทย 218-064-1427,driver,row20 flat500/trip
+วทัญญู,3065,,ออก,row21 — ลาออก; no account listed; paid cash/separately
+ธเนศน์,2680,,ออก,row22 — ลาออก; เงินประกันตน only
+วัชระ,2800,,ออก,row23 — ลาออก; เงินประกันตน only
+สมัย,5025,ธกส 020-229-497-911,driver,row24 flat500/trip
+นิวัติ,386,TTB 639-214-6418,driver,row25 60%rev
+เรวัตร,8424,SCB 345-437-1962,driver,row26 60%rev
+รุ่งเรือง,4779,ทหารไทย 922-907-2732,driver,row27 60%rev
+วัชร์นล,5569,SCB 407-488-1123,driver,row28 60%rev
+ชัชวาล,4224,TTB 129-229-8823,driver,row29 mixed(60%rev+flat); rev1 used
+ธัชชนพล,0,,driver,row30 — NET NEGATIVE (-26612) per summary; no payment issued; debt carried forward
+เสรี,0,,driver,row31 — NET NEGATIVE (-7694) per summary; no payment issued; debt carried forward
