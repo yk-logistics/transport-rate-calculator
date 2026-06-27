@@ -1,0 +1,14 @@
+month | file | printed_total | sum_of_rows | match?
+----------------------------------------------------------------------------------------------------
+2026-01 | BANK.pdf | printed=263511 | sum_rows=256881 | DIFF=-6630 | n_drivers=23
+2026-02 | BANK.pdf | printed=273811 | sum_rows=273811 | YES | n_drivers=22
+2026-03 | BANK.pdf | printed=257901 | sum_rows=257902 | YES | n_drivers=19
+2026-04 | BANK.pdf | printed=244137 | sum_rows=236741 | DIFF=-7396 | n_drivers=19
+2026-05 | แบ็งค์.pdf | printed=375639 | sum_rows=375638 | YES | n_drivers=21
+2026-05 | LCB ตกหล่นค่าเที่ยวิชาญ.pdf | printed=378939 | sum_rows=378938 | YES | n_drivers=21
+2026-06 | NO_FILE | NO_BANK_PDF_FOUND | N/A | N/A
+
+NOTES:
+Jan: diff=-6630 explained: สุภาภรณ์ returned payment (-4882 flipped to +4882 in printed total) + ผกาพรรณ (1747, cash, not in BANK.pdf). Residual diff=1 (rounding).
+Apr: diff=-7396 unexplained. BANK.pdf shows 19 drivers. LCB.pdf has seq20 พงษ์พันธ์=6538 and seq21 สมเกียรติ=3535 missing from BANK. พัฒิยะ seq16=-858 (deduction). Discrepancy = likely cash payments not wired to bank accounts.
+Jun: No BANK.pdf found in 6.Jun/LCB/. Only billing/daily sheets present.

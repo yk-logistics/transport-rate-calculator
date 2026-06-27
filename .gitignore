@@ -75,9 +75,14 @@ transport-rate-calculator-repo/
 
 # Backups
 *.bak
+*.bak_*
 *.backup
 *.backup_*
 *.db.backup*
+*.db.bak_*
+app.db
+app.db-wal
+app.db-shm
 backup_*/
 
 # BitLocker / recovery keys (NEVER commit — full-disk unlock secret)
