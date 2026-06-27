@@ -163,6 +163,16 @@ def _parse_date(value: str) -> Optional[date]:
         return None
 
 
+def _month_range_str(month: str) -> tuple[Optional[date], Optional[date]]:
+    """'YYYY-MM' → (วันแรก, วันสุดท้าย) ของเดือนนั้น; ค่าว่าง/ผิดรูป → (None, None).
+    ใช้ _month_bounds(year, month) ที่มีอยู่แล้วในไฟล์นี้."""
+    try:
+        y, m = (int(x) for x in month.split("-"))
+        return _month_bounds(y, m)
+    except (ValueError, AttributeError):
+        return None, None
+
+
 def _parse_float(value: str) -> float:
     if value is None or value == "":
         return 0.0
@@ -1181,18 +1191,31 @@ def daily_list(
     site: str = "",
     d_from: str = "",
     d_to: str = "",
+    month: str = "",
     q: str = "",
     status: str = "",
     missing: str = "",
-    limit: int = 400,
+    limit: int = 0,
 ):
     """หน้า Daily แบบเดียว (รวม List + Grid เดิม) — แก้แบบ Excel, โหลดข้อมูลผ่าน AJAX."""
     from sqlalchemy import func as sa_func
 
+    today = date.today()
+    # ตัวเลือก "เดือน": ถ้าเลือกเดือน → คุมช่วงเป็นทั้งเดือนนั้น (ทับ d_from/d_to)
+    # เปิดหน้าครั้งแรก (ไม่มีตัวกรองใดเลย) → default = เดือนปัจจุบัน เพื่อจำกัดปริมาณข้อมูล
+    fresh_open = not any([site, d_from, d_to, month, q, status, missing])
+    if fresh_open:
+        month = today.strftime("%Y-%m")
+    if month and month != "all":
+        mf, mt = _month_range_str(month)
+        if mf:
+            d_from, d_to = mf.isoformat(), mt.isoformat()
+    elif month == "all":
+        d_from = d_to = ""
+
     unlimited = limit <= 0          # limit=0 → โหลดครบทุกแถวตามตัวกรอง (ไม่ติด cap)
     if not unlimited:
         limit = max(1, min(800, limit))
-    today = date.today()
     preset_cycles = _daily_site_preset_cycles(today)
     with Session(engine) as s:
         stmt = _daily_grid_filters(
@@ -1205,12 +1228,21 @@ def daily_list(
         total_rows = s.exec(
             _daily_grid_filters(select(sa_func.count(DailyJob.id)), site, d_from, d_to, q, status, missing)
         ).one()
+        # เดือนที่มีข้อมูล (ใหม่→เก่า) สำหรับ dropdown เลือกเดือน
+        avail_months = [
+            r[0] for r in s.exec(
+                select(sa_func.substr(DailyJob.work_date, 1, 7)).distinct()
+                .order_by(sa_func.substr(DailyJob.work_date, 1, 7).desc())
+            ).all() if r[0]
+        ]
     ctx = base_context(request)
     ctx.update(
         {
             "site": site,
             "d_from": d_from,
             "d_to": d_to,
+            "month": month,
+            "avail_months": avail_months,
             "q": q,
             "status": status,
             "missing": missing,

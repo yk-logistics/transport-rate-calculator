@@ -11,6 +11,15 @@
 
 <form id="gridFilterForm" method="get" class="bg-white rounded-lg border p-4 mb-4 grid md:grid-cols-6 gap-3 items-end">
   <div>
+    <label class="block text-xs text-slate-500 mb-1">เดือน</label>
+    <select name="month" id="monthSelect" class="w-full border rounded px-2 py-1.5 text-sm">
+      <option value="all" {% if month=='all' %}selected{% endif %}>ทุกเดือน</option>
+      {% for m in avail_months %}
+      <option value="{{ m }}" {% if month==m %}selected{% endif %}>{{ m }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
     <label class="block text-xs text-slate-500 mb-1">ไซต์</label>
     <select name="site" class="w-full border rounded px-2 py-1.5 text-sm">
       <option value="">ทั้งหมด</option>
@@ -20,7 +29,7 @@
     </select>
   </div>
   <div>
-    <label class="block text-xs text-slate-500 mb-1">ตั้งแต่</label>
+    <label class="block text-xs text-slate-500 mb-1">ตั้งแต่ <span class="text-slate-300">(หรือเลือกช่วงเอง)</span></label>
     <input type="date" name="d_from" value="{{ d_from }}" class="w-full border rounded px-2 py-1.5 text-sm" />
   </div>
   <div>
@@ -239,9 +248,33 @@
 </style>
 <script>
 (function(){
-  const params = new URLSearchParams(window.location.search);
+  // สร้าง URL ดึงข้อมูลจาก "ค่าที่เซิร์ฟเวอร์ resolve แล้ว" (เดือน default → ช่วงวันที่จริง)
+  // ไม่ใช่ raw query string — เปิดหน้าครั้งแรกจึงดึงเฉพาะเดือนปัจจุบันให้ตรงกับที่หน้าแสดง
+  const params = new URLSearchParams();
+  {% if site %}params.set("site", {{ site|tojson }});{% endif %}
+  {% if d_from %}params.set("d_from", {{ d_from|tojson }});{% endif %}
+  {% if d_to %}params.set("d_to", {{ d_to|tojson }});{% endif %}
+  {% if q %}params.set("q", {{ q|tojson }});{% endif %}
+  {% if status %}params.set("status", {{ status|tojson }});{% endif %}
+  {% if missing %}params.set("missing", {{ missing|tojson }});{% endif %}
+  params.set("limit", {{ limit|tojson }});
   const apiUrl = `/api/daily/grid-data?${params.toString()}`;
   const filterForm = document.getElementById("gridFilterForm");
+  // เลือกเดือน → ล้างช่วงวันที่ (เดือนคุมแทน) แล้วโหลดใหม่ทันที
+  const monthSelect = document.getElementById("monthSelect");
+  const dFromInput = filterForm.querySelector('input[name="d_from"]');
+  const dToInput = filterForm.querySelector('input[name="d_to"]');
+  if (monthSelect) {
+    monthSelect.addEventListener("change", () => {
+      if (dFromInput) dFromInput.value = "";
+      if (dToInput) dToInput.value = "";
+      filterForm.submit();
+    });
+    // พิมพ์ช่วงวันที่เอง → ปลดเดือนเป็น "ทุกเดือน" เพื่อให้ช่วงที่กรอกมีผล
+    const clearMonth = () => { if (monthSelect.value !== "all") monthSelect.value = "all"; };
+    if (dFromInput) dFromInput.addEventListener("change", clearMonth);
+    if (dToInput) dToInput.addEventListener("change", clearMonth);
+  }
   // "โหลดทั้งหมด" → ส่ง limit=0 (ฝั่งเซิร์ฟเวอร์ตีความเป็นไม่จำกัด) เพื่อกรอง status/ลูกค้าได้ครบ
   const unlimitedChk = document.getElementById("unlimitedChk");
   const limitInput = document.getElementById("limitInput");
