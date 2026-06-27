@@ -286,14 +286,15 @@
         <th class="px-2 py-2 text-right">เรทน้ำมัน</th>
         <th class="px-2 py-2 text-right">60%</th>
         <th class="px-2 py-2 text-right">การันตี</th>
-        <th class="px-2 py-2 text-right bg-emerald-50">รวมรายได้</th>
+        <th class="px-2 py-2 text-right">รวมรายได้</th>
+        <th class="px-2 py-2 text-right">น้ำมัน</th>
+        <th class="px-2 py-2 text-right bg-emerald-50">รายได้หลังหักน้ำมัน</th>
         <th class="px-2 py-2 text-right">ปกส.</th>
         <th class="px-2 py-2 text-right">ภาษี</th>
         <th class="px-2 py-2 text-right">ประกันตน</th>
         <th class="px-2 py-2 text-right">อุบัติเหตุ</th>
         <th class="px-2 py-2 text-right">หักสดย่อย</th>
-        <th class="px-2 py-2 text-right">น้ำมัน</th>
-        <th class="px-2 py-2 text-right bg-rose-50">รวมหัก</th>
+        <th class="px-2 py-2 text-right bg-rose-50">รวมหัก (ไม่รวมน้ำมัน)</th>
         <th class="px-2 py-2 text-right bg-slate-100">สุทธิ</th>
         <th class="px-2 py-2">หมายเหตุ</th>
       </tr>
@@ -320,19 +321,20 @@
         <td class="px-2 py-1 text-right font-mono">{{ '{:,.0f}'.format(it.fuel_rate_income) if it.fuel_rate_income else '—' }}</td>
         <td class="px-2 py-1 text-right font-mono">{{ '{:,.0f}'.format(it.fuel_share_income) if it.fuel_share_income else '—' }}</td>
         <td class="px-2 py-1 text-right font-mono">{{ '{:,.0f}'.format(it.guarantee_topup) if it.guarantee_topup else '—' }}</td>
-        <td class="px-2 py-1 text-right font-mono font-semibold bg-emerald-50">{{ '{:,.0f}'.format(it.gross_total) }}</td>
+        <td class="px-2 py-1 text-right font-mono">{{ '{:,.0f}'.format(it.gross_total) }}</td>
+        <td class="px-2 py-1 text-right font-mono text-rose-700">{{ '{:,.0f}'.format(it.fuel_cost_self) if it.fuel_cost_self else '—' }}</td>
+        <td class="px-2 py-1 text-right font-mono font-semibold bg-emerald-50">{{ '{:,.0f}'.format(it.gross_total - it.fuel_cost_self) }}</td>
         <td class="px-2 py-1 text-right font-mono text-rose-700">{{ '{:,.0f}'.format(it.social_security) if it.social_security else '—' }}</td>
         <td class="px-2 py-1 text-right font-mono text-rose-700">{{ '{:,.0f}'.format(it.income_tax_withholding) if it.income_tax_withholding else '—' }}</td>
         <td class="px-2 py-1 text-right font-mono text-rose-700">{{ '{:,.0f}'.format(it.deposit_install) if it.deposit_install else '—' }}</td>
         <td class="px-2 py-1 text-right font-mono text-rose-700">{{ '{:,.0f}'.format(it.accident_install) if it.accident_install else '—' }}</td>
         <td class="px-2 py-1 text-right font-mono text-rose-700">{{ '{:,.0f}'.format(it.petty_cash_deduction) if it.petty_cash_deduction else '—' }}</td>
-        <td class="px-2 py-1 text-right font-mono text-rose-700">{{ '{:,.0f}'.format(it.fuel_cost_self) if it.fuel_cost_self else '—' }}</td>
-        <td class="px-2 py-1 text-right font-mono font-semibold bg-rose-50">{{ '{:,.0f}'.format(it.deduction_total) }}</td>
+        <td class="px-2 py-1 text-right font-mono font-semibold bg-rose-50">{{ '{:,.0f}'.format(it.deduction_total - it.fuel_cost_self) }}</td>
         <td class="px-2 py-1 text-right font-mono font-bold bg-slate-100 {% if it.net_pay < 0 %}text-rose-700{% endif %}">{{ '{:,.0f}'.format(it.net_pay) }}</td>
         <td class="px-2 py-1 text-[10px] text-slate-500 max-w-xs truncate" title="{{ it.note }}">{{ it.note }}</td>
       </tr>
     {% else %}
-      <tr><td colspan="22" class="px-3 py-8 text-center text-slate-400">ไม่มีข้อมูล — ยังไม่มีพนักงานในไซต์นี้</td></tr>
+      <tr><td colspan="23" class="px-3 py-8 text-center text-slate-400">ไม่มีข้อมูล — ยังไม่มีพนักงานในไซต์นี้</td></tr>
     {% endfor %}
     </tbody>
   </table>
