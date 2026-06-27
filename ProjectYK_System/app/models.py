@@ -310,6 +310,11 @@ class FuelTxn(SQLModel, table=True):
     source: str = "manual"
     note: str = ""
 
+    # When True, this fill is NOT deducted from the driver's pay (e.g. fuel
+    # added before the driver started running, or the first full tank when
+    # starting เหมา — บริษัทออกให้). Default False = deduct as before.
+    exclude_from_driver: bool = Field(default=False)
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

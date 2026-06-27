@@ -431,13 +431,20 @@
 
 <!-- FUEL -->
 <div class="mb-6">
-  <h2 class="text-lg font-semibold mb-2">
+  <h2 id="fuel" class="text-lg font-semibold mb-2">
     3. น้ำมัน — FuelTxn
     <span class="text-xs text-slate-500 font-normal ml-2">
       {{ fuel_totals.rows }} แถว · {{ '{:,.1f}'.format(fuel_totals.liter) }} ลิตร
       · {{ '{:,.0f}'.format(fuel_totals.amount) }} ฿
+      {% if fuel_totals.excluded_amount %}
+      · <span class="text-amber-600">ไม่หัก {{ '{:,.0f}'.format(fuel_totals.excluded_amount) }} ฿ ({{ fuel_totals.excluded_rows }} บิล)</span>
+      · <span class="font-semibold">หักจริง {{ '{:,.0f}'.format(fuel_totals.deducted_amount) }} ฿</span>
+      {% endif %}
     </span>
   </h2>
+  <p class="text-xs text-slate-500 mb-2">
+    ติ๊ก “ไม่หัก” สำหรับน้ำมันที่เติมก่อนเริ่มวิ่งงาน / ถังเต็มแรกตอนเริ่มเหมา (บริษัทออกให้) — ระบบจะคำนวณใหม่ทันที
+  </p>
   <div class="bg-white rounded-lg border overflow-x-auto">
     <table class="w-full text-xs">
       <thead class="bg-slate-100 text-left">
@@ -450,17 +457,18 @@
           <th class="px-2 py-1.5">ปั๊ม</th>
           <th class="px-2 py-1.5">ที่มา</th>
           <th class="px-2 py-1.5">เชื่อม Daily</th>
+          <th class="px-2 py-1.5 text-center">หักคนขับ?</th>
         </tr>
       </thead>
       <tbody>
         {% for f in fuel_rows %}
-        <tr class="border-t {% if stale and f.id in stale.fuel_ids %}ring-2 ring-inset ring-amber-400{% endif %}"
+        <tr class="border-t {% if f.exclude_from_driver %}bg-amber-50 text-slate-400{% endif %} {% if stale and f.id in stale.fuel_ids %}ring-2 ring-inset ring-amber-400{% endif %}"
             {% if stale and f.id in stale.fuel_ids %}title="แก้ไขหลังคำนวณล่าสุด"{% endif %}>
-          <td class="px-2 py-1 font-mono">{{ f.txn_date | dmy }}</td>
+          <td class="px-2 py-1 font-mono {% if f.exclude_from_driver %}line-through{% endif %}">{{ f.txn_date | dmy }}</td>
           <td class="px-2 py-1 font-mono">{{ f.plate_no_raw }}</td>
           <td class="px-2 py-1 text-right font-mono">{{ '{:,.1f}'.format(f.liter) }}</td>
           <td class="px-2 py-1 text-right font-mono">{{ '{:,.2f}'.format(f.price_per_liter) if f.price_per_liter else '—' }}</td>
-          <td class="px-2 py-1 text-right font-mono">{{ '{:,.2f}'.format(f.amount) }}</td>
+          <td class="px-2 py-1 text-right font-mono {% if f.exclude_from_driver %}line-through{% endif %}">{{ '{:,.2f}'.format(f.amount) }}</td>
           <td class="px-2 py-1 text-[11px]">{{ f.station or '—' }}</td>
           <td class="px-2 py-1">
             <span class="text-[10px] px-1 py-0.5 rounded
@@ -472,9 +480,22 @@
             {% if f.daily_job_id %}<a href="/daily/{{ f.daily_job_id }}/edit" class="text-sky-600 hover:underline">Job #{{ f.daily_job_id }}</a>
             {% else %}<span class="text-amber-600 text-[10px]">ยังไม่เชื่อม</span>{% endif %}
           </td>
+          <td class="px-2 py-1 text-center no-print">
+            {% if run.status == 'finalized' %}
+              {% if f.exclude_from_driver %}<span class="text-[10px] text-amber-600">ไม่หัก</span>{% else %}<span class="text-[10px] text-slate-400">หัก</span>{% endif %}
+            {% else %}
+            <form method="post" action="/payroll/{{ run.id }}/employee/{{ employee.id }}/fuel/{{ f.id }}/toggle-exclude" class="inline">
+              {% if f.exclude_from_driver %}
+              <button type="submit" class="text-[11px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-300 hover:bg-amber-200" title="กดเพื่อกลับมาหักน้ำมันบิลนี้">✓ ไม่หัก</button>
+              {% else %}
+              <button type="submit" class="text-[11px] px-2 py-0.5 rounded bg-slate-50 text-slate-600 border hover:bg-slate-100" title="กดเพื่อยกเว้น ไม่หักน้ำมันบิลนี้">หัก</button>
+              {% endif %}
+            </form>
+            {% endif %}
+          </td>
         </tr>
         {% else %}
-        <tr><td colspan="8" class="px-3 py-6 text-center text-slate-400">ไม่มีการเติมน้ำมันในรอบนี้</td></tr>
+        <tr><td colspan="9" class="px-3 py-6 text-center text-slate-400">ไม่มีการเติมน้ำมันในรอบนี้</td></tr>
         {% endfor %}
       </tbody>
     </table>
