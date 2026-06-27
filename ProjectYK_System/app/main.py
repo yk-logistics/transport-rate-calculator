@@ -7278,7 +7278,7 @@ def _cycle_period_for_tag(site: str, tag: str) -> Optional[tuple[date, date, str
 @app.get("/finance", response_class=HTMLResponse)
 def finance_dashboard(
     request: Request, month: str = "", site: str = "",
-    include_other: str = "", mode: str = "calendar",
+    include_other: str = "", mode: str = "calendar", view: str = "single",
 ):
     from sqlalchemy import func as sa_func
     today = date.today()
@@ -7304,6 +7304,42 @@ def finance_dashboard(
         month = f"{y:04d}-{m:02d}"
 
     include_other_flag = include_other in ("1", "true", "on")
+
+    # --- มุมมองเทียบทุกไซท์ (compare) ---------------------------------------
+    # anchor = เดือน (month). โหมด cycle: แต่ละไซท์ map รอบจ่ายของตัวที่จบในเดือนนั้น;
+    # ถ้า map ไม่ได้ → ถอยเป็นเดือนปฏิทินสำหรับไซท์นั้น. โหมด calendar: ทุกไซท์ใช้เดือนเดียวกัน.
+    if view == "compare":
+        compare_cycle = (mode == "cycle")
+        if not month:
+            month = f"{today.year:04d}-{today.month:02d}"
+        try:
+            cy, cm = finance_svc.parse_month(month)
+        except Exception:
+            cy, cm = today.year, today.month
+            month = f"{cy:04d}-{cm:02d}"
+
+        SUM_FIELDS = ["trip_count", "revenue_transport", "revenue_fees", "revenue_total",
+                      "wht", "cost_fuel", "cost_fuel_liters", "cost_petty_net",
+                      "cost_payroll", "cost_maint", "cost_interest", "cost_total"]
+        rows = []
+        with Session(engine) as s:
+            for sc in ["AYU", "BIGC", "LCB"]:
+                per = _cycle_period_for_tag(sc, month) if compare_cycle else None
+                rows.append(finance_svc.monthly_pnl(
+                    s, cy, cm, sc, include_other_petty=include_other_flag, period=per))
+        totals = {f: sum((r.get(f) or 0.0) for r in rows) for f in SUM_FIELDS}
+        totals["net_profit"] = totals["revenue_total"] - totals["cost_total"]
+        totals["net_margin_pct"] = (
+            totals["net_profit"] / totals["revenue_total"] * 100 if totals["revenue_total"] else 0)
+
+        ctx = base_context(request)
+        ctx.update({
+            "view": "compare", "month": month, "mode": mode,
+            "compare_cycle": compare_cycle,
+            "include_other": include_other_flag,
+            "rows": rows, "totals": totals,
+        })
+        return templates.TemplateResponse("finance_dashboard.html", ctx)
 
     def _period_for(tag: str) -> Optional[tuple[date, date, str]]:
         return _cycle_period_for_tag(site, tag) if cycle_mode else None
@@ -7334,6 +7370,7 @@ def finance_dashboard(
 
     ctx = base_context(request)
     ctx.update({
+        "view": "single",
         "month": month, "site": site,
         "include_other": include_other_flag,
         "mode": "cycle" if cycle_mode else "calendar",
