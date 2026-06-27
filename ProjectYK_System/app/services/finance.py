@@ -170,7 +170,8 @@ def loan_summary(session: Session) -> dict:
 # --------------------------------------------------------------------------
 
 def monthly_pnl(session: Session, year: int, month: int, site: str = "",
-                include_other_petty: bool = False) -> dict:
+                include_other_petty: bool = False,
+                period: Optional[tuple[date, date, str]] = None) -> dict:
     """Compute P&L for one month. Simple cash-basis view.
 
     Revenue = sum DailyJob.revenue_customer + sum DailyJobFee.amount
@@ -180,8 +181,15 @@ def monthly_pnl(session: Session, year: int, month: int, site: str = "",
       - Payroll (from PayRun that matches the period)
       - Maintenance (sum MaintRecord.total_cost in period)
       - WHT (sum wht_53 as receivables withheld, not a P&L expense — tracked separately)
+
+    `period` override = (start, end, cycle_tag) → คิด P&L ตามช่วงรอบจ่าย (ไม่ใช่เดือนปฏิทิน).
+    ถ้าไม่ส่งมา = เดือนปฏิทิน year-month ตามเดิม (ค่าทุกอย่างเหมือนเดิมเป๊ะ).
     """
-    start, end = month_bounds(year, month)
+    if period is not None:
+        start, end, cycle_tag = period
+    else:
+        start, end = month_bounds(year, month)
+        cycle_tag = f"{year:04d}-{month:02d}"
 
     # --- Revenue ---
     stmt = select(DailyJob).where(DailyJob.work_date >= start, DailyJob.work_date <= end)
@@ -252,8 +260,8 @@ def monthly_pnl(session: Session, year: int, month: int, site: str = "",
     )
     cost_petty_net = cost_petty_gross - petty_recovered
 
-    # Payroll — use PayRunItem gross_to_pay where pay_cycle_tag matches month
-    cycle_tag = f"{year:04d}-{month:02d}"
+    # Payroll — use PayRunItem gross_to_pay where pay_cycle_tag matches period
+    # (cycle_tag กำหนดด้านบนแล้ว: เดือนปฏิทิน หรือ tag ของรอบจ่ายที่ override มา)
     pri_stmt = select(PayRunItem).join(PayRun, PayRunItem.pay_run_id == PayRun.id).where(
         PayRun.pay_cycle_tag == cycle_tag
     )

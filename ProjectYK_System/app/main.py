@@ -7261,12 +7261,34 @@ def billing_export_csv(
 from services import finance as finance_svc  # noqa: E402
 
 
+def _cycle_period_for_tag(site: str, tag: str) -> Optional[tuple[date, date, str]]:
+    """หา (start, end, tag) ของรอบจ่าย site ที่ tag ตรง (มองย้อน 24 รอบให้พอครอบ)."""
+    for c in _site_payroll_cycles(site, date.today(), n=24):
+        if c["tag"] == tag:
+            return date.fromisoformat(c["start"]), date.fromisoformat(c["end"]), c["tag"]
+    return None
+
+
 @app.get("/finance", response_class=HTMLResponse)
 def finance_dashboard(
     request: Request, month: str = "", site: str = "",
-    include_other: str = "",
+    include_other: str = "", mode: str = "calendar",
 ):
+    from sqlalchemy import func as sa_func
     today = date.today()
+    # โหมดรอบจ่ายต้องมีไซต์ (รอบเป็นของแต่ละไซต์) — ไม่มีไซต์ → ถอยเป็นเดือนปฏิทิน
+    cycle_mode = (mode == "cycle") and bool(site)
+
+    # รายการรอบจ่ายของไซต์ (สำหรับ dropdown ในโหมดรอบจ่าย) + default = รอบล่าสุดที่มีข้อมูล
+    site_cycles = _site_payroll_cycles(site, today, n=12) if site else []
+    if cycle_mode:
+        with Session(engine) as s:
+            max_wd = s.exec(select(sa_func.max(DailyJob.work_date))).one()
+        anchor = (max_wd or today).isoformat()
+        if not any(c["tag"] == month for c in site_cycles):  # ยังไม่เลือกรอบ → default
+            chosen = next((c for c in site_cycles if c["start"] <= anchor <= c["end"]), None)
+            month = (chosen or (site_cycles[0] if site_cycles else None) or {"tag": ""}).get("tag", "")
+
     if not month:
         month = f"{today.year:04d}-{today.month:02d}"
     try:
@@ -7277,19 +7299,27 @@ def finance_dashboard(
 
     include_other_flag = include_other in ("1", "true", "on")
 
+    def _period_for(tag: str) -> Optional[tuple[date, date, str]]:
+        return _cycle_period_for_tag(site, tag) if cycle_mode else None
+
     with Session(engine) as s:
-        pnl = finance_svc.monthly_pnl(s, y, m, site, include_other_petty=include_other_flag)
+        pnl = finance_svc.monthly_pnl(s, y, m, site, include_other_petty=include_other_flag,
+                                      period=_period_for(month))
         loans_info = finance_svc.loan_summary(s)
         health = finance_svc.break_even_and_runway(s)
         veh_costs = finance_svc.cost_per_vehicle(s, y, m, site)[:15]
 
         prev_y, prev_m = (y, m - 1) if m > 1 else (y - 1, 12)
-        prev_pnl = finance_svc.monthly_pnl(s, prev_y, prev_m, site, include_other_petty=include_other_flag)
+        prev_tag = f"{prev_y:04d}-{prev_m:02d}"
+        prev_pnl = finance_svc.monthly_pnl(s, prev_y, prev_m, site, include_other_petty=include_other_flag,
+                                           period=_period_for(prev_tag))
 
         trend = []
         cur_y, cur_m = y, m
         for _ in range(6):
-            trend.append(finance_svc.monthly_pnl(s, cur_y, cur_m, site, include_other_petty=include_other_flag))
+            cur_tag = f"{cur_y:04d}-{cur_m:02d}"
+            trend.append(finance_svc.monthly_pnl(s, cur_y, cur_m, site, include_other_petty=include_other_flag,
+                                                 period=_period_for(cur_tag)))
             cur_m -= 1
             if cur_m == 0:
                 cur_m = 12
@@ -7300,6 +7330,9 @@ def finance_dashboard(
     ctx.update({
         "month": month, "site": site,
         "include_other": include_other_flag,
+        "mode": "cycle" if cycle_mode else "calendar",
+        "cycle_mode": cycle_mode,
+        "site_cycles": site_cycles,
         "pnl": pnl, "prev_pnl": prev_pnl, "trend": trend,
         "loans_info": loans_info, "health": health,
         "vehicle_costs": veh_costs,
