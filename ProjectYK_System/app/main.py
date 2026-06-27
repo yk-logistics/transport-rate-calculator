@@ -1593,6 +1593,8 @@ async def daily_grid_save(request: Request):
         "remark",
         "revenue_customer",
         "trip_fee_driver",
+        "kb_amount",
+        "price_override",
         "fuel_liter",
         "fuel_amount",
         "fuel_station",
@@ -1629,9 +1631,15 @@ async def daily_grid_save(request: Request):
                 if key not in editable:
                     continue
                 old_value = getattr(row, key, None)
+                if key == "price_override":
+                    # nullable: blank → None (ใช้ revenue_customer เป็นฐาน), ไม่ใช่ 0.0
+                    text = (str(val) if val is not None else "").strip()
+                    setattr(row, key, None if text == "" else _parse_float(text))
+                    continue
                 if key in (
                     "revenue_customer",
                     "trip_fee_driver",
+                    "kb_amount",
                     "fuel_liter",
                     "fuel_amount",
                     "fuel_rate_km_per_l",
