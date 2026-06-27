@@ -30,6 +30,14 @@
       <input name="id_card" value="{{ row.id_card if row else '' }}" class="w-full border rounded px-3 py-2" />
     </div>
     <div>
+      <label class="block text-sm mb-1">ธนาคาร (โอนเงินเดือน)</label>
+      <input name="bank_name" value="{{ row.bank_name if row else '' }}" placeholder="เช่น ไทยพาณิชย์ / กสิกร" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">เลขบัญชี</label>
+      <input name="account_no" value="{{ row.account_no if row else '' }}" placeholder="เช่น 688-444-0533" class="w-full border rounded px-3 py-2" />
+    </div>
+    <div>
       <label class="block text-sm mb-1">ไซต์หลัก *</label>
       <select name="home_site_code" required class="w-full border rounded px-3 py-2">
         {% for sc in site_codes %}

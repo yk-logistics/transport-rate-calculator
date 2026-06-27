@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>พิมพ์เงินเดือน {{ run.site_code }} {{ run.pay_cycle_tag }}</title>
+<style>
+  body { font-family: "TH Sarabun New", Tahoma, sans-serif; font-size: 13px; color: #111; margin: 0; padding: 16px; }
+  h2 { font-size: 17px; margin: 0 0 8px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #999; padding: 3px 6px; }
+  th { background: #eee; text-align: left; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .neg { color: #b91c1c; }
+  .muted { color: #666; }
+  .block { page-break-after: always; }
+  .block:last-child { page-break-after: auto; }
+  .slip { page-break-after: always; border: 1px solid #bbb; padding: 12px; margin-bottom: 0; }
+  .slip:last-child { page-break-after: auto; }
+  .slip h3 { margin: 0 0 6px; font-size: 15px; }
+  .slip .line { display: flex; justify-content: space-between; padding: 1px 0; }
+  .slip .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .slip .total { font-weight: bold; border-top: 1px solid #999; margin-top: 3px; padding-top: 3px; }
+  .toolbar { margin-bottom: 14px; }
+  .toolbar button { padding: 6px 14px; font-size: 14px; cursor: pointer; }
+  @media print { .no-print { display: none !important; } body { padding: 0; } }
+  .noteform input { width: 160px; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<div class="toolbar no-print">
+  <button onclick="window.print()">🖨 พิมพ์ (Ctrl+P)</button>
+  <a href="/payroll/{{ run.id }}" style="margin-left:12px;">← กลับหน้า Payroll</a>
+  <span class="muted" style="margin-left:12px;">สรุป → โอนเงิน → สลิปรายคน · แก้หมายเหตุหน้าโอนเงินได้ (ไม่พิมพ์ปุ่ม)</span>
+</div>
+
+{# ---------- 1. สรุปทุกคน ---------- #}
+<div class="block">
+  <h2>สรุปเงินเดือน · {{ run.site_code }} · {{ run.pay_cycle_tag }}
+    <span class="muted" style="font-size:12px;">({{ run.period_start | dmy }} – {{ run.period_end | dmy }})</span>
+  </h2>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>ชื่อ–สกุล</th><th>Pay Mode</th>
+        <th class="num">รวมรายได้</th><th class="num">น้ำมัน</th><th class="num">รายได้หลังหักน้ำมัน</th>
+        <th class="num">รวมหัก (ไม่รวมน้ำมัน)</th><th class="num">สุทธิ</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      {% set it = r.item %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ r.employee.full_name }}</td>
+        <td>{{ it.pay_mode }}</td>
+        <td class="num">{{ '{:,.0f}'.format(it.gross_total) }}</td>
+        <td class="num neg">{{ '{:,.0f}'.format(it.fuel_cost_self) if it.fuel_cost_self else '—' }}</td>
+        <td class="num">{{ '{:,.0f}'.format(it.gross_total - it.fuel_cost_self) }}</td>
+        <td class="num">{{ '{:,.0f}'.format(it.deduction_total - it.fuel_cost_self) }}</td>
+        <td class="num {% if it.net_pay < 0 %}neg{% endif %}"><b>{{ '{:,.0f}'.format(it.net_pay) }}</b></td>
+      </tr>
+      {% endfor %}
+      <tr>
+        <td colspan="3"><b>รวม {{ rows|length }} คน</b></td>
+        <td class="num"><b>{{ '{:,.0f}'.format(totals.gross) }}</b></td>
+        <td class="num neg"><b>{{ '{:,.0f}'.format(totals.fuel) }}</b></td>
+        <td class="num"><b>{{ '{:,.0f}'.format(totals.gross - totals.fuel) }}</b></td>
+        <td class="num"><b>{{ '{:,.0f}'.format(totals.ded - totals.fuel) }}</b></td>
+        <td class="num"><b>{{ '{:,.0f}'.format(totals.net) }}</b></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+{# ---------- 2. หน้าโอนเงิน ---------- #}
+<div class="block">
+  <h2>โอนเงินเดือน · {{ run.site_code }} · {{ run.pay_cycle_tag }}</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>ลำดับ</th><th>ชื่อ–สกุล</th><th>ธนาคาร / เลขบัญชี</th>
+        <th class="num">จำนวนโอน</th><th>หมายเหตุ</th><th class="no-print">แก้หมายเหตุ</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      {% set it = r.item %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ r.employee.full_name }}</td>
+        <td>
+          {% if r.employee.bank_name or r.employee.account_no %}
+            {{ r.employee.bank_name }} {{ r.employee.account_no }}
+          {% else %}<span class="muted">— ยังไม่กรอกบัญชี —</span>{% endif %}
+        </td>
+        <td class="num {% if it.net_pay < 0 %}neg{% endif %}">{{ '{:,.0f}'.format(it.net_pay) }}</td>
+        <td>{{ r.transfer_note }}</td>
+        <td class="no-print">
+          {% if run.status != 'finalized' %}
+          <form method="post" action="/payroll/{{ run.id }}/employee/{{ r.employee.id }}/transfer-note" class="noteform">
+            <input type="text" name="note" value="{{ it.transfer_note }}" placeholder="{{ r.transfer_note }}">
+            <button type="submit">บันทึก</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      <tr>
+        <td colspan="3"><b>รวมโอน {{ rows|length }} คน</b></td>
+        <td class="num"><b>{{ '{:,.0f}'.format(totals.net) }}</b></td>
+        <td colspan="2" class="no-print"></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+{# ---------- 3. สลิปรายคน ---------- #}
+{% for r in rows %}
+{% set it = r.item %}
+<div class="slip">
+  <h3>สลิปเงินเดือน · {{ r.employee.full_name }}</h3>
+  <div class="muted" style="font-size:12px; margin-bottom:6px;">
+    {{ run.site_code }} · {{ run.pay_cycle_tag }} · {{ run.period_start | dmy }} – {{ run.period_end | dmy }}
+    · วันทำงาน {{ it.days_worked|int }} · {{ it.pay_mode }}
+  </div>
+  <div class="grid2">
+    <div>
+      <div style="font-weight:bold; margin-bottom:3px;">รายได้</div>
+      {% if it.base_salary_earned %}<div class="line"><span>เงินเดือน</span><span>{{ '{:,.2f}'.format(it.base_salary_earned) }}</span></div>{% endif %}
+      {% if it.care_allowance_earned %}<div class="line"><span>ค่าดูแลรถ</span><span>{{ '{:,.2f}'.format(it.care_allowance_earned) }}</span></div>{% endif %}
+      {% if it.trip_fee_total %}<div class="line"><span>ค่าเที่ยว</span><span>{{ '{:,.2f}'.format(it.trip_fee_total) }}</span></div>{% endif %}
+      {% if it.fuel_share_income %}<div class="line"><span>ส่วนแบ่งน้ำมัน (60%)</span><span>{{ '{:,.2f}'.format(it.fuel_share_income) }}</span></div>{% endif %}
+      {% if it.fuel_rate_income %}<div class="line"><span>ค่าเรทน้ำมัน</span><span>{{ '{:,.2f}'.format(it.fuel_rate_income) }}</span></div>{% endif %}
+      {% if it.guarantee_topup %}<div class="line"><span>ชดเชยการันตี</span><span>{{ '{:,.2f}'.format(it.guarantee_topup) }}</span></div>{% endif %}
+      {% if it.other_income %}<div class="line"><span>รายได้อื่น</span><span>{{ '{:,.2f}'.format(it.other_income) }}</span></div>{% endif %}
+      <div class="line"><span>รวมรายได้</span><span>{{ '{:,.2f}'.format(it.gross_total) }}</span></div>
+      {% if it.fuel_cost_self %}<div class="line neg"><span>− ค่าน้ำมัน</span><span>{{ '{:,.2f}'.format(it.fuel_cost_self) }}</span></div>{% endif %}
+      <div class="line total"><span>รายได้หลังหักน้ำมัน</span><span>{{ '{:,.2f}'.format(it.gross_total - it.fuel_cost_self) }}</span></div>
+    </div>
+    <div>
+      <div style="font-weight:bold; margin-bottom:3px;">เงินหัก</div>
+      {% if it.social_security %}<div class="line"><span>ประกันสังคม</span><span>{{ '{:,.2f}'.format(it.social_security) }}</span></div>{% endif %}
+      {% if it.income_tax_withholding %}<div class="line"><span>ภาษีหัก ณ ที่จ่าย</span><span>{{ '{:,.2f}'.format(it.income_tax_withholding) }}</span></div>{% endif %}
+      {% if it.deposit_install %}<div class="line"><span>เงินประกัน (ผ่อน)</span><span>{{ '{:,.2f}'.format(it.deposit_install) }}</span></div>{% endif %}
+      {% if it.accident_install %}<div class="line"><span>ผ่อนอุบัติเหตุ</span><span>{{ '{:,.2f}'.format(it.accident_install) }}</span></div>{% endif %}
+      {% if it.petty_cash_deduction %}<div class="line"><span>หักสดย่อย</span><span>{{ '{:,.2f}'.format(it.petty_cash_deduction) }}</span></div>{% endif %}
+      {% if it.other_deduction %}<div class="line"><span>หักอื่นๆ</span><span>{{ '{:,.2f}'.format(it.other_deduction) }}</span></div>{% endif %}
+      <div class="line total"><span>รวมหัก (ไม่รวมน้ำมัน)</span><span>{{ '{:,.2f}'.format(it.deduction_total - it.fuel_cost_self) }}</span></div>
+      <div class="line total" style="margin-top:6px; font-size:15px;">
+        <span>เงินสุทธิ</span>
+        <span class="{% if it.net_pay < 0 %}neg{% endif %}">{{ '{:,.2f}'.format(it.net_pay) }}</span>
+      </div>
+      {% if r.employee.bank_name or r.employee.account_no %}
+      <div class="muted" style="font-size:12px; margin-top:4px;">โอนเข้า: {{ r.employee.bank_name }} {{ r.employee.account_no }}</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+</body>
+</html>

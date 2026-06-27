@@ -35,6 +35,8 @@ class Employee(SQLModel, table=True):
     nickname: str = ""
     phone: str = ""
     id_card: str = ""
+    bank_name: str = ""            # ธนาคารสำหรับโอนเงินเดือน เช่น "ไทยพาณิชย์"
+    account_no: str = ""          # เลขบัญชี เช่น "688-444-0533"
     home_site_code: str = Field(index=True)
     start_date: Optional[date] = None
     end_date: Optional[date] = None
@@ -346,6 +348,7 @@ class PayRunItem(SQLModel, table=True):
     employee_id: int = Field(foreign_key="employee.id", index=True)
     site_code: str = Field(default="", index=True)
     pay_mode: str = ""
+    transfer_note: str = ""       # หมายเหตุหน้าโอนเงิน (แก้มือ override auto เช่น "ออก")
 
     days_worked: float = 0.0
     days_leave: float = 0.0

@@ -88,7 +88,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 26  # v26: FuelTxn.exclude_from_driver (per-bill no-deduct flag)
+SCHEMA_VERSION = 27  # v27: Employee.bank_name/account_no + PayRunItem.transfer_note
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -398,6 +398,11 @@ def _apply_additive_migrations() -> None:
 
     # v25 → v26: FuelTxn per-bill no-deduct flag (น้ำมันก่อนเริ่มวิ่ง / ถังเต็มแรก).
     _ensure_column("fueltxn", "exclude_from_driver", "BOOLEAN", default="0")
+
+    # v26 → v27: เลขบัญชีโอนเงินเดือน + หมายเหตุหน้าโอนเงิน.
+    _ensure_column("employee", "bank_name", "TEXT", default="")
+    _ensure_column("employee", "account_no", "TEXT", default="")
+    _ensure_column("payrunitem", "transfer_note", "TEXT", default="")
 
 
 def init_db() -> None:
@@ -865,6 +870,8 @@ def employees_save(
     nickname: str = Form(""),
     phone: str = Form(""),
     id_card: str = Form(""),
+    bank_name: str = Form(""),
+    account_no: str = Form(""),
     home_site_code: str = Form(...),
     start_date: str = Form(""),
     end_date: str = Form(""),
@@ -904,6 +911,8 @@ def employees_save(
         row.nickname = nickname.strip()
         row.phone = phone.strip()
         row.id_card = id_card.strip()
+        row.bank_name = bank_name.strip()
+        row.account_no = account_no.strip()
         row.start_date = _parse_date(start_date)
         row.end_date = _parse_date(end_date)
         row.status = status
@@ -3848,6 +3857,69 @@ def payroll_fuel_toggle_exclude(run_id: int, emp_id: int, fuel_id: int):
     return RedirectResponse(
         f"/payroll/{run_id}/employee/{emp_id}#fuel", status_code=303
     )
+
+
+def _auto_transfer_note(emp: Employee, item: PayRunItem, period_end) -> str:
+    """หมายเหตุอัตโนมัติสำหรับหน้าโอนเงิน (เป็น hint; transfer_note ที่กรอกมือ override).
+
+    ลาออก (status inactive หรือ end_date ภายในรอบ) → 'ออก'; เหมา/ลูกผสม → 'เหมาน้ำมัน'.
+    """
+    bits = []
+    resigned = (emp.status or "").lower() in ("inactive", "resigned", "ลาออก")
+    if not resigned and emp.end_date and period_end and emp.end_date <= period_end:
+        resigned = True
+    if resigned:
+        bits.append("ออก")
+    if (item.pay_mode or "") in ("lcb_mao", "lcb_mixed", "ayu_mao"):
+        bits.append("เหมาน้ำมัน")
+    return " ".join(bits)
+
+
+@app.get("/payroll/{run_id}/print", response_class=HTMLResponse)
+def payroll_print_all(run_id: int, request: Request):
+    """หน้าพิมพ์สด (Ctrl+P): สรุปทุกคน → โอนเงิน → สลิปรายคน (page-break ต่อบล็อก)."""
+    with Session(engine) as s:
+        pr = s.get(PayRun, run_id)
+        if pr is None:
+            return RedirectResponse("/payroll?err=notfound", status_code=303)
+        items = s.exec(select(PayRunItem).where(PayRunItem.pay_run_id == pr.id)).all()
+        rows = []
+        for it in items:
+            emp = s.get(Employee, it.employee_id)
+            note = (it.transfer_note or "").strip() or _auto_transfer_note(emp, it, pr.period_end)
+            rows.append({"item": it, "employee": emp, "transfer_note": note})
+        rows.sort(key=lambda r: -(r["item"].net_pay or 0))
+        totals = {
+            "gross": sum((r["item"].gross_total or 0) for r in rows),
+            "fuel": sum((r["item"].fuel_cost_self or 0) for r in rows),
+            "ded": sum((r["item"].deduction_total or 0) for r in rows),
+            "net": sum((r["item"].net_pay or 0) for r in rows),
+        }
+    ctx = base_context(request)
+    ctx.update({"run": pr, "rows": rows, "totals": totals})
+    return templates.TemplateResponse("payroll_print_all.html", ctx)
+
+
+@app.post("/payroll/{run_id}/employee/{emp_id}/transfer-note")
+def payroll_transfer_note(run_id: int, emp_id: int, note: str = Form("")):
+    """บันทึกหมายเหตุหน้าโอนเงิน (แก้มือ) — ไม่ recompute (ไม่กระทบเงิน)."""
+    with Session(engine) as s:
+        pr = s.get(PayRun, run_id)
+        if pr is None:
+            raise HTTPException(404, "pay run not found")
+        if pr.status == "finalized":
+            return RedirectResponse(f"/payroll/{run_id}/print?err=locked", status_code=303)
+        it = s.exec(
+            select(PayRunItem).where(
+                PayRunItem.pay_run_id == run_id, PayRunItem.employee_id == emp_id
+            )
+        ).first()
+        if it is None:
+            raise HTTPException(404, "payrun item not found")
+        it.transfer_note = (note or "").strip()
+        s.add(it)
+        s.commit()
+    return RedirectResponse(f"/payroll/{run_id}/print", status_code=303)
 
 
 @app.post("/payroll/{run_id}/finalize")
