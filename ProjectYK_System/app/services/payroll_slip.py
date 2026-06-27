@@ -90,7 +90,18 @@ def bank_display_line(terms: dict[str, str]) -> tuple[str, str]:
 
 
 def merged_bank_terms(emp: Employee, site_code: str) -> dict[str, str]:
-    """รวม seed BIGC (จากไฟล์ตัวอย่าง) เข้ากับ Employee.custom_terms — custom มี bank_account ชนะเสมอ."""
+    """รวม seed BIGC (จากไฟล์ตัวอย่าง) เข้ากับ Employee.custom_terms — custom มี bank_account ชนะเสมอ.
+
+    DB fields (Employee.account_no/bank_name) ชนะก่อนทุกอย่าง — เป็น source of truth ใหม่
+    (กรอกผ่านหน้าแก้ไขพนักงาน) ให้ปุ่ม export PDF เก่าใช้เลขบัญชีชุดเดียวกับหน้าพิมพ์ใหม่.
+    """
+    db_acct = (getattr(emp, "account_no", "") or "").strip()
+    if db_acct:
+        return {
+            "bank_account": db_acct,
+            "bank_name": (getattr(emp, "bank_name", "") or "").strip(),
+            "payment_note": "",
+        }
     ct = parse_bank_terms(emp.custom_terms or "")
     ac = (ct.get("bank_account") or "").strip()
     if ac:
