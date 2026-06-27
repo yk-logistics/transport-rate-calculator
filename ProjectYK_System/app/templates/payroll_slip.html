@@ -169,7 +169,7 @@
         <td class="num">{{ '{:,.0f}'.format(r.fuel_liter) if r.fuel_liter else '' }}</td>
         <td class="num">
           {%- if r.fuel_amount %}{{ '{:,.0f}'.format(r.fuel_amount) }}
-            {%- if k.kind == 'mao' %}<div style="font-size:8px; color:#b91c1c;">หัก</div>
+            {%- if r.work_date in fuel_deduct_dates %}<div style="font-size:8px; color:#b91c1c;">หัก</div>
             {%- elif k.kind == 'trip' %}<div style="font-size:8px; color:#94a3b8;">บริษัทออก</div>{% endif %}
           {%- endif %}
         </td>

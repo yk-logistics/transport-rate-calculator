@@ -323,6 +323,14 @@ def build_payroll_slip_context(
 
     mixed = classify_mixed_days(daily_jobs) if emp.pay_mode == "lcb_mixed" else None
 
+    # วันที่หักน้ำมัน (ใช้ logic เดียวกับ engine เพื่อให้สลิปป้าย 'หัก' ตรงกับเงินจริง):
+    # วันเหมา + วันรถจอด 'ช่วงเหมา'. import แบบ lazy กันวงกลม.
+    fuel_deduct_dates: set = set()
+    if emp.pay_mode == "lcb_mixed":
+        from services.payroll import _classify_lcb_days, _idle_dates_in_mao_phase
+        split = _classify_lcb_days(session, emp.id, start, end, site_code=pr.site_code)
+        fuel_deduct_dates = {d.work_date for d in split["mao_days"]} | _idle_dates_in_mao_phase(split)
+
     return {
         "run": pr,
         "employee": emp,
@@ -331,6 +339,7 @@ def build_payroll_slip_context(
         "mixed": mixed,
         "route_text": delivery_route_text,
         "day_kind": mixed_day_kind,
+        "fuel_deduct_dates": fuel_deduct_dates,
         "petty_lines": petty_lines,
         "petty_lines_extra": petty_lines_extra,
         "petty_categories": petty_categories,
