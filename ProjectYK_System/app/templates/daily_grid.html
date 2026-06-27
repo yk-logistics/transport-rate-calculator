@@ -271,6 +271,8 @@
     ["pickup_location","pickup_location",true], ["store_code","store_code",true], ["truck_type_raw","ประเภทรถ",true],
     ["job_ref","BL / Booking (L)",true], ["container_no","เบอร์ตู้ (M)",true], ["container_size","ขนาดตู้",true],
     ["revenue_customer","ค่าขนส่ง (U)",true], ["trip_fee_driver","ค่าเที่ยว (AD)",true],
+    ["kb_amount","KB (ใต้โต๊ะ)",true], ["price_override","ราคากลาง",true],
+    ["driver_calc_price","ราคาคนขับ",false],
     ["fuel_liter","ลิตร",true], ["fuel_amount","ค่าน้ำมัน",true], ["fuel_station","ปั๊ม",true],
     ["fuel_rate_km_per_l","km/L",true], ["mile_snapshot","ไมล์",true],
     ["invoice_no","invoice_no",true], ["invoice_date","invoice_date",true], ["wht_53","wht_53",true],
@@ -280,13 +282,13 @@
 
   const PRESETS = {
     basic:     ["work_date","site_code","driver_name","plate_no","status_code","leave_status","trip_type_code","origin","destination"],
-    money:     ["work_date","site_code","driver_name","plate_no","status_code","leave_status","trip_type_code","origin","destination","revenue_customer","trip_fee_driver","remark"],
+    money:     ["work_date","site_code","driver_name","plate_no","status_code","leave_status","trip_type_code","origin","destination","revenue_customer","kb_amount","price_override","driver_calc_price","trip_fee_driver","remark"],
     fuel:      ["work_date","site_code","driver_name","plate_no","fuel_liter","fuel_amount","fuel_station","fuel_rate_km_per_l","mile_snapshot"],
     container: ["work_date","site_code","driver_name","plate_no","status_code","trip_type_code","origin","destination","doc_no","job_ref","container_no","container_size"],
     all:       null,
   };
 
-  const NUM_FIELDS = new Set(["revenue_customer","trip_fee_driver","fuel_liter","fuel_amount","fuel_rate_km_per_l","mile_snapshot","wht_53"]);
+  const NUM_FIELDS = new Set(["revenue_customer","trip_fee_driver","kb_amount","price_override","driver_calc_price","fuel_liter","fuel_amount","fuel_rate_km_per_l","mile_snapshot","wht_53"]);
 
   // Returns a closure over calcMode — called per column, recalc() re-invokes it
   function makeCalc() {
@@ -553,10 +555,10 @@
       }
     ].concat(ALL_FIELDS.map(([field, title, editable]) => {
       const MISSING_FIELDS = ["revenue_customer", "trip_fee_driver"];
-      const NUM_FIELDS_ARR = ["revenue_customer","trip_fee_driver","fuel_liter","fuel_amount","fuel_rate_km_per_l","mile_snapshot","wht_53"];
-      const RIGHT_ALIGN    = ["id","driver_id","head_vehicle_id","tail_vehicle_id","customer_id","trip_group_id","revenue_customer","trip_fee_driver","fuel_liter","fuel_amount","fuel_rate_km_per_l","mile_snapshot","wht_53"];
+      const NUM_FIELDS_ARR = ["revenue_customer","trip_fee_driver","kb_amount","price_override","driver_calc_price","fuel_liter","fuel_amount","fuel_rate_km_per_l","mile_snapshot","wht_53"];
+      const RIGHT_ALIGN    = ["id","driver_id","head_vehicle_id","tail_vehicle_id","customer_id","trip_group_id","revenue_customer","trip_fee_driver","kb_amount","price_override","driver_calc_price","fuel_liter","fuel_amount","fuel_rate_km_per_l","mile_snapshot","wht_53"];
       const CELL_EDITORS = {
-        "status_code":   { editor: "list", editorParams: { values: ["KLND","DHL Overflow","DHL","NHL","WHALE","KAO","CJ","Nippon","SDS","KN","KTL","SONIC","โฮมโปร","ต่อเนื่องส่งงาน","ลา / ไม่พร้อม","รถซ่อม","รถอุบัติเหตุ"], clearable: true } },
+        "status_code":   { editor: "list", editorParams: { values: ["KLND","DHL Overflow","DHL","NHL","MOL","CY","WHALE","KAO","CJ","Nippon","SDS","KN","KTL","SONIC","โฮมโปร","ต่อเนื่องส่งงาน","ลา / ไม่พร้อม","รถซ่อม","รถอุบัติเหตุ"], clearable: true } },
         "site_code":     { editor: "list", editorParams: { values: ["LCB","AYU","BIGC","CJ"], clearable: true } },
         "leave_status":  { editor: "list", editorParams: { values: ["","leave"], clearable: true } },
         "container_size":{ editor: "list", editorParams: { values: ["","20'","40'","40HC","45'"], clearable: true } },
@@ -585,6 +587,32 @@
           return val ?? "";
         };
       }
+      // ราคาคนขับ = (price_override ?? revenue_customer) − kb_amount, คำนวณสดจากค่าในแถว
+      // (สะท้อนการแก้ KB/ราคากลาง ที่ยังไม่ Save ด้วย)
+      if (field === "driver_calc_price") {
+        col.formatter = function(cell) {
+          const row = cell.getRow().getData();
+          const ov = row.price_override;
+          const base = (ov !== null && ov !== undefined && ov !== "") ? Number(ov) : Number(row.revenue_customer || 0);
+          const v = Math.round((base - Number(row.kb_amount || 0)) * 100) / 100;
+          return v.toLocaleString("th-TH", {maximumFractionDigits: 2});
+        };
+      }
+      // KB ของลูกค้าที่บังคับ (CY) แต่ยังว่าง → ไฮไลต์เตือนกันลืม
+      if (field === "kb_amount") {
+        col.formatter = function(cell) {
+          const row = cell.getRow().getData();
+          const val = cell.getValue();
+          if (row.status_code === "CY" && (val === 0 || val === null || val === undefined || val === "")) {
+            cell.getElement().classList.add("yk-cell-missing");
+            cell.getElement().title = "แถว CY ไม่มี KB — ไม่มีจริงใช่ไหม?";
+          } else {
+            cell.getElement().classList.remove("yk-cell-missing");
+            cell.getElement().title = "";
+          }
+          return val ?? "";
+        };
+      }
       if (NUM_FIELDS_ARR.includes(field)) {
         col.bottomCalc = makeCalc();
       }
@@ -604,6 +632,10 @@
       const dirty = dirtyRows.get(row.id) || {id: row.id};
       dirty[field] = cell.getValue();
       dirtyRows.set(row.id, dirty);
+      // KB / ราคากลาง / ค่าขนส่ง เปลี่ยน → คำนวณ "ราคาคนขับ" ใหม่ทันที
+      if (field === "kb_amount" || field === "price_override" || field === "revenue_customer") {
+        try { cell.getRow().reformat(); } catch (e) {}
+      }
       cell.getElement().classList.add("yk-grid-dirty-cell");
       cell.getRow().getElement().classList.add("yk-grid-dirty-row");
       saveDetails.className = "hidden rounded-lg border p-3 text-xs mb-3";

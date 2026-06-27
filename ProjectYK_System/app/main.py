@@ -1472,6 +1472,7 @@ def daily_grid_data(
     missing: str = "",
     limit: int = 400,
 ):
+    from services.payroll import driver_calc_price
     limit = max(1, min(800, limit))
     with Session(engine) as s:
         rows = s.exec(
@@ -1541,6 +1542,9 @@ def daily_grid_data(
             "leave_status": r.leave_status or "",
             "revenue_customer": float(r.revenue_customer or 0),
             "trip_fee_driver": float(r.trip_fee_driver or 0),
+            "kb_amount": float(r.kb_amount or 0),
+            "price_override": (None if r.price_override is None else float(r.price_override)),
+            "driver_calc_price": driver_calc_price(r),
             "fuel_liter": float(r.fuel_liter or 0),
             "fuel_amount": float(r.fuel_amount or 0),
             "fuel_station": r.fuel_station or "",
