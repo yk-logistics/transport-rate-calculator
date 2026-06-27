@@ -88,7 +88,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 25  # v25: DailyJob.kb_amount + price_override; KbRule table
+SCHEMA_VERSION = 26  # v26: FuelTxn.exclude_from_driver (per-bill no-deduct flag)
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -395,6 +395,9 @@ def _apply_additive_migrations() -> None:
     # v24 → v25: DailyJob KB (ใต้โต๊ะ) + ราคากลาง override. KbRule table via create_all.
     _ensure_column("dailyjob", "kb_amount", "REAL", default="0")
     _ensure_column("dailyjob", "price_override", "REAL")  # nullable, no default
+
+    # v25 → v26: FuelTxn per-bill no-deduct flag (น้ำมันก่อนเริ่มวิ่ง / ถังเต็มแรก).
+    _ensure_column("fueltxn", "exclude_from_driver", "BOOLEAN", default="0")
 
 
 def init_db() -> None:
@@ -3567,10 +3570,14 @@ def payroll_employee_detail(run_id: int, emp_id: int, request: Request):
                 if r.deduct_from_driver and r.deduction_status == "pending"
             ),
         }
+        excluded_amount = sum((r.amount or 0) for r in fuel_rows if r.exclude_from_driver)
         fuel_totals = {
             "rows": len(fuel_rows),
             "liter": sum((r.liter or 0) for r in fuel_rows),
             "amount": sum((r.amount or 0) for r in fuel_rows),
+            "excluded_rows": sum(1 for r in fuel_rows if r.exclude_from_driver),
+            "excluded_amount": excluded_amount,
+            "deducted_amount": sum((r.amount or 0) for r in fuel_rows) - excluded_amount,
         }
 
         adjust = s.exec(
@@ -3802,6 +3809,37 @@ def payroll_employee_override(
 
     return RedirectResponse(
         f"/payroll/{run_id}/employee/{emp_id}", status_code=303
+    )
+
+
+@app.post("/payroll/{run_id}/employee/{emp_id}/fuel/{fuel_id}/toggle-exclude")
+def payroll_fuel_toggle_exclude(run_id: int, emp_id: int, fuel_id: int):
+    """Toggle a single FuelTxn's exclude_from_driver flag, then recompute.
+
+    Used for น้ำมันก่อนเริ่มวิ่ง / ถังเต็มแรกตอนเริ่มเหมา = ไม่หักคนขับ.
+    The flag lives on the bill itself; engine fuel-sum skips flagged bills.
+    """
+    with Session(engine) as s:
+        pr = s.get(PayRun, run_id)
+        if pr is None:
+            raise HTTPException(404, "pay run not found")
+        if pr.status == "finalized":
+            return RedirectResponse(
+                f"/payroll/{run_id}/employee/{emp_id}?err=locked", status_code=303
+            )
+        fuel = s.get(FuelTxn, fuel_id)
+        # guard: bill must belong to this driver (no cross-driver toggle)
+        if fuel is None or fuel.driver_id != emp_id:
+            raise HTTPException(404, "fuel txn not found for this driver")
+        fuel.exclude_from_driver = not bool(fuel.exclude_from_driver)
+        s.add(fuel)
+        s.commit()
+
+        from services.payroll import compute_pay_run as _compute
+        _compute(s, pr, recompute=True)
+
+    return RedirectResponse(
+        f"/payroll/{run_id}/employee/{emp_id}#fuel", status_code=303
     )
 
 

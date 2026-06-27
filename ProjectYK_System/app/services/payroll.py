@@ -250,6 +250,7 @@ def _sum_fuel_cost(
         FuelTxn.driver_id == emp_id,
         FuelTxn.txn_date >= start,
         FuelTxn.txn_date <= end,
+        FuelTxn.exclude_from_driver == False,  # noqa: E712 — bills flagged ไม่หัก
     )
     if site_code:
         stmt = stmt.where(FuelTxn.site_code == site_code)
@@ -350,6 +351,7 @@ def _sum_fuel_cost_for_dates(
         FuelTxn.driver_id == emp_id,
         FuelTxn.txn_date >= min(date_set),
         FuelTxn.txn_date <= max(date_set),
+        FuelTxn.exclude_from_driver == False,  # noqa: E712 — bills flagged ไม่หัก
     )
     if site_code:
         stmt = stmt.where(FuelTxn.site_code == site_code)
