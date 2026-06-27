@@ -723,13 +723,20 @@ def process_file(path: Path, dry_run: bool = False, tag_override: Optional[str] 
             else:
                 print(f"  {r.driver_name:<25}  (unmatched — skipped)")
 
-        # Recompute PayRun
-        print(f"\n  Recomputing PayRun id={pay_run_id} ...")
+        # Recompute PayRun — BUT skip if the run was loaded by copy ([COPY-LOCK]).
+        # Such runs hold โอ's hand-computed net (Excel รวม YK); recomputing them with
+        # the engine would overwrite correct paid amounts with wrong output (trip data
+        # not fully imported). The fuel adjusts are still saved above for future use.
         pr2 = session.get(PayRun, pay_run_id)
-        items = compute_pay_run(session, pr2, recompute=True)
-        total_gross = sum(i.gross_total for i in items)
-        total_net = sum(i.net_pay for i in items)
-        print(f"  {len(items)} drivers | gross={total_gross:,.0f} | net={total_net:,.0f}")
+        if pr2 and pr2.notes and "[COPY-LOCK]" in pr2.notes:
+            print(f"\n  ⚠ PayRun id={pay_run_id} is [COPY-LOCK] — skipping recompute "
+                  f"(ยอดลอกจาก Excel, ไม่ทับ). fuel adjusts saved สำหรับอนาคต.")
+        else:
+            print(f"\n  Recomputing PayRun id={pay_run_id} ...")
+            items = compute_pay_run(session, pr2, recompute=True)
+            total_gross = sum(i.gross_total for i in items)
+            total_net = sum(i.net_pay for i in items)
+            print(f"  {len(items)} drivers | gross={total_gross:,.0f} | net={total_net:,.0f}")
 
         # ---- Verification vs summary ----
         print("\n--- Verification vs รวมเรท ---")
