@@ -8,6 +8,8 @@
 
 **✅ Deploy ขึ้น server จริงสำเร็จแล้ว** (app.yklogistics.uk) — ผ่าน Tailscale (เครื่องย้ายวงแลน แต่ Tailscale เชื่อม server ได้). server มี 17 payruns ครบ, 161 emps, public HTTP 200. backup server DB ก่อน deploy แล้ว. **คุณเปิดเว็บจากที่ไหนก็เห็นข้อมูลครบ**
 
+**✅ Verify ทุกบาท + merge เข้า main** — เทียบ checksum net_pay ทุก row: server = local ตรงเป๊ะ (556df01dd2648bd8, total 3,985,960). งานคืนนี้ (20 commits) merge เข้า main เรียบร้อย (branch night-run ลบแล้ว งานอยู่ใน main ครบ).
+
 **✅ ทุกไซท์ครบทุกเดือนแล้ว (17 payruns):**
 - LCB: ม.ค.–มิ.ย. (6) · BIGC: ธ.ค.–พ.ค. (6) · AYU: ม.ค.–พ.ค. (5)
 - AYU ย้อนหลังทำได้ (ที่ผมเบรกไว้รอบ 2 จริงๆ ไม่ติดหนัก) — pypdf อ่านแบงค์ได้, จัดการชื่อพม่า/encoding (ำ↔า, ศักดิ์สิทธิ์ dedupe) เรียบร้อย, ไม่มี emp ซ้ำ
