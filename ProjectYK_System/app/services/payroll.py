@@ -257,6 +257,17 @@ def _sum_fuel_cost(
     return round(sum((r.amount or 0.0) for r in rows), 2)
 
 
+def driver_calc_price(row) -> float:
+    """ราคาที่ใช้คิดเงินคนขับ (≠ ราคาวางบิลลูกค้า).
+
+    base = price_override ถ้าตั้งไว้ มิฉะนั้น = revenue_customer; แล้วหัก KB.
+    override แทนฐาน, KB หักจากฐานเสมอ (ซ้อนกันได้).
+    """
+    override = getattr(row, "price_override", None)
+    base = override if override is not None else (row.revenue_customer or 0.0)
+    return round(base - (getattr(row, "kb_amount", 0.0) or 0.0), 2)
+
+
 LCB_MAO_RATIO = 0.60
 LCB_MAO_RATIO_TOL = 0.05
 # Real LCB data: trip days cluster < 0.15 (ค่าเที่ยว 200-350 vs rev ~5000),
