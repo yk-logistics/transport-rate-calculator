@@ -1203,10 +1203,14 @@ def get_or_create_pay_run(
 
 
 def compute_pay_run(
-    session: Session, pay_run: PayRun, recompute: bool = True
+    session: Session, pay_run: PayRun, recompute: bool = True, force: bool = False
 ) -> list[PayRunItem]:
-    """Compute PayRunItems for every Employee belonging to this site (role=driver)."""
-    if pay_run.status == "finalized" and not recompute:
+    """Compute PayRunItems for every Employee belonging to this site (role=driver).
+
+    finalized = ล็อก: ไม่คำนวณ/ลบทับ แม้ recompute=True (กันยอดจ่ายจริงที่ปิดแล้วหาย)
+    เว้นแต่ส่ง force=True โดยตั้งใจ (เช่น unlock เพื่อแก้จริง).
+    """
+    if pay_run.status == "finalized" and not force:
         return session.exec(
             select(PayRunItem).where(PayRunItem.pay_run_id == pay_run.id)
         ).all()
