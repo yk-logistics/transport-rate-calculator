@@ -54,6 +54,7 @@ from models import (
     ImportLog,
     InboxEmail,
     InboxSyncRun,
+    KbRule,
     LeaveRecord,
     Loan,
     LoanPayment,
@@ -87,7 +88,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 24  # v24: DailyJobAudit table (edit log for /daily grid) — create_all only
+SCHEMA_VERSION = 25  # v25: DailyJob.kb_amount + price_override; KbRule table
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -391,6 +392,10 @@ def _apply_additive_migrations() -> None:
     # v22 → v23: AppSetting key/value table (slip-reader on/off control) — created
     # by create_all(); no ALTER needed. Version bumped for the record.
 
+    # v24 → v25: DailyJob KB (ใต้โต๊ะ) + ราคากลาง override. KbRule table via create_all.
+    _ensure_column("dailyjob", "kb_amount", "REAL", default="0")
+    _ensure_column("dailyjob", "price_override", "REAL")  # nullable, no default
+
 
 def init_db() -> None:
     """Safe, additive init. Never drops existing data.
@@ -413,6 +418,20 @@ def init_db() -> None:
             current.applied_at = datetime.utcnow()
             s.commit()
         seed_initial_data(s)
+
+
+def seed_kb_rules(s: Session) -> None:
+    """Seed default KB rules ต่อ status_code. Idempotent — เพิ่มเฉพาะที่ยังไม่มี."""
+    defaults = [
+        KbRule(status_code="NHL", default_kb=110.0, required=False),
+        KbRule(status_code="MOL", default_kb=100.0, required=False),
+        KbRule(status_code="CY",  default_kb=0.0,   required=True),
+    ]
+    for rule in defaults:
+        existing = s.exec(select(KbRule).where(KbRule.status_code == rule.status_code)).first()
+        if not existing:
+            s.add(rule)
+    s.commit()
 
 
 def seed_initial_data(s: Session) -> None:
@@ -448,6 +467,8 @@ def seed_initial_data(s: Session) -> None:
         ))
         s.commit()
         print("[seed] created admin user yk1 (must change password on first login)")
+
+    seed_kb_rules(s)
 
 
 app = FastAPI(title="Project YK - One Platform")
@@ -1451,6 +1472,7 @@ def daily_grid_data(
     missing: str = "",
     limit: int = 400,
 ):
+    from services.payroll import driver_calc_price
     limit = max(1, min(800, limit))
     with Session(engine) as s:
         rows = s.exec(
@@ -1520,6 +1542,9 @@ def daily_grid_data(
             "leave_status": r.leave_status or "",
             "revenue_customer": float(r.revenue_customer or 0),
             "trip_fee_driver": float(r.trip_fee_driver or 0),
+            "kb_amount": float(r.kb_amount or 0),
+            "price_override": (None if r.price_override is None else float(r.price_override)),
+            "driver_calc_price": driver_calc_price(r),
             "fuel_liter": float(r.fuel_liter or 0),
             "fuel_amount": float(r.fuel_amount or 0),
             "fuel_station": r.fuel_station or "",
@@ -1572,6 +1597,8 @@ async def daily_grid_save(request: Request):
         "remark",
         "revenue_customer",
         "trip_fee_driver",
+        "kb_amount",
+        "price_override",
         "fuel_liter",
         "fuel_amount",
         "fuel_station",
@@ -1608,9 +1635,15 @@ async def daily_grid_save(request: Request):
                 if key not in editable:
                     continue
                 old_value = getattr(row, key, None)
+                if key == "price_override":
+                    # nullable: blank → None (ใช้ revenue_customer เป็นฐาน), ไม่ใช่ 0.0
+                    text = (str(val) if val is not None else "").strip()
+                    setattr(row, key, None if text == "" else _parse_float(text))
+                    continue
                 if key in (
                     "revenue_customer",
                     "trip_fee_driver",
+                    "kb_amount",
                     "fuel_liter",
                     "fuel_amount",
                     "fuel_rate_km_per_l",

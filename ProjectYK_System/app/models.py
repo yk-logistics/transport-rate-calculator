@@ -105,6 +105,18 @@ class Customer(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class KbRule(SQLModel, table=True):
+    """Default KB (ใต้โต๊ะ) ต่อ status_code (= ชื่อลูกค้าในไฟล์ LCB).
+
+    required=True → แถวที่ status นี้แต่ kb_amount==0 จะถูกเตือน (กันลืม), ไม่บล็อก.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    status_code: str = Field(index=True, unique=True)
+    default_kb: float = 0.0
+    required: bool = False
+    note: str = ""
+
+
 class PayCycle(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     site_code: str = Field(index=True, unique=True)
@@ -147,6 +159,11 @@ class DailyJob(SQLModel, table=True):
 
     revenue_customer: float = 0.0
     trip_fee_driver: float = 0.0
+
+    # KB (ใต้โต๊ะ/commission) ต่อแถว — seed จาก KbRule ตาม status_code, แก้มือได้
+    kb_amount: float = 0.0
+    # ราคากลาง/over-market override — None = ใช้ revenue_customer เป็นฐานคิดเงินคนขับ
+    price_override: Optional[float] = Field(default=None)
 
     fuel_liter: float = 0.0
     fuel_amount: float = 0.0
