@@ -86,7 +86,9 @@
         <tr><td class="py-0.5">ค่าเรทน้ำมัน</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.fuel_rate_income) }}</td></tr>
         <tr><td class="py-0.5">60% เหมาน้ำมัน</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.fuel_share_income) }}</td></tr>
         <tr><td class="py-0.5">ชดเชยการันตี</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.guarantee_topup) }}</td></tr>
-        <tr class="border-t font-semibold"><td class="py-0.5">รวมรายได้</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.gross_total) }}</td></tr>
+        <tr class="border-t"><td class="py-0.5">รวมรายได้</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.gross_total) }}</td></tr>
+        <tr><td class="py-0.5 text-rose-600">− น้ำมัน</td><td class="text-right font-mono text-rose-600">{{ '{:,.2f}'.format(item.fuel_cost_self) }}</td></tr>
+        <tr class="border-t font-semibold"><td class="py-0.5">รายได้หลังหักน้ำมัน</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.gross_total - item.fuel_cost_self) }}</td></tr>
       </table>
     </div>
     <div>
@@ -107,8 +109,8 @@
             {% endif %}
           </td>
         </tr>
-        <tr><td class="py-0.5">น้ำมัน</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.fuel_cost_self) }}</td></tr>
-        <tr class="border-t font-semibold"><td class="py-0.5">รวมหัก</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.deduction_total) }}</td></tr>
+        <tr class="text-slate-400"><td class="py-0.5">น้ำมัน <span class="text-[10px]">(แสดงฝั่งรายได้แล้ว)</span></td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.fuel_cost_self) }}</td></tr>
+        <tr class="border-t font-semibold"><td class="py-0.5">รวมหัก (ไม่รวมน้ำมัน)</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.deduction_total - item.fuel_cost_self) }}</td></tr>
       </table>
     </div>
     <div>

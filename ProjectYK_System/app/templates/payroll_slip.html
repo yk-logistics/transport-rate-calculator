@@ -289,7 +289,11 @@
           <div class="line"><span>รายได้อื่น</span><span class="v">{{ '{:,.2f}'.format(item.other_income) }}</span></div>
           {% set inc_total = inc_total + item.other_income %}
         {% endif %}
-        <div class="total"><span>รวมรายได้</span><span>{{ '{:,.2f}'.format(item.gross_total) }}</span></div>
+        <div class="line"><span>รวมรายได้</span><span class="v">{{ '{:,.2f}'.format(item.gross_total) }}</span></div>
+        {% if item.fuel_cost_self %}
+          <div class="line"><span>− ค่าน้ำมัน</span><span class="v" style="color:#b91c1c;">{{ '{:,.2f}'.format(item.fuel_cost_self) }}</span></div>
+        {% endif %}
+        <div class="total"><span>รายได้หลังหักน้ำมัน</span><span>{{ '{:,.2f}'.format(item.gross_total - item.fuel_cost_self) }}</span></div>
       </div>
 
       <div class="panel">
@@ -333,13 +337,10 @@
         {% endfor %}
         </div>
         <div id="pettyHiddenNote" class="no-print" style="font-size:9px; color:#94a3b8; display:none;"></div>
-        {% if item.fuel_cost_self %}
-          <div class="line"><span>ค่าน้ำมัน (เหมาน้ำมัน)</span><span class="v">{{ '{:,.2f}'.format(item.fuel_cost_self) }}</span></div>
-        {% endif %}
         {% if item.other_deduction %}
           <div class="line"><span>หักอื่นๆ</span><span class="v">{{ '{:,.2f}'.format(item.other_deduction) }}</span></div>
         {% endif %}
-        <div class="total"><span>รวมหัก</span><span>{{ '{:,.2f}'.format(item.deduction_total) }}</span></div>
+        <div class="total"><span>รวมหัก (ไม่รวมน้ำมัน)</span><span>{{ '{:,.2f}'.format(item.deduction_total - item.fuel_cost_self) }}</span></div>
       </div>
     </div>
   </div>
