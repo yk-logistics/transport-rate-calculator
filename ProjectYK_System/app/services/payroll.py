@@ -240,7 +240,7 @@ def _sum_gross_revenue(
     if site_code:
         stmt = stmt.where(DailyJob.site_code == site_code)
     rows = session.exec(stmt).all()
-    return round(sum((r.revenue_customer or 0.0) for r in rows), 2)
+    return round(sum(driver_calc_price(r) for r in rows), 2)
 
 
 def _sum_fuel_cost(
@@ -297,7 +297,7 @@ def _classify_lcb_days(
     rows = session.exec(stmt).all()
     mao, trip, amb, no_work = [], [], [], []
     for r in rows:
-        rev = r.revenue_customer or 0.0
+        rev = driver_calc_price(r)  # ราคาคิดเงินคนขับ (หัก KB / ใช้ราคากลาง override)
         fee = r.trip_fee_driver or 0.0
         if rev <= 0:
             no_work.append(r)  # rest/off day — no money either way, not "ambiguous"
@@ -1012,7 +1012,7 @@ def calc_one_employee(
         mao_days = split["mao_days"]
         trip_days = split["trip_days"]
         # เหมา side: 60% of revenue on mao days, minus fuel on those days
-        mao_rev = sum((d.revenue_customer or 0.0) for d in mao_days)
+        mao_rev = sum(driver_calc_price(d) for d in mao_days)
         share_rate = employee.gross_share_rate or 0.60
         calc.fuel_share_income = round(mao_rev * share_rate, 2)
         mao_dates = {d.work_date for d in mao_days}

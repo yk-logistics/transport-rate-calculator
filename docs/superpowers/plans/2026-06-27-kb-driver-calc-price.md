@@ -38,14 +38,15 @@ cd ProjectYK_System && app/.venv/Scripts/python.exe -m pytest <args>
 ```
 (bare `python` lacks pytest/deps on this machine.)
 
-**Known pre-existing red test (NOT caused by this work):**
-`tests/test_lcb_mixed.py::test_lcb_mixed_splits_income_and_prorates_base` is ALREADY
-failing on `main` before this branch — it asserts the old flat "พิเศษ 100/เที่ยว"
-(`other_income == 100.0`) which was superseded by sheet-based `_sum_lcb_driver_extra_fees`
-([LCB driver extra fees] work). In Task 4's regression check, this one test stays red;
-that is the baseline, not a regression. The other 3 tests in that file must stay green.
-(Optional cleanup: update that stale assertion to `== 0.0`, but only with โอ's OK — out of
-scope for this plan.)
+**Known pre-existing red tests (NOT caused by this work — verified red on `main`):**
+1. `tests/test_lcb_mixed.py::test_lcb_mixed_splits_income_and_prorates_base` — asserts old
+   flat "พิเศษ 100/เที่ยว" (`other_income == 100.0`), superseded by sheet-based
+   `_sum_lcb_driver_extra_fees` ([LCB driver extra fees]).
+2. `tests/test_lcb_mixed_regression.py::test_existing_modes_net_unchanged` — also red on
+   `main` before this branch (same [LCB driver extra fees] era drift).
+Both stay red through this plan; that is the baseline, not a regression. All KB tests +
+the other mixed tests must be green. (Optional cleanup of these two stale assertions only
+with โอ's OK — out of scope.)
 
 ---
 
