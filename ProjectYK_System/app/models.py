@@ -148,6 +148,11 @@ class DailyJob(SQLModel, table=True):
     revenue_customer: float = 0.0
     trip_fee_driver: float = 0.0
 
+    # KB (ใต้โต๊ะ/commission) ต่อแถว — seed จาก KbRule ตาม status_code, แก้มือได้
+    kb_amount: float = 0.0
+    # ราคากลาง/over-market override — None = ใช้ revenue_customer เป็นฐานคิดเงินคนขับ
+    price_override: Optional[float] = Field(default=None)
+
     fuel_liter: float = 0.0
     fuel_amount: float = 0.0
     fuel_station: str = ""

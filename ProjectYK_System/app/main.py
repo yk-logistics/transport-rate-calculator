@@ -87,7 +87,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 24  # v24: DailyJobAudit table (edit log for /daily grid) — create_all only
+SCHEMA_VERSION = 25  # v25: DailyJob.kb_amount + price_override; KbRule table
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -390,6 +390,10 @@ def _apply_additive_migrations() -> None:
 
     # v22 → v23: AppSetting key/value table (slip-reader on/off control) — created
     # by create_all(); no ALTER needed. Version bumped for the record.
+
+    # v24 → v25: DailyJob KB (ใต้โต๊ะ) + ราคากลาง override. KbRule table via create_all.
+    _ensure_column("dailyjob", "kb_amount", "REAL", default="0")
+    _ensure_column("dailyjob", "price_override", "REAL")  # nullable, no default
 
 
 def init_db() -> None:
