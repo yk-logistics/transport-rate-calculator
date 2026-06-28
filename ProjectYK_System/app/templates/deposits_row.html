@@ -1,0 +1,25 @@
+<tr id="dep-row-{{ r.emp.id }}">
+  <td class="px-3 py-2">
+    <a href="/deposits/{{ r.emp.id }}/history" class="text-blue-600 hover:underline"
+       hx-get="/deposits/{{ r.emp.id }}/history" hx-target="#dep-history" hx-swap="innerHTML">
+      {{ r.emp.full_name }}</a>
+  </td>
+  <td class="px-3 py-2">{{ r.emp.home_site_code }}</td>
+  <td class="px-3 py-2 text-right">{{ '{:,.0f}'.format(r.emp.deposit_balance or 0) }}</td>
+  <td class="px-3 py-2 text-right">{{ '{:,.0f}'.format(r.emp.deposit_target or 0) }}</td>
+  <td class="px-3 py-2 text-right">
+    {% if r.remaining <= 0 %}<span class="text-green-600">✓ ครบ</span>
+    {% else %}{{ '{:,.0f}'.format(r.remaining) }}{% endif %}
+  </td>
+  <td class="px-3 py-2">
+    <div class="w-24 bg-slate-200 rounded h-2 inline-block align-middle">
+      <div class="bg-blue-500 h-2 rounded" style="width: {{ r.pct }}%"></div>
+    </div>
+    <span class="text-xs text-slate-500 ml-1">{{ r.pct }}%</span>
+  </td>
+  <td class="px-3 py-2 text-right">
+    <button class="text-slate-500 hover:text-blue-600"
+            hx-get="/deposits/{{ r.emp.id }}/edit" hx-target="#dep-row-{{ r.emp.id }}"
+            hx-swap="outerHTML">✏️</button>
+  </td>
+</tr>

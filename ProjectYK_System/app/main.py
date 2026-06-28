@@ -838,6 +838,47 @@ def employees_list(request: Request, site: str = "", q: str = ""):
     return templates.TemplateResponse("employees_list.html", ctx)
 
 
+# ---------------------------------------------------------------------
+# เงินประกันตน (driver security deposit) — overview + edit + history
+# ---------------------------------------------------------------------
+
+def _deposit_row_ctx(request: Request, e: "Employee") -> dict:
+    bal = e.deposit_balance or 0.0
+    tgt = e.deposit_target or 0.0
+    remaining = max(0.0, tgt - bal)
+    pct = min(100, round(bal / tgt * 100)) if tgt > 0 else 0
+    ctx = base_context(request)
+    ctx.update({"r": {"emp": e, "remaining": remaining, "pct": pct}})
+    return ctx
+
+
+@app.get("/deposits", response_class=HTMLResponse)
+def deposits_list(request: Request, site: str = ""):
+    with Session(engine) as s:
+        stmt = select(Employee).where(Employee.deposit_target > 0)
+        if site:
+            stmt = stmt.where(Employee.home_site_code == site)
+        stmt = stmt.order_by(Employee.home_site_code, Employee.full_name)
+        emps = s.exec(stmt).all()
+    rows = []
+    total_balance = 0.0
+    total_remaining = 0.0
+    for e in emps:
+        bal = e.deposit_balance or 0.0
+        tgt = e.deposit_target or 0.0
+        remaining = max(0.0, tgt - bal)
+        pct = min(100, round(bal / tgt * 100)) if tgt > 0 else 0
+        rows.append({"emp": e, "remaining": remaining, "pct": pct})
+        total_balance += bal
+        total_remaining += remaining
+    summary = {"count": len(rows), "total_balance": total_balance,
+               "total_remaining": total_remaining}
+    ctx = base_context(request)
+    ctx.update({"rows": rows, "site": site, "summary": summary,
+                "site_codes": models.SITE_CODES})
+    return templates.TemplateResponse("deposits_list.html", ctx)
+
+
 def _parse_custom_terms_safe(raw: str) -> dict:
     if not raw:
         return {}
