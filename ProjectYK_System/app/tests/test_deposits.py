@@ -71,3 +71,41 @@ def test_deposits_filter_by_site(client):
     b = r.text
     assert "เอ" in b and "บี" in b
     assert "ซี" not in b            # BIGC ถูกกรองออก
+
+
+def test_edit_updates_balance_and_writes_audit(client):
+    r = client.post("/deposits/10/edit",
+                    data={"deposit_balance": "4000", "deposit_target": "10000",
+                          "reason": "หักเพิ่ม มิ.ย."})
+    assert r.status_code == 200
+    with Session(engine) as s:
+        e = s.get(Employee, 10)
+        assert e.deposit_balance == 4000
+        audits = s.exec(select(DepositAudit).where(DepositAudit.employee_id == 10)).all()
+        assert len(audits) == 1
+        assert audits[0].field_name == "deposit_balance"
+        assert audits[0].old_value == "3000.0"
+        assert audits[0].new_value == "4000.0"
+        assert audits[0].changed_by == "yk1"
+        assert audits[0].reason == "หักเพิ่ม มิ.ย."
+
+
+def test_edit_no_change_writes_no_audit(client):
+    # ส่งค่าเดิม (เอ: balance 3000, target 10000) → ไม่มี audit
+    r = client.post("/deposits/10/edit",
+                    data={"deposit_balance": "3000", "deposit_target": "10000", "reason": ""})
+    assert r.status_code == 200
+    with Session(engine) as s:
+        audits = s.exec(select(DepositAudit).where(DepositAudit.employee_id == 10)).all()
+        assert len(audits) == 0
+
+
+def test_edit_negative_rejected(client):
+    r = client.post("/deposits/10/edit",
+                    data={"deposit_balance": "-500", "deposit_target": "10000", "reason": ""})
+    assert r.status_code == 400
+    with Session(engine) as s:
+        e = s.get(Employee, 10)
+        assert e.deposit_balance == 3000      # ไม่เปลี่ยน
+        audits = s.exec(select(DepositAudit).where(DepositAudit.employee_id == 10)).all()
+        assert len(audits) == 0

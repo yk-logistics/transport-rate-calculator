@@ -879,6 +879,48 @@ def deposits_list(request: Request, site: str = ""):
     return templates.TemplateResponse("deposits_list.html", ctx)
 
 
+@app.get("/deposits/{emp_id}/edit", response_class=HTMLResponse)
+def deposits_edit_form(emp_id: int, request: Request):
+    with Session(engine) as s:
+        e = s.get(Employee, emp_id)
+        if not e:
+            raise HTTPException(404)
+    ctx = _deposit_row_ctx(request, e)
+    return templates.TemplateResponse("deposits_edit_row.html", ctx)
+
+
+@app.post("/deposits/{emp_id}/edit", response_class=HTMLResponse)
+def deposits_edit_submit(
+    emp_id: int, request: Request,
+    deposit_balance: str = Form("0"),
+    deposit_target: str = Form("0"),
+    reason: str = Form(""),
+):
+    new_bal = _parse_float(deposit_balance)
+    new_tgt = _parse_float(deposit_target)
+    if new_bal < 0 or new_tgt < 0:
+        return HTMLResponse("ยอดต้องไม่ติดลบ", status_code=400)
+    _u = current_user(request)
+    changed_by = (_u.username if _u else "") or "?"
+    with Session(engine) as s:
+        e = s.get(Employee, emp_id)
+        if not e:
+            raise HTTPException(404)
+        for field_name, new_val in (("deposit_balance", new_bal),
+                                    ("deposit_target", new_tgt)):
+            old_val = getattr(e, field_name) or 0.0
+            if old_val != new_val:
+                s.add(models.DepositAudit(
+                    employee_id=emp_id, changed_by=changed_by, field_name=field_name,
+                    old_value=str(old_val), new_value=str(new_val), reason=reason.strip()))
+                setattr(e, field_name, new_val)
+        s.add(e)
+        s.commit()
+        s.refresh(e)
+        ctx = _deposit_row_ctx(request, e)
+    return templates.TemplateResponse("deposits_row.html", ctx)
+
+
 def _parse_custom_terms_safe(raw: str) -> dict:
     if not raw:
         return {}

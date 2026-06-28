@@ -1,0 +1,24 @@
+<tr id="dep-row-{{ r.emp.id }}" class="bg-yellow-50">
+  <td class="px-3 py-2">{{ r.emp.full_name }}</td>
+  <td class="px-3 py-2">{{ r.emp.home_site_code }}</td>
+  <td class="px-3 py-2" colspan="4">
+    <form hx-post="/deposits/{{ r.emp.id }}/edit" hx-target="#dep-row-{{ r.emp.id }}"
+          hx-swap="outerHTML" class="flex flex-wrap gap-2 items-center">
+      <label class="text-xs">สะสมแล้ว
+        <input type="number" step="0.01" name="deposit_balance"
+               value="{{ '%g'|format(r.emp.deposit_balance or 0) }}"
+               class="border rounded px-2 py-1 w-28" /></label>
+      <label class="text-xs">เพดาน
+        <input type="number" step="0.01" name="deposit_target"
+               value="{{ '%g'|format(r.emp.deposit_target or 0) }}"
+               class="border rounded px-2 py-1 w-28" /></label>
+      <input type="text" name="reason" placeholder="เหตุผล (ไม่บังคับ)"
+             class="border rounded px-2 py-1 flex-grow min-w-[120px]" />
+      <button type="submit" class="bg-blue-600 text-white rounded px-3 py-1 text-sm">บันทึก</button>
+      <button type="button" class="text-slate-500 text-sm"
+              hx-get="/deposits/{{ r.emp.id }}/edit" hx-target="#dep-row-{{ r.emp.id }}"
+              hx-swap="outerHTML">ยกเลิก</button>
+    </form>
+  </td>
+  <td></td>
+</tr>
