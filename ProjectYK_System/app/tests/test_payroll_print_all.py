@@ -119,7 +119,7 @@ def client_kb():
                      period_start=date(2026, 5, 16), period_end=date(2026, 6, 15), status="draft"))
         # mao daily: distinct rev/override/kb — use sentinel numbers easy to grep
         s.add(DailyJob(site_code="LCB", driver_id=99, work_date=date(2026, 5, 18),
-                       status_code="DHL Overflow", destination="TIPS CD",
+                       status_code="DHL Overflow", destination="TIPS CD", plate_no_raw="72-1218",
                        revenue_customer=7456, price_override=5500, kb_amount=333, trip_fee_driver=3300))
         s.add(DailyJob(site_code="LCB", driver_id=90, work_date=date(2026, 5, 18),
                        status_code="NHL", destination="SCS2",
@@ -161,10 +161,12 @@ def test_trip_driver_slip_no_central_price(client_kb):
 
 
 def test_slip_shows_daily_rows(client_kb):
-    """สลิปต้องมีเดลี่รายวัน (วันที่ + ปลายทาง)."""
+    """สลิปต้องมีเดลี่รายวัน (วันที่ + ปลายทาง + ทะเบียนรถ)."""
     r = client_kb.get("/payroll/2/print", follow_redirects=True)
     b = r.text
     assert "TIPS CD" in b or "SCS2" in b, "ต้องโชว์เดลี่รายวัน (ปลายทาง)"
+    assert "ทะเบียน" in b, "หัวตารางต้องมีคอลัมน์ทะเบียน"
+    assert "72-1218" in b, "ต้องโชว์ทะเบียนรถในเดลี่"
 
 
 def test_transfer_note_deposit_refund_for_resigned():
