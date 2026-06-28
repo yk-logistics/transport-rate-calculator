@@ -185,3 +185,12 @@ def test_transfer_note_no_refund_when_deposit_zero():
     note = appmod._auto_transfer_note(emp, item, date(2026, 6, 15))
     assert "ออก" in note
     assert "คืนประกันตน" not in note
+
+
+def test_pdf_filename_title_reflects_version(client_kb):
+    """ชื่อไฟล์ PDF (= <title>) บอกเวอร์ชัน คนขับ/ผู้บริหาร เพื่อกัน save ทับกัน."""
+    rd = client_kb.get("/payroll/2/print", follow_redirects=True)
+    rb = client_kb.get("/payroll/2/print?for=boss", follow_redirects=True)
+    assert "เงินเดือน_LCB_2026-06_คนขับ" in rd.text
+    assert "เงินเดือน_LCB_2026-06_ผู้บริหาร" in rb.text
+    assert "เซฟ PDF" in rd.text

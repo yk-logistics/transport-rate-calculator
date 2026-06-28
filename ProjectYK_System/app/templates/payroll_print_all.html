@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="utf-8">
-<title>พิมพ์เงินเดือน {{ run.site_code }} {{ run.pay_cycle_tag }}</title>
+<title>เงินเดือน_{{ run.site_code }}_{{ run.pay_cycle_tag }}_{{ 'ผู้บริหาร' if is_boss else 'คนขับ' }}</title>
 <style>
   body { font-family: "TH Sarabun New", Tahoma, sans-serif; font-size: 13px; color: #111; margin: 0; padding: 16px; }
   h2 { font-size: 17px; margin: 0 0 8px; }
@@ -33,9 +33,14 @@
 <body>
 
 <div class="toolbar no-print">
-  <button onclick="window.print()">🖨 พิมพ์ (Ctrl+P)</button>
+  <button onclick="window.print()">🖨 พิมพ์</button>
+  <button onclick="window.print()" style="margin-left:8px;">💾 เซฟ PDF</button>
   <a href="/payroll/{{ run.id }}" style="margin-left:12px;">← กลับหน้า Payroll</a>
-  <span class="muted" style="margin-left:12px;">สรุป → โอนเงิน → สลิปรายคน · แก้หมายเหตุหน้าโอนเงินได้ (ไม่พิมพ์ปุ่ม)</span>
+  <div class="muted" style="margin-top:6px; font-size:12px;">
+    เซฟ PDF: กดปุ่ม → ในช่อง "ปลายทาง/Destination" เลือก <b>Save as PDF</b> → เลือกโฟลเดอร์ที่เก็บ
+    · ชื่อไฟล์ตั้งให้แล้ว = <b>เงินเดือน_{{ run.site_code }}_{{ run.pay_cycle_tag }}_{{ 'ผู้บริหาร' if is_boss else 'คนขับ' }}</b>
+    {% if is_boss %}<span style="color:#b91c1c;"> · ⚠ เวอร์ชันผู้บริหาร (มี KB) อย่าส่งให้คนขับ</span>{% endif %}
+  </div>
 </div>
 
 {# ---------- 1. สรุปทุกคน ---------- #}
