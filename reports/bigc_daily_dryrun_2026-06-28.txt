@@ -1,0 +1,24 @@
+--- 2025-12  (source=bigc_2025-12) ---
+  jobs=404  fuel=144
+  SUM revenue (ค่าขนส่ง)  = 1,348,177.31
+  SUM trip_fee (ค่าเที่ยว) = 123,300.00
+--- 2026-01  (source=bigc_2026-01) ---
+  jobs=417  fuel=117
+  SUM revenue (ค่าขนส่ง)  = 1,075,689.16
+  SUM trip_fee (ค่าเที่ยว) = 114,600.00
+--- 2026-02  (source=bigc_2026-02) ---
+  jobs=373  fuel=108
+  SUM revenue (ค่าขนส่ง)  = 894,498.67
+  SUM trip_fee (ค่าเที่ยว) = 106,150.00
+--- 2026-03  (source=bigc_2026-03) ---
+  jobs=325  fuel=122
+  SUM revenue (ค่าขนส่ง)  = 453,632.70
+  SUM trip_fee (ค่าเที่ยว) = 108,300.00
+--- 2026-04  (source=bigc_2026-04) ---
+  jobs=400  fuel=123
+  SUM revenue (ค่าขนส่ง)  = 82,865.55
+  SUM trip_fee (ค่าเที่ยว) = 114,850.00
+--- 2026-05  (source=bigc_2026-05) ---
+  jobs=462  fuel=196
+  SUM revenue (ค่าขนส่ง)  = 31,070.03
+  SUM trip_fee (ค่าเที่ยว) = 136,300.00

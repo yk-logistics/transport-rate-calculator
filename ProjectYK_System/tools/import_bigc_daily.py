@@ -161,3 +161,98 @@ def row_to_record(row: list, C: dict, cycle_start: date, cycle_end: date) -> Opt
             "exclude_from_driver": True,
         }
     return {"daily": daily, "fuel": fuel}
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# CLI layer: cycle → folder/window/source + dry-run / write
+# ──────────────────────────────────────────────────────────────────────────
+import os                                          # noqa: E402
+from pathlib import Path                           # noqa: E402
+
+# ราก Work\Salary — แก้ที่เดียวถ้าย้ายเครื่อง
+SALARY_BASE = r"C:\Users\guole\Desktop\2026.5.28\Desktop\Work\Salary\2026"
+PRIMARY_FILE = "2564Daily Report (04.21).xlsx"
+DATA_SHEET = "เดือน06.21"
+SOURCE_PREFIX = "bigc_"
+
+# cycle_tag → โฟลเดอร์เดือนถัดไป + หน้าต่างวันที่ (1 → สิ้นเดือน)
+CYCLES = {
+    "2025-12": {"folder": "1.Jan", "start": date(2025, 12, 1), "end": date(2025, 12, 31)},
+    "2026-01": {"folder": "2.Feb", "start": date(2026, 1, 1),  "end": date(2026, 1, 31)},
+    "2026-02": {"folder": "3.Mar", "start": date(2026, 2, 1),  "end": date(2026, 2, 28)},
+    "2026-03": {"folder": "4.Apr", "start": date(2026, 3, 1),  "end": date(2026, 3, 31)},
+    "2026-04": {"folder": "5.May", "start": date(2026, 4, 1),  "end": date(2026, 4, 30)},
+    "2026-05": {"folder": "6.Jun", "start": date(2026, 5, 1),  "end": date(2026, 5, 31)},
+}
+
+
+def cycle_xlsx_path(cycle_tag: str) -> str:
+    c = CYCLES[cycle_tag]
+    return os.path.join(SALARY_BASE, c["folder"], "BigC", PRIMARY_FILE)
+
+
+def load_rows(xlsx_path: str, sheet: str = DATA_SHEET) -> list:
+    import openpyxl
+    wb = openpyxl.load_workbook(xlsx_path, data_only=True, read_only=True)
+    ws = wb[sheet]
+    return [list(r) for r in ws.iter_rows(values_only=True)]
+
+
+def parse_cycle(cycle_tag: str) -> dict:
+    c = CYCLES[cycle_tag]
+    rows = load_rows(cycle_xlsx_path(cycle_tag))
+    if len(rows) < 3:
+        raise SystemExit(f"sheet has <3 rows for {cycle_tag}")
+    merged = merge_header(rows[1], rows[2])
+    C = map_columns(merged)
+    missing = [k for k in ("work_date", "plate", "driver", "revenue", "trip_fee") if C[k] is None]
+    if missing:
+        raise SystemExit(f"[BLOCKED] {cycle_tag}: critical cols not found: {missing}\n"
+                         f"headers: {merged}")
+    records, sr, st, nf = [], 0.0, 0.0, 0
+    for r in rows[3:]:
+        rec = row_to_record(r, C, c["start"], c["end"])
+        if rec is None:
+            continue
+        records.append(rec)
+        sr += rec["daily"]["revenue_customer"]
+        st += rec["daily"]["trip_fee_driver"]
+        if rec["fuel"]:
+            nf += 1
+    return {"records": records, "sum_revenue": round(sr, 2),
+            "sum_trip": round(st, 2), "n_jobs": len(records), "n_fuel": nf}
+
+
+def _print_dry(cycle_tag: str, res: dict) -> None:
+    print(f"--- {cycle_tag}  (source={SOURCE_PREFIX}{cycle_tag}) ---")
+    print(f"  jobs={res['n_jobs']}  fuel={res['n_fuel']}")
+    print(f"  SUM revenue (ค่าขนส่ง)  = {res['sum_revenue']:,.2f}")
+    print(f"  SUM trip_fee (ค่าเที่ยว) = {res['sum_trip']:,.2f}")
+
+
+def main() -> None:
+    from argparse import ArgumentParser
+    ap = ArgumentParser()
+    ap.add_argument("--cycle", help="cycle_tag เดียว เช่น 2026-05; ไม่ใส่ = ทุก cycle")
+    ap.add_argument("--dry-run", action="store_true", help="parse + นับ ไม่เขียน DB")
+    ap.add_argument("--wipe-prior", action="store_true",
+                    help="ลบ source=bigc_<cycle> เดิมก่อนเขียน (เขียนจริงเท่านั้น)")
+    args = ap.parse_args()
+
+    cycles = [args.cycle] if args.cycle else list(CYCLES.keys())
+    for ct in cycles:
+        if ct not in CYCLES:
+            raise SystemExit(f"unknown cycle {ct}; valid: {list(CYCLES.keys())}")
+        path = cycle_xlsx_path(ct)
+        if not os.path.exists(path):
+            print(f"--- {ct} --- SKIP: ไฟล์ไม่พบ {path}")
+            continue
+        res = parse_cycle(ct)
+        if args.dry_run:
+            _print_dry(ct, res)
+        else:
+            write_cycle(ct, res, wipe_prior=args.wipe_prior)   # defined in Task 3
+
+
+if __name__ == "__main__":
+    main()
