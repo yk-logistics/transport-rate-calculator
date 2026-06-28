@@ -109,3 +109,36 @@ def test_edit_negative_rejected(client):
         assert e.deposit_balance == 3000      # ไม่เปลี่ยน
         audits = s.exec(select(DepositAudit).where(DepositAudit.employee_id == 10)).all()
         assert len(audits) == 0
+
+
+@pytest.fixture()
+def client_hist():
+    SQLModel.metadata.drop_all(engine)
+    SQLModel.metadata.create_all(engine)
+    appmod.init_db()
+    with Session(engine) as s:
+        u = s.exec(select(AppUser).where(AppUser.username == "yk1")).first()
+        u.must_change_pw = False; s.add(u)
+        # บี: balance 10000 แต่ระบบหักจริงแค่ 2 รอบ × 1000 = 2000 → carried 8000 (ลอกยอด)
+        s.add(Employee(id=11, code="D11", full_name="บี", home_site_code="LCB",
+                       status="active", deposit_balance=10000, deposit_target=10000))
+        s.add(PayRun(id=1, site_code="LCB", pay_cycle_tag="2026-05",
+                     period_start=date(2026,4,16), period_end=date(2026,5,15), status="final"))
+        s.add(PayRun(id=2, site_code="LCB", pay_cycle_tag="2026-06",
+                     period_start=date(2026,5,16), period_end=date(2026,6,15), status="draft"))
+        s.add(PayRunItem(pay_run_id=1, employee_id=11, deposit_install=1000))
+        s.add(PayRunItem(pay_run_id=2, employee_id=11, deposit_install=1000))
+        s.commit()
+    with TestClient(appmod.app) as c:
+        c.post("/login", data={"username": "yk1", "password": "changeme1"})
+        yield c
+
+
+def test_history_shows_deductions_and_carried_diff(client_hist):
+    r = client_hist.get("/deposits/11/history", follow_redirects=True)
+    assert r.status_code == 200
+    b = r.text
+    assert "2026-05" in b and "2026-06" in b      # 2 รอบที่หักจริง
+    # carried = 10000 - 2000 = 8000 → โชว์ส่วนต่าง "ยอดยกมา"
+    assert "8,000" in b
+    assert "ยอดยกมา" in b or "ไม่ได้หักผ่านระบบ" in b

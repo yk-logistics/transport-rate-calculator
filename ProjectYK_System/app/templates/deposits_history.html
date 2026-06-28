@@ -1,0 +1,49 @@
+<div class="bg-white rounded-lg border p-4">
+  <div class="flex justify-between items-center mb-2">
+    <h2 class="font-bold">ประวัติเงินประกันตน — {{ emp.full_name }}</h2>
+    <button class="text-slate-400 hover:text-slate-700" onclick="document.getElementById('dep-history').innerHTML=''">✕</button>
+  </div>
+
+  <table class="w-full text-sm mb-3">
+    <thead class="bg-slate-100 text-left">
+      <tr><th class="px-2 py-1">ไซต์</th><th class="px-2 py-1">รอบ</th><th class="px-2 py-1 text-right">หัก</th></tr>
+    </thead>
+    <tbody>
+      {% for h in hist %}
+      <tr><td class="px-2 py-1">{{ h.site }}</td><td class="px-2 py-1">{{ h.tag }}</td>
+          <td class="px-2 py-1 text-right">{{ '{:,.0f}'.format(h.amount) }}</td></tr>
+      {% else %}
+      <tr><td colspan="3" class="px-2 py-2 text-slate-500">ไม่มีรายการหักผ่านระบบ</td></tr>
+      {% endfor %}
+    </tbody>
+    <tfoot class="border-t font-semibold">
+      <tr><td colspan="2" class="px-2 py-1">รวมหักผ่านระบบ</td>
+          <td class="px-2 py-1 text-right">{{ '{:,.0f}'.format(hist_total) }}</td></tr>
+    </tfoot>
+  </table>
+
+  {% if carried > 0.5 %}
+  <div class="bg-amber-50 border border-amber-200 rounded p-2 text-sm text-amber-800">
+    ⚠️ ยอดยกมา/ตั้งค่า (ไม่ได้หักผ่านระบบ): <b>{{ '{:,.0f}'.format(carried) }}</b> บาท
+    — รอบที่ลอกยอดมาจะไม่มีรายการหักแยก
+  </div>
+  {% else %}
+  <div class="text-sm text-green-700">ประวัติการหักครบตามยอดสะสม</div>
+  {% endif %}
+
+  {% if edit_log %}
+  <h3 class="font-semibold mt-3 mb-1 text-sm">ประวัติการแก้ยอด</h3>
+  <table class="w-full text-xs">
+    <tbody>
+      {% for a in edit_log %}
+      <tr class="border-b">
+        <td class="px-2 py-1">{{ a.changed_at | dmy_hm }}</td>
+        <td class="px-2 py-1">{{ a.changed_by }}</td>
+        <td class="px-2 py-1">{{ a.field_name }}: {{ a.old_value }} → {{ a.new_value }}</td>
+        <td class="px-2 py-1 text-slate-500">{{ a.reason }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>

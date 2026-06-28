@@ -921,6 +921,33 @@ def deposits_edit_submit(
     return templates.TemplateResponse("deposits_row.html", ctx)
 
 
+@app.get("/deposits/{emp_id}/history", response_class=HTMLResponse)
+def deposits_history(emp_id: int, request: Request):
+    with Session(engine) as s:
+        e = s.get(Employee, emp_id)
+        if not e:
+            raise HTTPException(404)
+        items = s.exec(
+            select(PayRunItem, PayRun)
+            .join(PayRun, PayRun.id == PayRunItem.pay_run_id)
+            .where(PayRunItem.employee_id == emp_id, PayRunItem.deposit_install > 0)
+            .order_by(PayRun.period_start)
+        ).all()
+        hist = [{"site": pr.site_code, "tag": pr.pay_cycle_tag,
+                 "amount": pi.deposit_install} for pi, pr in items]
+        hist_total = sum(h["amount"] for h in hist)
+        carried = (e.deposit_balance or 0.0) - hist_total
+        edit_log = s.exec(
+            select(models.DepositAudit)
+            .where(models.DepositAudit.employee_id == emp_id)
+            .order_by(models.DepositAudit.changed_at.desc())
+        ).all()
+    ctx = base_context(request)
+    ctx.update({"emp": e, "hist": hist, "hist_total": hist_total,
+                "carried": carried, "edit_log": edit_log})
+    return templates.TemplateResponse("deposits_history.html", ctx)
+
+
 def _parse_custom_terms_safe(raw: str) -> dict:
     if not raw:
         return {}
