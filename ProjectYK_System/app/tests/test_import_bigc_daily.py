@@ -108,3 +108,61 @@ def test_row_to_record_skips_empty():
     C = imp.map_columns(BIGC_MERGED)
     blank = [None] * 19
     assert imp.row_to_record(blank, C, CYC_START, CYC_END) is None
+
+
+# ── Task 3: write_cycle into in-memory DB + wipe-prior idempotency ──
+from sqlmodel import SQLModel, Session, select   # noqa: E402
+from models import DailyJob, FuelTxn             # noqa: E402
+
+
+def _fake_res():
+    # 2 records: หนึ่งมีน้ำมัน หนึ่งรถจอด (fuel=None)
+    return {
+        "records": [
+            {"daily": {"work_date": date(2026, 5, 1), "site_code": "BIGC",
+                       "driver_raw_name": "ธนวัฒน์", "plate_no_raw": "71-8001",
+                       "tail_plate_raw": "", "origin": "", "store_code": "",
+                       "destination": "", "doc_no": "", "revenue_customer": 600.0,
+                       "trip_fee_driver": 200.0, "fuel_liter": 159.76,
+                       "fuel_amount": 5400.0, "fuel_rate_km_per_l": 0.0,
+                       "mile_snapshot": 0.0, "remark": "PTT B20"},
+             "fuel": {"site_code": "BIGC", "txn_date": date(2026, 5, 1),
+                      "plate_no_raw": "71-8001", "driver_raw_name": "ธนวัฒน์",
+                      "liter": 159.76, "amount": 5400.0,
+                      "price_per_liter": 5400.0 / 159.76, "rate_km_per_l": 0.0,
+                      "mile_snapshot": 0.0, "exclude_from_driver": True}},
+            {"daily": {"work_date": date(2026, 5, 2), "site_code": "BIGC",
+                       "driver_raw_name": "สมัย", "plate_no_raw": "71-8002",
+                       "tail_plate_raw": "", "origin": "", "store_code": "",
+                       "destination": "", "doc_no": "", "revenue_customer": 0.0,
+                       "trip_fee_driver": 0.0, "fuel_liter": 0.0,
+                       "fuel_amount": 0.0, "fuel_rate_km_per_l": 0.0,
+                       "mile_snapshot": 0.0, "remark": ""},
+             "fuel": None},
+        ],
+        "sum_revenue": 600.0, "sum_trip": 200.0, "n_jobs": 2, "n_fuel": 1,
+    }
+
+
+def test_write_cycle_inserts_jobs_and_fuel(tmp_path):
+    eng = imp.make_engine(str(tmp_path / "t.db"))
+    SQLModel.metadata.create_all(eng)
+    out = imp.write_cycle("2026-05", _fake_res(), engine=eng)
+    assert out == {"jobs": 2, "fuel": 1}
+    with Session(eng) as s:
+        jobs = s.exec(select(DailyJob).where(DailyJob.source == "bigc_2026-05")).all()
+        assert len(jobs) == 2
+        assert all(j.site_code == "BIGC" for j in jobs)
+        fuels = s.exec(select(FuelTxn).where(FuelTxn.source == "bigc_2026-05")).all()
+        assert len(fuels) == 1
+        assert fuels[0].exclude_from_driver is True
+
+
+def test_write_cycle_wipe_prior_no_duplicate(tmp_path):
+    eng = imp.make_engine(str(tmp_path / "t.db"))
+    SQLModel.metadata.create_all(eng)
+    imp.write_cycle("2026-05", _fake_res(), engine=eng)
+    imp.write_cycle("2026-05", _fake_res(), wipe_prior=True, engine=eng)  # รันซ้ำ
+    with Session(eng) as s:
+        jobs = s.exec(select(DailyJob).where(DailyJob.source == "bigc_2026-05")).all()
+        assert len(jobs) == 2   # ไม่ซ้อนเป็น 4

@@ -230,6 +230,64 @@ def _print_dry(cycle_tag: str, res: dict) -> None:
     print(f"  SUM trip_fee (ค่าเที่ยว) = {res['sum_trip']:,.2f}")
 
 
+# ── DB write layer ──
+_APP_ADDED = False
+
+
+def _ensure_app_on_path() -> None:
+    global _APP_ADDED
+    if not _APP_ADDED:
+        app_dir = Path(__file__).resolve().parents[1] / "app"
+        sys.path.insert(0, str(app_dir))
+        _APP_ADDED = True
+
+
+def make_engine(db_path: Optional[str] = None):
+    from sqlmodel import create_engine
+    if db_path is None:
+        db_path = str(Path(__file__).resolve().parents[1] / "app" / "app.db")
+    return create_engine(f"sqlite:///{db_path}", echo=False,
+                         connect_args={"check_same_thread": False})
+
+
+def _wipe_source(session, source_tag: str) -> int:
+    """ลบ DailyJob (+ FuelTxn ที่ผูก) ของ source tag เดียวเท่านั้น — ไม่ลบด้วย date/site."""
+    _ensure_app_on_path()
+    from sqlmodel import delete, select
+    from models import DailyJob, FuelTxn
+    jobs = session.exec(select(DailyJob).where(DailyJob.source == source_tag)).all()
+    ids = [j.id for j in jobs]
+    if ids:
+        session.exec(delete(FuelTxn).where(FuelTxn.daily_job_id.in_(ids)))   # type: ignore[attr-defined]
+        session.exec(delete(DailyJob).where(DailyJob.source == source_tag))
+    session.commit()
+    return len(ids)
+
+
+def write_cycle(cycle_tag: str, res: dict, wipe_prior: bool = False, engine=None) -> dict:
+    _ensure_app_on_path()
+    from sqlmodel import Session
+    from models import DailyJob, FuelTxn
+    src = SOURCE_PREFIX + cycle_tag
+    eng = engine or make_engine()
+    n_jobs = n_fuel = 0
+    with Session(eng) as s:
+        if wipe_prior:
+            removed = _wipe_source(s, src)
+            print(f"  wiped {removed} prior rows ({src})")
+        for rec in res["records"]:
+            dj = DailyJob(source=src, **rec["daily"])
+            s.add(dj)
+            s.flush()
+            n_jobs += 1
+            if rec["fuel"]:
+                s.add(FuelTxn(source=src, daily_job_id=dj.id, **rec["fuel"]))
+                n_fuel += 1
+        s.commit()
+    print(f"  wrote jobs={n_jobs} fuel={n_fuel} ({src})")
+    return {"jobs": n_jobs, "fuel": n_fuel}
+
+
 def main() -> None:
     from argparse import ArgumentParser
     ap = ArgumentParser()
