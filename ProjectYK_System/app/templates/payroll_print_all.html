@@ -151,6 +151,11 @@
         <span>เงินสุทธิ</span>
         <span class="{% if it.net_pay < 0 %}neg{% endif %}">{{ '{:,.2f}'.format(it.net_pay) }}</span>
       </div>
+      <div class="muted" style="font-size:11px; margin-top:6px; border-top:1px dotted #ccc; padding-top:3px;">
+        <div class="line"><span>รายได้สะสมทั้งปี (หลังหักน้ำมัน)</span><span>{{ '{:,.2f}'.format(r.ytd.income) }}</span></div>
+        <div class="line"><span>ภาษีสะสมทั้งปี</span><span>{{ '{:,.2f}'.format(r.ytd.tax) }}</span></div>
+        <div style="font-size:10px;">ถึงงวด {{ run.pay_cycle_tag }} ({{ run.period_end | dmy }})</div>
+      </div>
       {% if r.employee.bank_name or r.employee.account_no %}
       <div class="muted" style="font-size:12px; margin-top:4px;">โอนเข้า: {{ r.employee.bank_name }} {{ r.employee.account_no }}</div>
       {% endif %}

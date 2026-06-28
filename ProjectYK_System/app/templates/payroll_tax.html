@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}ภาษี · {{ run.site_code }} {{ run.pay_cycle_tag }}{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-2">
+  <div>
+    <h1 class="text-2xl font-bold">สรุปภาษีหัก ณ ที่จ่าย · {{ run.site_code }} · {{ run.pay_cycle_tag }}</h1>
+    <p class="text-sm text-slate-500">
+      ช่วง {{ run.period_start | dmy }} → {{ run.period_end | dmy }}
+      · รายได้คนเหมาน้ำมัน = หลังหักน้ำมัน · สะสม = ตั้งแต่ ม.ค. ถึงงวดนี้
+    </p>
+  </div>
+  <a href="/payroll/{{ run.id }}" class="text-sm text-sky-600 hover:underline">← กลับหน้า payroll</a>
+</div>
+
+<div class="bg-white rounded-lg shadow-sm border overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-600 text-xs uppercase">
+      <tr>
+        <th class="text-left px-3 py-2">คนขับ</th>
+        <th class="text-left px-3 py-2">โหมด</th>
+        <th class="text-right px-3 py-2">รายได้รอบนี้<br><span class="font-normal normal-case">(หลังหักน้ำมัน)</span></th>
+        <th class="text-right px-3 py-2">ภาษีรอบนี้</th>
+        <th class="text-right px-3 py-2">รายได้สะสมทั้งปี</th>
+        <th class="text-right px-3 py-2">ภาษีสะสมทั้งปี</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y">
+      {% for r in rows %}
+      <tr class="hover:bg-slate-50">
+        <td class="px-3 py-2">{{ r.employee.full_name }}</td>
+        <td class="px-3 py-2 text-slate-500">{{ r.pay_mode }}</td>
+        <td class="px-3 py-2 text-right">{{ '{:,.2f}'.format(r.income_month) }}</td>
+        <td class="px-3 py-2 text-right {% if r.tax_month %}text-rose-600 font-medium{% else %}text-slate-400{% endif %}">
+          {{ '{:,.2f}'.format(r.tax_month) if r.tax_month else '—' }}
+        </td>
+        <td class="px-3 py-2 text-right">{{ '{:,.2f}'.format(r.ytd_income) }}</td>
+        <td class="px-3 py-2 text-right {% if r.ytd_tax %}font-medium{% else %}text-slate-400{% endif %}">
+          {{ '{:,.2f}'.format(r.ytd_tax) if r.ytd_tax else '—' }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot class="bg-slate-50 font-semibold border-t-2">
+      <tr>
+        <td class="px-3 py-2" colspan="3">รวม</td>
+        <td class="px-3 py-2 text-right text-rose-600">{{ '{:,.2f}'.format(totals.tax_month) }}</td>
+        <td class="px-3 py-2 text-right"></td>
+        <td class="px-3 py-2 text-right">{{ '{:,.2f}'.format(totals.ytd_tax) }}</td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+<p class="text-xs text-slate-400 mt-3">
+  ภาษีประมาณการจากรายได้เฉลี่ยจริงต่อเดือน (YTD) × เดือนที่เหลือ − หักค่าใช้จ่าย 50% (สูงสุด 100,000)
+  − ลดหย่อนส่วนตัว 60,000 − ประกันสังคม แล้วเฉลี่ยทั้งปี. คนเหมาน้ำมันคิดจากรายได้หลังหักน้ำมัน.
+</p>
+
+{% endblock %}
