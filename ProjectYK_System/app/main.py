@@ -88,7 +88,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 27  # v27: Employee.bank_name/account_no + PayRunItem.transfer_note
+SCHEMA_VERSION = 28  # v28: DepositAudit (deposit edit log) for /deposits page
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -836,6 +836,116 @@ def employees_list(request: Request, site: str = "", q: str = ""):
     ctx = base_context(request)
     ctx.update({"rows": rows, "site": site, "q": q})
     return templates.TemplateResponse("employees_list.html", ctx)
+
+
+# ---------------------------------------------------------------------
+# เงินประกันตน (driver security deposit) — overview + edit + history
+# ---------------------------------------------------------------------
+
+def _deposit_row_ctx(request: Request, e: "Employee") -> dict:
+    bal = e.deposit_balance or 0.0
+    tgt = e.deposit_target or 0.0
+    remaining = max(0.0, tgt - bal)
+    pct = min(100, round(bal / tgt * 100)) if tgt > 0 else 0
+    ctx = base_context(request)
+    ctx.update({"r": {"emp": e, "remaining": remaining, "pct": pct}})
+    return ctx
+
+
+@app.get("/deposits", response_class=HTMLResponse)
+def deposits_list(request: Request, site: str = ""):
+    with Session(engine) as s:
+        stmt = select(Employee).where(Employee.deposit_target > 0)
+        if site:
+            stmt = stmt.where(Employee.home_site_code == site)
+        stmt = stmt.order_by(Employee.home_site_code, Employee.full_name)
+        emps = s.exec(stmt).all()
+    rows = []
+    total_balance = 0.0
+    total_remaining = 0.0
+    for e in emps:
+        bal = e.deposit_balance or 0.0
+        tgt = e.deposit_target or 0.0
+        remaining = max(0.0, tgt - bal)
+        pct = min(100, round(bal / tgt * 100)) if tgt > 0 else 0
+        rows.append({"emp": e, "remaining": remaining, "pct": pct})
+        total_balance += bal
+        total_remaining += remaining
+    summary = {"count": len(rows), "total_balance": total_balance,
+               "total_remaining": total_remaining}
+    ctx = base_context(request)
+    ctx.update({"rows": rows, "site": site, "summary": summary,
+                "site_codes": models.SITE_CODES})
+    return templates.TemplateResponse("deposits_list.html", ctx)
+
+
+@app.get("/deposits/{emp_id}/edit", response_class=HTMLResponse)
+def deposits_edit_form(emp_id: int, request: Request):
+    with Session(engine) as s:
+        e = s.get(Employee, emp_id)
+        if not e:
+            raise HTTPException(404)
+    ctx = _deposit_row_ctx(request, e)
+    return templates.TemplateResponse("deposits_edit_row.html", ctx)
+
+
+@app.post("/deposits/{emp_id}/edit", response_class=HTMLResponse)
+def deposits_edit_submit(
+    emp_id: int, request: Request,
+    deposit_balance: str = Form("0"),
+    deposit_target: str = Form("0"),
+    reason: str = Form(""),
+):
+    new_bal = _parse_float(deposit_balance)
+    new_tgt = _parse_float(deposit_target)
+    if new_bal < 0 or new_tgt < 0:
+        return HTMLResponse("ยอดต้องไม่ติดลบ", status_code=400)
+    _u = current_user(request)
+    changed_by = (_u.username if _u else "") or "?"
+    with Session(engine) as s:
+        e = s.get(Employee, emp_id)
+        if not e:
+            raise HTTPException(404)
+        for field_name, new_val in (("deposit_balance", new_bal),
+                                    ("deposit_target", new_tgt)):
+            old_val = getattr(e, field_name) or 0.0
+            if old_val != new_val:
+                s.add(models.DepositAudit(
+                    employee_id=emp_id, changed_by=changed_by, field_name=field_name,
+                    old_value=str(old_val), new_value=str(new_val), reason=reason.strip()))
+                setattr(e, field_name, new_val)
+        s.add(e)
+        s.commit()
+        s.refresh(e)
+        ctx = _deposit_row_ctx(request, e)
+    return templates.TemplateResponse("deposits_row.html", ctx)
+
+
+@app.get("/deposits/{emp_id}/history", response_class=HTMLResponse)
+def deposits_history(emp_id: int, request: Request):
+    with Session(engine) as s:
+        e = s.get(Employee, emp_id)
+        if not e:
+            raise HTTPException(404)
+        items = s.exec(
+            select(PayRunItem, PayRun)
+            .join(PayRun, PayRun.id == PayRunItem.pay_run_id)
+            .where(PayRunItem.employee_id == emp_id, PayRunItem.deposit_install > 0)
+            .order_by(PayRun.period_start)
+        ).all()
+        hist = [{"site": pr.site_code, "tag": pr.pay_cycle_tag,
+                 "amount": pi.deposit_install} for pi, pr in items]
+        hist_total = sum(h["amount"] for h in hist)
+        carried = (e.deposit_balance or 0.0) - hist_total
+        edit_log = s.exec(
+            select(models.DepositAudit)
+            .where(models.DepositAudit.employee_id == emp_id)
+            .order_by(models.DepositAudit.changed_at.desc())
+        ).all()
+    ctx = base_context(request)
+    ctx.update({"emp": e, "hist": hist, "hist_total": hist_total,
+                "carried": carried, "edit_log": edit_log})
+    return templates.TemplateResponse("deposits_history.html", ctx)
 
 
 def _parse_custom_terms_safe(raw: str) -> dict:
