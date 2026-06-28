@@ -356,7 +356,7 @@
         <td class="px-2 py-1 text-right font-mono font-semibold bg-emerald-50">{{ '{:,.0f}'.format(it.gross_total - it.fuel_cost_self) }}</td>
         <td class="px-2 py-1 text-right font-mono text-rose-700">{{ '{:,.0f}'.format(it.social_security) if it.social_security else '—' }}</td>
         <td class="px-2 py-1 text-right font-mono text-rose-700">{{ '{:,.0f}'.format(it.income_tax_withholding) if it.income_tax_withholding else '—' }}</td>
-        <td class="px-2 py-1 text-right font-mono text-rose-700">{{ '{:,.0f}'.format(it.deposit_install) if it.deposit_install else '—' }}</td>
+        <td class="px-2 py-1 text-right font-mono text-rose-700">{{ '{:,.0f}'.format(it.deposit_install) if it.deposit_install else '—' }}{% if it.deposit_install and (e | dep_install) %}<div class="text-[9px] text-slate-400 font-normal">งวด {{ e | dep_install }}</div>{% endif %}</td>
         <td class="px-2 py-1 text-right font-mono text-rose-700">{{ '{:,.0f}'.format(it.accident_install) if it.accident_install else '—' }}</td>
         <td class="px-2 py-1 text-right font-mono text-rose-700">{{ '{:,.0f}'.format(it.petty_cash_deduction) if it.petty_cash_deduction else '—' }}</td>
         <td class="px-2 py-1 text-right font-mono font-semibold bg-rose-50">{{ '{:,.0f}'.format(it.deduction_total - it.fuel_cost_self) }}</td>

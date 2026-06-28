@@ -315,7 +315,8 @@
           <div class="line"><span>ภาษีหัก ณ ที่จ่าย</span><span class="v">{{ '{:,.2f}'.format(item.income_tax_withholding) }}</span></div>
         {% endif %}
         {% if item.deposit_install %}
-          <div class="line"><span>เงินประกัน (ผ่อน)</span><span class="v">{{ '{:,.2f}'.format(item.deposit_install) }}</span></div>
+          {% set dep_no = employee | dep_install %}
+          <div class="line"><span>เงินประกัน (ผ่อน){% if dep_no %} งวดที่ {{ dep_no }}{% endif %}</span><span class="v">{{ '{:,.2f}'.format(item.deposit_install) }}</span></div>
         {% endif %}
         {% if item.accident_install %}
           <div class="line"><span>ผ่อนอุบัติเหตุ</span><span class="v">{{ '{:,.2f}'.format(item.accident_install) }}</span></div>

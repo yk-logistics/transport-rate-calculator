@@ -1,7 +1,7 @@
 <tr id="dep-row-{{ r.emp.id }}" class="bg-yellow-50">
   <td class="px-3 py-2">{{ r.emp.full_name }}</td>
   <td class="px-3 py-2">{{ r.emp.home_site_code }}</td>
-  <td class="px-3 py-2" colspan="4">
+  <td class="px-3 py-2" colspan="5">
     <form hx-post="/deposits/{{ r.emp.id }}/edit" hx-target="#dep-row-{{ r.emp.id }}"
           hx-swap="outerHTML" class="flex flex-wrap gap-2 items-center">
       <label class="text-xs">สะสมแล้ว

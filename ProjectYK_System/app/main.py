@@ -150,8 +150,28 @@ def _fmt_dmy_hm(value) -> str:
         return str(value)
 
 
+DEPOSIT_INSTALL_UNIT = 1000.0  # เงินประกันตนหักงวดละ 1,000 (มาตรฐาน ตรงกับชีต SSO)
+
+
+def _fmt_dep_install(emp) -> str:
+    """งวดเงินประกันตน 'X/Y' จากยอดสะสม/เพดาน (หน่วยงวด = 1,000).
+
+    X = ยอดสะสม // 1000 (งวดที่เก็บถึงแล้ว) · Y = เพดาน // 1000 (งวดทั้งหมด).
+    คืน '' เมื่อไม่มีเพดาน (คนไม่มีเงินประกัน)."""
+    if emp is None:
+        return ""
+    tgt = getattr(emp, "deposit_target", 0) or 0
+    if tgt <= 0:
+        return ""
+    bal = getattr(emp, "deposit_balance", 0) or 0
+    done = int(round(bal / DEPOSIT_INSTALL_UNIT))
+    total = int(round(tgt / DEPOSIT_INSTALL_UNIT))
+    return f"{done}/{total}"
+
+
 templates.env.filters["dmy"] = _fmt_dmy
 templates.env.filters["dmy_hm"] = _fmt_dmy_hm
+templates.env.filters["dep_install"] = _fmt_dep_install
 
 
 def _parse_date(value: str) -> Optional[date]:

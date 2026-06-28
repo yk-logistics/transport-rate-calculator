@@ -99,7 +99,7 @@
       <table class="w-full">
         <tr><td class="py-0.5">ประกันสังคม</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.social_security) }}</td></tr>
         <tr><td class="py-0.5">ภาษีหัก ณ ที่จ่าย</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.income_tax_withholding) }}</td></tr>
-        <tr><td class="py-0.5">เงินประกันตน</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.deposit_install) }}</td></tr>
+        <tr><td class="py-0.5">เงินประกันตน{% set dep_no = employee | dep_install %}{% if dep_no %} <span class="text-slate-400 text-xs">(งวดที่ {{ dep_no }})</span>{% endif %}</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.deposit_install) }}</td></tr>
         <tr><td class="py-0.5">ผ่อนอุบัติเหตุ</td><td class="text-right font-mono">{{ '{:,.2f}'.format(item.accident_install) }}</td></tr>
         <tr>
           <td class="py-0.5">หักสดย่อย</td>

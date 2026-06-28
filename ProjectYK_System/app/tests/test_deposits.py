@@ -26,6 +26,16 @@ def test_deposit_audit_model_exists():
     assert a.new_value == "1000"
 
 
+def test_dep_install_filter():
+    # หน่วยงวด = 1,000 → 'สะสม//1000 / เพดาน//1000'
+    f = appmod._fmt_dep_install
+    assert f(Employee(deposit_balance=3000, deposit_target=10000)) == "3/10"
+    assert f(Employee(deposit_balance=10000, deposit_target=10000)) == "10/10"
+    assert f(Employee(deposit_balance=0, deposit_target=10000)) == "0/10"
+    assert f(Employee(deposit_balance=0, deposit_target=0)) == ""   # ไม่มีเงินประกัน
+    assert f(None) == ""
+
+
 @pytest.fixture()
 def client():
     SQLModel.metadata.drop_all(engine)
@@ -59,6 +69,16 @@ def test_deposits_page_lists_only_those_with_target(client):
     b = r.text
     assert "เอ" in b and "บี" in b and "ซี" in b
     assert "ดี" not in b            # target==0 ไม่แสดง
+
+
+def test_deposits_shows_installment_number(client):
+    # คอลัมน์ "งวดที่ X/Y" = สะสม//1000 / เพดาน//1000 (ตรงกับชีต SSO)
+    r = client.get("/deposits", follow_redirects=True)
+    b = r.text
+    assert ">งวดที่<" in b              # หัวคอลัมน์
+    assert "3/10" in b                  # เอ 3,000/10,000
+    assert "10/10" in b                 # บี เก็บครบ
+    assert "5/10" in b                  # ซี 5,000/10,000
 
 
 def test_deposits_summary_totals(client):

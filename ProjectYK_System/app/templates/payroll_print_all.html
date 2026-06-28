@@ -155,7 +155,7 @@
       <div style="font-weight:bold; margin-bottom:3px;">เงินหัก</div>
       {% if it.social_security %}<div class="line"><span>ประกันสังคม</span><span>{{ '{:,.2f}'.format(it.social_security) }}</span></div>{% endif %}
       {% if it.income_tax_withholding %}<div class="line"><span>ภาษีหัก ณ ที่จ่าย</span><span>{{ '{:,.2f}'.format(it.income_tax_withholding) }}</span></div>{% endif %}
-      {% if it.deposit_install %}<div class="line"><span>เงินประกัน (ผ่อน)</span><span>{{ '{:,.2f}'.format(it.deposit_install) }}</span></div>{% endif %}
+      {% if it.deposit_install %}<div class="line"><span>เงินประกัน (ผ่อน){% set dep_no = r.employee | dep_install %}{% if dep_no %} งวดที่ {{ dep_no }}{% endif %}</span><span>{{ '{:,.2f}'.format(it.deposit_install) }}</span></div>{% endif %}
       {% if it.accident_install %}<div class="line"><span>ผ่อนอุบัติเหตุ</span><span>{{ '{:,.2f}'.format(it.accident_install) }}</span></div>{% endif %}
       {% if it.petty_cash_deduction %}<div class="line"><span>หักสดย่อย</span><span>{{ '{:,.2f}'.format(it.petty_cash_deduction) }}</span></div>{% endif %}
       {% if it.other_deduction %}<div class="line"><span>หักอื่นๆ</span><span>{{ '{:,.2f}'.format(it.other_deduction) }}</span></div>{% endif %}

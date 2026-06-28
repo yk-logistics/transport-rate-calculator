@@ -31,6 +31,15 @@ def _fmt_money_simple(x: float) -> str:
     return f"{v:,.2f}"
 
 
+def _dep_install_str(emp) -> str:
+    """งวดเงินประกันตน 'X/Y' จากยอดสะสม/เพดาน (หน่วยงวด = 1,000) — '' ถ้าไม่มีเพดาน."""
+    tgt = getattr(emp, "deposit_target", 0) or 0
+    if tgt <= 0:
+        return ""
+    bal = getattr(emp, "deposit_balance", 0) or 0
+    return f"{int(round(bal / 1000.0))}/{int(round(tgt / 1000.0))}"
+
+
 def _safe_filename(name: str, max_len: int = 80) -> str:
     s = re.sub(r'[<>:"/\\\\|?*\\x00-\\x1f]', "_", name.strip())
     return s[:max_len] if len(s) > max_len else s
@@ -369,7 +378,7 @@ def render_driver_slip_page(pdf: _Pdf, ctx: dict[str, Any]) -> None:
     ded = [
         ("ประกันสังคม", item.social_security or 0),
         ("ภาษีหัก ณ ที่จ่าย", item.income_tax_withholding or 0),
-        ("เงินประกัน (ผ่อน)", item.deposit_install or 0),
+        ("เงินประกัน (ผ่อน)" + (f" งวดที่ {_dep_install_str(emp)}" if (item.deposit_install and _dep_install_str(emp)) else ""), item.deposit_install or 0),
         ("ผ่อนอุบัติเหตุ", item.accident_install or 0),
         ("ค่าน้ำมัน (ออกเอง)", item.fuel_cost_self or 0),
         ("หักอื่นๆ", item.other_deduction or 0),

@@ -6,6 +6,7 @@
   </td>
   <td class="px-3 py-2">{{ r.emp.home_site_code }}</td>
   <td class="px-3 py-2 text-right">{{ '{:,.0f}'.format(r.emp.deposit_balance or 0) }}</td>
+  <td class="px-3 py-2 text-center text-slate-600">{{ r.emp | dep_install or '—' }}</td>
   <td class="px-3 py-2 text-right">{{ '{:,.0f}'.format(r.emp.deposit_target or 0) }}</td>
   <td class="px-3 py-2 text-right">
     {% if r.remaining <= 0 %}<span class="text-green-600">✓ ครบ</span>
