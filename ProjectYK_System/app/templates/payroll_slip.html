@@ -186,7 +186,7 @@
   </table>
   <div style="font-size:10px; color:#64748b; margin-top:2px;">
     ค่าแรง = วันเหมาได้ 60% ของค่าขนส่ง · วันเที่ยวได้ค่าเที่ยว ·
-    เงินพิเศษ/OT/รับตู้แทน รวมอยู่ใน "รายได้อื่น" ด้านล่าง
+    เงินพิเศษ/OT/รับตู้คืนตู้ แยกบรรทัดในช่อง "รายได้" ด้านล่าง
   </div>
   {% else %}
   <table class="daily">
@@ -285,10 +285,20 @@
           <div class="line"><span>ชดเชยการันตี</span><span class="v">{{ '{:,.2f}'.format(item.guarantee_topup) }}</span></div>
           {% set inc_total = inc_total + item.guarantee_topup %}
         {% endif %}
-        {% if item.other_income %}
-          <div class="line"><span>รายได้อื่น</span><span class="v">{{ '{:,.2f}'.format(item.other_income) }}</span></div>
-          {% set inc_total = inc_total + item.other_income %}
+        {% if item.special_income %}
+          <div class="line"><span>พิเศษ</span><span class="v">{{ '{:,.2f}'.format(item.special_income) }}</span></div>
         {% endif %}
+        {% if item.ot_income %}
+          <div class="line"><span>OT</span><span class="v">{{ '{:,.2f}'.format(item.ot_income) }}</span></div>
+        {% endif %}
+        {% if item.pickup_return_income %}
+          <div class="line"><span>รับตู้คืนตู้</span><span class="v">{{ '{:,.2f}'.format(item.pickup_return_income) }}</span></div>
+        {% endif %}
+        {% set other_rest = item.other_income - item.special_income - item.ot_income - item.pickup_return_income %}
+        {% if other_rest|round(2) != 0 %}
+          <div class="line"><span>รายได้อื่น</span><span class="v">{{ '{:,.2f}'.format(other_rest) }}</span></div>
+        {% endif %}
+        {% if item.other_income %}{% set inc_total = inc_total + item.other_income %}{% endif %}
         <div class="line"><span>รวมรายได้</span><span class="v">{{ '{:,.2f}'.format(item.gross_total) }}</span></div>
         {% if item.fuel_cost_self %}
           <div class="line"><span>− ค่าน้ำมัน</span><span class="v" style="color:#b91c1c;">{{ '{:,.2f}'.format(item.fuel_cost_self) }}</span></div>
