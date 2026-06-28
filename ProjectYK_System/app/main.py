@@ -7964,6 +7964,31 @@ def finance_vehicles(request: Request, month: str = "", site: str = ""):
     return templates.TemplateResponse("finance_vehicles.html", ctx)
 
 
+@app.get("/finance/revenue", response_class=HTMLResponse)
+def finance_revenue(request: Request):
+    """CFO รายได้ drill-down ไซต์→ลูกค้า→รถ. เลือกช่วงวันเอง (from/to ISO).
+    ค่าเริ่มต้น = 30 วันล่าสุด. รายได้ = revenue_customer.
+    อ่าน from/to/site จาก query_params (from/to เป็น reserved keyword ใน Python)."""
+    today = date.today()
+    # 'from'/'to' เป็น reserved-ish — รับผ่าน query params dict
+    d_from = (request.query_params.get("from") or "").strip()
+    d_to = (request.query_params.get("to") or "").strip()
+    site = (request.query_params.get("site") or "").strip()
+    start = _parse_date(d_from) or (today - timedelta(days=30))
+    end = _parse_date(d_to) or today
+    if start > end:
+        start, end = end, start
+    with Session(engine) as s:
+        data = finance_svc.revenue_breakdown(s, start, end, site)
+    ctx = base_context(request)
+    ctx.update({
+        "start": start, "end": end, "site": site,
+        "sites": data["sites"], "totals": data["totals"],
+        "has_other_sites": data["has_other_sites"],
+    })
+    return templates.TemplateResponse("finance_revenue.html", ctx)
+
+
 @app.get("/finance/cashflow", response_class=HTMLResponse)
 def finance_cashflow(request: Request, days: int = 90):
     days = max(30, min(180, days))

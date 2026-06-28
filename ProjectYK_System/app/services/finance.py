@@ -609,3 +609,97 @@ def break_even_and_runway(session: Session, as_of: Optional[date] = None) -> dic
         "net_monthly": net_monthly,
         "status": "healthy" if net_monthly > 0 else "losing",
     }
+
+
+def revenue_breakdown(
+    session: Session, start: date, end: date, site: str = ""
+) -> dict:
+    """รายได้ (revenue_customer) เจาะลึกซ้อน 3 ชั้น: ไซต์ → ลูกค้า → รถ.
+
+    ลูกค้า = DailyJob.status_code (KLND/CJ/DHL Overflow/… — customer_name_raw/id ว่าง).
+    รถ = DailyJob.plate_no_raw (ครบทุกแถว ต่างจาก head_vehicle_id ที่ลิงก์ไม่ครบ).
+    รายได้ = revenue_customer (ค่าขนส่งจริง). อ่านอย่างเดียว ไม่รวม fee/cost.
+
+    คืน: {sites: [...], totals: {...}, has_other_sites: bool}
+    แต่ละ site: {site, revenue, trips, rows_priced, rows_no_price, customers: [...]}
+    แต่ละ customer: {customer, revenue, trips, pct_of_site, vehicles: [...]}
+    แต่ละ vehicle: {plate, revenue, trips, pct_of_customer}
+    เรียง revenue มาก→น้อยทุกชั้น.
+    """
+    stmt = select(DailyJob).where(
+        DailyJob.work_date >= start, DailyJob.work_date <= end
+    )
+    if site:
+        stmt = stmt.where(DailyJob.site_code == site)
+    jobs = session.exec(stmt).all()
+
+    # nested aggregation: site -> customer -> plate
+    sites: dict[str, dict] = {}
+    for j in jobs:
+        sc = j.site_code or "(ไม่ระบุ)"
+        cust = (j.status_code or "").strip() or "(ไม่ระบุ)"
+        plate = (j.plate_no_raw or "").strip() or "(ไม่ระบุ)"
+        rev = j.revenue_customer or 0.0
+
+        s_g = sites.setdefault(sc, {
+            "site": sc, "revenue": 0.0, "trips": 0,
+            "rows_priced": 0, "rows_no_price": 0, "_cust": {},
+        })
+        s_g["revenue"] += rev
+        s_g["trips"] += 1
+        if rev > 0:
+            s_g["rows_priced"] += 1
+        else:
+            s_g["rows_no_price"] += 1
+
+        c_g = s_g["_cust"].setdefault(cust, {
+            "customer": cust, "revenue": 0.0, "trips": 0, "_veh": {},
+        })
+        c_g["revenue"] += rev
+        c_g["trips"] += 1
+
+        v_g = c_g["_veh"].setdefault(plate, {
+            "plate": plate, "revenue": 0.0, "trips": 0,
+        })
+        v_g["revenue"] += rev
+        v_g["trips"] += 1
+
+    # build sorted output with percentages
+    site_list = []
+    for s_g in sites.values():
+        cust_list = []
+        for c_g in s_g["_cust"].values():
+            veh_list = sorted(c_g["_veh"].values(), key=lambda v: v["revenue"], reverse=True)
+            for v in veh_list:
+                v["revenue"] = round(v["revenue"], 2)
+                v["pct_of_customer"] = (
+                    round(v["revenue"] / c_g["revenue"] * 100, 1) if c_g["revenue"] else 0.0
+                )
+            cust_list.append({
+                "customer": c_g["customer"],
+                "revenue": round(c_g["revenue"], 2),
+                "trips": c_g["trips"],
+                "pct_of_site": (
+                    round(c_g["revenue"] / s_g["revenue"] * 100, 1) if s_g["revenue"] else 0.0
+                ),
+                "vehicles": veh_list,
+            })
+        cust_list.sort(key=lambda c: c["revenue"], reverse=True)
+        site_list.append({
+            "site": s_g["site"],
+            "revenue": round(s_g["revenue"], 2),
+            "trips": s_g["trips"],
+            "rows_priced": s_g["rows_priced"],
+            "rows_no_price": s_g["rows_no_price"],
+            "customers": cust_list,
+        })
+    site_list.sort(key=lambda s: s["revenue"], reverse=True)
+
+    totals = {
+        "revenue": round(sum(s["revenue"] for s in site_list), 2),
+        "trips": sum(s["trips"] for s in site_list),
+        "rows_no_price": sum(s["rows_no_price"] for s in site_list),
+    }
+    # ไซต์อื่นนอก LCB ที่มีข้อมูลรายเที่ยวจริงไหม (เตือน CFO ว่า BIGC/AYU ยังไม่มี)
+    has_other_sites = any(s["site"] not in ("LCB", "(ไม่ระบุ)") for s in site_list)
+    return {"sites": site_list, "totals": totals, "has_other_sites": has_other_sites}
