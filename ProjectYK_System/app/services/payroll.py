@@ -164,6 +164,11 @@ class PayrollCalc:
     fuel_share_income: float = 0.0
     guarantee_topup: float = 0.0
     other_income: float = 0.0
+    # LCB driver extras — a SUBSET of other_income (display breakdown only,
+    # NOT added to gross_total separately).
+    special_income: float = 0.0
+    ot_income: float = 0.0
+    pickup_return_income: float = 0.0
 
     # BIGC audit fields
     fuel_budget_liter: float = 0.0
@@ -1000,6 +1005,9 @@ def calc_one_employee(
         # เงินคนขับพิเศษ จากชีท (พิเศษ/OT/รับตู้แทน) — แทนสูตรเก่า 100/เที่ยว
         extra = _sum_lcb_driver_extra_fees(session, employee.id, start, end, site_code=site)
         calc.other_income += extra["total"]
+        calc.special_income = extra["special"]
+        calc.ot_income = extra["ot"]
+        calc.pickup_return_income = extra["pickup_return"]
         miss_bits = []
         if (calc.days_leave + calc.days_absent) > 0:
             miss_bits.append(f"ลา/ขาด {int(calc.days_leave + calc.days_absent)}วัน")
@@ -1021,6 +1029,9 @@ def calc_one_employee(
         # คนเหมาไม่ได้พิเศษ (โอ 2026-06-25) — แต่ได้ OT/รับตู้แทน ถ้ามี
         extra = _sum_lcb_driver_extra_fees(session, employee.id, start, end, site_code=site)
         calc.other_income += round(extra["ot"] + extra["pickup_return"], 2)
+        calc.special_income = 0.0  # คนเหมาไม่ได้พิเศษ
+        calc.ot_income = extra["ot"]
+        calc.pickup_return_income = extra["pickup_return"]
         calc.note = (
             f"Gross revenue {revenue:,.2f} × {share_rate*100:.0f}% − น้ำมันจริง"
             f" + OT {extra['ot']:,.0f} + รับตู้แทน {extra['pickup_return']:,.0f}"
@@ -1053,6 +1064,9 @@ def calc_one_employee(
         # เงินพิเศษ จากชีท (พิเศษ/OT/รับตู้แทน) ทั้งรอบ — แทนสูตรเก่า 100/เที่ยว
         extra = _sum_lcb_driver_extra_fees(session, employee.id, start, end, site_code=site)
         calc.other_income += extra["total"]
+        calc.special_income = extra["special"]
+        calc.ot_income = extra["ot"]
+        calc.pickup_return_income = extra["pickup_return"]
         # base+care prorate by TRIP days + IDLE (รถจอด) days.
         # mao days have no base; idle days (รถจอด/อุบัติเหตุ/ซ่อม) DO earn base
         # per โอ policy 2026-06-25 — คนขับมาแต่บริษัทไม่มีงาน ต้องได้ฐาน.
@@ -1317,6 +1331,9 @@ def compute_pay_run(
             fuel_share_income=calc.fuel_share_income,
             guarantee_topup=calc.guarantee_topup,
             other_income=calc.other_income,
+            special_income=calc.special_income,
+            ot_income=calc.ot_income,
+            pickup_return_income=calc.pickup_return_income,
             gross_total=calc.gross_total,
             fuel_budget_liter=calc.fuel_budget_liter,
             fuel_consumed_liter=calc.fuel_consumed_liter,

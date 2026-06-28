@@ -307,6 +307,9 @@
         <th class="px-2 py-2 text-right">เงินเดือน</th>
         <th class="px-2 py-2 text-right">ค่าดูแลรถ</th>
         <th class="px-2 py-2 text-right">ค่าเที่ยว</th>
+        <th class="px-2 py-2 text-right">พิเศษ</th>
+        <th class="px-2 py-2 text-right">OT</th>
+        <th class="px-2 py-2 text-right">รับตู้คืนตู้</th>
         <th class="px-2 py-2 text-right">เรทน้ำมัน</th>
         <th class="px-2 py-2 text-right">60%</th>
         <th class="px-2 py-2 text-right">การันตี</th>
@@ -342,6 +345,9 @@
         <td class="px-2 py-1 text-right font-mono">{{ '{:,.0f}'.format(it.base_salary_earned) if it.base_salary_earned else '—' }}</td>
         <td class="px-2 py-1 text-right font-mono">{{ '{:,.0f}'.format(it.care_allowance_earned) if it.care_allowance_earned else '—' }}</td>
         <td class="px-2 py-1 text-right font-mono">{{ '{:,.0f}'.format(it.trip_fee_total) if it.trip_fee_total else '—' }}</td>
+        <td class="px-2 py-1 text-right font-mono">{{ '{:,.0f}'.format(it.special_income) if it.special_income else '—' }}</td>
+        <td class="px-2 py-1 text-right font-mono">{{ '{:,.0f}'.format(it.ot_income) if it.ot_income else '—' }}</td>
+        <td class="px-2 py-1 text-right font-mono">{{ '{:,.0f}'.format(it.pickup_return_income) if it.pickup_return_income else '—' }}</td>
         <td class="px-2 py-1 text-right font-mono">{{ '{:,.0f}'.format(it.fuel_rate_income) if it.fuel_rate_income else '—' }}</td>
         <td class="px-2 py-1 text-right font-mono">{{ '{:,.0f}'.format(it.fuel_share_income) if it.fuel_share_income else '—' }}</td>
         <td class="px-2 py-1 text-right font-mono">{{ '{:,.0f}'.format(it.guarantee_topup) if it.guarantee_topup else '—' }}</td>
@@ -358,7 +364,7 @@
         <td class="px-2 py-1 text-[10px] text-slate-500 max-w-xs truncate" title="{{ it.note }}">{{ it.note }}</td>
       </tr>
     {% else %}
-      <tr><td colspan="23" class="px-3 py-8 text-center text-slate-400">ไม่มีข้อมูล — ยังไม่มีพนักงานในไซต์นี้</td></tr>
+      <tr><td colspan="26" class="px-3 py-8 text-center text-slate-400">ไม่มีข้อมูล — ยังไม่มีพนักงานในไซต์นี้</td></tr>
     {% endfor %}
     </tbody>
   </table>

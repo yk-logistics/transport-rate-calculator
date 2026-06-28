@@ -363,6 +363,11 @@ class PayRunItem(SQLModel, table=True):
     fuel_share_income: float = 0.0        # AYU/LCB mao: % of revenue − fuel cost
     guarantee_topup: float = 0.0          # AYU: if trip_fee < guarantee
     other_income: float = 0.0
+    # LCB driver extras, broken out so the table/slip can show them separately.
+    # These are a SUBSET of other_income (already summed into it), not additive.
+    special_income: float = 0.0           # พิเศษ (เฉพาะ lcb_trip/lcb_mixed; เหมา=0)
+    ot_income: float = 0.0                # OT (ทุก mode LCB)
+    pickup_return_income: float = 0.0     # รับตู้/คืนตู้แทน (ทุก mode LCB)
     gross_total: float = 0.0
 
     # Audit breakdown for BIGC fuel rate

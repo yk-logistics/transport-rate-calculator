@@ -88,7 +88,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 28  # v28: DepositAudit (deposit edit log) for /deposits page
+SCHEMA_VERSION = 29  # v29: PayRunItem special/ot/pickup_return income (LCB extras shown separately)
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -413,6 +413,12 @@ def _apply_additive_migrations() -> None:
     _ensure_column("employee", "bank_name", "TEXT", default="")
     _ensure_column("employee", "account_no", "TEXT", default="")
     _ensure_column("payrunitem", "transfer_note", "TEXT", default="")
+
+    # v28 → v29: แตกเงินคนขับ LCB (พิเศษ/OT/รับตู้แทน) เป็น field แยก เพื่อโชว์ในตาราง/สลิป.
+    # ค่าเหล่านี้เป็น subset ของ other_income อยู่แล้ว (ไม่บวกซ้ำ) — recompute รอบ draft เพื่อเติมค่า.
+    _ensure_column("payrunitem", "special_income", "REAL", default="0")
+    _ensure_column("payrunitem", "ot_income", "REAL", default="0")
+    _ensure_column("payrunitem", "pickup_return_income", "REAL", default="0")
 
 
 def init_db() -> None:
