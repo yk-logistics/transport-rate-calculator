@@ -1410,6 +1410,18 @@ class DailyJobAudit(SQLModel, table=True):
     new_value: str = ""
 
 
+class DepositAudit(SQLModel, table=True):
+    """ประวัติการแก้ยอดเงินประกันตนในหน้า /deposits — INSERT-only, ไม่แก้ของเดิม."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    employee_id: int = Field(index=True)
+    changed_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    changed_by: str = ""
+    field_name: str = ""        # deposit_balance | deposit_target
+    old_value: str = ""
+    new_value: str = ""
+    reason: str = ""
+
+
 TRIP_TYPE_CODES_BY_SITE: dict[str, tuple[tuple[str, str], ...]] = {
     "AYU": (
         ("",         "— ไม่ระบุ —"),

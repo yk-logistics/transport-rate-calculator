@@ -88,7 +88,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 27  # v27: Employee.bank_name/account_no + PayRunItem.transfer_note
+SCHEMA_VERSION = 28  # v28: DepositAudit (deposit edit log) for /deposits page
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
