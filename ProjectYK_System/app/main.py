@@ -4162,6 +4162,7 @@ def _slip_daily_rows(s: Session, emp_id: int, pr: PayRun, pay_mode: str, is_boss
         central = (d.price_override if d.price_override else rev)  # ราคากลาง
         row = {
             "date": d.work_date,
+            "plate": d.plate_no_raw or "",
             "status": d.status_code or "",
             "dest": d.destination or "",
             "container": d.container_no or "",

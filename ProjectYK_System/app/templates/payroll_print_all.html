@@ -167,7 +167,7 @@
     <table class="daily">
       <thead>
         <tr>
-          <th>วันที่</th><th>งาน</th><th>ปลายทาง</th><th>เบอร์ตู้</th>
+          <th>วันที่</th><th>ทะเบียน</th><th>งาน</th><th>ปลายทาง</th><th>เบอร์ตู้</th>
           {% if is_boss %}
             <th class="num">ค่าขนส่งจริง</th><th class="num">ราคากลาง</th><th class="num">KB</th>
             <th class="num">ค่าเที่ยว</th>
@@ -183,6 +183,7 @@
         {% for d in r.daily %}
         <tr>
           <td>{{ d.date | dmy }}</td>
+          <td>{{ d.plate }}</td>
           <td>{{ d.status }}</td>
           <td>{{ d.dest }}</td>
           <td>{{ d.container }}</td>
