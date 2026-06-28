@@ -75,3 +75,23 @@ def test_transfer_note_manual_override(client_with_run):
         assert it.transfer_note == "คืนประกันตน 10,000"
     r = client_with_run.get("/payroll/2/print", follow_redirects=True)
     assert "คืนประกันตน 10,000" in r.text
+
+
+def test_slip_does_not_show_ytd(client_with_run):
+    """สลิปคนขับ (option 1, โอ 2026-06-28): ไม่โชว์ยอดสะสมทั้งปี — คนขับเห็นแค่
+    งวดนี้ (รายได้/หัก/สุทธิ + ภาษีงวดนี้ถ้ามี). ยอดสะสมไปอยู่หน้าภาษีแทน."""
+    r = client_with_run.get("/payroll/2/print", follow_redirects=True)
+    assert r.status_code == 200
+    b = r.text
+    assert "สะสมทั้งปี" not in b, "slip should NOT show YTD totals (moved to tax page)"
+
+
+def test_tax_page_renders(client_with_run):
+    """หน้าภาษี /payroll/{id}/tax โหลดได้ + โชว์คอลัมน์รายได้/ภาษีสะสม."""
+    r = client_with_run.get("/payroll/2/tax", follow_redirects=True)
+    assert r.status_code == 200
+    b = r.text
+    assert "สรุปภาษีหัก ณ ที่จ่าย" in b
+    assert "รายได้สะสมทั้งปี" in b
+    assert "ภาษีสะสมทั้งปี" in b
+    assert "นิพล" in b

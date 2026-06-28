@@ -4082,6 +4082,60 @@ def _auto_transfer_note(emp: Employee, item: PayRunItem, period_end) -> str:
     return " ".join(bits)
 
 
+def _ytd_income_tax_by_emp(s: Session, pr: PayRun) -> dict:
+    """YTD (year-to-date through pr.period_end) per employee for the run's site:
+    income = Σ(gross − fuel_cost_self) (= ฐานภาษีจริง, หลังหักน้ำมันคนเหมา),
+    tax = Σ income_tax_withholding. Same calendar year, ≤ this cycle's period_end.
+    """
+    ytd_rows = s.exec(
+        select(PayRunItem, PayRun)
+        .join(PayRun, PayRun.id == PayRunItem.pay_run_id)
+        .where(
+            PayRun.site_code == pr.site_code,
+            PayRun.period_end >= date(pr.period_end.year, 1, 1),
+            PayRun.period_end <= pr.period_end,
+        )
+    ).all()
+    out: dict[int, dict] = {}
+    for it, _pr in ytd_rows:
+        d = out.setdefault(it.employee_id, {"income": 0.0, "tax": 0.0})
+        d["income"] += max((it.gross_total or 0.0) - (it.fuel_cost_self or 0.0), 0.0)
+        d["tax"] += it.income_tax_withholding or 0.0
+    return out
+
+
+@app.get("/payroll/{run_id}/tax", response_class=HTMLResponse)
+def payroll_tax_page(run_id: int, request: Request):
+    """หน้าสรุปภาษี: ต่อคน — รายได้รอบนี้(หลังหักน้ำมัน), ภาษีรอบนี้,
+    รายได้สะสมทั้งปี, ภาษีสะสมทั้งปี."""
+    with Session(engine) as s:
+        pr = s.get(PayRun, run_id)
+        if pr is None:
+            return RedirectResponse("/payroll?err=notfound", status_code=303)
+        items = s.exec(select(PayRunItem).where(PayRunItem.pay_run_id == pr.id)).all()
+        ytd = _ytd_income_tax_by_emp(s, pr)
+        rows = []
+        for it in items:
+            emp = s.get(Employee, it.employee_id)
+            y = ytd.get(it.employee_id, {"income": 0.0, "tax": 0.0})
+            rows.append({
+                "employee": emp,
+                "pay_mode": it.pay_mode,
+                "income_month": max((it.gross_total or 0.0) - (it.fuel_cost_self or 0.0), 0.0),
+                "tax_month": it.income_tax_withholding or 0.0,
+                "ytd_income": y["income"],
+                "ytd_tax": y["tax"],
+            })
+        rows.sort(key=lambda r: -r["ytd_tax"])
+        totals = {
+            "tax_month": sum(r["tax_month"] for r in rows),
+            "ytd_tax": sum(r["ytd_tax"] for r in rows),
+        }
+    ctx = base_context(request)
+    ctx.update({"run": pr, "rows": rows, "totals": totals})
+    return templates.TemplateResponse("payroll_tax.html", ctx)
+
+
 @app.get("/payroll/{run_id}/print", response_class=HTMLResponse)
 def payroll_print_all(run_id: int, request: Request):
     """หน้าพิมพ์สด (Ctrl+P): สรุปทุกคน → โอนเงิน → สลิปรายคน (page-break ต่อบล็อก)."""
@@ -4090,11 +4144,13 @@ def payroll_print_all(run_id: int, request: Request):
         if pr is None:
             return RedirectResponse("/payroll?err=notfound", status_code=303)
         items = s.exec(select(PayRunItem).where(PayRunItem.pay_run_id == pr.id)).all()
+        ytd_by_emp = _ytd_income_tax_by_emp(s, pr)
         rows = []
         for it in items:
             emp = s.get(Employee, it.employee_id)
             note = (it.transfer_note or "").strip() or _auto_transfer_note(emp, it, pr.period_end)
-            rows.append({"item": it, "employee": emp, "transfer_note": note})
+            ytd = ytd_by_emp.get(it.employee_id, {"income": 0.0, "tax": 0.0})
+            rows.append({"item": it, "employee": emp, "transfer_note": note, "ytd": ytd})
         rows.sort(key=lambda r: -(r["item"].net_pay or 0))
         totals = {
             "gross": sum((r["item"].gross_total or 0) for r in rows),

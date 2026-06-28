@@ -495,20 +495,41 @@ def _compute_income_tax_withholding(
             PayRun.period_end < calc.period_end,
         )
     ).all()
-    ytd_gross_before = sum((it.gross_total or 0.0) for it, _pr in ytd_rows)
-    ytd_tax_withheld_before = sum((it.income_tax_withholding or 0.0) for it, _pr in ytd_rows)
+    # Taxable income for เหมาน้ำมัน drivers is gross MINUS the fuel they pay
+    # themselves — that fuel is a real business cost, so their actual income is
+    # the revenue-share net of fuel (โอ 2026-06-28, "เฉพาะคนเหมาน้ำมัน").
+    # fuel_cost_self is 0 for trip/office drivers, so this auto-applies only to
+    # the fuel-bearing modes (lcb_mao / lcb_mixed / ayu self-fuel).
+    def _real_income(gross, fuel_self):
+        return max((gross or 0.0) - (fuel_self or 0.0), 0.0)
 
-    ytd_gross_including_current = ytd_gross_before + max(calc.gross_total, 0.0)
+    ytd_income_before = sum(_real_income(it.gross_total, it.fuel_cost_self) for it, _pr in ytd_rows)
+    ytd_tax_withheld_before = sum((it.income_tax_withholding or 0.0) for it, _pr in ytd_rows)
+    months_on_record = len(ytd_rows) + 1  # prior runs this year + this cycle
+
+    income_this_month = _real_income(calc.gross_total, calc.fuel_cost_self)
+    ytd_income_including_current = ytd_income_before + income_this_month
     months_remaining_including_current = 12 - month_idx + 1
     months_remaining_after_current = max(12 - month_idx, 0)
-    projected_annual_income = ytd_gross_including_current + (max(calc.gross_total, 0.0) * months_remaining_after_current)
+    # Project the rest of the year off the YTD AVERAGE run-rate, not this single
+    # month. เหมา income is spiky; extrapolating one busy month (×remaining)
+    # wildly over-states annual income and over-withholds. Averaging the real
+    # months already on record makes the year-end estimate land close to actual.
+    avg_monthly_income = ytd_income_including_current / months_on_record if months_on_record else 0.0
+    projected_annual_income = ytd_income_including_current + (avg_monthly_income * months_remaining_after_current)
     exp_pct = float(terms.get("tax_deduct_expense_pct", 0.5) or 0.5)
     exp_cap = float(terms.get("tax_deduct_expense_cap", 100000.0) or 100000.0)
     expense = min(projected_annual_income * exp_pct, exp_cap)
     personal_allowance = float(terms.get("tax_personal_allowance", 60000.0) or 60000.0)
     extra_allowance = float(terms.get("tax_extra_allowance_annual", 0.0) or 0.0)
+    # ประกันสังคม เป็นค่าลดหย่อน (สูงสุด 9,000/ปี). Annualize this month's SS
+    # contribution; cap at the legal yearly maximum.
+    ss_allowance = min(max(calc.social_security, 0.0) * 12.0, 9000.0)
 
-    annual_taxable = max(projected_annual_income - expense - personal_allowance - extra_allowance, 0.0)
+    annual_taxable = max(
+        projected_annual_income - expense - personal_allowance - extra_allowance - ss_allowance,
+        0.0,
+    )
     annual_tax = _annual_progressive_tax(annual_taxable)
     if annual_tax <= 0:
         return 0.0
@@ -1126,17 +1147,24 @@ def calc_one_employee(
         or 15000.0
     )
 
-    # Imputed SS base: คนเหมา (mao / trip-only) ถูกอนุมานเป็นเงินเดือน 9,000
-    # ตามข้อตกลง user — ใช้คำนวณ SS เท่านั้น ไม่ใช่จ่ายเพิ่ม
-    raw_ss_base = employee.social_security_base or 0.0
-    if raw_ss_base <= 0:
-        if mode in (
-            "lcb_mao", "ayu_mao", "ayu_trip", "ayu_trip_self_fuel",
-            "bigc_monthly", "bigc_standard", "lcb_monthly", "office_monthly",
-        ):
-            raw_ss_base = 9000.0
-        else:
-            raw_ss_base = 0.0
+    # SS-exempt: คนที่ไม่ได้ส่งประกันสังคมจริง (ชีท SSO คอลัมน์ C = 0) ตั้ง
+    # custom_terms {"ss_exempt": true} เพื่อข้ามทั้งการอนุมานฐาน 9,000 และการหัก.
+    ss_terms = _parse_custom_terms(employee.custom_terms or "")
+    if ss_terms.get("ss_exempt") is True:
+        calc.social_security = 0.0
+        raw_ss_base = 0.0
+    else:
+        # Imputed SS base: คนเหมา (mao / trip-only) ถูกอนุมานเป็นเงินเดือน 9,000
+        # ตามข้อตกลง user — ใช้คำนวณ SS เท่านั้น ไม่ใช่จ่ายเพิ่ม
+        raw_ss_base = employee.social_security_base or 0.0
+        if raw_ss_base <= 0:
+            if mode in (
+                "lcb_mao", "ayu_mao", "ayu_trip", "ayu_trip_self_fuel",
+                "bigc_monthly", "bigc_standard", "lcb_monthly", "office_monthly",
+            ):
+                raw_ss_base = 9000.0
+            else:
+                raw_ss_base = 0.0
 
     # Order of operations matters:
     #   1) Prorate the contract base by employment-window & leave/absent
