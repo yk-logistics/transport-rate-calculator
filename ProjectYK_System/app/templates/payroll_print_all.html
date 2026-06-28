@@ -20,6 +20,10 @@
   .slip .line { display: flex; justify-content: space-between; padding: 1px 0; }
   .slip .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
   .slip .total { font-weight: bold; border-top: 1px solid #999; margin-top: 3px; padding-top: 3px; }
+  table.daily { width: 100%; border-collapse: collapse; font-size: 11px; }
+  table.daily th, table.daily td { border: 1px solid #ddd; padding: 2px 5px; text-align: left; }
+  table.daily th { background: #f3f4f6; }
+  table.daily td.num, table.daily th.num { text-align: right; }
   .toolbar { margin-bottom: 14px; }
   .toolbar button { padding: 6px 14px; font-size: 14px; cursor: pointer; }
   @media print { .no-print { display: none !important; } body { padding: 0; } }
@@ -119,7 +123,7 @@
 {% for r in rows %}
 {% set it = r.item %}
 <div class="slip">
-  <h3>สลิปเงินเดือน · {{ r.employee.full_name }}</h3>
+  <h3>สลิปเงินเดือน · {{ r.employee.full_name }}{% if is_boss %} <span style="font-size:11px; background:#fde68a; padding:1px 6px; border-radius:3px;">ผู้บริหาร</span>{% endif %}</h3>
   <div class="muted" style="font-size:12px; margin-bottom:6px;">
     {{ run.site_code }} · {{ run.pay_cycle_tag }} · {{ run.period_start | dmy }} – {{ run.period_end | dmy }}
     · วันทำงาน {{ it.days_worked|int }} · {{ it.pay_mode }}
@@ -156,6 +160,54 @@
       {% endif %}
     </div>
   </div>
+
+  {% if r.daily %}
+  <div style="margin-top:8px;">
+    <div style="font-weight:bold; font-size:12px; margin-bottom:2px;">รายการวิ่งงานรายวัน</div>
+    <table class="daily">
+      <thead>
+        <tr>
+          <th>วันที่</th><th>งาน</th><th>ปลายทาง</th><th>เบอร์ตู้</th>
+          {% if is_boss %}
+            <th class="num">ค่าขนส่งจริง</th><th class="num">ราคากลาง</th><th class="num">KB</th>
+            <th class="num">ค่าเที่ยว</th>
+          {% elif r.daily[0].show_central %}
+            <th class="num">ราคากลาง</th>
+          {% else %}
+            <th class="num">ค่าเที่ยว</th>
+          {% endif %}
+          {% if it.fuel_cost_self %}<th class="num">น้ำมัน</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in r.daily %}
+        <tr>
+          <td>{{ d.date | dmy }}</td>
+          <td>{{ d.status }}</td>
+          <td>{{ d.dest }}</td>
+          <td>{{ d.container }}</td>
+          {% if is_boss %}
+            <td class="num">{{ '{:,.0f}'.format(d.rev_real) if d.rev_real else '—' }}</td>
+            <td class="num">{{ '{:,.0f}'.format(d.central) if d.central else '—' }}</td>
+            <td class="num">{{ '{:,.0f}'.format(d.kb) if d.kb else '—' }}</td>
+          {% elif d.show_central %}
+            {# เหมา (คนขับ): โชว์ราคากลางแทนคอลัมน์ค่าเที่ยว #}
+          {% endif %}
+          {% if not is_boss and d.show_central %}
+            <td class="num">{{ '{:,.0f}'.format(d.central) if d.central else '—' }}</td>
+          {% else %}
+            <td class="num">{{ '{:,.0f}'.format(d.trip_fee) if d.trip_fee else '—' }}</td>
+          {% endif %}
+          {% if it.fuel_cost_self %}<td class="num">{{ '{:,.0f}'.format(d.fuel) if d.fuel else '—' }}</td>{% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if not is_boss and r.daily and r.daily[0].show_central %}
+    <div class="muted" style="font-size:10px;">* ราคากลาง = ราคาที่ใช้คิดส่วนแบ่งเหมา</div>
+    {% endif %}
+  </div>
+  {% endif %}
 </div>
 {% endfor %}
 
