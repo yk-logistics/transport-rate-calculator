@@ -4069,7 +4069,9 @@ def payroll_fuel_toggle_exclude(run_id: int, emp_id: int, fuel_id: int):
 def _auto_transfer_note(emp: Employee, item: PayRunItem, period_end) -> str:
     """หมายเหตุอัตโนมัติสำหรับหน้าโอนเงิน (เป็น hint; transfer_note ที่กรอกมือ override).
 
-    ลาออก (status inactive หรือ end_date ภายในรอบ) → 'ออก'; เหมา/ลูกผสม → 'เหมาน้ำมัน'.
+    ลาออก (status inactive หรือ end_date ภายในรอบ) → 'ออก'; ถ้ายังมีเงินประกันตน
+    ค้าง (deposit_balance > 0) คนออกต้องได้คืน → 'คืนประกันตน {ยอด}';
+    เหมา/ลูกผสม → 'เหมาน้ำมัน'.
     """
     bits = []
     resigned = (emp.status or "").lower() in ("inactive", "resigned", "ลาออก")
@@ -4077,6 +4079,10 @@ def _auto_transfer_note(emp: Employee, item: PayRunItem, period_end) -> str:
         resigned = True
     if resigned:
         bits.append("ออก")
+        # คนออกที่ยังมีเงินประกันตนสะสม → ต้องคืน
+        dep = emp.deposit_balance or 0.0
+        if dep > 0:
+            bits.append(f"คืนประกันตน {dep:,.0f}")
     if (item.pay_mode or "") in ("lcb_mao", "lcb_mixed", "ayu_mao"):
         bits.append("เหมาน้ำมัน")
     return " ".join(bits)
@@ -4136,9 +4142,54 @@ def payroll_tax_page(run_id: int, request: Request):
     return templates.TemplateResponse("payroll_tax.html", ctx)
 
 
+def _slip_daily_rows(s: Session, emp_id: int, pr: PayRun, pay_mode: str, is_boss: bool) -> list:
+    """เดลี่เที่ยววิ่งรายวันสำหรับสลิป. กฎความลับ (KB = ใต้โต๊ะ):
+      - boss: เห็น ค่าขนส่งวางบิลจริง (revenue_customer) + ราคากลาง (override??rev) + KB.
+      - คนขับ เหมา: เห็นแค่ราคากลาง (override??rev) — ไม่เห็น rev จริง, ไม่เห็น KB.
+      - คนขับ เที่ยว: เห็นแค่ค่าเที่ยวที่ได้ (trip_fee_driver) — ไม่เห็นราคากลาง/KB.
+    """
+    djs = s.exec(
+        select(DailyJob).where(
+            DailyJob.driver_id == emp_id,
+            DailyJob.work_date >= pr.period_start,
+            DailyJob.work_date <= pr.period_end,
+        ).order_by(DailyJob.work_date)
+    ).all()
+    is_mao = (pay_mode or "") in ("lcb_mao", "lcb_mixed", "ayu_mao")
+    out = []
+    for d in djs:
+        rev = d.revenue_customer or 0.0
+        central = (d.price_override if d.price_override else rev)  # ราคากลาง
+        row = {
+            "date": d.work_date,
+            "status": d.status_code or "",
+            "dest": d.destination or "",
+            "container": d.container_no or "",
+            "trip_fee": d.trip_fee_driver or 0.0,
+            "fuel": d.fuel_amount or 0.0,
+            # price column shown to THIS audience:
+            "show_central": False,
+            "central": central,
+            "rev_real": rev,
+            "kb": d.kb_amount or 0.0,
+        }
+        if is_boss:
+            row["show_central"] = True  # boss sees central + rev_real + kb columns
+        elif is_mao:
+            row["show_central"] = True  # mao driver sees ONLY central (template hides rev/kb)
+        # trip driver (not boss): show_central stays False → only ค่าเที่ยว
+        out.append(row)
+    return out
+
+
 @app.get("/payroll/{run_id}/print", response_class=HTMLResponse)
 def payroll_print_all(run_id: int, request: Request):
-    """หน้าพิมพ์สด (Ctrl+P): สรุปทุกคน → โอนเงิน → สลิปรายคน (page-break ต่อบล็อก)."""
+    """หน้าพิมพ์สด (Ctrl+P): สรุปทุกคน → โอนเงิน → สลิปรายคน (page-break ต่อบล็อก).
+
+    ?for=boss → สลิปผู้บริหาร (เห็นค่าขนส่งจริง + ราคากลาง + KB).
+    default (คนขับ) → ซ่อน KB + ค่าขนส่งจริง (เหมาเห็นราคากลาง, เที่ยวเห็นแค่ค่าเที่ยว).
+    """
+    is_boss = request.query_params.get("for", "driver").lower() == "boss"
     with Session(engine) as s:
         pr = s.get(PayRun, run_id)
         if pr is None:
@@ -4150,7 +4201,9 @@ def payroll_print_all(run_id: int, request: Request):
             emp = s.get(Employee, it.employee_id)
             note = (it.transfer_note or "").strip() or _auto_transfer_note(emp, it, pr.period_end)
             ytd = ytd_by_emp.get(it.employee_id, {"income": 0.0, "tax": 0.0})
-            rows.append({"item": it, "employee": emp, "transfer_note": note, "ytd": ytd})
+            daily = _slip_daily_rows(s, it.employee_id, pr, it.pay_mode, is_boss)
+            rows.append({"item": it, "employee": emp, "transfer_note": note,
+                         "ytd": ytd, "daily": daily})
         rows.sort(key=lambda r: -(r["item"].net_pay or 0))
         totals = {
             "gross": sum((r["item"].gross_total or 0) for r in rows),
@@ -4159,7 +4212,7 @@ def payroll_print_all(run_id: int, request: Request):
             "net": sum((r["item"].net_pay or 0) for r in rows),
         }
     ctx = base_context(request)
-    ctx.update({"run": pr, "rows": rows, "totals": totals})
+    ctx.update({"run": pr, "rows": rows, "totals": totals, "is_boss": is_boss})
     return templates.TemplateResponse("payroll_print_all.html", ctx)
 
 

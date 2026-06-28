@@ -95,3 +95,91 @@ def test_tax_page_renders(client_with_run):
     assert "รายได้สะสมทั้งปี" in b
     assert "ภาษีสะสมทั้งปี" in b
     assert "นิพล" in b
+
+
+# ---- สลิป 2 เวอร์ชัน: ผู้บริหาร(เห็น KB) vs คนขับ(ซ่อน KB) + เดลี่รายวัน ----
+@pytest.fixture()
+def client_kb():
+    """mao driver with distinct ค่าขนส่งจริง(rev) / ราคากลาง(override) / KB, + a trip driver."""
+    SQLModel.metadata.drop_all(engine)
+    SQLModel.metadata.create_all(engine)
+    appmod.init_db()
+    with Session(engine) as s:
+        u = s.exec(select(AppUser).where(AppUser.username == "yk1")).first()
+        u.must_change_pw = False; s.add(u)
+        # เหมา: rev 7456 (ค่าขนส่งจริง), override 5500 (ราคากลาง), KB 333 (ใต้โต๊ะ)
+        s.add(Employee(id=99, code="D99", full_name="นาย วิโรจน์ เหมสงวน", pay_mode="lcb_mao",
+                       home_site_code="LCB", status="active", base_salary=9240, care_allowance=3000,
+                       gross_share_rate=0.60, bank_name="กสิกร", account_no="111-1"))
+        # เที่ยว
+        s.add(Employee(id=90, code="D90", full_name="นาย สุวิทย์ สุขล้อม", pay_mode="lcb_trip",
+                       home_site_code="LCB", status="active", base_salary=9240, care_allowance=3000,
+                       bank_name="กสิกร", account_no="222-2"))
+        s.add(PayRun(id=2, site_code="LCB", pay_cycle_tag="2026-06",
+                     period_start=date(2026, 5, 16), period_end=date(2026, 6, 15), status="draft"))
+        # mao daily: distinct rev/override/kb — use sentinel numbers easy to grep
+        s.add(DailyJob(site_code="LCB", driver_id=99, work_date=date(2026, 5, 18),
+                       status_code="DHL Overflow", destination="TIPS CD",
+                       revenue_customer=7456, price_override=5500, kb_amount=333, trip_fee_driver=3300))
+        s.add(DailyJob(site_code="LCB", driver_id=90, work_date=date(2026, 5, 18),
+                       status_code="NHL", destination="SCS2",
+                       revenue_customer=2410, kb_amount=110, trip_fee_driver=200))
+        s.commit()
+        from services.payroll import compute_pay_run
+        compute_pay_run(s, s.get(PayRun, 2), recompute=True); s.commit()
+    with TestClient(appmod.app) as c:
+        c.post("/login", data={"username": "yk1", "password": "changeme1"})
+        yield c
+
+
+def test_driver_slip_hides_kb_and_real_revenue(client_kb):
+    """สลิปคนขับ (default): ต้องไม่มี KB(333) และไม่มีค่าขนส่งจริง(7456).
+    เหมาเห็นได้แค่ราคากลาง(5500). = กฎความลับ KB."""
+    r = client_kb.get("/payroll/2/print", follow_redirects=True)
+    assert r.status_code == 200
+    b = r.text
+    assert "333" not in b, "KB ใต้โต๊ะ ต้องไม่โผล่ในสลิปคนขับ!"
+    assert "7,456" not in b and "7456" not in b, "ค่าขนส่งจริง ต้องไม่โผล่ในสลิปคนขับ"
+    assert "5,500" in b or "5500" in b, "เหมาต้องเห็นราคากลาง"
+
+
+def test_boss_slip_shows_kb_and_real_revenue(client_kb):
+    """สลิปผู้บริหาร (?for=boss): เห็น KB(333) + ค่าขนส่งจริง(7456) + ราคากลาง(5500)."""
+    r = client_kb.get("/payroll/2/print?for=boss", follow_redirects=True)
+    assert r.status_code == 200
+    b = r.text
+    assert "333" in b, "ผู้บริหารต้องเห็น KB"
+    assert ("7,456" in b or "7456" in b), "ผู้บริหารต้องเห็นค่าขนส่งจริง"
+
+
+def test_trip_driver_slip_no_central_price(client_kb):
+    """สลิปคนขับ คนรายเที่ยว: ไม่โชว์ราคากลาง/KB ของงาน — เห็นแค่ค่าเที่ยวที่ได้.
+    KB 110 ของงานเที่ยวต้องไม่โผล่."""
+    r = client_kb.get("/payroll/2/print", follow_redirects=True)
+    b = r.text
+    assert "110" not in b, "KB ของคนเที่ยวต้องไม่โผล่ในสลิปคนขับ"
+
+
+def test_slip_shows_daily_rows(client_kb):
+    """สลิปต้องมีเดลี่รายวัน (วันที่ + ปลายทาง)."""
+    r = client_kb.get("/payroll/2/print", follow_redirects=True)
+    b = r.text
+    assert "TIPS CD" in b or "SCS2" in b, "ต้องโชว์เดลี่รายวัน (ปลายทาง)"
+
+
+def test_transfer_note_deposit_refund_for_resigned():
+    """คนลาออกที่ยังมีเงินประกันตนค้าง → auto-note 'คืนประกันตน {ยอด}'."""
+    emp = Employee(code="X", full_name="ออกแล้ว", status="inactive", deposit_balance=8000)
+    item = PayRunItem(pay_run_id=1, employee_id=1, pay_mode="lcb_trip")
+    note = appmod._auto_transfer_note(emp, item, date(2026, 6, 15))
+    assert "ออก" in note
+    assert "คืนประกันตน" in note and "8,000" in note
+
+
+def test_transfer_note_no_refund_when_deposit_zero():
+    """คนลาออกที่คืนประกันตนหมดแล้ว (balance 0) → ไม่ต้องมีโน้ตคืน."""
+    emp = Employee(code="Y", full_name="ออกแล้ว2", status="inactive", deposit_balance=0)
+    item = PayRunItem(pay_run_id=1, employee_id=2, pay_mode="lcb_trip")
+    note = appmod._auto_transfer_note(emp, item, date(2026, 6, 15))
+    assert "ออก" in note
+    assert "คืนประกันตน" not in note
