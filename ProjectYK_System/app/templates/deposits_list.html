@@ -18,11 +18,19 @@
     </div>
   </div>
 
-  <div class="mb-3 flex gap-1 text-sm">
-    <a href="/deposits" class="px-3 py-1 rounded border {{ 'bg-slate-800 text-white' if not site else 'bg-white' }}">ทั้งหมด</a>
+  {% set show_all = (show == 'all') %}
+  <div class="mb-2 flex gap-1 text-sm">
+    <a href="/deposits{{ '?show=all' if show_all else '' }}" class="px-3 py-1 rounded border {{ 'bg-slate-800 text-white' if not site else 'bg-white' }}">ทุกไซต์</a>
     {% for sc in site_codes %}
-    <a href="/deposits?site={{ sc }}" class="px-3 py-1 rounded border {{ 'bg-slate-800 text-white' if site==sc else 'bg-white' }}">{{ sc }}</a>
+    <a href="/deposits?site={{ sc }}{{ '&show=all' if show_all else '' }}" class="px-3 py-1 rounded border {{ 'bg-slate-800 text-white' if site==sc else 'bg-white' }}">{{ sc }}</a>
     {% endfor %}
+  </div>
+
+  {% set site_q = ('site=' ~ site) if site else '' %}
+  <div class="mb-3 flex gap-1 text-sm items-center">
+    <span class="text-xs text-slate-500 mr-1">แสดง:</span>
+    <a href="/deposits?{{ site_q }}" class="px-3 py-1 rounded border {{ 'bg-emerald-600 text-white' if show != 'all' else 'bg-white' }}">เฉพาะคนทำงาน</a>
+    <a href="/deposits?{{ site_q }}{{ '&' if site else '' }}show=all" class="px-3 py-1 rounded border {{ 'bg-slate-800 text-white' if show == 'all' else 'bg-white' }}">รวมคนออกแล้ว{% if resigned_count and show != 'all' %} ({{ resigned_count }}){% endif %}</a>
   </div>
 
   <div class="bg-white rounded-lg border overflow-hidden">
