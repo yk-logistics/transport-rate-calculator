@@ -112,6 +112,11 @@
        title="สรุปภาษีหัก ณ ที่จ่าย + ภาษีสะสมทั้งปี ต่อคน">
       📊 ภาษี
     </a>
+    <button onclick="printPayrollTable()"
+       class="text-sm px-3 py-1.5 rounded bg-slate-700 text-white hover:bg-slate-800 font-medium"
+       title="ปริ้น/เซฟ PDF เฉพาะตารางรวมหน้านี้ (เอกสารภายในผู้บริหาร)">
+      🖨 ปริ้นตารางนี้
+    </button>
   </div>
 </div>
 
@@ -285,7 +290,11 @@
   </div>
 </div>
 
-<div class="bg-white rounded-lg border overflow-x-auto">
+<div id="payrollTable" class="bg-white rounded-lg border overflow-x-auto">
+  <div class="print-only" style="display:none; font-weight:bold; padding:6px;">
+    Payroll · {{ run.site_code }} · {{ run.pay_cycle_tag }} · {{ run.period_start | dmy }}–{{ run.period_end | dmy }}
+    · เอกสารภายในผู้บริหาร
+  </div>
   <table class="w-full text-xs">
     <thead class="bg-slate-100 text-left sticky top-0">
       <tr>
@@ -361,5 +370,34 @@
   · ประกันตน = เก็บเดือนละ 1,000 จนครบ 10,000
   · หักสดย่อย = รวมรายการสดย่อยที่มี pay_cycle_tag = {{ run.pay_cycle_tag }} และ deduct_from_driver=ใช่
 </p>
+
+<style>
+@media print {
+  /* ปริ้นเฉพาะตารางรวม: ซ่อนทุกอย่างด้วย visibility (nested-safe) แล้วโชว์เฉพาะ #payrollTable */
+  body.print-table-only * { visibility: hidden !important; }
+  body.print-table-only #payrollTable,
+  body.print-table-only #payrollTable * { visibility: visible !important; }
+  body.print-table-only #payrollTable {
+    position: absolute; left: 0; top: 0; width: 100%;
+    overflow: visible !important; border: none !important; box-shadow: none !important;
+  }
+  body.print-table-only #payrollTable .no-print,
+  body.print-table-only #payrollTable .no-print * { visibility: hidden !important; }
+  body.print-table-only .print-only { display: block !important; visibility: visible !important; }
+  body.print-table-only #payrollTable table { font-size: 9px; }
+  @page { size: landscape; margin: 8mm; }
+}
+</style>
+<script>
+function printPayrollTable() {
+  // ปริ้น #payrollTable เฉพาะ element (เอกสารผู้บริหาร). nav/menu ถูกซ่อนตาม @media print.
+  var prev = document.title;
+  document.title = "payroll_{{ run.site_code }}_{{ run.pay_cycle_tag }}_ตารางรวม";
+  document.body.classList.add("print-table-only");
+  window.print();
+  document.body.classList.remove("print-table-only");
+  document.title = prev;
+}
+</script>
 
 {% endblock %}
