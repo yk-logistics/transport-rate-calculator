@@ -88,7 +88,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 29  # v29: PayRunItem special/ot/pickup_return income (LCB extras shown separately)
+SCHEMA_VERSION = 30  # v30: DailyJob extra ref cols (phone/shared_vehicle/receive_inv_no/bl_booking/fuel_date/gps_rate)
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -419,6 +419,15 @@ def _apply_additive_migrations() -> None:
     _ensure_column("payrunitem", "special_income", "REAL", default="0")
     _ensure_column("payrunitem", "ot_income", "REAL", default="0")
     _ensure_column("payrunitem", "pickup_return_income", "REAL", default="0")
+
+    # v29 → v30: DailyJob ช่องอ้างอิงเพิ่มจากชีท (โชว์เป็นคอลัมน์แยกในหน้าเดลี่).
+    # ทั้งหมด display/อ้างอิง ไม่กระทบสูตรเงิน. weighing(ค่าชั่งน้ำหนัก) ใช้ DailyJobFee ไม่ใช่คอลัมน์.
+    _ensure_column("dailyjob", "phone", "TEXT", default="")
+    _ensure_column("dailyjob", "shared_vehicle", "TEXT", default="")
+    _ensure_column("dailyjob", "receive_inv_no", "TEXT", default="")
+    _ensure_column("dailyjob", "bl_booking", "TEXT", default="")
+    _ensure_column("dailyjob", "fuel_date", "DATE")  # nullable
+    _ensure_column("dailyjob", "gps_rate", "REAL", default="0")
 
 
 def init_db() -> None:
@@ -1694,10 +1703,23 @@ def daily_grid_data(
                 select(models.Customer.id, models.Customer.name).where(models.Customer.id.in_(cust_ids))
             ).all()
             cust_name_map = {c[0]: (c[1] or "") for c in cust_rows}
-        # เงินคนขับต่อแถวจาก DailyJobFee (พิเศษ/OT/รับตู้คืนตู้) — ดึงทีเดียวทั้งหน้า
-        # แล้ว bucket ด้วย classify_driver_fee ตัวเดียวกับ engine → ตัวเลขตรงกับ payroll
-        # (ค่าเสียเวลา/ยกตู้/ผ่านลาน ฯลฯ ตกเป็นของบริษัท ไม่นับ)
+        # ค่าต่อแถวจาก DailyJobFee — ดึงทีเดียวทั้งหน้า แล้ว bucket แยก:
+        #  - เงินคนขับ (พิเศษ/OT/รับตู้คืนตู้) ผ่าน classify_driver_fee ตัวเดียวกับ engine
+        #    → ตัวเลขตรงกับ payroll
+        #  - ค่าบริษัท/สำรองจ่าย (ยกตู้/ผ่านลาน/คลีน/ชอร์/เข้าท่า/M-Flow) โชว์เฉย ๆ
+        #    (ไม่เกี่ยวเงินคนขับ — เป็นคอลัมน์อ้างอิงให้ครบตามชีท)
         from services.payroll import classify_driver_fee
+        COMPANY_FEE_TYPES = {
+            "lift": "lift", "ค่ายกตู้": "lift",
+            "yard": "yard", "ค่าผ่านลาน": "yard",
+            "clean": "clean", "ค่าคลีน": "clean",
+            "shore": "shore", "ค่าชอร์": "shore",
+            "port_entry": "port_entry", "เข้าท่า": "port_entry",
+            "mflow": "mflow", "m-flow": "mflow",
+            "weighing": "weighing", "ค่าชั่งน้ำหนัก": "weighing",
+        }
+        _FEE_KEYS = ("special", "ot", "pickup_return",
+                     "lift", "yard", "clean", "shore", "port_entry", "mflow", "weighing")
         job_ids = [r.id for r in rows if r.id]
         fee_map: dict[int, dict] = {}
         if job_ids:
@@ -1707,8 +1729,10 @@ def daily_grid_data(
             for f in fee_rows:
                 bucket = classify_driver_fee(f.fee_type)
                 if bucket is None:
+                    bucket = COMPANY_FEE_TYPES.get((f.fee_type or "").strip().lower())
+                if bucket is None:
                     continue
-                d = fee_map.setdefault(f.daily_job_id, {"special": 0.0, "ot": 0.0, "pickup_return": 0.0})
+                d = fee_map.setdefault(f.daily_job_id, {k: 0.0 for k in _FEE_KEYS})
                 d[bucket] += f.amount or 0.0
     data = [
         {
@@ -1747,6 +1771,19 @@ def daily_grid_data(
             "fee_special": round(fee_map.get(r.id, {}).get("special", 0.0), 2),
             "fee_ot": round(fee_map.get(r.id, {}).get("ot", 0.0), 2),
             "fee_pickup_return": round(fee_map.get(r.id, {}).get("pickup_return", 0.0), 2),
+            "fee_lift": round(fee_map.get(r.id, {}).get("lift", 0.0), 2),
+            "fee_yard": round(fee_map.get(r.id, {}).get("yard", 0.0), 2),
+            "fee_clean": round(fee_map.get(r.id, {}).get("clean", 0.0), 2),
+            "fee_shore": round(fee_map.get(r.id, {}).get("shore", 0.0), 2),
+            "fee_port_entry": round(fee_map.get(r.id, {}).get("port_entry", 0.0), 2),
+            "fee_mflow": round(fee_map.get(r.id, {}).get("mflow", 0.0), 2),
+            "fee_weighing": round(fee_map.get(r.id, {}).get("weighing", 0.0), 2),
+            "phone": r.phone or "",
+            "shared_vehicle": r.shared_vehicle or "",
+            "receive_inv_no": r.receive_inv_no or "",
+            "bl_booking": r.bl_booking or "",
+            "fuel_date": r.fuel_date.isoformat() if r.fuel_date else "",
+            "gps_rate": float(r.gps_rate or 0),
             "kb_amount": float(r.kb_amount or 0),
             "price_override": (None if r.price_override is None else float(r.price_override)),
             "driver_calc_price": driver_calc_price(r),
@@ -1812,6 +1849,12 @@ async def daily_grid_save(request: Request):
         "invoice_no",
         "invoice_date",
         "wht_53",
+        "phone",
+        "shared_vehicle",
+        "receive_inv_no",
+        "bl_booking",
+        "fuel_date",
+        "gps_rate",
     }
     allowed_leave = {k for k, _ in models.LEAVE_STATUS_CHOICES}
 
@@ -1854,6 +1897,7 @@ async def daily_grid_save(request: Request):
                     "fuel_rate_km_per_l",
                     "mile_snapshot",
                     "wht_53",
+                    "gps_rate",
                 ):
                     setattr(row, key, _parse_float(str(val)))
                     continue
@@ -1877,6 +1921,17 @@ async def daily_grid_save(request: Request):
                         errors.append({"id": rid, "error": "invalid invoice_date"})
                         continue
                     row.invoice_date = parsed
+                    continue
+                if key == "fuel_date":
+                    text = (str(val) if val is not None else "").strip()
+                    if not text:
+                        row.fuel_date = None
+                        continue
+                    parsed = _parse_date(text)
+                    if not parsed:
+                        errors.append({"id": rid, "error": "invalid fuel_date"})
+                        continue
+                    row.fuel_date = parsed
                     continue
                 text = (str(val) if val is not None else "").strip()
                 if key == "leave_status" and text not in allowed_leave:

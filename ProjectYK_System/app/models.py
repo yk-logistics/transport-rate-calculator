@@ -177,6 +177,14 @@ class DailyJob(SQLModel, table=True):
     invoice_date: Optional[date] = None
     wht_53: float = 0.0
 
+    # v30: ช่องอ้างอิงเพิ่มจากชีทเดลี่ (โชว์เป็นคอลัมน์แยก แทนการฝังใน remark)
+    phone: str = ""              # เบอร์โทร (G)
+    shared_vehicle: str = ""     # ใช้รถร่วม (AL)
+    receive_inv_no: str = ""     # Receive/Inv.No. (AM)
+    bl_booking: str = ""         # BL/Booking (L→ แยกจาก Job)
+    fuel_date: Optional[date] = None   # วันเติมน้ำมัน (AC)
+    gps_rate: float = 0.0        # เรท GPS (AJ)
+
     remark: str = ""
 
     # provenance: import_daily | manual | bigc_fuel_rate | (empty legacy)

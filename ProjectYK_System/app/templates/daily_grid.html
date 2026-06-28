@@ -330,11 +330,17 @@
     ["job_ref","BL / Booking (L)",true], ["container_no","เบอร์ตู้ (M)",true], ["container_size","ขนาดตู้",true],
     ["revenue_customer","ค่าขนส่ง (U)",true], ["trip_fee_driver","ค่าเที่ยว (AD)",true],
     ["fee_special","พิเศษ",false], ["fee_ot","OT",false], ["fee_pickup_return","รับตู้คืนตู้",false],
+    ["fee_lift","ค่ายกตู้",false], ["fee_yard","ค่าผ่านลาน",false], ["fee_clean","ค่าคลีน",false],
+    ["fee_shore","ค่าชอร์",false], ["fee_port_entry","เข้าท่า",false], ["fee_weighing","ค่าชั่งน้ำหนัก",false],
+    ["fee_mflow","M-Flow",false],
     ["kb_amount","KB (ใต้โต๊ะ)",true], ["price_override","ราคากลาง",true],
     ["driver_calc_price","ราคาคนขับ",false],
     ["fuel_liter","ลิตร",true], ["fuel_amount","ค่าน้ำมัน",true], ["fuel_station","ปั๊ม",true],
-    ["fuel_rate_km_per_l","km/L",true], ["mile_snapshot","ไมล์",true],
+    ["fuel_rate_km_per_l","km/L",true], ["fuel_date","วันเติม",true], ["gps_rate","เรท GPS",true],
+    ["mile_snapshot","ไมล์",true],
     ["invoice_no","invoice_no",true], ["invoice_date","invoice_date",true], ["wht_53","wht_53",true],
+    ["phone","เบอร์โทร",true], ["shared_vehicle","ใช้รถร่วม",true],
+    ["receive_inv_no","Receive/Inv",true], ["bl_booking","BL/Booking",true],
     ["remark","หมายเหตุ",true],
     ["source","source",false], ["created_at","created_at",false], ["updated_at","updated_at",false]
   ];
@@ -347,7 +353,7 @@
     all:       null,
   };
 
-  const NUM_FIELDS = new Set(["revenue_customer","trip_fee_driver","fee_special","fee_ot","fee_pickup_return","kb_amount","price_override","driver_calc_price","fuel_liter","fuel_amount","fuel_rate_km_per_l","mile_snapshot","wht_53"]);
+  const NUM_FIELDS = new Set(["revenue_customer","trip_fee_driver","fee_special","fee_ot","fee_pickup_return","fee_lift","fee_yard","fee_clean","fee_shore","fee_port_entry","fee_weighing","fee_mflow","kb_amount","price_override","driver_calc_price","fuel_liter","fuel_amount","fuel_rate_km_per_l","gps_rate","mile_snapshot","wht_53"]);
 
   // Returns a closure over calcMode — called per column, recalc() re-invokes it
   function makeCalc() {
@@ -614,8 +620,8 @@
       }
     ].concat(ALL_FIELDS.map(([field, title, editable]) => {
       const MISSING_FIELDS = ["revenue_customer", "trip_fee_driver"];
-      const NUM_FIELDS_ARR = ["revenue_customer","trip_fee_driver","kb_amount","price_override","driver_calc_price","fuel_liter","fuel_amount","fuel_rate_km_per_l","mile_snapshot","wht_53"];
-      const RIGHT_ALIGN    = ["id","driver_id","head_vehicle_id","tail_vehicle_id","customer_id","trip_group_id","revenue_customer","trip_fee_driver","fee_special","fee_ot","fee_pickup_return","kb_amount","price_override","driver_calc_price","fuel_liter","fuel_amount","fuel_rate_km_per_l","mile_snapshot","wht_53"];
+      const NUM_FIELDS_ARR = ["revenue_customer","trip_fee_driver","kb_amount","price_override","driver_calc_price","fuel_liter","fuel_amount","fuel_rate_km_per_l","gps_rate","mile_snapshot","wht_53"];
+      const RIGHT_ALIGN    = ["id","driver_id","head_vehicle_id","tail_vehicle_id","customer_id","trip_group_id","revenue_customer","trip_fee_driver","fee_special","fee_ot","fee_pickup_return","fee_lift","fee_yard","fee_clean","fee_shore","fee_port_entry","fee_weighing","fee_mflow","kb_amount","price_override","driver_calc_price","fuel_liter","fuel_amount","fuel_rate_km_per_l","gps_rate","mile_snapshot","wht_53"];
       const CELL_EDITORS = {
         "status_code":   { editor: "list", editorParams: { values: ["KLND","DHL Overflow","DHL","NHL","MOL","CY","WHALE","KAO","CJ","Nippon","SDS","KN","KTL","SONIC","โฮมโปร","ต่อเนื่องส่งงาน","ลา / ไม่พร้อม","รถซ่อม","รถอุบัติเหตุ"], clearable: true } },
         "site_code":     { editor: "list", editorParams: { values: ["LCB","AYU","BIGC","CJ"], clearable: true } },
