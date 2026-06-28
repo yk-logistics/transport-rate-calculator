@@ -853,13 +853,22 @@ def _deposit_row_ctx(request: Request, e: "Employee") -> dict:
 
 
 @app.get("/deposits", response_class=HTMLResponse)
-def deposits_list(request: Request, site: str = ""):
+def deposits_list(request: Request, site: str = "", show: str = "active"):
+    # show: "active" (default — เฉพาะคนทำงาน) | "all" (รวมคนออกแล้ว)
     with Session(engine) as s:
-        stmt = select(Employee).where(Employee.deposit_target > 0)
+        base = select(Employee).where(Employee.deposit_target > 0)
         if site:
-            stmt = stmt.where(Employee.home_site_code == site)
+            base = base.where(Employee.home_site_code == site)
+        if show != "all":
+            stmt = base.where(Employee.status == "active")
+        else:
+            stmt = base
         stmt = stmt.order_by(Employee.home_site_code, Employee.full_name)
         emps = s.exec(stmt).all()
+        # นับคนออกแล้ว (inactive) ที่ถูกซ่อน — ใช้โชว์บนปุ่มสลับ (เคารพ filter ไซต์)
+        resigned_count = len(s.exec(
+            base.where(Employee.status != "active")
+        ).all())
     rows = []
     total_balance = 0.0
     total_remaining = 0.0
@@ -874,8 +883,8 @@ def deposits_list(request: Request, site: str = ""):
     summary = {"count": len(rows), "total_balance": total_balance,
                "total_remaining": total_remaining}
     ctx = base_context(request)
-    ctx.update({"rows": rows, "site": site, "summary": summary,
-                "site_codes": models.SITE_CODES})
+    ctx.update({"rows": rows, "site": site, "show": show, "summary": summary,
+                "resigned_count": resigned_count, "site_codes": models.SITE_CODES})
     return templates.TemplateResponse("deposits_list.html", ctx)
 
 

@@ -44,6 +44,9 @@ def client():
         # ไม่มีเงินประกัน (target==0) → ต้องไม่โผล่
         s.add(Employee(id=13, code="D13", full_name="ดี", home_site_code="AYU",
                        status="active", deposit_balance=0, deposit_target=0))
+        # ออกแล้ว (inactive) มีเงินประกัน → default ต้องซ่อน, show=all ค่อยโผล่
+        s.add(Employee(id=14, code="D14", full_name="อดีต", home_site_code="LCB",
+                       status="inactive", deposit_balance=7000, deposit_target=10000))
         s.commit()
     with TestClient(appmod.app) as c:
         c.post("/login", data={"username": "yk1", "password": "changeme1"})
@@ -71,6 +74,39 @@ def test_deposits_filter_by_site(client):
     b = r.text
     assert "เอ" in b and "บี" in b
     assert "ซี" not in b            # BIGC ถูกกรองออก
+
+
+def test_deposits_default_hides_resigned(client):
+    # default = เฉพาะคนทำงาน (active) → ไม่เห็น "อดีต" (inactive)
+    r = client.get("/deposits", follow_redirects=True)
+    b = r.text
+    assert "เอ" in b and "บี" in b and "ซี" in b   # active ยังเห็น
+    assert "อดีต" not in b                          # inactive ถูกซ่อน default
+
+
+def test_deposits_show_all_includes_resigned(client):
+    # show=all → เห็นคนออกแล้วด้วย
+    r = client.get("/deposits?show=all", follow_redirects=True)
+    b = r.text
+    assert "อดีต" in b
+    assert "เอ" in b
+
+
+def test_deposits_default_summary_excludes_resigned(client):
+    # default summary นับเฉพาะ active: 3 คน, สะสม 18,000 (ไม่รวม อดีต 7,000)
+    r = client.get("/deposits", follow_redirects=True)
+    b = r.text
+    assert "18,000" in b      # 3000+10000+5000, ไม่บวก 7000
+    # 25,000 (รวม อดีต) ต้องไม่โผล่ใน default
+    assert "25,000" not in b
+
+
+def test_deposits_default_site_filter_still_hides_resigned(client):
+    # กรองไซต์ LCB + default → เอ,บี เห็น; อดีต(LCB,inactive) ยังซ่อน
+    r = client.get("/deposits?site=LCB", follow_redirects=True)
+    b = r.text
+    assert "เอ" in b and "บี" in b
+    assert "อดีต" not in b
 
 
 def test_edit_updates_balance_and_writes_audit(client):
