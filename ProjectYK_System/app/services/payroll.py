@@ -497,18 +497,30 @@ def _compute_income_tax_withholding(
     ).all()
     ytd_gross_before = sum((it.gross_total or 0.0) for it, _pr in ytd_rows)
     ytd_tax_withheld_before = sum((it.income_tax_withholding or 0.0) for it, _pr in ytd_rows)
+    months_on_record = len(ytd_rows) + 1  # prior runs this year + this cycle
 
     ytd_gross_including_current = ytd_gross_before + max(calc.gross_total, 0.0)
     months_remaining_including_current = 12 - month_idx + 1
     months_remaining_after_current = max(12 - month_idx, 0)
-    projected_annual_income = ytd_gross_including_current + (max(calc.gross_total, 0.0) * months_remaining_after_current)
+    # Project the rest of the year off the YTD AVERAGE run-rate, not this single
+    # month. เหมา gross is spiky; extrapolating one busy month (×remaining)
+    # wildly over-states annual income and over-withholds. Averaging the real
+    # months already on record makes the year-end estimate land close to actual.
+    avg_monthly_gross = ytd_gross_including_current / months_on_record if months_on_record else 0.0
+    projected_annual_income = ytd_gross_including_current + (avg_monthly_gross * months_remaining_after_current)
     exp_pct = float(terms.get("tax_deduct_expense_pct", 0.5) or 0.5)
     exp_cap = float(terms.get("tax_deduct_expense_cap", 100000.0) or 100000.0)
     expense = min(projected_annual_income * exp_pct, exp_cap)
     personal_allowance = float(terms.get("tax_personal_allowance", 60000.0) or 60000.0)
     extra_allowance = float(terms.get("tax_extra_allowance_annual", 0.0) or 0.0)
+    # ประกันสังคม เป็นค่าลดหย่อน (สูงสุด 9,000/ปี). Annualize this month's SS
+    # contribution; cap at the legal yearly maximum.
+    ss_allowance = min(max(calc.social_security, 0.0) * 12.0, 9000.0)
 
-    annual_taxable = max(projected_annual_income - expense - personal_allowance - extra_allowance, 0.0)
+    annual_taxable = max(
+        projected_annual_income - expense - personal_allowance - extra_allowance - ss_allowance,
+        0.0,
+    )
     annual_tax = _annual_progressive_tax(annual_taxable)
     if annual_tax <= 0:
         return 0.0
