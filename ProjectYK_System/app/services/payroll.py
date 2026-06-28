@@ -1147,17 +1147,24 @@ def calc_one_employee(
         or 15000.0
     )
 
-    # Imputed SS base: คนเหมา (mao / trip-only) ถูกอนุมานเป็นเงินเดือน 9,000
-    # ตามข้อตกลง user — ใช้คำนวณ SS เท่านั้น ไม่ใช่จ่ายเพิ่ม
-    raw_ss_base = employee.social_security_base or 0.0
-    if raw_ss_base <= 0:
-        if mode in (
-            "lcb_mao", "ayu_mao", "ayu_trip", "ayu_trip_self_fuel",
-            "bigc_monthly", "bigc_standard", "lcb_monthly", "office_monthly",
-        ):
-            raw_ss_base = 9000.0
-        else:
-            raw_ss_base = 0.0
+    # SS-exempt: คนที่ไม่ได้ส่งประกันสังคมจริง (ชีท SSO คอลัมน์ C = 0) ตั้ง
+    # custom_terms {"ss_exempt": true} เพื่อข้ามทั้งการอนุมานฐาน 9,000 และการหัก.
+    ss_terms = _parse_custom_terms(employee.custom_terms or "")
+    if ss_terms.get("ss_exempt") is True:
+        calc.social_security = 0.0
+        raw_ss_base = 0.0
+    else:
+        # Imputed SS base: คนเหมา (mao / trip-only) ถูกอนุมานเป็นเงินเดือน 9,000
+        # ตามข้อตกลง user — ใช้คำนวณ SS เท่านั้น ไม่ใช่จ่ายเพิ่ม
+        raw_ss_base = employee.social_security_base or 0.0
+        if raw_ss_base <= 0:
+            if mode in (
+                "lcb_mao", "ayu_mao", "ayu_trip", "ayu_trip_self_fuel",
+                "bigc_monthly", "bigc_standard", "lcb_monthly", "office_monthly",
+            ):
+                raw_ss_base = 9000.0
+            else:
+                raw_ss_base = 0.0
 
     # Order of operations matters:
     #   1) Prorate the contract base by employment-window & leave/absent
