@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}รายได้แยกไซต์/ลูกค้า/รถ{% endblock %}
+{% block content %}
+<div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+  <h1 class="text-2xl font-bold">📊 รายได้ · ไซต์ → ลูกค้า → รถ</h1>
+  <form method="get" class="flex gap-2 items-center text-sm flex-wrap">
+    <label class="text-slate-500">จาก</label>
+    <input type="date" name="from" value="{{ start.isoformat() }}" class="border rounded px-2 py-1" />
+    <label class="text-slate-500">ถึง</label>
+    <input type="date" name="to" value="{{ end.isoformat() }}" class="border rounded px-2 py-1" />
+    <select name="site" class="border rounded px-2 py-1">
+      <option value="">ทุกไซท์</option>
+      {% for s in ['LCB','BIGC','AYU'] %}
+      <option value="{{ s }}" {% if site==s %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+    <button class="bg-slate-900 text-white px-3 py-1 rounded">ดู</button>
+    <a href="/finance" class="text-xs text-blue-600 hover:underline ml-2">← Dashboard</a>
+  </form>
+</div>
+
+<p class="text-xs text-slate-500 mb-3">
+  ช่วง {{ start | dmy }} – {{ end | dmy }} · รายได้ = ค่าขนส่งจริง (revenue_customer)
+</p>
+
+{# เตือนความครบของข้อมูล — กันวิเคราะห์ผิด #}
+{% if not has_other_sites %}
+<div class="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+  ⚠ ข้อมูลรายเที่ยวมี<strong>เฉพาะ LCB</strong> · BIGC/AYU ยังไม่มีข้อมูลรายวัน (ระบบลอกเฉพาะยอดเงินเดือน) →
+  วิเคราะห์ราย รถ/ลูกค้า ได้เฉพาะ LCB
+</div>
+{% endif %}
+
+<div class="grid grid-cols-3 gap-3 mb-4 text-sm">
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">เที่ยวรวม</div><div class="text-lg font-bold">{{ "{:,}".format(totals.trips) }}</div></div>
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">รายได้รวม</div><div class="text-lg font-bold font-mono text-emerald-700">{{ "{:,.0f}".format(totals.revenue) }}</div></div>
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">เที่ยวยังไม่ลงราคา</div><div class="text-lg font-bold font-mono {% if totals.rows_no_price %}text-amber-700{% else %}text-slate-400{% endif %}">{{ "{:,}".format(totals.rows_no_price) }}</div></div>
+</div>
+
+<div class="space-y-2">
+  {% for s in sites %}
+  <details class="bg-white border rounded-lg" open>
+    <summary class="cursor-pointer px-4 py-3 flex justify-between items-center hover:bg-slate-50 select-none">
+      <span class="font-bold text-base">🏢 {{ s.site }}
+        {% if s.rows_no_price %}<span class="ml-2 text-xs font-normal bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">⚠ {{ s.rows_no_price }} เที่ยวยังไม่ลงราคา</span>{% endif %}
+      </span>
+      <span class="font-mono text-emerald-700 font-bold">{{ "{:,.0f}".format(s.revenue) }} <span class="text-xs text-slate-400 font-sans font-normal">· {{ s.trips }} เที่ยว</span></span>
+    </summary>
+
+    <div class="px-2 pb-2">
+      {% for c in s.customers %}
+      <details class="border-t">
+        <summary class="cursor-pointer px-3 py-2 flex justify-between items-center hover:bg-slate-50 select-none text-sm">
+          <span class="font-semibold">📦 {{ c.customer }}
+            <span class="text-xs text-slate-400 font-normal ml-1">({{ c.pct_of_site }}% ของไซต์)</span>
+          </span>
+          <span class="font-mono text-emerald-700">{{ "{:,.0f}".format(c.revenue) }} <span class="text-xs text-slate-400 font-sans">· {{ c.trips }} เที่ยว</span></span>
+        </summary>
+        <table class="w-full text-xs mb-1">
+          <thead class="bg-slate-50 text-slate-500">
+            <tr>
+              <th class="px-3 py-1 text-left pl-10">🚛 ทะเบียน</th>
+              <th class="px-3 py-1 text-right">เที่ยว</th>
+              <th class="px-3 py-1 text-right">รายได้</th>
+              <th class="px-3 py-1 text-right">% ของลูกค้า</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            {% for v in c.vehicles %}
+            <tr class="hover:bg-slate-50">
+              <td class="px-3 py-1 pl-10 font-mono">{{ v.plate }}</td>
+              <td class="px-3 py-1 text-right">{{ v.trips }}</td>
+              <td class="px-3 py-1 text-right font-mono">{{ "{:,.0f}".format(v.revenue) }}</td>
+              <td class="px-3 py-1 text-right text-slate-500">{{ v.pct_of_customer }}%</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </details>
+      {% endfor %}
+    </div>
+  </details>
+  {% else %}
+  <div class="bg-white border rounded-lg px-3 py-8 text-center text-slate-500">ไม่มีข้อมูลในช่วงนี้</div>
+  {% endfor %}
+</div>
+
+<p class="text-xs text-slate-400 mt-3">
+  💡 คลิกที่ไซต์/ลูกค้าเพื่อกาง-ยุบ · รายได้นี้เป็นค่าขนส่งจริงฝั่งรายรับ (ยังไม่หักต้นทุน — ดูต้นทุนต่อคันที่หน้า "ต้นทุนต่อคัน")
+</p>
+{% endblock %}
