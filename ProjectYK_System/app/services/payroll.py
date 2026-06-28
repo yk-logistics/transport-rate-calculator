@@ -495,19 +495,28 @@ def _compute_income_tax_withholding(
             PayRun.period_end < calc.period_end,
         )
     ).all()
-    ytd_gross_before = sum((it.gross_total or 0.0) for it, _pr in ytd_rows)
+    # Taxable income for เหมาน้ำมัน drivers is gross MINUS the fuel they pay
+    # themselves — that fuel is a real business cost, so their actual income is
+    # the revenue-share net of fuel (โอ 2026-06-28, "เฉพาะคนเหมาน้ำมัน").
+    # fuel_cost_self is 0 for trip/office drivers, so this auto-applies only to
+    # the fuel-bearing modes (lcb_mao / lcb_mixed / ayu self-fuel).
+    def _real_income(gross, fuel_self):
+        return max((gross or 0.0) - (fuel_self or 0.0), 0.0)
+
+    ytd_income_before = sum(_real_income(it.gross_total, it.fuel_cost_self) for it, _pr in ytd_rows)
     ytd_tax_withheld_before = sum((it.income_tax_withholding or 0.0) for it, _pr in ytd_rows)
     months_on_record = len(ytd_rows) + 1  # prior runs this year + this cycle
 
-    ytd_gross_including_current = ytd_gross_before + max(calc.gross_total, 0.0)
+    income_this_month = _real_income(calc.gross_total, calc.fuel_cost_self)
+    ytd_income_including_current = ytd_income_before + income_this_month
     months_remaining_including_current = 12 - month_idx + 1
     months_remaining_after_current = max(12 - month_idx, 0)
     # Project the rest of the year off the YTD AVERAGE run-rate, not this single
-    # month. เหมา gross is spiky; extrapolating one busy month (×remaining)
+    # month. เหมา income is spiky; extrapolating one busy month (×remaining)
     # wildly over-states annual income and over-withholds. Averaging the real
     # months already on record makes the year-end estimate land close to actual.
-    avg_monthly_gross = ytd_gross_including_current / months_on_record if months_on_record else 0.0
-    projected_annual_income = ytd_gross_including_current + (avg_monthly_gross * months_remaining_after_current)
+    avg_monthly_income = ytd_income_including_current / months_on_record if months_on_record else 0.0
+    projected_annual_income = ytd_income_including_current + (avg_monthly_income * months_remaining_after_current)
     exp_pct = float(terms.get("tax_deduct_expense_pct", 0.5) or 0.5)
     exp_cap = float(terms.get("tax_deduct_expense_cap", 100000.0) or 100000.0)
     expense = min(projected_annual_income * exp_pct, exp_cap)

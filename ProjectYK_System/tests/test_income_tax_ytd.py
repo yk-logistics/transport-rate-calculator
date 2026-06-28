@@ -22,21 +22,23 @@ def _setup():
     return Session(eng)
 
 
-def _add_prior_run(s, emp_id, cycle_tag, period_start, period_end, gross, tax=0.0):
+def _add_prior_run(s, emp_id, cycle_tag, period_start, period_end, gross, tax=0.0, fuel_self=0.0):
     pr = PayRun(site_code="LCB", pay_cycle_tag=cycle_tag,
                 period_start=period_start, period_end=period_end, status="draft")
     s.add(pr); s.commit(); s.refresh(pr)
     s.add(PayRunItem(pay_run_id=pr.id, employee_id=emp_id, site_code="LCB",
-                     gross_total=gross, net_pay=gross, income_tax_withholding=tax))
+                     gross_total=gross, net_pay=gross, income_tax_withholding=tax,
+                     fuel_cost_self=fuel_self))
     s.commit()
     return pr
 
 
-def _calc_for(emp, period_start, period_end, gross_this_month, sso=0.0):
+def _calc_for(emp, period_start, period_end, gross_this_month, sso=0.0, fuel_self=0.0):
     c = payroll.PayrollCalc(employee=emp, period_start=period_start, period_end=period_end)
     # Drive gross via fuel_share_income (เหมา path); tax fn reads calc.gross_total.
     c.fuel_share_income = gross_this_month
     c.social_security = sso
+    c.fuel_cost_self = fuel_self
     return c
 
 
@@ -125,3 +127,64 @@ def test_catch_up_subtracts_prior_withholding():
     # With ~4k already withheld, remaining spread over 7 months should be
     # noticeably less than annual_tax/12 computed fresh. Just assert finite/sane.
     assert tax < 5000
+
+
+def test_mao_fuel_is_subtracted_from_taxable_income():
+    """เหมาน้ำมัน: taxable income = gross − fuel the driver pays. A driver with
+    big gross but big fuel has LOW real income → little/no tax. (โอ 2026-06-28)
+    """
+    s = _setup()
+    emp = Employee(code="MAO_FUEL", full_name="ทดสอบ เหมาน้ำมัน", home_site_code="LCB",
+                   social_security_base=9240, social_security_rate=0.05)
+    s.add(emp); s.commit(); s.refresh(emp)
+    # 5 prior months: gross 80k each but fuel 50k each → real income 30k/mo.
+    for i, tag in enumerate(["2026-01","2026-02","2026-03","2026-04","2026-05"]):
+        ps = date(2025, 12, 16) if i == 0 else date(2026, i, 16)
+        pe = date(2026, i+1, 15)
+        _add_prior_run(s, emp.id, tag, ps, pe, 80000, tax=0.0, fuel_self=50000)
+
+    calc_with_fuel = _calc_for(emp, date(2026,5,16), date(2026,6,15), 90000, sso=462, fuel_self=58000)
+    tax_with_fuel = payroll._compute_income_tax_withholding(s, calc_with_fuel, emp)
+
+    # Same driver, but pretend NO fuel were subtracted (the old wrong basis):
+    # build a parallel history with fuel_self=0 and compare.
+    emp2 = Employee(code="MAO_NOFUEL", full_name="ทดสอบ ไม่หักน้ำมัน", home_site_code="LCB",
+                    social_security_base=9240, social_security_rate=0.05)
+    s.add(emp2); s.commit(); s.refresh(emp2)
+    for i, tag in enumerate(["2026-01","2026-02","2026-03","2026-04","2026-05"]):
+        ps = date(2025, 12, 16) if i == 0 else date(2026, i, 16)
+        pe = date(2026, i+1, 15)
+        _add_prior_run(s, emp2.id, tag, ps, pe, 80000, tax=0.0, fuel_self=0)
+    calc_no_fuel = _calc_for(emp2, date(2026,5,16), date(2026,6,15), 90000, sso=462, fuel_self=0)
+    tax_no_fuel = payroll._compute_income_tax_withholding(s, calc_no_fuel, emp2)
+
+    # Subtracting fuel (a real ~50k/mo cost) must drop the tax dramatically.
+    assert tax_with_fuel < tax_no_fuel / 3, (
+        f"fuel subtraction should slash tax: with_fuel={tax_with_fuel} no_fuel={tax_no_fuel}")
+
+
+def test_same_gross_trip_driver_without_fuel_pays_more_than_mao_with_fuel():
+    """The fuel subtraction must be mode-correct: a trip driver (no fuel_self)
+    with the SAME gross is taxed on the full gross, so pays MORE than a เหมา
+    driver whose fuel is deducted. Proves fuel_self is the right discriminator.
+    """
+    s = _setup()
+    def build(code, fuel):
+        e = Employee(code=code, full_name=code, home_site_code="LCB",
+                     social_security_base=9240, social_security_rate=0.05)
+        s.add(e); s.commit(); s.refresh(e)
+        for i, tag in enumerate(["2026-01","2026-02","2026-03","2026-04","2026-05"]):
+            ps = date(2025, 12, 16) if i == 0 else date(2026, i, 16)
+            pe = date(2026, i+1, 15)
+            _add_prior_run(s, e.id, tag, ps, pe, 80000, tax=0.0, fuel_self=fuel)
+        return e
+
+    mao = build("MAO", 50000)     # bears fuel
+    trip = build("TRIP", 0)        # no fuel
+
+    c_mao = _calc_for(mao, date(2026,5,16), date(2026,6,15), 80000, sso=462, fuel_self=50000)
+    c_trip = _calc_for(trip, date(2026,5,16), date(2026,6,15), 80000, sso=462, fuel_self=0)
+    tax_mao = payroll._compute_income_tax_withholding(s, c_mao, mao)
+    tax_trip = payroll._compute_income_tax_withholding(s, c_trip, trip)
+    assert tax_trip > tax_mao, (
+        f"trip (full gross) should pay more than mao (post-fuel): trip={tax_trip} mao={tax_mao}")
