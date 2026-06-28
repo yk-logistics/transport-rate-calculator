@@ -142,7 +142,11 @@
       {% if it.fuel_share_income %}<div class="line"><span>ส่วนแบ่งน้ำมัน (60%)</span><span>{{ '{:,.2f}'.format(it.fuel_share_income) }}</span></div>{% endif %}
       {% if it.fuel_rate_income %}<div class="line"><span>ค่าเรทน้ำมัน</span><span>{{ '{:,.2f}'.format(it.fuel_rate_income) }}</span></div>{% endif %}
       {% if it.guarantee_topup %}<div class="line"><span>ชดเชยการันตี</span><span>{{ '{:,.2f}'.format(it.guarantee_topup) }}</span></div>{% endif %}
-      {% if it.other_income %}<div class="line"><span>รายได้อื่น</span><span>{{ '{:,.2f}'.format(it.other_income) }}</span></div>{% endif %}
+      {% if it.special_income %}<div class="line"><span>พิเศษ</span><span>{{ '{:,.2f}'.format(it.special_income) }}</span></div>{% endif %}
+      {% if it.ot_income %}<div class="line"><span>OT</span><span>{{ '{:,.2f}'.format(it.ot_income) }}</span></div>{% endif %}
+      {% if it.pickup_return_income %}<div class="line"><span>รับตู้คืนตู้</span><span>{{ '{:,.2f}'.format(it.pickup_return_income) }}</span></div>{% endif %}
+      {% set other_rest = it.other_income - it.special_income - it.ot_income - it.pickup_return_income %}
+      {% if other_rest|round(2) != 0 %}<div class="line"><span>รายได้อื่น</span><span>{{ '{:,.2f}'.format(other_rest) }}</span></div>{% endif %}
       <div class="line"><span>รวมรายได้</span><span>{{ '{:,.2f}'.format(it.gross_total) }}</span></div>
       {% if it.fuel_cost_self %}<div class="line neg"><span>− ค่าน้ำมัน</span><span>{{ '{:,.2f}'.format(it.fuel_cost_self) }}</span></div>{% endif %}
       <div class="line total"><span>รายได้หลังหักน้ำมัน</span><span>{{ '{:,.2f}'.format(it.gross_total - it.fuel_cost_self) }}</span></div>

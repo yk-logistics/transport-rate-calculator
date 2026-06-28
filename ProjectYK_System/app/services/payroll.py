@@ -374,6 +374,24 @@ LCB_PICKUP_RETURN_FEE_TYPES = {"pickup_return", "รับตู้แทน"}
 LCB_SPECIAL_FEE_TYPES = {"special", "พิเศษ", "ค่าพิเศษ"}
 
 
+def classify_driver_fee(fee_type: str | None) -> str | None:
+    """Map a DailyJobFee.fee_type to a DRIVER-income bucket, or None if it is
+    company money (reserve fees like ค่าเสียเวลา/ยกตู้/ผ่านลาน/คลีน/ชอร์/เข้าท่า).
+
+    Single source of truth shared by the payroll engine and the /daily grid so
+    เดลี่ == สลิป == หน้ารวม == engine. Matched case-insensitively.
+    Returns one of: "special", "ot", "pickup_return", or None.
+    """
+    ft = (fee_type or "").lower()
+    if ft in LCB_OT_FEE_TYPES:
+        return "ot"
+    if ft in LCB_PICKUP_RETURN_FEE_TYPES:
+        return "pickup_return"
+    if ft in LCB_SPECIAL_FEE_TYPES:
+        return "special"
+    return None
+
+
 def _sum_lcb_driver_extra_fees(
     session: Session, emp_id: int, start: date, end: date, site_code: str = ""
 ) -> dict:
@@ -397,13 +415,13 @@ def _sum_lcb_driver_extra_fees(
     rows = session.exec(stmt).all()
     ot = pickup = special = 0.0
     for f in rows:
-        ft = (f.fee_type or "").lower()
+        bucket = classify_driver_fee(f.fee_type)
         amt = f.amount or 0.0
-        if ft in LCB_OT_FEE_TYPES:
+        if bucket == "ot":
             ot += amt
-        elif ft in LCB_PICKUP_RETURN_FEE_TYPES:
+        elif bucket == "pickup_return":
             pickup += amt
-        elif ft in LCB_SPECIAL_FEE_TYPES:
+        elif bucket == "special":
             special += amt
     ot, pickup, special = round(ot, 2), round(pickup, 2), round(special, 2)
     return {

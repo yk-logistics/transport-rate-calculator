@@ -329,6 +329,7 @@
     ["pickup_location","pickup_location",true], ["store_code","store_code",true], ["truck_type_raw","ประเภทรถ",true],
     ["job_ref","BL / Booking (L)",true], ["container_no","เบอร์ตู้ (M)",true], ["container_size","ขนาดตู้",true],
     ["revenue_customer","ค่าขนส่ง (U)",true], ["trip_fee_driver","ค่าเที่ยว (AD)",true],
+    ["fee_special","พิเศษ",false], ["fee_ot","OT",false], ["fee_pickup_return","รับตู้คืนตู้",false],
     ["kb_amount","KB (ใต้โต๊ะ)",true], ["price_override","ราคากลาง",true],
     ["driver_calc_price","ราคาคนขับ",false],
     ["fuel_liter","ลิตร",true], ["fuel_amount","ค่าน้ำมัน",true], ["fuel_station","ปั๊ม",true],
@@ -340,13 +341,13 @@
 
   const PRESETS = {
     basic:     ["work_date","site_code","driver_name","plate_no","status_code","leave_status","trip_type_code","origin","destination"],
-    money:     ["work_date","site_code","driver_name","plate_no","status_code","leave_status","trip_type_code","origin","destination","revenue_customer","kb_amount","price_override","driver_calc_price","trip_fee_driver","remark"],
+    money:     ["work_date","site_code","driver_name","plate_no","status_code","leave_status","trip_type_code","origin","destination","revenue_customer","kb_amount","price_override","driver_calc_price","trip_fee_driver","fee_special","fee_ot","fee_pickup_return","remark"],
     fuel:      ["work_date","site_code","driver_name","plate_no","fuel_liter","fuel_amount","fuel_station","fuel_rate_km_per_l","mile_snapshot"],
     container: ["work_date","site_code","driver_name","plate_no","status_code","trip_type_code","origin","destination","doc_no","job_ref","container_no","container_size"],
     all:       null,
   };
 
-  const NUM_FIELDS = new Set(["revenue_customer","trip_fee_driver","kb_amount","price_override","driver_calc_price","fuel_liter","fuel_amount","fuel_rate_km_per_l","mile_snapshot","wht_53"]);
+  const NUM_FIELDS = new Set(["revenue_customer","trip_fee_driver","fee_special","fee_ot","fee_pickup_return","kb_amount","price_override","driver_calc_price","fuel_liter","fuel_amount","fuel_rate_km_per_l","mile_snapshot","wht_53"]);
 
   // Returns a closure over calcMode — called per column, recalc() re-invokes it
   function makeCalc() {
@@ -614,7 +615,7 @@
     ].concat(ALL_FIELDS.map(([field, title, editable]) => {
       const MISSING_FIELDS = ["revenue_customer", "trip_fee_driver"];
       const NUM_FIELDS_ARR = ["revenue_customer","trip_fee_driver","kb_amount","price_override","driver_calc_price","fuel_liter","fuel_amount","fuel_rate_km_per_l","mile_snapshot","wht_53"];
-      const RIGHT_ALIGN    = ["id","driver_id","head_vehicle_id","tail_vehicle_id","customer_id","trip_group_id","revenue_customer","trip_fee_driver","kb_amount","price_override","driver_calc_price","fuel_liter","fuel_amount","fuel_rate_km_per_l","mile_snapshot","wht_53"];
+      const RIGHT_ALIGN    = ["id","driver_id","head_vehicle_id","tail_vehicle_id","customer_id","trip_group_id","revenue_customer","trip_fee_driver","fee_special","fee_ot","fee_pickup_return","kb_amount","price_override","driver_calc_price","fuel_liter","fuel_amount","fuel_rate_km_per_l","mile_snapshot","wht_53"];
       const CELL_EDITORS = {
         "status_code":   { editor: "list", editorParams: { values: ["KLND","DHL Overflow","DHL","NHL","MOL","CY","WHALE","KAO","CJ","Nippon","SDS","KN","KTL","SONIC","โฮมโปร","ต่อเนื่องส่งงาน","ลา / ไม่พร้อม","รถซ่อม","รถอุบัติเหตุ"], clearable: true } },
         "site_code":     { editor: "list", editorParams: { values: ["LCB","AYU","BIGC","CJ"], clearable: true } },

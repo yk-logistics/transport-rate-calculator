@@ -1694,6 +1694,22 @@ def daily_grid_data(
                 select(models.Customer.id, models.Customer.name).where(models.Customer.id.in_(cust_ids))
             ).all()
             cust_name_map = {c[0]: (c[1] or "") for c in cust_rows}
+        # เงินคนขับต่อแถวจาก DailyJobFee (พิเศษ/OT/รับตู้คืนตู้) — ดึงทีเดียวทั้งหน้า
+        # แล้ว bucket ด้วย classify_driver_fee ตัวเดียวกับ engine → ตัวเลขตรงกับ payroll
+        # (ค่าเสียเวลา/ยกตู้/ผ่านลาน ฯลฯ ตกเป็นของบริษัท ไม่นับ)
+        from services.payroll import classify_driver_fee
+        job_ids = [r.id for r in rows if r.id]
+        fee_map: dict[int, dict] = {}
+        if job_ids:
+            fee_rows = s.exec(
+                select(DailyJobFee).where(DailyJobFee.daily_job_id.in_(job_ids))
+            ).all()
+            for f in fee_rows:
+                bucket = classify_driver_fee(f.fee_type)
+                if bucket is None:
+                    continue
+                d = fee_map.setdefault(f.daily_job_id, {"special": 0.0, "ot": 0.0, "pickup_return": 0.0})
+                d[bucket] += f.amount or 0.0
     data = [
         {
             "id": r.id,
@@ -1728,6 +1744,9 @@ def daily_grid_data(
             "leave_status": r.leave_status or "",
             "revenue_customer": float(r.revenue_customer or 0),
             "trip_fee_driver": float(r.trip_fee_driver or 0),
+            "fee_special": round(fee_map.get(r.id, {}).get("special", 0.0), 2),
+            "fee_ot": round(fee_map.get(r.id, {}).get("ot", 0.0), 2),
+            "fee_pickup_return": round(fee_map.get(r.id, {}).get("pickup_return", 0.0), 2),
             "kb_amount": float(r.kb_amount or 0),
             "price_override": (None if r.price_override is None else float(r.price_override)),
             "driver_calc_price": driver_calc_price(r),
