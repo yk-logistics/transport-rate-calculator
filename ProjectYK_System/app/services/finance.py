@@ -32,6 +32,16 @@ from models import (
     PettyCashTxn,
     Vehicle,
 )
+from sqlalchemy import or_ as _sa_or
+
+
+def _not_xsite():
+    """กรองแถว cross-site duplicate (source ลงท้าย '_xsite') ออกจากรายได้ CFO —
+    แถวที่พี่หวานใส่เผื่อให้หมิววางบิล (เที่ยวซ้ำกับไซต์ต้นทาง ไม่นับรายได้ซ้ำ)."""
+    return _sa_or(
+        DailyJob.source.is_(None),
+        DailyJob.source.notlike("%_xsite"),
+    )
 
 
 # --------------------------------------------------------------------------
@@ -195,6 +205,8 @@ def monthly_pnl(session: Session, year: int, month: int, site: str = "",
     stmt = select(DailyJob).where(DailyJob.work_date >= start, DailyJob.work_date <= end)
     if site:
         stmt = stmt.where(DailyJob.site_code == site)
+    # กันนับซ้ำ: แถว cross-site duplicate (พี่หวานใส่เผื่อหมิววางบิล) source ลงท้าย _xsite
+    stmt = stmt.where(_not_xsite())
     jobs = session.exec(stmt).all()
     job_ids = [j.id for j in jobs]
 
@@ -631,6 +643,7 @@ def revenue_breakdown(
     )
     if site:
         stmt = stmt.where(DailyJob.site_code == site)
+    stmt = stmt.where(_not_xsite())   # กันนับซ้ำ cross-site (source _xsite)
     jobs = session.exec(stmt).all()
 
     # nested aggregation: site -> customer -> plate

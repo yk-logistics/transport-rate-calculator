@@ -37,8 +37,14 @@ def main():
         for e in ayu_emps:
             by_fn[first_name(e.full_name)].append(e)
 
+        # คนชื่อตรงกับพนักงาน home≠AYU = cross-site (เที่ยวซ้ำ) → auto-tag _xsite
+        non_ayu_fn = {first_name(e.full_name) for e in
+                      s.exec(select(Employee).where(Employee.home_site_code != "AYU")).all()
+                      if first_name(e.full_name)}
+        ayu_fn = set(by_fn.keys())
+
         jobs = s.exec(select(DailyJob).where(DailyJob.site_code == "AYU")).all()
-        linked, cross_or_new = 0, set()
+        linked, cross_or_new, xsite = 0, set(), 0
         per = {}
         for j in jobs:
             f = first_name(j.driver_raw_name)
@@ -52,8 +58,15 @@ def main():
                 per[hit[0].full_name] = per.get(hit[0].full_name, 0) + 1
             elif j.driver_raw_name:
                 cross_or_new.add(j.driver_raw_name)
+                # cross-site duplicate → tag source _xsite (กัน CFO นับซ้ำ)
+                if f in non_ayu_fn and f not in ayu_fn and not (j.source or "").endswith("_xsite"):
+                    xsite += 1
+                    if not dry:
+                        j.source = (j.source or "") + "_xsite"
+                        s.add(j)
         if not dry:
             s.commit()
+        print(f"  auto-tagged cross-site _xsite: {xsite}")
 
         print(f"AYU jobs: {len(jobs)}")
         print(f"  {'would link' if dry else 'linked'} (AYU-home only): {linked}")
