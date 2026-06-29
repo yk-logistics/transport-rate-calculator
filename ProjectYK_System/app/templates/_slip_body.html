@@ -96,7 +96,7 @@
             {%- if r.id in _fuelonly %}{% set fo = _fuelonly[r.id] %}
             <td class="c-route"><span class="tag-fuel">🛢 เติมน้ำมัน</span> <span class="wb-muted">{% if fo.fill_date %}เติมวันที่ {{ fo.fill_date | dmy }}{% else %}วันไม่มีงาน{% endif %}{% if fo.for_date %} · สำหรับงานวันที่ {{ fo.for_date | dmy }}{% endif %}</span></td>
             {%- else %}
-            <td class="c-route">{{ route_text(r) or r.destination or '<span class="wb-muted">—</span>' | safe }}{% if r.doc_no %} <span class="wb-muted">· {{ r.doc_no }}</span>{% elif r.remark %} <span class="wb-muted">· {{ r.remark }}</span>{% endif %}</td>
+            <td class="c-route">{% set _cell = route_cell(r) %}{% if _cell %}{{ _cell }}{% else %}<span class="wb-muted">—</span>{% endif %}{% if r.doc_no %} <span class="wb-muted">· {{ r.doc_no }}</span>{% elif route_remark(r) %} <span class="wb-muted">· {{ route_remark(r) }}</span>{% endif %}</td>
             {%- endif %}
             <td class="num">{% if r.fuel_liter %}{{ '{:.0f}'.format(r.fuel_liter) }}{% endif %}</td>
             <td class="num">

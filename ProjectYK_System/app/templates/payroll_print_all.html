@@ -262,7 +262,8 @@ table.run tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding
 {# ---------- 3. สลิปรายคน (ดีไซน์เดียวกับหน้ารายคน ผ่าน _slip_body.html) ---------- #}
 {% for r in rows %}
   {% with daily_jobs=r.ctx.daily_jobs, item=r.ctx.item, employee=r.ctx.employee, run=r.ctx.run,
-          mixed=r.ctx.mixed, route_text=r.ctx.route_text, day_kind=r.ctx.day_kind,
+          mixed=r.ctx.mixed, route_text=r.ctx.route_text, route_cell=r.ctx.route_cell,
+          route_remark=r.ctx.route_remark, day_kind=r.ctx.day_kind,
           fuel_deduct_dates=r.ctx.fuel_deduct_dates, excluded_job_ids=r.ctx.excluded_job_ids,
           tank_measure_rows=r.ctx.tank_measure_rows, fuel_excluded_amt=r.ctx.fuel_excluded_amt,
           fuel_deducted_amt=r.ctx.fuel_deducted_amt, fuel_deducted_liter=r.ctx.fuel_deducted_liter,
