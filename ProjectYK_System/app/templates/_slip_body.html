@@ -45,7 +45,7 @@
         {% for r in daily_jobs %}
           {% set k = day_kind(r) %}
           <tr>
-            <td class="c-date">{{ r.work_date | dmy }}</td>
+            <td class="c-date">{% if loop.first or loop.previtem.work_date != r.work_date %}{{ r.work_date | dmy }}{% else %}<span class="wb-muted">↳</span>{% endif %}</td>
             <td>{% if k.kind == 'mao' %}เหมา{% elif k.kind == 'trip' %}เที่ยว{% else %}{{ k.label }}{% endif %}</td>
             <td class="c-route">{{ route_text(r) or '—' }}{% if r.customer_name_raw %} <span class="wb-muted">· {{ r.customer_name_raw }}</span>{% endif %}</td>
             <td class="num c-trip">
@@ -56,6 +56,7 @@
             <td class="num">{{ '{:,.0f}'.format(r.fuel_liter) if r.fuel_liter else '' }}</td>
             <td class="num">
               {%- if r.fuel_amount %}{{ '{:,.0f}'.format(r.fuel_amount) }}
+                {%- if fuel_grade_by_job.get(r.id) %} <span class="tag-grade">{{ fuel_grade_by_job[r.id] }}</span>{% endif %}
                 {%- if r.work_date in fuel_deduct_dates %} <span class="tag-cut">หัก</span>
                 {%- elif k.kind == 'trip' %} <span class="tag-co">บริษัท</span>{% endif %}
               {%- endif %}
@@ -81,11 +82,12 @@
         <tbody>
         {% for r in daily_jobs %}
           <tr>
-            <td class="c-date">{{ r.work_date | dmy }}</td>
+            <td class="c-date">{% if loop.first or loop.previtem.work_date != r.work_date %}{{ r.work_date | dmy }}{% else %}<span class="wb-muted">↳</span>{% endif %}</td>
             <td class="c-route">{{ route_text(r) or r.destination or '<span class="wb-muted">—</span>' | safe }}{% if r.doc_no %} <span class="wb-muted">· {{ r.doc_no }}</span>{% elif r.remark %} <span class="wb-muted">· {{ r.remark }}</span>{% endif %}</td>
             <td class="num">{% if r.fuel_liter %}{{ '{:.0f}'.format(r.fuel_liter) }}{% endif %}</td>
             <td class="num">
               {%- if r.fuel_amount %}{{ '{:,.0f}'.format(r.fuel_amount) }}
+                {%- if fuel_grade_by_job.get(r.id) %} <span class="tag-grade">{{ fuel_grade_by_job[r.id] }}</span>{% endif %}
                 {%- if r.id in excluded_job_ids %} <span class="tag-free">ไม่หัก</span>{% endif %}
               {%- endif %}
             </td>

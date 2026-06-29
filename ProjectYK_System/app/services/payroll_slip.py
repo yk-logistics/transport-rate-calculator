@@ -291,6 +291,12 @@ def build_payroll_slip_context(
     # daily_job_id ที่ผูกบิล "ไม่หัก" → mark บรรทัดในตาราง
     excluded_job_ids = {f.daily_job_id for f in fuel_rows if f.exclude_from_driver and f.daily_job_id}
 
+    fuel_grade_by_job = {
+        f.daily_job_id: f.fuel_grade
+        for f in fuel_rows
+        if f.daily_job_id and f.fuel_grade
+    }
+
     plates = sorted({r.plate_no_raw for r in daily_jobs if r.plate_no_raw})
     plates_used = ", ".join(plates) if plates else ""
 
@@ -386,6 +392,7 @@ def build_payroll_slip_context(
         "fuel_deducted_liter": fuel_deducted_liter,
         "tank_measure_rows": tank_measure_rows,
         "excluded_job_ids": excluded_job_ids,
+        "fuel_grade_by_job": fuel_grade_by_job,
         "petty_lines": petty_lines,
         "petty_lines_extra": petty_lines_extra,
         "petty_categories": petty_categories,
