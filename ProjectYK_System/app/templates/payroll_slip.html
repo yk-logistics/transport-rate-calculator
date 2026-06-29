@@ -194,7 +194,7 @@
       <tr>
         <th style="width:62px;">วันที่</th>
         <th style="width:70px;">ทะเบียน</th>
-        <th>ส่งสินค้า / หมายเหตุ</th>
+        <th>ส่งสินค้า (ต้นทาง → โหลด → ปลายทาง) / หมายเหตุ</th>
         <th style="width:80px;">ใบงาน</th>
         <th style="width:46px;" class="num">น้ำมัน(L)</th>
         <th style="width:58px;" class="num">น้ำมัน(฿)</th>
@@ -208,7 +208,7 @@
         <td>{{ r.work_date | dmy }}</td>
         <td>{{ r.plate_no_raw or '' }}</td>
         <td>
-          {% if r.destination %}{{ r.destination }}{% endif %}
+          {{ route_text(r) or r.destination or '' }}
           {% if r.remark %}<span style="color:#64748b;">· {{ r.remark }}</span>{% endif %}
         </td>
         <td>{{ r.doc_no or r.job_ref or r.container_no or '' }}</td>

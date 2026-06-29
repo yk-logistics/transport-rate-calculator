@@ -4256,6 +4256,7 @@ def _slip_daily_rows(s: Session, emp_id: int, pr: PayRun, pay_mode: str, is_boss
         ).order_by(DailyJob.work_date)
     ).all()
     is_mao = (pay_mode or "") in ("lcb_mao", "lcb_mixed", "ayu_mao")
+    from services.payroll_slip import delivery_route_text
     out = []
     for d in djs:
         rev = d.revenue_customer or 0.0
@@ -4265,6 +4266,7 @@ def _slip_daily_rows(s: Session, emp_id: int, pr: PayRun, pay_mode: str, is_boss
             "plate": d.plate_no_raw or "",
             "status": d.status_code or "",
             "dest": d.destination or "",
+            "route": delivery_route_text(d),  # ต้นทาง → โหลด → ปลายทาง
             "container": d.container_no or "",
             "trip_fee": d.trip_fee_driver or 0.0,
             "fuel": d.fuel_amount or 0.0,
