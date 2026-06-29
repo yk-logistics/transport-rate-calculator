@@ -1,5 +1,7 @@
 {# สลิปเงินเดือน 1 คน · Design "Waybill" — ใช้ทั้ง payroll_slip.html (เดี่ยว) + payroll_print_all.html (วนทุกคน).
    ctx จาก build_payroll_slip_context. เก็บ logic ทุก pay_mode (mixed/normal/petty/fuel). บนจอสีเต็ม; ปริ้นพื้นขาวสนิท (@media print ใน CSS). #}
+{# default({}) กัน UndefinedError ถ้า include site ลืมส่ง fuel_grade_by_job มา #}
+{% set _grades = fuel_grade_by_job|default({}) %}
 <div class="slip{% if daily_jobs|length > 52 %} ultra{% elif daily_jobs|length > 38 %} dense{% endif %}"{% if employee %} data-driver="{{ employee.full_name }}" data-emp="{{ employee.id }}"{% endif %}>
 
   {# ===== masthead ===== #}
@@ -56,7 +58,7 @@
             <td class="num">{{ '{:,.0f}'.format(r.fuel_liter) if r.fuel_liter else '' }}</td>
             <td class="num">
               {%- if r.fuel_amount %}{{ '{:,.0f}'.format(r.fuel_amount) }}
-                {%- if fuel_grade_by_job.get(r.id) %} <span class="tag-grade">{{ fuel_grade_by_job[r.id] }}</span>{% endif %}
+                {%- if _grades.get(r.id) %} <span class="tag-grade">{{ _grades[r.id] }}</span>{% endif %}
                 {%- if r.work_date in fuel_deduct_dates %} <span class="tag-cut">หัก</span>
                 {%- elif k.kind == 'trip' %} <span class="tag-co">บริษัท</span>{% endif %}
               {%- endif %}
@@ -87,7 +89,7 @@
             <td class="num">{% if r.fuel_liter %}{{ '{:.0f}'.format(r.fuel_liter) }}{% endif %}</td>
             <td class="num">
               {%- if r.fuel_amount %}{{ '{:,.0f}'.format(r.fuel_amount) }}
-                {%- if fuel_grade_by_job.get(r.id) %} <span class="tag-grade">{{ fuel_grade_by_job[r.id] }}</span>{% endif %}
+                {%- if _grades.get(r.id) %} <span class="tag-grade">{{ _grades[r.id] }}</span>{% endif %}
                 {%- if r.id in excluded_job_ids %} <span class="tag-free">ไม่หัก</span>{% endif %}
               {%- endif %}
             </td>
