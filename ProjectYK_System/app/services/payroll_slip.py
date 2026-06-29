@@ -311,12 +311,15 @@ def build_payroll_slip_context(
     # น้ำมัน "นอกตาราง" (ไม่มี daily_job_id → ไม่อยู่ในตารางเดลี่) แสดงแยกให้คนขับเห็น:
     #   mao_tank_measure = วัดถังตอนเริ่มเหมา ; handover_measure = วัดน้ำมันตอนคนมาขับแทนรับรถคืน
     _OFFTABLE_FUEL = ("tank_measure", "handover_measure")
-    tank_measure_rows = [
-        {"txn_date": f.txn_date, "liter": f.liter or 0.0, "amount": f.amount or 0.0,
-         "note": (f.note or "วัดถัง")}
-        for f in fuel_rows
-        if any(k in (f.source or "") for k in _OFFTABLE_FUEL) and f.daily_job_id is None
-    ]
+    tank_measure_rows = sorted(
+        (
+            {"txn_date": f.txn_date, "liter": f.liter or 0.0, "amount": f.amount or 0.0,
+             "note": (f.note or "วัดถัง")}
+            for f in fuel_rows
+            if any(k in (f.source or "") for k in _OFFTABLE_FUEL) and f.daily_job_id is None
+        ),
+        key=lambda r: r["txn_date"],  # เรียงตามวันที่ (ส่งมอบ/คืน ก่อน รับคืน/หัก ตามจริง)
+    )
     # daily_job_id ที่ผูกบิล "ไม่หัก" → mark บรรทัดในตาราง
     excluded_job_ids = {f.daily_job_id for f in fuel_rows if f.exclude_from_driver and f.daily_job_id}
 
