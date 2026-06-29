@@ -222,11 +222,18 @@
           {% else %}
             <td class="num">{{ '{:,.0f}'.format(d.trip_fee) if d.trip_fee else '—' }}</td>
           {% endif %}
-          {% if it.fuel_cost_self %}<td class="num">{{ '{:,.0f}'.format(d.fuel) if d.fuel else '—' }}</td>{% endif %}
+          {% if it.fuel_cost_self %}<td class="num">{{ '{:,.0f}'.format(d.fuel) if d.fuel else '—' }}{% if d.fuel_liter %} <span style="color:#94a3b8; font-size:9px;">{{ '{:.0f}'.format(d.fuel_liter) }}L</span>{% endif %}</td>{% endif %}
         </tr>
         {% endfor %}
       </tbody>
     </table>
+    {% if it.fuel_cost_self %}
+    <div style="font-size:10px; margin-top:2px;">
+      <b style="color:#b91c1c;">น้ำมันที่หักจริง {{ '{:,.0f}'.format(it.fuel_cost_self) }} บาท{% if r.fuel_deducted_liter %} ({{ '{:,.0f}'.format(r.fuel_deducted_liter) }} L){% endif %}</b>
+      {% if r.fuel_excluded_amt %}<span style="color:#16a34a;"> · ไม่หัก {{ '{:,.0f}'.format(r.fuel_excluded_amt) }} (ถังแรก/ก่อนวิ่ง)</span>{% endif %}
+      <span style="color:#64748b;"> — น้ำมันในตารางบางบิลไม่ถูกหัก ดูยอดหักจริงบรรทัดนี้</span>
+    </div>
+    {% endif %}
     {% if not is_boss and r.daily and r.daily[0].show_central %}
     <div class="muted" style="font-size:10px;">* ราคากลาง = ราคาที่ใช้คิดส่วนแบ่งเหมา</div>
     {% endif %}

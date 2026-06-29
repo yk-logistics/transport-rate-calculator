@@ -275,6 +275,22 @@ def build_payroll_slip_context(
         )
     ).all()
 
+    # --- น้ำมัน: แยกให้ชัดว่าหัก / ไม่หัก (กันคนขับเข้าใจผิดว่าหักทั้งหมด) ---
+    # บิลที่ exclude_from_driver=True (ถังแรกไม่หัก / น้ำมันก่อนเริ่มวิ่ง) → ไม่หัก
+    # บิล mao_tank_measure (daily_job_id=None) → "วัดถัง" หักจริง แต่ไม่โผล่ในตารางเดลี่
+    fuel_excluded_amt = round(sum((f.amount or 0.0) for f in fuel_rows if f.exclude_from_driver), 2)
+    fuel_deducted_amt = round(sum((f.amount or 0.0) for f in fuel_rows if not f.exclude_from_driver), 2)
+    fuel_deducted_liter = round(sum((f.liter or 0.0) for f in fuel_rows if not f.exclude_from_driver), 2)
+    # บิลวัดถัง (ไม่มี daily_job_id → ไม่อยู่ในตาราง) แสดงแยกให้คนขับเห็น
+    tank_measure_rows = [
+        {"txn_date": f.txn_date, "liter": f.liter or 0.0, "amount": f.amount or 0.0,
+         "note": (f.note or "วัดถัง")}
+        for f in fuel_rows
+        if (f.source or "").find("tank_measure") >= 0 and f.daily_job_id is None
+    ]
+    # daily_job_id ที่ผูกบิล "ไม่หัก" → mark บรรทัดในตาราง
+    excluded_job_ids = {f.daily_job_id for f in fuel_rows if f.exclude_from_driver and f.daily_job_id}
+
     plates = sorted({r.plate_no_raw for r in daily_jobs if r.plate_no_raw})
     plates_used = ", ".join(plates) if plates else ""
 
@@ -365,6 +381,11 @@ def build_payroll_slip_context(
         "route_text": delivery_route_text,
         "day_kind": mixed_day_kind,
         "fuel_deduct_dates": fuel_deduct_dates,
+        "fuel_excluded_amt": fuel_excluded_amt,
+        "fuel_deducted_amt": fuel_deducted_amt,
+        "fuel_deducted_liter": fuel_deducted_liter,
+        "tank_measure_rows": tank_measure_rows,
+        "excluded_job_ids": excluded_job_ids,
         "petty_lines": petty_lines,
         "petty_lines_extra": petty_lines_extra,
         "petty_categories": petty_categories,

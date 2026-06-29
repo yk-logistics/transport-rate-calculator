@@ -4270,6 +4270,7 @@ def _slip_daily_rows(s: Session, emp_id: int, pr: PayRun, pay_mode: str, is_boss
             "container": d.container_no or "",
             "trip_fee": d.trip_fee_driver or 0.0,
             "fuel": d.fuel_amount or 0.0,
+            "fuel_liter": d.fuel_liter or 0.0,
             # price column shown to THIS audience:
             "show_central": False,
             "central": central,
@@ -4310,7 +4311,10 @@ def payroll_print_all(run_id: int, request: Request):
             slip_ctx = build_payroll_slip_context(s, pr, emp, it)
             rows.append({"item": it, "employee": emp, "transfer_note": note,
                          "ytd": ytd, "daily": daily,
-                         "petty_lines": slip_ctx.get("petty_lines", [])})
+                         "petty_lines": slip_ctx.get("petty_lines", []),
+                         "fuel_excluded_amt": slip_ctx.get("fuel_excluded_amt", 0.0),
+                         "fuel_deducted_liter": slip_ctx.get("fuel_deducted_liter", 0.0),
+                         "tank_measure_rows": slip_ctx.get("tank_measure_rows", [])})
         rows.sort(key=lambda r: -(r["item"].net_pay or 0))
         totals = {
             "gross": sum((r["item"].gross_total or 0) for r in rows),
