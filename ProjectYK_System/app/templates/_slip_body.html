@@ -2,6 +2,7 @@
    ctx จาก build_payroll_slip_context. เก็บ logic ทุก pay_mode (mixed/normal/petty/fuel). บนจอสีเต็ม; ปริ้นพื้นขาวสนิท (@media print ใน CSS). #}
 {# default({}) กัน UndefinedError ถ้า include site ลืมส่ง fuel_grade_by_job มา #}
 {% set _grades = fuel_grade_by_job|default({}) %}
+{% set _fuelonly = fuel_only_info|default({}) %}
 <div class="slip{% if daily_jobs|length > 52 %} ultra{% elif daily_jobs|length > 38 %} dense{% endif %}"{% if employee %} data-driver="{{ employee.full_name }}" data-emp="{{ employee.id }}"{% endif %}>
 
   {# ===== masthead ===== #}
@@ -46,10 +47,14 @@
         <tbody>
         {% for r in daily_jobs %}
           {% set k = day_kind(r) %}
-          <tr>
+          <tr{% if r.id in _fuelonly %} class="row-fuelonly"{% endif %}>
             <td class="c-date">{% if loop.first or loop.previtem.work_date != r.work_date %}{{ r.work_date | dmy }}{% else %}<span class="wb-muted">↳</span>{% endif %}</td>
-            <td>{% if k.kind == 'mao' %}เหมา{% elif k.kind == 'trip' %}เที่ยว{% else %}{{ k.label }}{% endif %}</td>
+            <td>{% if r.id in _fuelonly %}<span class="wb-muted">เติมน้ำมัน</span>{% elif k.kind == 'mao' %}เหมา{% elif k.kind == 'trip' %}เที่ยว{% else %}{{ k.label }}{% endif %}</td>
+            {%- if r.id in _fuelonly %}
+            <td class="c-route"><span class="tag-fuel">🛢 เติมน้ำมัน</span> <span class="wb-muted">วันไม่มีงาน{% if _fuelonly[r.id].for_date %} · สำหรับงานวันที่ {{ _fuelonly[r.id].for_date | dmy }}{% endif %}</span></td>
+            {%- else %}
             <td class="c-route">{{ route_text(r) or '—' }}{% if r.customer_name_raw %} <span class="wb-muted">· {{ r.customer_name_raw }}</span>{% endif %}</td>
+            {%- endif %}
             <td class="num c-trip">
               {%- if k.kind == 'mao' %}{{ '{:,.0f}'.format((r.revenue_customer or 0) * 0.60) }}
               {%- elif k.kind == 'trip' %}{{ '{:,.0f}'.format(r.trip_fee_driver) if r.trip_fee_driver else '0' }}
@@ -86,9 +91,13 @@
         </tr></thead>
         <tbody>
         {% for r in daily_jobs %}
-          <tr>
+          <tr{% if r.id in _fuelonly %} class="row-fuelonly"{% endif %}>
             <td class="c-date">{% if loop.first or loop.previtem.work_date != r.work_date %}{{ r.work_date | dmy }}{% else %}<span class="wb-muted">↳</span>{% endif %}</td>
+            {%- if r.id in _fuelonly %}{% set fo = _fuelonly[r.id] %}
+            <td class="c-route"><span class="tag-fuel">🛢 เติมน้ำมัน</span> <span class="wb-muted">{% if fo.fill_date %}เติมวันที่ {{ fo.fill_date | dmy }}{% else %}วันไม่มีงาน{% endif %}{% if fo.for_date %} · สำหรับงานวันที่ {{ fo.for_date | dmy }}{% endif %}</span></td>
+            {%- else %}
             <td class="c-route">{{ route_text(r) or r.destination or '<span class="wb-muted">—</span>' | safe }}{% if r.doc_no %} <span class="wb-muted">· {{ r.doc_no }}</span>{% elif r.remark %} <span class="wb-muted">· {{ r.remark }}</span>{% endif %}</td>
+            {%- endif %}
             <td class="num">{% if r.fuel_liter %}{{ '{:.0f}'.format(r.fuel_liter) }}{% endif %}</td>
             <td class="num">
               {%- if r.fuel_amount %}{{ '{:,.0f}'.format(r.fuel_amount) }}
