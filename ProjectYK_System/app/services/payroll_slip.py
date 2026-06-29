@@ -159,6 +159,33 @@ def delivery_route_text(r) -> str:
     return " → ".join(p for p in legs if p)
 
 
+def _remark_is_internal(remark: str) -> bool:
+    """remark ที่ขึ้นต้นด้วย '[' = โน้ตภายในระบบ (เช่น "[งานยกเลิก-ตัดออกจากค่าจ้าง] เดิม: ...ค่าเที่ยว=1200")
+    — ห้ามโชว์ให้คนขับเห็น (โอ 29มิ.ย.: เลขค่าเที่ยวที่ไม่ได้จ่าย บนสลิป = อันตราย)."""
+    return (remark or "").strip().startswith("[")
+
+
+def slip_route_cell(r) -> str:
+    """ข้อความหลักช่อง "ส่งสินค้า" บนสลิปคนขับ.
+
+      - มี route จริง → โชว์ route
+      - ไม่มี route (วันรถจอด/งานถูกตัด) → โชว์ status_code (เช่น "รถจอด") แทนขีด —
+    คืนข้อความล้วน (ไม่มี HTML); doc_no / remark เทมเพลตต่อท้ายเอง.
+    """
+    route = delivery_route_text(r)
+    if route:
+        return route
+    return (getattr(r, "status_code", "") or "").strip()
+
+
+def slip_route_remark(r) -> str:
+    """remark ที่ "ปลอดภัยจะโชว์ให้คนขับ" — ตัดโน้ตภายใน ([...]) ออก กันเลขงานยกเลิกรั่ว."""
+    remark = (getattr(r, "remark", "") or "").strip()
+    if remark and not _remark_is_internal(remark):
+        return remark
+    return ""
+
+
 # กติกาเดียวกับ services.payroll._classify_lcb_days (ratio = ค่าเที่ยว/รายได้)
 _MAO_RATIO, _MAO_TOL, _TRIP_MAX = 0.60, 0.05, 0.15
 
@@ -413,6 +440,8 @@ def build_payroll_slip_context(
         "daily_jobs": daily_jobs,
         "mixed": mixed,
         "route_text": delivery_route_text,
+        "route_cell": slip_route_cell,      # ช่องส่งสินค้า: route หรือ status (ไม่มี remark)
+        "route_remark": slip_route_remark,  # remark ที่ปลอดภัยจะโชว์ (ตัดโน้ตภายใน [...])
         "day_kind": mixed_day_kind,
         "fuel_deduct_dates": fuel_deduct_dates,
         "fuel_excluded_amt": fuel_excluded_amt,
