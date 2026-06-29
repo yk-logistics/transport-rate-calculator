@@ -36,6 +36,7 @@ from sqlmodel import Session, create_engine, delete, select  # noqa: E402
 
 import models  # noqa: E402
 from models import DailyJob, DailyJobFee, FuelTxn  # noqa: E402
+from services.fuel_grade import guess_grade_from_price  # noqa: E402
 
 DB_PATH = APP_DIR / "app.db"
 XLSX_PATH = r"C:\Users\guole\Desktop\2026.5.28\Desktop\Work\Salary\2026\6.Jun\LCB\วางบิล YK VOLVO.xlsx"
@@ -301,6 +302,7 @@ def run_import(dry_run: bool = False) -> None:
                     plate_no_raw=plate, driver_raw_name=driver,
                     liter=fuel_l, amount=fuel_amt,
                     price_per_liter=(fuel_amt / fuel_l) if fuel_l else 0,
+                    fuel_grade=guess_grade_from_price((fuel_amt / fuel_l) if fuel_l else 0),
                     mile_snapshot=mile,
                     daily_job_id=dj.id, source=IMPORT_SOURCE,
                 ))

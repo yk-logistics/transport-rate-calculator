@@ -2987,6 +2987,7 @@ def fuel_list(
             "mile_snapshot": float(r.mile_snapshot or 0),
             "rate_km_per_l": float(r.rate_km_per_l or 0),
             "station": r.station or "",
+            "fuel_grade": r.fuel_grade or "",
             "daily_job_id": r.daily_job_id,
             "source": r.source or "",
         }
@@ -3056,6 +3057,7 @@ def fuel_save(
     mile_snapshot: float = Form(0.0),
     station: str = Form(""),
     fill_type: str = Form(""),
+    fuel_grade: str = Form(""),
     daily_job_id: str = Form(""),
     note: str = Form(""),
 ):
@@ -3092,6 +3094,7 @@ def fuel_save(
         row.mile_snapshot = mile_snapshot
         row.station = station
         row.fill_type = fill_type
+        row.fuel_grade = fuel_grade
         row.daily_job_id = dj_id
         row.note = note
 
@@ -3118,7 +3121,7 @@ async def fuel_grid_save(request: Request):
         return JSONResponse({"ok": False, "error": "no rows"}, status_code=400)
     editable = {"txn_date", "site_code", "plate_no_raw", "driver_raw_name",
                 "liter", "amount", "price_per_liter", "rate_km_per_l",
-                "mile_snapshot", "station"}
+                "mile_snapshot", "station", "fuel_grade"}
     updated = 0
     errors: list[dict] = []
     with Session(engine) as s:
