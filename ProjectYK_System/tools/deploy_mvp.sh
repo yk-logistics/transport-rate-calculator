@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# deploy_mvp.sh — self-verifying deploy of the Project YK MVP to the YK server.
+# deploy_mvp.sh - self-verifying deploy of the Project YK MVP to the YK server.
 #
 # This REPLACES the eyeball-everything flow of deploy_mvp_to_server.sh. It copies code
 # (and optionally app.db), then runs _deploy_remote.ps1 ON THE SERVER which does the
 # cutover AND verifies it: free 8010 by PID (not bare \.venv → spares the LINE archiver),
 # confirm the new process started AFTER the copy, confirm 8020 still up, and confirm the
 # required ASCII code-markers are actually on disk (guards revert/stale code). Any failed
-# check makes the remote script exit 1, which fails this script — so a green run is real.
+# check makes the remote script exit 1, which fails this script - so a green run is real.
 #
 # Usage (from repo root, on Dev, Tailscale up):
 #   bash ProjectYK_System/tools/deploy_mvp.sh
@@ -15,7 +15,7 @@
 #
 # --markers : comma-separated ASCII strings that MUST exist in main.py/templates after
 #             deploy. ASCII only (Thai over SSH gives false negatives). Pick a marker
-#             unique to the change you just shipped — that's what proves it went live.
+#             unique to the change you just shipped - that's what proves it went live.
 # --with-db : also copy app.db. Backs up the server DB first, verifies byte-size on the
 #             server, and refuses to restart onto a partial/truncated copy.
 
@@ -77,10 +77,10 @@ echo "app.yklogistics.uk/login -> HTTP $PUB_CODE"
 # --- final gate: remote checks AND public 200 must both pass --------------------------
 if [ "$REMOTE_RC" -ne 0 ] || ! echo "$REMOTE_OUT" | grep -q "RESULT OK" || [ "$PUB_CODE" != "200" ]; then
     echo ""
-    echo "❌ DEPLOY VERIFY FAILED — see FAIL lines above. The live app may be on OLD code or down."
+    echo "❌ DEPLOY VERIFY FAILED - see FAIL lines above. The live app may be on OLD code or down."
     echo "   (server DB was backed up if --with-db; investigate before walking away.)"
     exit 1
 fi
 
 echo ""
-echo "✅ DEPLOY VERIFIED — new code live, archiver up, public 200."
+echo "✅ DEPLOY VERIFIED - new code live, archiver up, public 200."

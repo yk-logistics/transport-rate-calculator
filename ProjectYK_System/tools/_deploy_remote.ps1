@@ -1,4 +1,4 @@
-# _deploy_remote.ps1 — runs ON THE SERVER (sent via scp, executed by deploy_mvp.sh).
+# _deploy_remote.ps1 - runs ON THE SERVER (sent via scp, executed by deploy_mvp.sh).
 #
 # Why a file instead of inline SSH: the server shell is PowerShell and nested quoting
 # over SSH gets mangled (memory: reference-deploy-via-tailscale). Sending a .ps1 and
@@ -11,7 +11,7 @@
 # Params:
 #   -ExpectMarkers  comma-separated ASCII strings that MUST exist in main.py / templates
 #                   on the server after copy (guards against revert / stale code).
-#                   Use ASCII only — Thai Select-String over SSH gives false negatives
+#                   Use ASCII only - Thai Select-String over SSH gives false negatives
 #                   (memory: reference-mvp-deploy-restart-gotcha).
 #   -DbDeployed     "1" if app.db was just copied (then we verify byte-size match too).
 #   -DbLocalSize    expected app.db size in bytes (from the Dev side) when -DbDeployed 1.
@@ -34,13 +34,13 @@ function Fail($m){ Write-Output "FAIL  $m"; $script:fail = $true }
 $deployStamp = (Get-Item $MainPy).LastWriteTime
 Write-Output "INFO  main.py on disk mtime = $deployStamp"
 
-# --- 1. (optional) DB byte-size guard — never restart onto a truncated/partial DB ------
+# --- 1. (optional) DB byte-size guard - never restart onto a truncated/partial DB ------
 if ($DbDeployed -eq "1") {
     if (-not (Test-Path $DbFile)) { Fail "app.db missing after copy" }
     else {
         $sz = (Get-Item $DbFile).Length
         if ("$sz" -eq "$DbLocalSize") { Pass "app.db byte-size matches Dev ($sz)" }
-        else { Fail "app.db size mismatch: server=$sz expected=$DbLocalSize (partial scp?) — NOT restarting" }
+        else { Fail "app.db size mismatch: server=$sz expected=$DbLocalSize (partial scp?) - NOT restarting" }
     }
     if ($fail) { Write-Output "RESULT FAIL"; exit 1 }   # bail before touching the live app
 }
@@ -64,7 +64,7 @@ for ($i=0; $i -lt 20; $i++) {
     if (-not (Get-NetTCPConnection -LocalPort 8010 -State Listen -ErrorAction SilentlyContinue)) { $freed = $true; break }
     Start-Sleep -Milliseconds 500
 }
-if ($freed) { Pass "port 8010 freed before restart" } else { Fail "port 8010 still held — old code may persist" }
+if ($freed) { Pass "port 8010 freed before restart" } else { Fail "port 8010 still held - old code may persist" }
 
 # --- 3. relaunch + wait for it to bind ------------------------------------------------
 Start-ScheduledTask -TaskName "YK_MVP_APP"
@@ -83,15 +83,15 @@ if ($newOwner) {
     if ($proc -and $proc.StartTime -ge $deployStamp.AddSeconds(-5)) {
         Pass "8010 owned by fresh pid $opid (started $($proc.StartTime))"
     } else {
-        Fail "8010 owner pid $opid started $($proc.StartTime) — BEFORE deploy ($deployStamp): stale code still serving"
+        Fail "8010 owner pid $opid started $($proc.StartTime) - BEFORE deploy ($deployStamp): stale code still serving"
     }
 }
 
-# --- 5. archiver (port 8020) must still be up — we must not have killed it -------------
+# --- 5. archiver (port 8020) must still be up - we must not have killed it -------------
 if (Get-NetTCPConnection -LocalPort 8020 -State Listen -ErrorAction SilentlyContinue) {
     Pass "LINE archiver (8020) still up"
 } else {
-    Fail "port 8020 down — cutover may have killed the LINE archiver"
+    Fail "port 8020 down - cutover may have killed the LINE archiver"
 }
 
 # --- 6. code-content guard: required ASCII markers present on server files -------------
