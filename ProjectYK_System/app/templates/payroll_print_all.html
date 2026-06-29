@@ -249,6 +249,26 @@
   const PR_CYCLE = {{ run.pay_cycle_tag | tojson }};
   const PR_MODE = {{ ('ผู้บริหาร' if is_boss else 'คนขับ') | tojson }};
 
+  // 1 คน = 1 หน้า: ย่อ (zoom) แต่ละสลิปที่ยาวเกิน 1 หน้า A4 ให้พอดี
+  function fitSlipsOnePage() {
+    const PAGE = 1010;   // A4 portrait usable ~1040px, เผื่อ safety
+    document.querySelectorAll('.slip').forEach(function (slip) {
+      slip.style.zoom = "";
+      for (let i = 0; i < 5; i++) {
+        const actual = slip.getBoundingClientRect().height;
+        if (actual <= PAGE) break;
+        const cur = parseFloat(slip.style.zoom) || 1;
+        const next = Math.max(0.42, cur * PAGE / actual * 0.98);
+        if (next >= cur) break;
+        slip.style.zoom = next;
+      }
+    });
+  }
+  window.addEventListener('load', fitSlipsOnePage);
+  window.addEventListener('beforeprint', fitSlipsOnePage);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitSlipsOnePage);
+  setTimeout(fitSlipsOnePage, 400);
+
   function _safeName(s) {
     return (s || 'unknown').replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, ' ').trim().slice(0, 80);
   }
@@ -260,6 +280,7 @@
       status.textContent = '⚠ โหลดไลบรารีไม่สำเร็จ (เช็คเน็ต) — ลองใหม่หรือใช้ปุ่มเซฟ PDF ไฟล์รวมแทน';
       return;
     }
+    fitSlipsOnePage();   // ย่อแต่ละสลิปให้พอ 1 หน้า ก่อนสร้าง PDF
     const slips = Array.from(document.querySelectorAll('.slip'));
     if (!slips.length) { status.textContent = 'ไม่มีสลิป'; return; }
     btn.disabled = true;

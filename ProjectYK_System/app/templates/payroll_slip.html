@@ -88,6 +88,24 @@
       margin-top: 10px; font-size: 10px; color: #64748b;
       display: flex; justify-content: space-between;
     }
+    /* 1 คน = 1 หน้า: เนื้อหายาว (ตารางเดลี่ + รายการหักสดย่อย) → ย่อทั้งสลิปให้พอ A4 */
+    .slip.dense table.daily { font-size: 9px; }
+    .slip.dense table.daily th, .slip.dense table.daily td { padding: 1px 4px; }
+    .slip.dense table.daily th { font-size: 8px; }
+    .slip.dense .panel .line, .slip.dense .panel .total { font-size: 9.5px; padding: 0.5px 0; }
+    .slip.dense .panel { padding: 6px 8px; }
+    .slip.dense .row-grid { gap: 8px; margin-top: 6px; }
+    .slip.ultra table.daily { font-size: 7.5px; }
+    .slip.ultra table.daily th, .slip.ultra table.daily td { padding: 0.5px 3px; }
+    .slip.ultra table.daily th { font-size: 7px; }
+    .slip.ultra h1 { font-size: 15px; }
+    .slip.ultra .panel .line, .slip.ultra .panel .total { font-size: 8px; padding: 0; }
+    .slip.ultra .panel { padding: 4px 6px; }
+    .slip.ultra .panel h3 { font-size: 10px; margin-bottom: 3px; }
+    .slip.ultra .row-grid { gap: 6px; margin-top: 4px; }
+    .slip.ultra .net-box { margin-top: 6px; padding: 8px 14px; }
+    .slip.ultra .net-box .val { font-size: 18px; }
+    .slip.ultra table.daily { margin: 4px 0; }
     @media print {
       html, body { background: #fff; }
       .toolbar { display: none; }
@@ -96,7 +114,10 @@
         max-width: 100%; margin: 0; padding: 8mm; border: none;
         border-radius: 0; page-break-after: always;
       }
-      @page { size: A4 portrait; margin: 8mm; }
+      /* กันสลิปแตกกลางคัน → 1 คน 1 หน้า */
+      .slip { break-inside: avoid; }
+      table.daily { break-inside: auto; }
+      @page { size: A4 portrait; margin: 7mm; }
     }
   </style>
 </head>
@@ -109,7 +130,7 @@
   </div>
 </div>
 
-<div class="slip">
+<div class="slip{% if daily_jobs|length > 52 %} ultra{% elif daily_jobs|length > 38 %} dense{% endif %}">
 
   <div class="header-line">
     <div>
@@ -440,6 +461,32 @@
   document.querySelectorAll('.pettyCatChk, input[name="pettyView"]').forEach(el =>
     el.addEventListener("change", apply));
   apply();
+})();
+
+// 1 คน = 1 หน้า: ถ้าสลิปสูงเกิน 1 หน้า A4 → ย่อ (scale) ให้พอดี ตอนพิมพ์
+(function () {
+  function fitOnePage() {
+    const slip = document.querySelector(".slip");
+    if (!slip) return;
+    slip.style.zoom = "";
+    // A4 portrait usable: 297mm − margin ~14mm ≈ 1040px; เผื่อ safety ใช้ 1010
+    const PAGE = 1010;
+    // ใช้ zoom (ลด layout height จริง → ลดจำนวนหน้า). วนปรับให้ลู่เข้า
+    // (getBoundingClientRect().height สะท้อนขนาดจริงหลัง zoom ทุก browser)
+    for (let i = 0; i < 5; i++) {
+      const actual = slip.getBoundingClientRect().height;
+      if (actual <= PAGE) break;
+      const cur = parseFloat(slip.style.zoom) || 1;
+      const next = Math.max(0.42, cur * PAGE / actual * 0.98);
+      if (next >= cur) break;               // ลู่เข้าแล้ว/ถึง floor
+      slip.style.zoom = next;
+    }
+  }
+  window.addEventListener("load", fitOnePage);
+  window.addEventListener("beforeprint", fitOnePage);
+  // เผื่อ webfont โหลดช้า → re-fit อีกรอบ
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitOnePage);
+  setTimeout(fitOnePage, 400);
 })();
 </script>
 
