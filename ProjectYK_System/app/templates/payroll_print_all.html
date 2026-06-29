@@ -279,6 +279,19 @@ table.run tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding
     return (s || 'unknown').replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, ' ').trim().slice(0, 80);
   }
 
+  // ZIP ใช้ html2canvas ซึ่ง "ไม่รู้จัก CSS zoom" (รู้จักแต่ transform) → ถ้าปล่อย zoom ไว้
+  // จะ render เพี้ยน (ตัวอักษรซ้อนกัน). ฉะนั้นตอนทำ ZIP เราเคลียร์ zoom แล้ววัด scale เอง
+  // แล้วย่อ "clone" ด้วย transform:scale ในกล่องขนาดเท่าที่ย่อแล้ว → html2canvas เห็นภาพ
+  // ที่ย่อพอดี 1 หน้า และไม่ซ้อน. (หน้าพิมพ์รวม window.print() ยังใช้ zoom เหมือนเดิม-Chrome รองรับ)
+  function _measureScale(el, PAGE_H, PAGE_W) {
+    const prevZoom = el.style.zoom;
+    el.style.zoom = "";
+    const r = el.getBoundingClientRect();
+    const over = Math.max(r.height / PAGE_H, Math.max(r.width, el.scrollWidth) / PAGE_W);
+    el.style.zoom = prevZoom;
+    return over > 1.0 ? Math.max(0.40, (1 / over) * 0.98) : 1;
+  }
+
   async function exportPerDriverZip() {
     const btn = document.getElementById('zipBtn');
     const status = document.getElementById('zipStatus');
@@ -286,7 +299,6 @@ table.run tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding
       status.textContent = '⚠ โหลดไลบรารีไม่สำเร็จ (เช็คเน็ต) — ลองใหม่หรือใช้ปุ่มเซฟ PDF ไฟล์รวมแทน';
       return;
     }
-    fitSlipsOnePage();   // ย่อแต่ละสลิปให้พอ 1 หน้า ก่อนสร้าง PDF
     const slips = Array.from(document.querySelectorAll('.slip'));
     if (!slips.length) { status.textContent = 'ไม่มีสลิป'; return; }
     btn.disabled = true;
@@ -297,13 +309,28 @@ table.run tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding
       html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     };
+    // staging นอกจอ: render clone ที่ย่อด้วย transform (zoom=1) ให้ html2canvas จับถูก
+    const stage = document.createElement('div');
+    stage.style.cssText = 'position:fixed; left:-10000px; top:0; background:#fff;';
+    document.body.appendChild(stage);
     try {
+      const PAGE_H = 1010, PAGE_W = 720;
       for (let i = 0; i < slips.length; i++) {
         const el = slips[i];
         const name = _safeName(el.dataset.driver);
         status.textContent = `กำลังสร้าง PDF ${i + 1}/${slips.length} — ${name} …`;
-        // clone so page-break/border styles don't bleed; render off the live node
-        const blob = await html2pdf().set(opt).from(el).outputPdf('blob');
+        const s = _measureScale(el, PAGE_H, PAGE_W);
+        const clone = el.cloneNode(true);
+        clone.style.zoom = "";
+        clone.style.transformOrigin = "top left";
+        clone.style.transform = `scale(${s})`;
+        // กล่องครอบขนาด "หลังย่อ" → html2canvas จับเฉพาะพื้นที่ที่ย่อแล้ว (ไม่เหลือขอบว่าง/ไม่ตัด)
+        const box = document.createElement('div');
+        box.style.cssText = `width:${el.offsetWidth * s}px; height:${el.offsetHeight * s}px; overflow:hidden; background:#fff;`;
+        box.appendChild(clone);
+        stage.appendChild(box);
+        const blob = await html2pdf().set(opt).from(box).outputPdf('blob');
+        stage.removeChild(box);
         const fname = `${name}_${PR_SITE}_${PR_CYCLE}_${PR_MODE}.pdf`;
         zip.file(fname, blob);
       }
@@ -321,6 +348,7 @@ table.run tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding
     } catch (e) {
       status.textContent = '⚠ ผิดพลาด: ' + (e && e.message ? e.message : e);
     } finally {
+      if (stage.parentNode) stage.parentNode.removeChild(stage);
       btn.disabled = false;
     }
   }

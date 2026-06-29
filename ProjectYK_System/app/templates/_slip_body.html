@@ -129,7 +129,7 @@
         {% else %}
           {% if item.trip_fee_total %}<div class="lr"><span>ค่าเที่ยว</span><span class="amt">{{ '{:,.2f}'.format(item.trip_fee_total) }}</span></div>{% endif %}
           {% if item.fuel_rate_income %}<div class="lr"><span>ค่าเรทน้ำมัน</span><span class="amt">{{ '{:,.2f}'.format(item.fuel_rate_income) }}</span></div>{% endif %}
-          {% if item.fuel_share_income %}<div class="lr"><span>ส่วนแบ่งน้ำมัน</span><span class="amt">{{ '{:,.2f}'.format(item.fuel_share_income) }}</span></div>{% endif %}
+          {% if item.fuel_share_income %}<div class="lr"><span>เหมา (60% ค่าขนส่ง)</span><span class="amt">{{ '{:,.2f}'.format(item.fuel_share_income) }}</span></div>{% endif %}
         {% endif %}
         {% if item.guarantee_topup %}<div class="lr"><span>ชดเชยการันตี</span><span class="amt">{{ '{:,.2f}'.format(item.guarantee_topup) }}</span></div>{% endif %}
         {% if item.special_income %}<div class="lr"><span>พิเศษ</span><span class="amt">{{ '{:,.2f}'.format(item.special_income) }}</span></div>{% endif %}
