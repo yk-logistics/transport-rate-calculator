@@ -52,6 +52,10 @@ def client():
         s.add(FuelTxn(driver_id=71, site_code="LCB", txn_date=date(2026, 5, 28), liter=28.0,
                       amount=1034.16, source="handover_measure", daily_job_id=None,
                       note="วัดน้ำมัน GPS: รับรถคืนจากคนมาขับแทน 28/5 หัก"))
+        # handover ขาส่งมอบ = เงินคืน (amount ติดลบ) — สลิปต้องโชว์ "คืน" ชัด ไม่ใช่เลขแดงเฉยๆ
+        s.add(FuelTxn(driver_id=71, site_code="LCB", txn_date=date(2026, 5, 28), liter=44.0,
+                      amount=-1813.68, source="handover_measure", daily_job_id=None,
+                      note="วัดน้ำมัน GPS: ขาส่งมอบ 28/5 คืนน้ำมันในถัง"))
         s.commit()
         from services.payroll import compute_pay_run
         compute_pay_run(s, s.get(PayRun, 1), recompute=True); s.commit()
@@ -76,3 +80,12 @@ def test_print_all_shows_offtable_fuel(client):
     b = client.get("/payroll/1/print", follow_redirects=True).text
     assert "วัดถัง" in b                      # mixed tank row label
     assert "รับรถคืนจากคนมาขับแทน" in b      # mao handover row label
+
+
+def test_credit_row_labeled_keun_not_red_negative(client):
+    b = client.get("/payroll/1/employee/71/slip", follow_redirects=True).text
+    # แถวเงินคืน (amount<0) ต้องมีคำว่า "คืน" ให้ชัด
+    assert "คืน" in b
+    # โชว์ยอดเป็นบวก 1,814 (ไม่ใช่เลขติดลบ -1,814)
+    assert "1,814" in b
+    assert "-1,814" not in b and "−1,814" not in b
