@@ -19,4 +19,4 @@ def test_admin_sees_check_links_menu(client):
     r = client.get("/maint")
     assert r.status_code == 200
     assert "/admin/check-links" in r.text
-    assert "ลิงก์ตรวจยาง" in r.text
+    assert "ลิงก์ตรวจสภาพรถ" in r.text

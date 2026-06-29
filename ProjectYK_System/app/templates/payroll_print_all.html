@@ -240,7 +240,7 @@ table.run tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding
           petty_categories=r.ctx.petty_categories, plates_used=r.ctx.plates_used,
           mile_start=r.ctx.mile_start, mile_end=r.ctx.mile_end, km_run=r.ctx.km_run,
           fuel_used_l=r.ctx.fuel_used_l, avg_km_per_l=r.ctx.avg_km_per_l,
-          fuel_grade_by_job=r.ctx.fuel_grade_by_job %}
+          fuel_grade_by_job=r.ctx.fuel_grade_by_job, is_boss=is_boss %}
     {% include "_slip_body.html" %}
   {% endwith %}
 {% endfor %}

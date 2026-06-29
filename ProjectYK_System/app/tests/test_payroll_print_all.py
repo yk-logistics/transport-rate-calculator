@@ -1,7 +1,7 @@
 """Payroll print-all page: สรุป + โอนเงิน + สลิปรายคน in one printable page,
 plus per-driver transfer note (auto + manual override) and bank fields.
 """
-import os, tempfile
+import os, re, tempfile
 import pytest
 
 _tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False); _tmp.close()
@@ -132,15 +132,25 @@ def client_kb():
         yield c
 
 
+def _slip_body(html):
+    """ตัด <style>…</style> ออกก่อนเช็คเลข — กันชนค่าสีใน CSS เช่น #333."""
+    return re.sub(r"<style.*?</style>", "", html, flags=re.S)
+
+
 def test_driver_slip_hides_kb_and_real_revenue(client_kb):
-    """สลิปคนขับ (default): ต้องไม่มี KB(333) และไม่มีค่าขนส่งจริง(7456).
-    เหมาเห็นได้แค่ราคากลาง(5500). = กฎความลับ KB."""
+    """สลิปคนขับ (default): ต้องไม่มี KB(333) และไม่มีราคาฝั่งบริษัทเลย —
+    ทั้งค่าขนส่งจริง(7456) และราคากลาง(5500). คนขับเหมาเห็นแค่ค่าเที่ยวที่ได้จริง(3300).
+
+    หมายเหตุ: เดิมเทสต์คาดว่าเหมา 'เห็นราคากลาง 5,500'. หลัง redesign สลิป
+    ([[project-driver-pay-breakdown-daily-slip]]) สลิปคนขับโชว์แค่เงินที่คนขับได้ —
+    ราคากลางถูกถอดออกด้วย (ปลอดภัยกว่าเดิม: ซ่อนทุกตัวเลขฝั่งบริษัท ไม่ใช่แค่ KB)."""
     r = client_kb.get("/payroll/2/print", follow_redirects=True)
     assert r.status_code == 200
-    b = r.text
+    b = _slip_body(r.text)
     assert "333" not in b, "KB ใต้โต๊ะ ต้องไม่โผล่ในสลิปคนขับ!"
     assert "7,456" not in b and "7456" not in b, "ค่าขนส่งจริง ต้องไม่โผล่ในสลิปคนขับ"
-    assert "5,500" in b or "5500" in b, "เหมาต้องเห็นราคากลาง"
+    assert "5,500" not in b and "5500" not in b, "ราคากลางก็ไม่โผล่ในสลิปคนขับแล้ว (redesign)"
+    assert "3,300" in b or "3300" in b, "คนขับเหมาต้องเห็นค่าเที่ยวที่ได้จริง"
 
 
 @pytest.fixture()

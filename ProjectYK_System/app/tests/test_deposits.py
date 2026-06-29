@@ -27,11 +27,12 @@ def test_deposit_audit_model_exists():
 
 
 def test_dep_install_filter():
-    # หน่วยงวด = 1,000 → 'สะสม//1000 / เพดาน//1000'
+    # หน่วยงวด = 1,000. X = งวดที่ "กำลังหักรอบนี้" = (จ่ายแล้ว//1000)+1 ถ้ายังไม่ครบ
+    # (จ่ายครบแล้วโชว์งวดสุดท้าย Y/Y).
     f = appmod._fmt_dep_install
-    assert f(Employee(deposit_balance=3000, deposit_target=10000)) == "3/10"
-    assert f(Employee(deposit_balance=10000, deposit_target=10000)) == "10/10"
-    assert f(Employee(deposit_balance=0, deposit_target=10000)) == "0/10"
+    assert f(Employee(deposit_balance=3000, deposit_target=10000)) == "4/10"   # จ่าย 3 → หักงวด 4
+    assert f(Employee(deposit_balance=10000, deposit_target=10000)) == "10/10"  # ครบ → งวดสุดท้าย
+    assert f(Employee(deposit_balance=0, deposit_target=10000)) == "1/10"      # ยังไม่จ่าย → หักงวด 1
     assert f(Employee(deposit_balance=0, deposit_target=0)) == ""   # ไม่มีเงินประกัน
     assert f(None) == ""
 
@@ -76,9 +77,9 @@ def test_deposits_shows_installment_number(client):
     r = client.get("/deposits", follow_redirects=True)
     b = r.text
     assert ">งวดที่<" in b              # หัวคอลัมน์
-    assert "3/10" in b                  # เอ 3,000/10,000
+    assert "4/10" in b                  # เอ จ่าย 3,000 → กำลังหักงวด 4/10
     assert "10/10" in b                 # บี เก็บครบ
-    assert "5/10" in b                  # ซี 5,000/10,000
+    assert "6/10" in b                  # ซี จ่าย 5,000 → กำลังหักงวด 6/10
 
 
 def test_deposits_summary_totals(client):
