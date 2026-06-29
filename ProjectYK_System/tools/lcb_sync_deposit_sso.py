@@ -1,11 +1,14 @@
-"""ไล่งวดเงินประกันตน LCB ใหม่จากไฟล์ SSO (โออัปเดตงวดถูกต้องให้แล้ว 29มิ.ย.).
+"""ไล่งวดเงินประกันตน LCB ใหม่จากไฟล์ SSO (โออัปเดตงวดถูกต้องให้แล้ว).
 
 ไฟล์: บันทึกประจำเดือน หัวลาก.xlsm ชีท SSO.
-  col0/1 = ชื่อ, col4 = งวดปัจจุบัน (X), col7 = total (10), col6 = ครั้งล่ะ (1000).
-  "งวดที่ X/10" = รอบนี้จะหักงวดที่ X → ก่อนรอบนี้จ่ายไปแล้ว (X−1) งวด.
+  col0/1 = ชื่อ, col4 = งวด X (=จำนวนงวดที่ **จ่ายครบแล้ว**), col7 = total (10), col6 = ครั้งล่ะ (1000).
+  "X/10" = จ่ายไปแล้ว X งวด. ถ้า X=total → ผ่อนครบ ไม่ต้องหักอีก.
 
-set employee.deposit_balance = (งวด−1) × per_install, deposit_target = total × per_install.
-engine จะหักงวดที่ X เอง (min(1000, target−balance)). คนที่ balance≥target = ผ่อนหมด.
+set employee.deposit_balance = X × per_install (จ่ายแล้วจริง), deposit_target = total × per_install.
+engine หัก min(1000, target−balance) เอง:
+  - X=10 → balance=10000=target → หัก 0 (จ่ายครบ) ✓
+  - X=4  → balance=4000 → หักงวดที่ 5 (1000) ✓  (สลิปโชว์ "5/10" = งวดที่กำลังหัก)
+แก้ 29มิ.ย.(รอบ2): เดิม (X−1)×1000 ล่าช้า 1 งวด → คน 10/10 ยังโดนหัก. โอยืนยัน X=งวดที่จ่ายครบ.
 
 match: เฉพาะคนที่อยู่ใน LCB payrun รอบนี้ + first-name (SSO เป็น LCB ล้วน).
 idempotent. recompute LCB payrun ตอนท้าย. rollback: restore backup.
@@ -79,7 +82,7 @@ def main():
             if f not in sso:
                 continue
             gw, per, total = sso[f]
-            new_bal = (gw - 1) * per
+            new_bal = gw * per  # งวด X = จ่ายครบแล้ว X งวด (เดิม (X−1) ล่าช้า 1 งวด)
             new_tgt = total * per
             old_bal = e.deposit_balance or 0
             if abs(old_bal - new_bal) > 0.5 or abs((e.deposit_target or 0) - new_tgt) > 0.5:
