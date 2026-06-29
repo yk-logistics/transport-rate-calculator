@@ -32,6 +32,7 @@ SALARY = r"C:\Users\guole\Desktop\2026.5.28\Desktop\Work\Salary\2026\6.Jun"
 SITES = {
     "BIGC": {"xlsx": rf"{SALARY}\BigC\สดย่อยวังน้อย.xlsx", "sheet": "MAY 26", "tag": "2026-05"},
     "LCB":  {"xlsx": rf"{SALARY}\LCB\สดย่อยวังน้อย.xlsx",  "sheet": "JUN 26", "tag": "2026-06"},
+    "AYU":  {"xlsx": rf"{SALARY}\AYU\สดย่อยวังน้อย หมิว.xlsx", "sheet": "JUN 26", "tag": "2026-06"},
 }
 C_DATE, C_NAME, C_ITEM, C_DEDUCT = 0, 1, 2, 14
 
@@ -73,6 +74,7 @@ def main():
     OLD_BY_SITE = {
         "BIGC": ["bigc_may_petty_manual", "bigc_may_petty_itemized"],
         "LCB":  ["lcb_jun2026_petty_O", "lcb_petty_itemized"],
+        "AYU":  ["ayu_petty_itemized"],
     }
     old_sources = OLD_BY_SITE[site] + [new_src]
 
