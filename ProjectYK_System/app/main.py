@@ -88,7 +88,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 30  # v30: DailyJob extra ref cols (phone/shared_vehicle/receive_inv_no/bl_booking/fuel_date/gps_rate)
+SCHEMA_VERSION = 31  # v31: FuelTxn.fuel_grade (B7/B20 ป้ายเกรด — ไม่เข้าสูตรเงิน)
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -450,6 +450,9 @@ def _apply_additive_migrations() -> None:
     _ensure_column("dailyjob", "bl_booking", "TEXT", default="")
     _ensure_column("dailyjob", "fuel_date", "DATE")  # nullable
     _ensure_column("dailyjob", "gps_rate", "REAL", default="0")
+
+    # v30 → v31: FuelTxn เกรดน้ำมัน B7/B20 (ป้ายเกรดเท่านั้น ไม่กระทบสูตรเงิน).
+    _ensure_column("fueltxn", "fuel_grade", "TEXT", default="")
 
 
 def init_db() -> None:
