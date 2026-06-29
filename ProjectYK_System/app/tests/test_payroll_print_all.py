@@ -143,6 +143,46 @@ def test_driver_slip_hides_kb_and_real_revenue(client_kb):
     assert "5,500" in b or "5500" in b, "เหมาต้องเห็นราคากลาง"
 
 
+@pytest.fixture()
+def client_with_fuel_grade():
+    """รอบที่มีบิลน้ำมัน + FuelTxn ผูก daily_job มี fuel_grade — เพื่อยืนยันว่าหน้า
+    print-all (วนทุกคนผ่าน _slip_body.html) ไม่ 500 เพราะ fuel_grade_by_job."""
+    from models import FuelTxn
+    SQLModel.metadata.drop_all(engine)
+    SQLModel.metadata.create_all(engine)
+    appmod.init_db()
+    with Session(engine) as s:
+        u = s.exec(select(AppUser).where(AppUser.username == "yk1")).first()
+        u.must_change_pw = False; s.add(u)
+        s.add(Employee(id=97, code="D97", full_name="นาย นิพล สีโนนม่วง", pay_mode="lcb_trip",
+                       home_site_code="LCB", status="active", base_salary=9240, care_allowance=3000,
+                       bank_name="กสิกร", account_no="090-1"))
+        s.add(PayRun(id=2, site_code="LCB", pay_cycle_tag="2026-06",
+                     period_start=date(2026, 5, 16), period_end=date(2026, 6, 15), status="draft"))
+        dj = DailyJob(site_code="LCB", driver_id=97, work_date=date(2026, 5, 20),
+                      status_code="KAO", destination="SCS2", plate_no_raw="72-1217",
+                      revenue_customer=5000, trip_fee_driver=350,
+                      fuel_liter=50, fuel_amount=1760)
+        s.add(dj); s.flush()
+        s.add(FuelTxn(site_code="LCB", driver_id=97, txn_date=date(2026, 5, 20),
+                      plate_no_raw="72-1217", liter=50, amount=1760,
+                      daily_job_id=dj.id, fuel_grade="B20", source="test_fg"))
+        s.commit()
+        from services.payroll import compute_pay_run
+        compute_pay_run(s, s.get(PayRun, 2), recompute=True); s.commit()
+    with TestClient(appmod.app) as c:
+        c.post("/login", data={"username": "yk1", "password": "changeme1"})
+        yield c
+
+
+def test_print_all_renders_with_fuel_grade(client_with_fuel_grade):
+    """หน้า print-all ต้องไม่ 500 เมื่อมีบิลน้ำมัน + ต้องโชว์ป้ายเกรด B20.
+    (regression: _slip_body.html ใช้ fuel_grade_by_job ซึ่ง print-all ต้องส่งผ่าน {% with %})"""
+    r = client_with_fuel_grade.get("/payroll/2/print", follow_redirects=True)
+    assert r.status_code == 200, "print-all 500 — fuel_grade_by_job ไม่ถูกส่งเข้า include?"
+    assert "B20" in r.text, "ป้ายเกรด B20 ต้องโชว์ในสลิป print-all"
+
+
 def test_boss_slip_shows_kb_and_real_revenue(client_kb):
     """สลิปผู้บริหาร (?for=boss): เห็น KB(333) + ค่าขนส่งจริง(7456) + ราคากลาง(5500)."""
     r = client_kb.get("/payroll/2/print?for=boss", follow_redirects=True)

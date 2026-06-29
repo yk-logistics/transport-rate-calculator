@@ -343,6 +343,11 @@
       // Station
       { title:"ปั๊ม ✎",           field:"station",         editor:"input",  hozAlign:"left",
         headerFilter:makeExcelFilter("station"), headerFilterFunc:excelFilterFunc },
+      // Grade
+      { title:"เกรด ✎",          field:"fuel_grade",      editor:"list",
+        editorParams:{ values:{ "":"—", "B7":"B7", "B20":"B20" } },
+        hozAlign:"center", width:80,
+        headerFilter:makeExcelFilter("fuel_grade"), headerFilterFunc:excelFilterFunc },
       // Linked job (read only)
       {
         title: "Job",

@@ -86,6 +86,14 @@
         <option value="budget" {% if row and row.fill_type=='budget' %}selected{% endif %}>ตามงบ / target</option>
       </select>
     </div>
+    <div>
+      <label class="block text-sm mb-1">เกรดน้ำมัน</label>
+      <select name="fuel_grade" class="w-full border rounded px-3 py-2">
+        <option value="" {% if not row or not row.fuel_grade %}selected{% endif %}>—</option>
+        <option value="B7" {% if row and row.fuel_grade=='B7' %}selected{% endif %}>B7</option>
+        <option value="B20" {% if row and row.fuel_grade=='B20' %}selected{% endif %}>B20</option>
+      </select>
+    </div>
   </div>
 </section>
 

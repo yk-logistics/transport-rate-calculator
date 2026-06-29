@@ -325,6 +325,9 @@ class FuelTxn(SQLModel, table=True):
     # starting เหมา — บริษัทออกให้). Default False = deduct as before.
     exclude_from_driver: bool = Field(default=False)
 
+    # B7 / B20 / "" (ไม่ระบุ) — ป้ายเกรดเท่านั้น ไม่เข้าสูตรเงิน (v31).
+    fuel_grade: str = Field(default="")
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

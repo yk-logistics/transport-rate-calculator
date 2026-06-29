@@ -88,7 +88,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 30  # v30: DailyJob extra ref cols (phone/shared_vehicle/receive_inv_no/bl_booking/fuel_date/gps_rate)
+SCHEMA_VERSION = 31  # v31: FuelTxn.fuel_grade (B7/B20 ป้ายเกรด — ไม่เข้าสูตรเงิน)
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -450,6 +450,9 @@ def _apply_additive_migrations() -> None:
     _ensure_column("dailyjob", "bl_booking", "TEXT", default="")
     _ensure_column("dailyjob", "fuel_date", "DATE")  # nullable
     _ensure_column("dailyjob", "gps_rate", "REAL", default="0")
+
+    # v30 → v31: FuelTxn เกรดน้ำมัน B7/B20 (ป้ายเกรดเท่านั้น ไม่กระทบสูตรเงิน).
+    _ensure_column("fueltxn", "fuel_grade", "TEXT", default="")
 
 
 def init_db() -> None:
@@ -2984,6 +2987,7 @@ def fuel_list(
             "mile_snapshot": float(r.mile_snapshot or 0),
             "rate_km_per_l": float(r.rate_km_per_l or 0),
             "station": r.station or "",
+            "fuel_grade": r.fuel_grade or "",
             "daily_job_id": r.daily_job_id,
             "source": r.source or "",
         }
@@ -3053,6 +3057,7 @@ def fuel_save(
     mile_snapshot: float = Form(0.0),
     station: str = Form(""),
     fill_type: str = Form(""),
+    fuel_grade: str = Form(""),
     daily_job_id: str = Form(""),
     note: str = Form(""),
 ):
@@ -3089,6 +3094,7 @@ def fuel_save(
         row.mile_snapshot = mile_snapshot
         row.station = station
         row.fill_type = fill_type
+        row.fuel_grade = fuel_grade
         row.daily_job_id = dj_id
         row.note = note
 
@@ -3115,7 +3121,7 @@ async def fuel_grid_save(request: Request):
         return JSONResponse({"ok": False, "error": "no rows"}, status_code=400)
     editable = {"txn_date", "site_code", "plate_no_raw", "driver_raw_name",
                 "liter", "amount", "price_per_liter", "rate_km_per_l",
-                "mile_snapshot", "station"}
+                "mile_snapshot", "station", "fuel_grade"}
     updated = 0
     errors: list[dict] = []
     with Session(engine) as s:
