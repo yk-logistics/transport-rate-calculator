@@ -4311,8 +4311,9 @@ def payroll_print_all(run_id: int, request: Request):
             daily = _slip_daily_rows(s, it.employee_id, pr, it.pay_mode, is_boss)
             # แจกแจงรายการหักสดย่อย (วันที่/รายการ/ยอด) — reuse slip context (single source)
             slip_ctx = build_payroll_slip_context(s, pr, emp, it)
+            # เก็บ context เต็มต่อคน → print-all include _slip_body.html (ดีไซน์เดียวกับหน้ารายคน)
             rows.append({"item": it, "employee": emp, "transfer_note": note,
-                         "ytd": ytd, "daily": daily,
+                         "ytd": ytd, "daily": daily, "ctx": slip_ctx,
                          "petty_lines": slip_ctx.get("petty_lines", []),
                          "fuel_excluded_amt": slip_ctx.get("fuel_excluded_amt", 0.0),
                          "fuel_deducted_liter": slip_ctx.get("fuel_deducted_liter", 0.0),

@@ -4,29 +4,132 @@
 <meta charset="utf-8">
 <title>เงินเดือน_{{ run.site_code }}_{{ run.pay_cycle_tag }}_{{ 'ผู้บริหาร' if is_boss else 'คนขับ' }}</title>
 <style>
-  body { font-family: "TH Sarabun New", Tahoma, sans-serif; font-size: 13px; color: #111; margin: 0; padding: 16px; }
-  h2 { font-size: 17px; margin: 0 0 8px; }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { border: 1px solid #999; padding: 3px 6px; }
-  th { background: #eee; text-align: left; }
-  .num { text-align: right; font-variant-numeric: tabular-nums; }
-  .neg { color: #b91c1c; }
-  .muted { color: #666; }
+    * { box-sizing: border-box; }
+    html, body {
+      font-family: "Sarabun", "Tahoma", sans-serif;
+      font-size: 12px;
+      color: #1f2937;
+      margin: 0;
+      padding: 0;
+      background: #f1f5f9;
+    }
+    .toolbar {
+      max-width: 820px; margin: 12px auto; padding: 8px 12px;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 12px;
+    }
+    .toolbar a { color: #64748b; text-decoration: none; }
+    .toolbar a:hover { text-decoration: underline; }
+    .toolbar button {
+      padding: 6px 14px; border: 1px solid #94a3b8; border-radius: 6px;
+      background: #fff; cursor: pointer; font-size: 12px;
+    }
+    .toolbar button:hover { background: #f1f5f9; }
+    .slip {
+      max-width: 820px; margin: 0 auto 24px; padding: 18px 22px;
+      background: #fff; border: 1px solid #cbd5e1; border-radius: 4px;
+    }
+    h1 {
+      margin: 0 0 4px; font-size: 18px; font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .header-line {
+      display: flex; justify-content: space-between; align-items: baseline;
+      border-bottom: 2px solid #1f2937; padding-bottom: 6px; margin-bottom: 10px;
+    }
+    .header-line .meta { font-size: 12px; color: #475569; }
+    .driver-line {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px; margin-bottom: 12px; font-size: 12px;
+    }
+    .driver-line .lbl { color: #64748b; font-size: 10px; }
+    .driver-line .val { font-weight: 600; }
+    table.daily {
+      width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 11px;
+    }
+    table.daily th, table.daily td {
+      border: 1px solid #cbd5e1; padding: 3px 6px; text-align: left;
+      vertical-align: top;
+    }
+    table.daily th { background: #f1f5f9; font-weight: 600; font-size: 10px; }
+    table.daily td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .row-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 10px;
+    }
+    .panel {
+      border: 1px solid #cbd5e1; border-radius: 4px; padding: 10px 12px;
+    }
+    .panel h3 {
+      margin: 0 0 6px; font-size: 12px; font-weight: 700; color: #0f172a;
+      border-bottom: 1px solid #e2e8f0; padding-bottom: 3px;
+    }
+    .panel .line {
+      display: flex; justify-content: space-between; padding: 2px 0;
+      font-size: 12px;
+    }
+    .panel .line .v { font-variant-numeric: tabular-nums; }
+    .panel .total {
+      display: flex; justify-content: space-between; padding-top: 4px;
+      margin-top: 4px; border-top: 1px dashed #94a3b8;
+      font-weight: 700;
+    }
+    .net-box {
+      margin-top: 14px; padding: 14px 18px;
+      border: 2px solid #1f2937; border-radius: 6px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .net-box .lbl { font-size: 14px; font-weight: 700; }
+    .net-box .val {
+      font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums;
+    }
+    .net-pos { color: #047857; }
+    .net-neg { color: #b91c1c; }
+    .footer-note {
+      margin-top: 10px; font-size: 10px; color: #64748b;
+      display: flex; justify-content: space-between;
+    }
+    /* 1 คน = 1 หน้า: เนื้อหายาว (ตารางเดลี่ + รายการหักสดย่อย) → ย่อทั้งสลิปให้พอ A4 */
+    .slip.dense table.daily { font-size: 9px; }
+    .slip.dense table.daily th, .slip.dense table.daily td { padding: 1px 4px; }
+    .slip.dense table.daily th { font-size: 8px; }
+    .slip.dense .panel .line, .slip.dense .panel .total { font-size: 9.5px; padding: 0.5px 0; }
+    .slip.dense .panel { padding: 6px 8px; }
+    .slip.dense .row-grid { gap: 8px; margin-top: 6px; }
+    .slip.ultra table.daily { font-size: 7.5px; }
+    .slip.ultra table.daily th, .slip.ultra table.daily td { padding: 0.5px 3px; }
+    .slip.ultra table.daily th { font-size: 7px; }
+    .slip.ultra h1 { font-size: 15px; }
+    .slip.ultra .panel .line, .slip.ultra .panel .total { font-size: 8px; padding: 0; }
+    .slip.ultra .panel { padding: 4px 6px; }
+    .slip.ultra .panel h3 { font-size: 10px; margin-bottom: 3px; }
+    .slip.ultra .row-grid { gap: 6px; margin-top: 4px; }
+    .slip.ultra .net-box { margin-top: 6px; padding: 8px 14px; }
+    .slip.ultra .net-box .val { font-size: 18px; }
+    .slip.ultra table.daily { margin: 4px 0; }
+    @media print {
+      html, body { background: #fff; }
+      .toolbar { display: none; }
+      .no-print { display: none !important; }
+      .slip {
+        max-width: 100%; margin: 0; padding: 8mm; border: none;
+        border-radius: 0; page-break-after: always;
+      }
+      /* กันสลิปแตกกลางคัน → 1 คน 1 หน้า */
+      .slip { break-inside: avoid; }
+      table.daily { break-inside: auto; }
+      @page { size: A4 portrait; margin: 7mm; }
+    }
+  
+  /* ตารางสรุป/โอนเงิน (หน้า block) */
   .block { page-break-after: always; }
   .block:last-child { page-break-after: auto; }
-  .slip { page-break-after: always; border: 1px solid #bbb; padding: 12px; margin-bottom: 0; }
-  .slip:last-child { page-break-after: auto; }
-  .slip h3 { margin: 0 0 6px; font-size: 15px; }
-  .slip .line { display: flex; justify-content: space-between; padding: 1px 0; }
-  .slip .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-  .slip .total { font-weight: bold; border-top: 1px solid #999; margin-top: 3px; padding-top: 3px; }
-  table.daily { width: 100%; border-collapse: collapse; font-size: 11px; }
-  table.daily th, table.daily td { border: 1px solid #ddd; padding: 2px 5px; text-align: left; }
-  table.daily th { background: #f3f4f6; }
-  table.daily td.num, table.daily th.num { text-align: right; }
-  .toolbar { margin-bottom: 14px; }
-  .toolbar button { padding: 6px 14px; font-size: 14px; cursor: pointer; }
-  @media print { .no-print { display: none !important; } body { padding: 0; } }
+  .block h2 { font-size: 17px; margin: 0 0 8px; }
+  .block table { width: 100%; border-collapse: collapse; }
+  .block th, .block td { border: 1px solid #999; padding: 3px 6px; text-align: left; font-size: 13px; }
+  .block th { background: #eee; }
+  .block .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .block .neg { color: #b91c1c; }
+  .muted { color: #666; }
   .noteform input { width: 160px; font-size: 12px; }
 </style>
 </head>
@@ -127,119 +230,19 @@
   </table>
 </div>
 
-{# ---------- 3. สลิปรายคน ---------- #}
+{# ---------- 3. สลิปรายคน (ดีไซน์เดียวกับหน้ารายคน ผ่าน _slip_body.html) ---------- #}
 {% for r in rows %}
-{% set it = r.item %}
-<div class="slip" data-driver="{{ r.employee.full_name }}" data-emp="{{ r.employee.id }}">
-  <h3>สลิปเงินเดือน · {{ r.employee.full_name }}{% if is_boss %} <span style="font-size:11px; background:#fde68a; padding:1px 6px; border-radius:3px;">ผู้บริหาร</span>{% endif %}</h3>
-  <div class="muted" style="font-size:12px; margin-bottom:6px;">
-    {{ run.site_code }} · {{ run.pay_cycle_tag }} · {{ run.period_start | dmy }} – {{ run.period_end | dmy }}
-    · วันทำงาน {{ it.days_worked|int }} · {{ it.pay_mode }}
-  </div>
-  <div class="grid2">
-    <div>
-      <div style="font-weight:bold; margin-bottom:3px;">รายได้</div>
-      {% if it.base_salary_earned %}<div class="line"><span>เงินเดือน</span><span>{{ '{:,.2f}'.format(it.base_salary_earned) }}</span></div>{% endif %}
-      {% if it.care_allowance_earned %}<div class="line"><span>ค่าดูแลรถ</span><span>{{ '{:,.2f}'.format(it.care_allowance_earned) }}</span></div>{% endif %}
-      {% if it.trip_fee_total %}<div class="line"><span>ค่าเที่ยว</span><span>{{ '{:,.2f}'.format(it.trip_fee_total) }}</span></div>{% endif %}
-      {% if it.fuel_share_income %}<div class="line"><span>ส่วนแบ่งน้ำมัน (60%)</span><span>{{ '{:,.2f}'.format(it.fuel_share_income) }}</span></div>{% endif %}
-      {% if it.fuel_rate_income %}<div class="line"><span>ค่าเรทน้ำมัน</span><span>{{ '{:,.2f}'.format(it.fuel_rate_income) }}</span></div>{% endif %}
-      {% if it.guarantee_topup %}<div class="line"><span>ชดเชยการันตี</span><span>{{ '{:,.2f}'.format(it.guarantee_topup) }}</span></div>{% endif %}
-      {% if it.special_income %}<div class="line"><span>พิเศษ</span><span>{{ '{:,.2f}'.format(it.special_income) }}</span></div>{% endif %}
-      {% if it.ot_income %}<div class="line"><span>OT</span><span>{{ '{:,.2f}'.format(it.ot_income) }}</span></div>{% endif %}
-      {% if it.pickup_return_income %}<div class="line"><span>รับตู้คืนตู้</span><span>{{ '{:,.2f}'.format(it.pickup_return_income) }}</span></div>{% endif %}
-      {% set other_rest = it.other_income - it.special_income - it.ot_income - it.pickup_return_income %}
-      {% if other_rest|round(2) != 0 %}<div class="line"><span>รายได้อื่น</span><span>{{ '{:,.2f}'.format(other_rest) }}</span></div>{% endif %}
-      <div class="line"><span>รวมรายได้</span><span>{{ '{:,.2f}'.format(it.gross_total) }}</span></div>
-      {% if it.fuel_cost_self %}<div class="line neg"><span>− ค่าน้ำมัน</span><span>{{ '{:,.2f}'.format(it.fuel_cost_self) }}</span></div>{% endif %}
-      <div class="line total"><span>รายได้หลังหักน้ำมัน</span><span>{{ '{:,.2f}'.format(it.gross_total - it.fuel_cost_self) }}</span></div>
-    </div>
-    <div>
-      <div style="font-weight:bold; margin-bottom:3px;">เงินหัก</div>
-      {% if it.social_security %}<div class="line"><span>ประกันสังคม</span><span>{{ '{:,.2f}'.format(it.social_security) }}</span></div>{% endif %}
-      {% if it.income_tax_withholding %}<div class="line"><span>ภาษีหัก ณ ที่จ่าย</span><span>{{ '{:,.2f}'.format(it.income_tax_withholding) }}</span></div>{% endif %}
-      {% if it.deposit_install %}<div class="line"><span>เงินประกัน (ผ่อน){% set dep_no = r.employee | dep_install %}{% if dep_no %} งวดที่ {{ dep_no }}{% endif %}</span><span>{{ '{:,.2f}'.format(it.deposit_install) }}</span></div>{% endif %}
-      {% if it.accident_install %}<div class="line"><span>ผ่อนอุบัติเหตุ</span><span>{{ '{:,.2f}'.format(it.accident_install) }}</span></div>{% endif %}
-      {% if it.petty_cash_deduction %}
-        {% if r.petty_lines %}
-        <div class="line" style="font-weight:600; margin-top:2px;"><span>หักสดย่อย (เบิก/เงินยืม)</span><span>{{ '{:,.2f}'.format(it.petty_cash_deduction) }}</span></div>
-        {% for p in r.petty_lines %}
-        <div class="line" style="font-size:11px; color:#444; padding-left:10px;">
-          <span>{{ p.txn_date | dmy if p.txn_date else '—' }} · {{ p.label }}</span><span>{{ '{:,.2f}'.format(p.amount) }}</span>
-        </div>
-        {% endfor %}
-        {% else %}
-        <div class="line"><span>หักสดย่อย</span><span>{{ '{:,.2f}'.format(it.petty_cash_deduction) }}</span></div>
-        {% endif %}
-      {% endif %}
-      {% if it.other_deduction %}<div class="line"><span>หักอื่นๆ</span><span>{{ '{:,.2f}'.format(it.other_deduction) }}</span></div>{% endif %}
-      <div class="line total"><span>รวมหัก (ไม่รวมน้ำมัน)</span><span>{{ '{:,.2f}'.format(it.deduction_total - it.fuel_cost_self) }}</span></div>
-      <div class="line total" style="margin-top:6px; font-size:15px;">
-        <span>เงินสุทธิ</span>
-        <span class="{% if it.net_pay < 0 %}neg{% endif %}">{{ '{:,.2f}'.format(it.net_pay) }}</span>
-      </div>
-      {% if r.employee.bank_name or r.employee.account_no %}
-      <div class="muted" style="font-size:12px; margin-top:4px;">โอนเข้า: {{ r.employee.bank_name }} {{ r.employee.account_no }}</div>
-      {% endif %}
-    </div>
-  </div>
-
-  {% if r.daily %}
-  <div style="margin-top:8px;">
-    <div style="font-weight:bold; font-size:12px; margin-bottom:2px;">รายการวิ่งงานรายวัน</div>
-    <table class="daily">
-      <thead>
-        <tr>
-          <th>วันที่</th><th>ทะเบียน</th><th>งาน</th><th>ส่งสินค้า (ต้นทาง → โหลด → ปลายทาง)</th><th>เบอร์ตู้</th>
-          {% if is_boss %}
-            <th class="num">ค่าขนส่งจริง</th><th class="num">ราคากลาง</th><th class="num">KB</th>
-            <th class="num">ค่าเที่ยว</th>
-          {% elif r.daily[0].show_central %}
-            <th class="num">ราคากลาง</th>
-          {% else %}
-            <th class="num">ค่าเที่ยว</th>
-          {% endif %}
-          {% if it.fuel_cost_self %}<th class="num">น้ำมัน</th>{% endif %}
-        </tr>
-      </thead>
-      <tbody>
-        {% for d in r.daily %}
-        <tr>
-          <td>{{ d.date | dmy }}</td>
-          <td>{{ d.plate }}</td>
-          <td>{{ d.status }}</td>
-          <td>{{ d.route or d.dest or '—' }}</td>
-          <td>{{ d.container }}</td>
-          {% if is_boss %}
-            <td class="num">{{ '{:,.0f}'.format(d.rev_real) if d.rev_real else '—' }}</td>
-            <td class="num">{{ '{:,.0f}'.format(d.central) if d.central else '—' }}</td>
-            <td class="num">{{ '{:,.0f}'.format(d.kb) if d.kb else '—' }}</td>
-          {% elif d.show_central %}
-            {# เหมา (คนขับ): โชว์ราคากลางแทนคอลัมน์ค่าเที่ยว #}
-          {% endif %}
-          {% if not is_boss and d.show_central %}
-            <td class="num">{{ '{:,.0f}'.format(d.central) if d.central else '—' }}</td>
-          {% else %}
-            <td class="num">{{ '{:,.0f}'.format(d.trip_fee) if d.trip_fee else '—' }}</td>
-          {% endif %}
-          {% if it.fuel_cost_self %}<td class="num">{{ '{:,.0f}'.format(d.fuel) if d.fuel else '—' }}{% if d.fuel_liter %} <span style="color:#94a3b8; font-size:9px;">{{ '{:.0f}'.format(d.fuel_liter) }}L</span>{% endif %}</td>{% endif %}
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% if it.fuel_cost_self %}
-    <div style="font-size:10px; margin-top:2px;">
-      <b style="color:#b91c1c;">น้ำมันที่หักจริง {{ '{:,.0f}'.format(it.fuel_cost_self) }} บาท{% if r.fuel_deducted_liter %} ({{ '{:,.0f}'.format(r.fuel_deducted_liter) }} L){% endif %}</b>
-      {% if r.fuel_excluded_amt %}<span style="color:#16a34a;"> · ไม่หัก {{ '{:,.0f}'.format(r.fuel_excluded_amt) }} (ถังแรก/ก่อนวิ่ง)</span>{% endif %}
-      <span style="color:#64748b;"> — น้ำมันในตารางบางบิลไม่ถูกหัก ดูยอดหักจริงบรรทัดนี้</span>
-    </div>
-    {% endif %}
-    {% if not is_boss and r.daily and r.daily[0].show_central %}
-    <div class="muted" style="font-size:10px;">* ราคากลาง = ราคาที่ใช้คิดส่วนแบ่งเหมา</div>
-    {% endif %}
-  </div>
-  {% endif %}
-</div>
+  {% with daily_jobs=r.ctx.daily_jobs, item=r.ctx.item, employee=r.ctx.employee, run=r.ctx.run,
+          mixed=r.ctx.mixed, route_text=r.ctx.route_text, day_kind=r.ctx.day_kind,
+          fuel_deduct_dates=r.ctx.fuel_deduct_dates, excluded_job_ids=r.ctx.excluded_job_ids,
+          tank_measure_rows=r.ctx.tank_measure_rows, fuel_excluded_amt=r.ctx.fuel_excluded_amt,
+          fuel_deducted_amt=r.ctx.fuel_deducted_amt, fuel_deducted_liter=r.ctx.fuel_deducted_liter,
+          petty_lines=r.ctx.petty_lines, petty_lines_extra=r.ctx.petty_lines_extra,
+          petty_categories=r.ctx.petty_categories, plates_used=r.ctx.plates_used,
+          mile_start=r.ctx.mile_start, mile_end=r.ctx.mile_end, km_run=r.ctx.km_run,
+          fuel_used_l=r.ctx.fuel_used_l, avg_km_per_l=r.ctx.avg_km_per_l %}
+    {% include "_slip_body.html" %}
+  {% endwith %}
 {% endfor %}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
