@@ -142,3 +142,6 @@ ProjectYK_System/slip_reader/_devdata/
 # net_guard / snapshot ชั่วคราว (ผลรัน ไม่ใช่โค้ด)
 ProjectYK_System/reports/_net_guard.json
 ProjectYK_System/reports/_bigc_guard.json
+
+# Chrome PDF work dir (สลิป ZIP per-driver) — ชั่วคราว ลบทุกครั้งหลังสร้าง
+ProjectYK_System/app/_pdf_tmp/
