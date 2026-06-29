@@ -134,20 +134,29 @@ def employee_bank_display_name(emp: Employee, site_code: str) -> str:
 
 
 def delivery_route_text(r) -> str:
-    """ต้นทาง → โหลด(pickup) → ปลายทาง — leg ที่ว่างยุบหายไป.
+    """ช่อง "ส่งสินค้า" ของสลิป — โครงเดลี่แต่ละไซท์ไม่เหมือนกัน สูตร route จึง
+    **แยกต่อไซท์** (โอ 29มิ.ย.: "เดลี่คนละแบบในแต่ละไซท์ สูตรก็ต้องไม่เหมือนกัน").
 
-    BigC: ช่อง origin ตอนนี้เก็บ "สถานะงาน" (2BigC/Oatside/…) ไม่ใช่ต้นทางจริง
-    (import แรก map คอลัมน์ E ผิด) → ข้าม origin สำหรับ BigC จนกว่าจะแก้ import.
+      LCB  : origin → pickup_location → destination   (3 ช่วงครบ)
+      AYU  : pickup_location → destination            (ขึ้นสินค้า → ส่งสินค้า)
+      BIGC : destination                              (คอลัมน์ E=สถานะ ลง origin ผิด,
+                                                       ยังไม่มี pickup → โชว์ปลายทางอย่างเดียว)
+    leg ที่ว่างยุบหายไป. ไซท์อื่นที่ยังไม่กำหนด → fallback origin→pickup→dest.
     """
-    parts = []
-    is_bigc = (getattr(r, "site_code", "") or "") == "BIGC"
-    if not is_bigc and (r.origin or "").strip():
-        parts.append(r.origin.strip())
-    if (r.pickup_location or "").strip():
-        parts.append(r.pickup_location.strip())
-    if (r.destination or "").strip():
-        parts.append(r.destination.strip())
-    return " → ".join(parts)
+    site = (getattr(r, "site_code", "") or "").upper()
+    origin = (r.origin or "").strip()
+    pickup = (r.pickup_location or "").strip()
+    dest = (r.destination or "").strip()
+
+    if site == "LCB":
+        legs = [origin, pickup, dest]
+    elif site == "AYU":
+        legs = [pickup, dest]
+    elif site == "BIGC":
+        legs = [dest]
+    else:
+        legs = [origin, pickup, dest]
+    return " → ".join(p for p in legs if p)
 
 
 # กติกาเดียวกับ services.payroll._classify_lcb_days (ratio = ค่าเที่ยว/รายได้)
