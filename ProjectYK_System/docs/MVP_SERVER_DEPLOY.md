@@ -38,11 +38,30 @@ line.yklogistics.uk -> http://127.0.0.1:8020   (LINE archiver — untouched)
 
 ## Redeploy after code changes (from Dev)
 
+**Use `deploy_mvp.sh` (self-verifying).** It copies source, syncs deps, does the cutover,
+and then *proves the deploy worked* before reporting success — so a green run is real, not eyeballed.
+
 ```bash
-bash ProjectYK_System/tools/deploy_mvp_to_server.sh
+# code-only deploy, with a marker that proves the change went live:
+bash ProjectYK_System/tools/deploy_mvp.sh --markers "fuel_grade"
+
+# also push app.db (server DB backed up first + byte-size verified before restart):
+bash ProjectYK_System/tools/deploy_mvp.sh --with-db --markers "fuel_grade"
 ```
 
-Copies source, syncs deps, restarts `YK_MVP_APP`, verifies the public endpoint. Server DB untouched.
+What the verify step checks (all must pass or it exits 1):
+
+1. **DB byte-size** matches Dev before restart (only with `--with-db`) — refuses to restart onto a partial scp.
+2. **Port 8010 freed by PID + `YK_MVP` cmdline** — *not* a bare `\.venv` filter (that also kills the LINE archiver on 8020).
+3. **New process started AFTER the copy** — catches the classic "old code still serving" trap (global-python proc survives a naive restart).
+4. **Port 8020 (LINE archiver) still up** — confirms the cutover didn't take it down.
+5. **ASCII `--markers` present on server files** — guards against revert / stale code. Use ASCII only (Thai `Select-String` over SSH gives false negatives). Pick a marker unique to what you just shipped.
+6. **Public `app.yklogistics.uk/login` → 200**.
+
+Always pass a `--markers` string unique to the change you're shipping — that single arg is what turns "I copied files" into "I confirmed the new code is live."
+
+The old `deploy_mvp_to_server.sh` is kept for reference but its restart is unreliable
+(its kill-filter misses the global-python process → old code keeps serving). Prefer `deploy_mvp.sh`.
 
 ## Daily DB backup
 
