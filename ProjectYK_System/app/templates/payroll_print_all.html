@@ -4,133 +4,148 @@
 <meta charset="utf-8">
 <title>เงินเดือน_{{ run.site_code }}_{{ run.pay_cycle_tag }}_{{ 'ผู้บริหาร' if is_boss else 'คนขับ' }}</title>
 <style>
-    * { box-sizing: border-box; }
-    html, body {
-      font-family: "Sarabun", "Tahoma", sans-serif;
-      font-size: 12px;
-      color: #1f2937;
-      margin: 0;
-      padding: 0;
-      background: #f1f5f9;
-    }
-    .toolbar {
-      max-width: 820px; margin: 12px auto; padding: 8px 12px;
-      display: flex; align-items: center; justify-content: space-between;
-      font-size: 12px;
-    }
-    .toolbar a { color: #64748b; text-decoration: none; }
-    .toolbar a:hover { text-decoration: underline; }
-    .toolbar button {
-      padding: 6px 14px; border: 1px solid #94a3b8; border-radius: 6px;
-      background: #fff; cursor: pointer; font-size: 12px;
-    }
-    .toolbar button:hover { background: #f1f5f9; }
-    .slip {
-      max-width: 820px; margin: 0 auto 24px; padding: 18px 22px;
-      background: #fff; border: 1px solid #cbd5e1; border-radius: 4px;
-    }
-    h1 {
-      margin: 0 0 4px; font-size: 18px; font-weight: 700;
-      letter-spacing: 0.5px;
-    }
-    .header-line {
-      display: flex; justify-content: space-between; align-items: baseline;
-      border-bottom: 2px solid #1f2937; padding-bottom: 6px; margin-bottom: 10px;
-    }
-    .header-line .meta { font-size: 12px; color: #475569; }
-    .driver-line {
-      display: grid; grid-template-columns: 1fr 1fr 1fr;
-      gap: 12px; margin-bottom: 12px; font-size: 12px;
-    }
-    .driver-line .lbl { color: #64748b; font-size: 10px; }
-    .driver-line .val { font-weight: 600; }
-    table.daily {
-      width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 11px;
-    }
-    table.daily th, table.daily td {
-      border: 1px solid #cbd5e1; padding: 3px 6px; text-align: left;
-      vertical-align: top;
-    }
-    table.daily th { background: #f1f5f9; font-weight: 600; font-size: 10px; }
-    table.daily td.num { text-align: right; font-variant-numeric: tabular-nums; }
-    .row-grid {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 10px;
-    }
-    .panel {
-      border: 1px solid #cbd5e1; border-radius: 4px; padding: 10px 12px;
-    }
-    .panel h3 {
-      margin: 0 0 6px; font-size: 12px; font-weight: 700; color: #0f172a;
-      border-bottom: 1px solid #e2e8f0; padding-bottom: 3px;
-    }
-    .panel .line {
-      display: flex; justify-content: space-between; padding: 2px 0;
-      font-size: 12px;
-    }
-    .panel .line .v { font-variant-numeric: tabular-nums; }
-    .panel .total {
-      display: flex; justify-content: space-between; padding-top: 4px;
-      margin-top: 4px; border-top: 1px dashed #94a3b8;
-      font-weight: 700;
-    }
-    .net-box {
-      margin-top: 14px; padding: 14px 18px;
-      border: 2px solid #1f2937; border-radius: 6px;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    .net-box .lbl { font-size: 14px; font-weight: 700; }
-    .net-box .val {
-      font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums;
-    }
-    .net-pos { color: #047857; }
-    .net-neg { color: #b91c1c; }
-    .footer-note {
-      margin-top: 10px; font-size: 10px; color: #64748b;
-      display: flex; justify-content: space-between;
-    }
-    /* 1 คน = 1 หน้า: เนื้อหายาว (ตารางเดลี่ + รายการหักสดย่อย) → ย่อทั้งสลิปให้พอ A4 */
-    .slip.dense table.daily { font-size: 9px; }
-    .slip.dense table.daily th, .slip.dense table.daily td { padding: 1px 4px; }
-    .slip.dense table.daily th { font-size: 8px; }
-    .slip.dense .panel .line, .slip.dense .panel .total { font-size: 9.5px; padding: 0.5px 0; }
-    .slip.dense .panel { padding: 6px 8px; }
-    .slip.dense .row-grid { gap: 8px; margin-top: 6px; }
-    .slip.ultra table.daily { font-size: 7.5px; }
-    .slip.ultra table.daily th, .slip.ultra table.daily td { padding: 0.5px 3px; }
-    .slip.ultra table.daily th { font-size: 7px; }
-    .slip.ultra h1 { font-size: 15px; }
-    .slip.ultra .panel .line, .slip.ultra .panel .total { font-size: 8px; padding: 0; }
-    .slip.ultra .panel { padding: 4px 6px; }
-    .slip.ultra .panel h3 { font-size: 10px; margin-bottom: 3px; }
-    .slip.ultra .row-grid { gap: 6px; margin-top: 4px; }
-    .slip.ultra .net-box { margin-top: 6px; padding: 8px 14px; }
-    .slip.ultra .net-box .val { font-size: 18px; }
-    .slip.ultra table.daily { margin: 4px 0; }
-    @media print {
-      html, body { background: #fff; }
-      .toolbar { display: none; }
-      .no-print { display: none !important; }
-      .slip {
-        max-width: 100%; margin: 0; padding: 8mm; border: none;
-        border-radius: 0; page-break-after: always;
-      }
-      /* กันสลิปแตกกลางคัน → 1 คน 1 หน้า */
-      .slip { break-inside: avoid; }
-      table.daily { break-inside: auto; }
-      @page { size: A4 portrait; margin: 7mm; }
-    }
-  
-  /* ตารางสรุป/โอนเงิน (หน้า block) */
-  .block { page-break-after: always; }
-  .block:last-child { page-break-after: auto; }
-  .block h2 { font-size: 17px; margin: 0 0 8px; }
-  .block table { width: 100%; border-collapse: collapse; }
-  .block th, .block td { border: 1px solid #999; padding: 3px 6px; text-align: left; font-size: 13px; }
-  .block th { background: #eee; }
-  .block .num { text-align: right; font-variant-numeric: tabular-nums; }
-  .block .neg { color: #b91c1c; }
-  .muted { color: #666; }
-  .noteform input { width: 160px; font-size: 12px; }
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
+:root{--wb-ink:#15233f;--wb-soft:#3a4a68;--wb-paper:#fbfaf6;--wb-line:#e3e0d6;--wb-brass:#b07d2b;--wb-pos:#1f7a4d;--wb-neg:#b23b3b;--wb-muted:#9a9789;}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:#edeae1;font-family:"IBM Plex Sans Thai","Sarabun",sans-serif;color:var(--wb-ink);font-size:12px;}
+.no-print{}
+/* ===== container ===== */
+.slip{max-width:900px;margin:0 auto 22px;background:var(--wb-paper);border:1px solid var(--wb-line);}
+/* ===== masthead ===== */
+.wb-mast{display:flex;justify-content:space-between;align-items:flex-end;padding:18px 24px 13px;border-bottom:2px solid var(--wb-ink);}
+.wb-brand{font-weight:700;font-size:18px;letter-spacing:.5px;}
+.wb-brand small{display:block;font-weight:500;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--wb-brass);margin-top:2px;}
+.wb-mast-meta{text-align:right;font-size:11px;color:var(--wb-soft);line-height:1.5;}
+.wb-mast-meta b{color:var(--wb-ink);}
+/* ===== who strip ===== */
+.wb-who{display:grid;grid-template-columns:1.5fr 1fr 1fr 1.1fr;border-bottom:1px solid var(--wb-line);}
+.wb-who>div{padding:10px 14px;border-right:1px solid var(--wb-line);}
+.wb-who>div:last-child{border-right:none;}
+.wb-k{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--wb-muted);}
+.wb-v{font-size:14px;font-weight:600;margin-top:2px;}
+/* ===== money ribbon ===== */
+.wb-ribbon{display:flex;background:var(--wb-ink);color:#fff;}
+.wb-ribbon .seg{flex:1;padding:12px 16px;position:relative;}
+.wb-ribbon .seg+.seg::before{content:"";position:absolute;left:0;top:50%;transform:translate(-50%,-50%) rotate(45deg);width:11px;height:11px;background:var(--wb-ink);border-right:1px solid rgba(255,255,255,.18);border-top:1px solid rgba(255,255,255,.18);}
+.wb-ribbon .lab{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.6);}
+.wb-ribbon .fig{font-family:"IBM Plex Mono";font-size:18px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums;}
+.wb-ribbon .seg.minus .fig{color:#f0a3a3;}
+.wb-ribbon .seg.net{background:var(--wb-brass);flex:1.3;}
+.wb-ribbon .seg.net .lab{color:rgba(255,255,255,.85);}
+.wb-ribbon .seg.net .fig{font-size:24px;font-weight:700;color:#fff;}
+.wb-ribbon .seg.net .fig.neg{color:#ffd9d9;}
+/* ===== body 2-col ===== */
+.wb-body{display:grid;grid-template-columns:1.05fr 1fr;}
+.wb-col{padding:16px 18px;}
+.wb-col.left{border-right:1px solid var(--wb-line);}
+.wb-sec{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--wb-brass);font-weight:600;margin:0 0 9px;display:flex;justify-content:space-between;border-bottom:1px solid var(--wb-ink);padding-bottom:5px;}
+.wb-sec span{color:var(--wb-muted);font-weight:500;letter-spacing:0;}
+.wb-sub{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--wb-brass);font-weight:600;margin:16px 0 7px;}
+.wb-chip{padding:1px 5px;border:1px solid var(--wb-line);border-radius:3px;margin-right:3px;font-size:10px;}
+/* daily table */
+table.daily{width:100%;border-collapse:collapse;font-size:11px;}
+table.daily th{text-align:left;font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--wb-muted);font-weight:600;padding:0 5px 5px;border-bottom:1px solid var(--wb-line);}
+table.daily th.num{text-align:right;}
+table.daily td{padding:3px 5px;border-bottom:1px solid #efece3;vertical-align:top;}
+table.daily td.num{text-align:right;font-family:"IBM Plex Mono";font-variant-numeric:tabular-nums;white-space:nowrap;}
+.c-date{white-space:nowrap;color:var(--wb-soft);font-family:"IBM Plex Mono";font-size:10px;}
+.c-route{line-height:1.3;}
+.c-trip{font-weight:600;}
+.c-cut{color:var(--wb-neg);}
+.row-tank{background:#fdf6e3;}
+.wb-muted{color:var(--wb-muted);}
+.tag-free{display:inline-block;font-size:8px;background:#e7f1ea;color:var(--wb-pos);padding:0 4px;border-radius:2px;}
+.tag-cut{display:inline-block;font-size:8px;background:#f7e3e3;color:var(--wb-neg);padding:0 4px;border-radius:2px;}
+.tag-co{display:inline-block;font-size:8px;background:#eceae2;color:var(--wb-muted);padding:0 4px;border-radius:2px;}
+table.daily tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding-top:5px;font-weight:600;}
+table.daily tfoot .ft-cut td{border-top:none;color:var(--wb-neg);font-size:10px;}
+table.daily tfoot .ft-free{font-weight:400;font-size:9px;color:var(--wb-pos);}
+.wb-foot-note{font-size:9px;color:var(--wb-muted);margin-top:4px;}
+/* ledger */
+.wb-ledger{font-size:12.5px;}
+.lr{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #efece3;}
+.lr .amt{font-family:"IBM Plex Mono";font-variant-numeric:tabular-nums;}
+.lr.sub{font-size:11px;color:var(--wb-soft);padding:2px 0 2px 14px;}
+.lr.sub.off{color:var(--wb-muted);}
+.lr.sum{border-top:1.5px solid var(--wb-ink);border-bottom:none;margin-top:5px;padding-top:6px;font-weight:700;font-size:13px;}
+.lr.minus .amt{color:var(--wb-neg);}
+.dep-badge{font-size:9px;background:var(--wb-ink);color:#fff;padding:1px 6px;border-radius:2px;letter-spacing:.5px;margin-left:5px;}
+/* gauge */
+.wb-gauge{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;}
+.wb-gauge .cell{background:#fff;border:1px solid var(--wb-line);padding:7px 9px;}
+.wb-gauge .g-v{font-family:"IBM Plex Mono";font-size:14px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums;}
+.wb-footer{display:flex;justify-content:space-between;padding:9px 18px;border-top:1px solid var(--wb-line);font-size:10px;color:var(--wb-muted);}
+/* ===== summary/transfer pages (.block) ===== */
+.block{max-width:900px;margin:0 auto 22px;background:var(--wb-paper);border:1px solid var(--wb-line);page-break-after:always;}
+.block:last-child{page-break-after:auto;}
+.bk-mast{display:flex;justify-content:space-between;align-items:flex-end;padding:18px 24px 13px;border-bottom:2px solid var(--wb-ink);}
+.doc-kind{display:inline-block;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#fff;background:var(--wb-ink);padding:3px 10px;margin-bottom:6px;}
+.bk-wrap{padding:16px 22px 20px;}
+.totband{display:flex;border:1px solid var(--wb-line);background:#fff;margin-bottom:16px;}
+.totband .cell{flex:1;padding:12px 16px;border-right:1px solid var(--wb-line);}
+.totband .cell:last-child{border-right:none;background:var(--wb-ink);color:#fff;flex:1.3;}
+.totband .cell.pay:last-child{background:var(--wb-brass);}
+.totband .cell:last-child .wb-k{color:rgba(255,255,255,.7);}
+.totband .t-v{font-family:"IBM Plex Mono";font-size:20px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums;}
+.totband .cell:last-child .t-v{font-size:24px;font-weight:700;}
+table.run{width:100%;border-collapse:collapse;font-size:12px;}
+table.run th{text-align:left;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--wb-muted);font-weight:600;padding:0 8px 6px;border-bottom:2px solid var(--wb-ink);}
+table.run th.num{text-align:right;}
+table.run td{padding:6px 8px;border-bottom:1px solid #efece3;}
+table.run td.num{text-align:right;font-family:"IBM Plex Mono";font-variant-numeric:tabular-nums;white-space:nowrap;}
+.r-idx{color:var(--wb-muted);font-family:"IBM Plex Mono";width:26px;}
+.r-name{font-weight:600;}
+.r-mode,.r-bank{font-family:"IBM Plex Mono";font-size:10.5px;color:var(--wb-soft);}
+.r-num.minus{color:var(--wb-neg);}
+.r-num.net{font-weight:700;}
+.r-num.net.neg{color:var(--wb-neg);}
+table.run tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding-top:8px;font-weight:700;font-size:12.5px;}
+.bk-foot{display:flex;justify-content:space-between;padding:9px 22px;border-top:1px solid var(--wb-line);font-size:10px;color:var(--wb-muted);}
+.noteform input{width:150px;font-size:11px;}
+/* ===== density (สลิปยาว) ===== */
+.slip.dense table.daily{font-size:9px;}
+.slip.dense table.daily td,.slip.dense table.daily th{padding:1px 4px;}
+.slip.dense .lr,.slip.dense .lr.sum{font-size:10px;padding:1.5px 0;}
+.slip.ultra table.daily{font-size:8px;}
+.slip.ultra table.daily td,.slip.ultra table.daily th{padding:.5px 3px;}
+.slip.ultra .lr,.slip.ultra .lr.sum{font-size:9px;padding:1px 0;}
+.slip.ultra .wb-ribbon .fig{font-size:15px;}
+.slip.ultra .wb-ribbon .seg.net .fig{font-size:19px;}
+/* ===== PRINT: พื้นขาวสนิททุกที่ (ประหยัดหมึก) ===== */
+@media print{
+  html,body{background:#fff !important;}
+  .no-print{display:none !important;}
+  .slip,.block{background:#fff !important;border:1px solid #333;max-width:100%;margin:0;}
+  .slip{page-break-after:always;}
+  .slip:last-child{page-break-after:auto;}
+  .wb-mast,.bk-mast{border-bottom:2px solid #000;background:#fff !important;}
+  .wb-brand small{color:#000;}
+  .doc-kind{background:#fff !important;color:#000;border:1.5px solid #000;}
+  .wb-who,.wb-who>div{background:#fff !important;}
+  /* ribbon → ขาว + กรอบ */
+  .wb-ribbon{background:#fff !important;color:#000;border-top:1px solid #000;border-bottom:2px solid #000;}
+  .wb-ribbon .seg{border-right:1px solid #999;background:#fff !important;}
+  .wb-ribbon .seg:last-child{border-right:none;}
+  .wb-ribbon .seg+.seg::before{display:none;}
+  .wb-ribbon .lab{color:#444;}
+  .wb-ribbon .fig,.wb-ribbon .seg.minus .fig{color:#000;}
+  .wb-ribbon .seg.net{background:#fff !important;border-left:3px double #000;}
+  .wb-ribbon .seg.net .lab{color:#000;font-weight:700;}
+  .wb-ribbon .seg.net .fig{color:#000;}
+  /* eyebrow → ดำ */
+  .wb-sec,.wb-sub{color:#000;}
+  .wb-gauge .cell{background:#fff !important;border:1px solid #999;}
+  .dep-badge{background:#fff !important;color:#000;border:1px solid #000;}
+  .row-tank{background:#fff !important;}
+  .tag-free{background:#fff !important;border:1px solid #2a7a4d;}
+  .tag-cut{background:#fff !important;border:1px solid #a33;}
+  .tag-co{background:#fff !important;border:1px solid #999;}
+  /* summary/transfer totband → ขาว */
+  .totband,.totband .cell{background:#fff !important;}
+  .totband .cell:last-child{color:#000;border-left:3px double #000;}
+  .totband .cell:last-child .wb-k{color:#000;font-weight:700;}
+  @page{size:A4 portrait;margin:7mm;}
+}
 </style>
 </head>
 <body>
@@ -149,85 +164,68 @@
   <div id="zipStatus" class="muted" style="margin-top:4px; font-size:12px;"></div>
 </div>
 
-{# ---------- 1. สรุปทุกคน ---------- #}
+{# ---------- 1. สรุปเงินเดือน (Design Waybill) ---------- #}
 <div class="block">
-  <h2>สรุปเงินเดือน · {{ run.site_code }} · {{ run.pay_cycle_tag }}
-    <span class="muted" style="font-size:12px;">({{ run.period_start | dmy }} – {{ run.period_end | dmy }})</span>
-  </h2>
-  <table>
-    <thead>
-      <tr>
-        <th>#</th><th>ชื่อ–สกุล</th><th>Pay Mode</th>
-        <th class="num">รวมรายได้</th><th class="num">น้ำมัน</th><th class="num">รายได้หลังหักน้ำมัน</th>
-        <th class="num">รวมหัก (ไม่รวมน้ำมัน)</th><th class="num">สุทธิ</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for r in rows %}
-      {% set it = r.item %}
-      <tr>
-        <td>{{ loop.index }}</td>
-        <td>{{ r.employee.full_name }}</td>
-        <td>{{ it.pay_mode }}</td>
-        <td class="num">{{ '{:,.0f}'.format(it.gross_total) }}</td>
-        <td class="num neg">{{ '{:,.0f}'.format(it.fuel_cost_self) if it.fuel_cost_self else '—' }}</td>
-        <td class="num">{{ '{:,.0f}'.format(it.gross_total - it.fuel_cost_self) }}</td>
-        <td class="num">{{ '{:,.0f}'.format(it.deduction_total - it.fuel_cost_self) }}</td>
-        <td class="num {% if it.net_pay < 0 %}neg{% endif %}"><b>{{ '{:,.0f}'.format(it.net_pay) }}</b></td>
-      </tr>
+  <div class="bk-mast">
+    <div><div class="doc-kind">สรุปเงินเดือน</div><div class="wb-brand">Y.K. LOGISTICS<small>Payroll Summary</small></div></div>
+    <div class="wb-mast-meta">{{ run.site_code }} · รอบ <b>{{ run.pay_cycle_tag }}</b><br>{{ run.period_start | dmy }} – {{ run.period_end | dmy }}</div>
+  </div>
+  <div class="bk-wrap">
+    <div class="totband">
+      <div class="cell"><div class="wb-k">รวมรายได้</div><div class="t-v">{{ '{:,.0f}'.format(totals.gross) }}</div></div>
+      <div class="cell"><div class="wb-k">รวมค่าน้ำมัน</div><div class="t-v" style="color:var(--wb-neg)">{{ '{:,.0f}'.format(totals.fuel) }}</div></div>
+      <div class="cell"><div class="wb-k">รวมหัก</div><div class="t-v" style="color:var(--wb-neg)">{{ '{:,.0f}'.format(totals.ded - totals.fuel) }}</div></div>
+      <div class="cell"><div class="wb-k">รวมจ่ายสุทธิ · {{ rows|length }} คน</div><div class="t-v">{{ '{:,.0f}'.format(totals.net) }}</div></div>
+    </div>
+    <table class="run">
+      <thead><tr><th class="r-idx">#</th><th>ชื่อ–สกุล</th><th>โหมด</th>
+        <th class="num">รวมรายได้</th><th class="num">น้ำมัน</th><th class="num">หลังหักน้ำมัน</th><th class="num">รวมหัก</th><th class="num">สุทธิ</th></tr></thead>
+      <tbody>
+      {% for r in rows %}{% set it = r.item %}
+        <tr><td class="r-idx">{{ loop.index }}</td><td class="r-name">{{ r.employee.full_name }}</td>
+          <td class="r-mode">{{ it.pay_mode }}</td>
+          <td class="num">{{ '{:,.0f}'.format(it.gross_total) }}</td>
+          <td class="num minus">{{ '{:,.0f}'.format(it.fuel_cost_self) if it.fuel_cost_self else '—' }}</td>
+          <td class="num">{{ '{:,.0f}'.format(it.gross_total - it.fuel_cost_self) }}</td>
+          <td class="num minus">{{ '{:,.0f}'.format(it.deduction_total - it.fuel_cost_self) if (it.deduction_total - it.fuel_cost_self) else '—' }}</td>
+          <td class="num net {% if it.net_pay < 0 %}neg{% endif %}">{{ '{:,.0f}'.format(it.net_pay) }}</td></tr>
       {% endfor %}
-      <tr>
-        <td colspan="3"><b>รวม {{ rows|length }} คน</b></td>
-        <td class="num"><b>{{ '{:,.0f}'.format(totals.gross) }}</b></td>
-        <td class="num neg"><b>{{ '{:,.0f}'.format(totals.fuel) }}</b></td>
-        <td class="num"><b>{{ '{:,.0f}'.format(totals.gross - totals.fuel) }}</b></td>
-        <td class="num"><b>{{ '{:,.0f}'.format(totals.ded - totals.fuel) }}</b></td>
-        <td class="num"><b>{{ '{:,.0f}'.format(totals.net) }}</b></td>
-      </tr>
-    </tbody>
-  </table>
+      </tbody>
+      <tfoot><tr><td colspan="3">รวม {{ rows|length }} คน</td>
+        <td class="num">{{ '{:,.0f}'.format(totals.gross) }}</td><td class="num minus">{{ '{:,.0f}'.format(totals.fuel) }}</td>
+        <td class="num">{{ '{:,.0f}'.format(totals.gross - totals.fuel) }}</td><td class="num minus">{{ '{:,.0f}'.format(totals.ded - totals.fuel) }}</td>
+        <td class="num net">{{ '{:,.0f}'.format(totals.net) }}</td></tr></tfoot>
+    </table>
+  </div>
+  <div class="bk-foot"><span>เอกสารภายในผู้บริหาร</span><span>Y.K. Logistics · One Platform</span></div>
 </div>
 
-{# ---------- 2. หน้าโอนเงิน ---------- #}
+{# ---------- 2. โอนเงินเดือน ---------- #}
 <div class="block">
-  <h2>โอนเงินเดือน · {{ run.site_code }} · {{ run.pay_cycle_tag }}</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>ลำดับ</th><th>ชื่อ–สกุล</th><th>ธนาคาร / เลขบัญชี</th>
-        <th class="num">จำนวนโอน</th><th>หมายเหตุ</th><th class="no-print">แก้หมายเหตุ</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for r in rows %}
-      {% set it = r.item %}
-      <tr>
-        <td>{{ loop.index }}</td>
-        <td>{{ r.employee.full_name }}</td>
-        <td>
-          {% if r.employee.bank_name or r.employee.account_no %}
-            {{ r.employee.bank_name }} {{ r.employee.account_no }}
-          {% else %}<span class="muted">— ยังไม่กรอกบัญชี —</span>{% endif %}
-        </td>
-        <td class="num {% if it.net_pay < 0 %}neg{% endif %}">{{ '{:,.0f}'.format(it.net_pay) }}</td>
-        <td>{{ r.transfer_note }}</td>
-        <td class="no-print">
-          {% if run.status != 'finalized' %}
-          <form method="post" action="/payroll/{{ run.id }}/employee/{{ r.employee.id }}/transfer-note" class="noteform">
-            <input type="text" name="note" value="{{ it.transfer_note }}" placeholder="{{ r.transfer_note }}">
-            <button type="submit">บันทึก</button>
-          </form>
-          {% endif %}
-        </td>
-      </tr>
+  <div class="bk-mast">
+    <div><div class="doc-kind">โอนเงินเดือน</div><div class="wb-brand">Y.K. LOGISTICS<small>Bank Transfer</small></div></div>
+    <div class="wb-mast-meta">{{ run.site_code }} · รอบ <b>{{ run.pay_cycle_tag }}</b><br>{{ run.period_start | dmy }} – {{ run.period_end | dmy }}</div>
+  </div>
+  <div class="bk-wrap">
+    <div class="totband">
+      <div class="cell"><div class="wb-k">จำนวนรายการ</div><div class="t-v">{{ rows|length }}</div></div>
+      <div class="cell pay" style="flex:1.3"><div class="wb-k">ยอดโอนรวมทั้งสิ้น</div><div class="t-v">฿ {{ '{:,.2f}'.format(totals.net) }}</div></div>
+    </div>
+    <table class="run">
+      <thead><tr><th class="r-idx">#</th><th>ชื่อ–สกุล</th><th>ธนาคาร / เลขบัญชี</th><th>หมายเหตุ</th><th class="num">จำนวนโอน</th><th class="no-print">แก้</th></tr></thead>
+      <tbody>
+      {% for r in rows %}{% set it = r.item %}
+        <tr><td class="r-idx">{{ loop.index }}</td><td class="r-name">{{ r.employee.full_name }}</td>
+          <td class="r-bank">{% if r.employee.bank_name or r.employee.account_no %}{{ r.employee.bank_name }} {{ r.employee.account_no }}{% else %}<span class="wb-muted">— ยังไม่กรอกบัญชี —</span>{% endif %}</td>
+          <td style="font-size:11px;color:var(--wb-soft);">{{ r.transfer_note }}</td>
+          <td class="num net {% if it.net_pay < 0 %}neg{% endif %}">{{ '{:,.0f}'.format(it.net_pay) }}</td>
+          <td class="no-print">{% if run.status != 'finalized' %}<form method="post" action="/payroll/{{ run.id }}/employee/{{ r.employee.id }}/transfer-note" class="noteform"><input type="text" name="note" value="{{ it.transfer_note }}" placeholder="{{ r.transfer_note }}"><button type="submit">บันทึก</button></form>{% endif %}</td></tr>
       {% endfor %}
-      <tr>
-        <td colspan="3"><b>รวมโอน {{ rows|length }} คน</b></td>
-        <td class="num"><b>{{ '{:,.0f}'.format(totals.net) }}</b></td>
-        <td colspan="2" class="no-print"></td>
-      </tr>
-    </tbody>
-  </table>
+      </tbody>
+      <tfoot><tr><td colspan="4">รวมโอน {{ rows|length }} คน</td><td class="num net">{{ '{:,.0f}'.format(totals.net) }}</td><td class="no-print"></td></tr></tfoot>
+    </table>
+  </div>
+  <div class="bk-foot"><span>ตรวจเลขบัญชีก่อนโอนทุกครั้ง</span><span>Y.K. Logistics · One Platform</span></div>
 </div>
 
 {# ---------- 3. สลิปรายคน (ดีไซน์เดียวกับหน้ารายคน ผ่าน _slip_body.html) ---------- #}

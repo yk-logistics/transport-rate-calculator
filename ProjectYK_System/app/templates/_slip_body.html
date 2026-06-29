@@ -1,285 +1,193 @@
-{# สลิปเงินเดือน 1 คน (ดีไซน์เดียวกับหน้ารายคน) — ใช้ทั้ง payroll_slip.html (เดี่ยว) + payroll_print_all.html (วนทุกคน). ใช้ตัวแปร context จาก build_payroll_slip_context: daily_jobs/item/employee/run/mixed/route_text/day_kind/petty_lines/.../fuel_*. ปุ่ม filter petty เป็น no-print (ไม่กระทบ PDF). #}
+{# สลิปเงินเดือน 1 คน · Design "Waybill" — ใช้ทั้ง payroll_slip.html (เดี่ยว) + payroll_print_all.html (วนทุกคน).
+   ctx จาก build_payroll_slip_context. เก็บ logic ทุก pay_mode (mixed/normal/petty/fuel). บนจอสีเต็ม; ปริ้นพื้นขาวสนิท (@media print ใน CSS). #}
 <div class="slip{% if daily_jobs|length > 52 %} ultra{% elif daily_jobs|length > 38 %} dense{% endif %}"{% if employee %} data-driver="{{ employee.full_name }}" data-emp="{{ employee.id }}"{% endif %}>
 
-  <div class="header-line">
-    <div>
-      <h1>Y.K. LOGISTICS — สลิปเงินเดือน</h1>
-    </div>
-    <div class="meta">
-      ช่วงงวด <strong>{{ run.period_start | dmy }} → {{ run.period_end | dmy }}</strong>
-      &nbsp;·&nbsp; รอบ {{ run.pay_cycle_tag }}
-    </div>
+  {# ===== masthead ===== #}
+  <div class="wb-mast">
+    <div class="wb-brand">Y.K. LOGISTICS<small>สลิปเงินเดือน · Payslip</small></div>
+    <div class="wb-mast-meta">ช่วงงวด <b>{{ run.period_start | dmy }} – {{ run.period_end | dmy }}</b><br>รอบ <b>{{ run.pay_cycle_tag }}</b> · {{ run.site_code }}</div>
   </div>
 
-  <div class="driver-line">
-    <div>
-      <div class="lbl">คนขับ</div>
-      <div class="val">{{ employee.full_name }}{% if employee.nickname %} ({{ employee.nickname }}){% endif %}</div>
-    </div>
-    <div>
-      <div class="lbl">รหัส / ไซต์</div>
-      <div class="val">{{ employee.code }} · {{ run.site_code }}</div>
-    </div>
-    <div>
-      <div class="lbl">ทะเบียนรถ</div>
-      <div class="val">{{ plates_used or '—' }}</div>
-    </div>
+  {# ===== identity strip ===== #}
+  <div class="wb-who">
+    <div><div class="wb-k">คนขับ</div><div class="wb-v">{{ employee.full_name }}{% if employee.nickname %} ({{ employee.nickname }}){% endif %}</div></div>
+    <div><div class="wb-k">รหัส</div><div class="wb-v">{{ employee.code }}</div></div>
+    <div><div class="wb-k">ทะเบียนรถ</div><div class="wb-v">{{ plates_used or '—' }}</div></div>
+    <div><div class="wb-k">วันทำงาน</div><div class="wb-v">{{ '{:.0f}'.format(item.days_worked) }} <span class="wb-muted" style="font-size:11px;">ลา {{ '{:.0f}'.format(item.days_leave) }} · ขาด {{ '{:.0f}'.format(item.days_absent) }}</span></div></div>
   </div>
 
-  {% if mixed %}
-  <!-- lcb_mixed: ตารางเดียวเรียงวันที่ + ป้ายบอกเหมา/เที่ยว/รถจอด -->
-  <div style="font-size:11px; margin:6px 0 6px; color:#334155;">
-    <span style="background:#d1fae5; padding:2px 6px; border-radius:4px;">🟢 เหมา {{ mixed.n_mao }} วัน</span>
-    <span style="background:#dbeafe; padding:2px 6px; border-radius:4px;">🔵 เที่ยว {{ mixed.n_trip }} วัน</span>
-    <span style="background:#e2e8f0; padding:2px 6px; border-radius:4px;">⚪ รถจอด {{ mixed.n_idle }} วัน</span>
+  {# ===== money ribbon (signature): รายได้ → −น้ำมัน → −หัก → สุทธิ ===== #}
+  <div class="wb-ribbon">
+    <div class="seg"><div class="lab">รวมรายได้</div><div class="fig">{{ '{:,.0f}'.format(item.gross_total) }}</div></div>
+    <div class="seg minus"><div class="lab">− ค่าน้ำมัน</div><div class="fig">{{ '{:,.0f}'.format(item.fuel_cost_self) }}</div></div>
+    <div class="seg minus"><div class="lab">− เงินหัก</div><div class="fig">{{ '{:,.0f}'.format(item.deduction_total - item.fuel_cost_self) }}</div></div>
+    <div class="seg net"><div class="lab">ยอดรับสุทธิ</div><div class="fig {% if item.net_pay < 0 %}neg{% endif %}">฿ {{ '{:,.2f}'.format(item.net_pay) }}</div></div>
   </div>
-  <table class="daily">
-    <thead>
-      <tr>
-        <th style="width:60px;">วันที่</th>
-        <th style="width:54px;">ฝั่ง</th>
-        <th>ส่งสินค้า (ต้นทาง → โรงงาน → ปลายทาง)</th>
-        <th style="width:64px;" class="num">ค่าแรง</th>
-        <th style="width:46px;" class="num">น้ำมัน(L)</th>
-        <th style="width:60px;" class="num">น้ำมัน(฿)</th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for r in daily_jobs %}
-      {% set k = day_kind(r) %}
-      <tr>
-        <td>{{ r.work_date | dmy }}</td>
-        <td>{% if k.kind == 'mao' %}🟢 เหมา{% elif k.kind == 'trip' %}🔵 เที่ยว{% else %}⚪ {{ k.label }}{% endif %}</td>
-        <td>{{ route_text(r) or '—' }}{% if r.customer_name_raw %} <span style="color:#94a3b8;">· {{ r.customer_name_raw }}</span>{% endif %}</td>
-        <td class="num">
-          {%- if k.kind == 'mao' %}{{ '{:,.0f}'.format((r.revenue_customer or 0) * 0.60) }}
-          {%- elif k.kind == 'trip' %}{{ '{:,.0f}'.format(r.trip_fee_driver) if r.trip_fee_driver else '0' }}
-          {%- else %}—{% endif %}
-        </td>
-        <td class="num">{{ '{:,.0f}'.format(r.fuel_liter) if r.fuel_liter else '' }}</td>
-        <td class="num">
-          {%- if r.fuel_amount %}{{ '{:,.0f}'.format(r.fuel_amount) }}
-            {%- if r.work_date in fuel_deduct_dates %}<div style="font-size:8px; color:#b91c1c;">หัก</div>
-            {%- elif k.kind == 'trip' %}<div style="font-size:8px; color:#94a3b8;">บริษัทออก</div>{% endif %}
-          {%- endif %}
-        </td>
-      </tr>
-    {% endfor %}
-    </tbody>
-    <tfoot>
-      <tr style="font-weight:700; border-top:2px solid #cbd5e1;">
-        <td colspan="4" style="text-align:right;">รวมน้ำมัน</td>
-        <td class="num">{{ '{:,.0f}'.format(daily_jobs | sum(attribute='fuel_liter')) }}</td>
-        <td class="num">{{ '{:,.0f}'.format(daily_jobs | sum(attribute='fuel_amount')) }}</td>
-      </tr>
-    </tfoot>
-  </table>
-  <div style="font-size:10px; color:#64748b; margin-top:2px;">
-    ค่าแรง = วันเหมาได้ 60% ของค่าขนส่ง · วันเที่ยวได้ค่าเที่ยว ·
-    เงินพิเศษ/OT/รับตู้คืนตู้ แยกบรรทัดในช่อง "รายได้" ด้านล่าง
-  </div>
-  {% else %}
-  <table class="daily">
-    <thead>
-      <tr>
-        <th style="width:62px;">วันที่</th>
-        <th style="width:70px;">ทะเบียน</th>
-        <th>ส่งสินค้า (ต้นทาง → โหลด → ปลายทาง) / หมายเหตุ</th>
-        <th style="width:80px;">ใบงาน</th>
-        <th style="width:46px;" class="num">น้ำมัน(L)</th>
-        <th style="width:58px;" class="num">น้ำมัน(฿)</th>
-        <th style="width:64px;" class="num">ค่าเที่ยว</th>
-        <th style="width:48px;" class="num">เรท</th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for r in daily_jobs %}
-      <tr>
-        <td>{{ r.work_date | dmy }}</td>
-        <td>{{ r.plate_no_raw or '' }}</td>
-        <td>
-          {{ route_text(r) or r.destination or '' }}
-          {% if r.remark %}<span style="color:#64748b;">· {{ r.remark }}</span>{% endif %}
-        </td>
-        <td>{{ r.doc_no or r.job_ref or r.container_no or '' }}</td>
-        <td class="num">{% if r.fuel_liter %}{{ '{:.0f}'.format(r.fuel_liter) }}{% endif %}</td>
-        <td class="num">
-          {%- if r.fuel_amount %}{{ '{:,.0f}'.format(r.fuel_amount) }}
-            {%- if r.id in excluded_job_ids %}<div style="font-size:8px; color:#16a34a;">ไม่หัก</div>{% endif %}
-          {%- endif %}
-        </td>
-        <td class="num">{% if r.trip_fee_driver %}{{ '{:,.0f}'.format(r.trip_fee_driver) }}{% endif %}</td>
-        <td class="num">{% if r.fuel_rate_km_per_l %}{{ '{:.2f}'.format(r.fuel_rate_km_per_l) }}{% endif %}</td>
-      </tr>
-    {% endfor %}
-    {# บิลวัดถัง (ไม่มี daily_job_id) — โชว์แยกให้คนขับเห็นว่าหักด้วย #}
-    {% for t in tank_measure_rows %}
-      <tr style="background:#fef9c3;">
-        <td>{{ t.txn_date | dmy }}</td>
-        <td colspan="3" style="color:#92400e;">🛢 วัดถัง (น้ำมันในถังที่หัก){% if t.note and t.note != 'วัดถัง' %} · {{ t.note }}{% endif %}</td>
-        <td class="num">{{ '{:.0f}'.format(t.liter) if t.liter else '' }}</td>
-        <td class="num" style="color:#b91c1c;">{{ '{:,.0f}'.format(t.amount) }}</td>
-        <td colspan="2"></td>
-      </tr>
-    {% endfor %}
-    </tbody>
-    <tfoot>
-      <tr style="font-weight:700; border-top:2px solid #cbd5e1;">
-        <td colspan="4" style="text-align:right;">รวมน้ำมันในตาราง (ทั้งหมด)</td>
-        <td class="num">{{ '{:,.0f}'.format(daily_jobs | sum(attribute='fuel_liter')) }}</td>
-        <td class="num">{{ '{:,.0f}'.format(daily_jobs | sum(attribute='fuel_amount')) }}</td>
-        <td colspan="2"></td>
-      </tr>
-      {% if item.fuel_cost_self %}
-      <tr style="font-weight:700; color:#b91c1c;">
-        <td colspan="4" style="text-align:right;">น้ำมันที่หักจริง (ตามยอดหักด้านล่าง)</td>
-        <td class="num">{{ '{:,.0f}'.format(fuel_deducted_liter) if fuel_deducted_liter else '' }}</td>
-        <td class="num">{{ '{:,.0f}'.format(item.fuel_cost_self) }}</td>
-        <td colspan="2" style="font-size:9px; color:#16a34a; font-weight:400;">
-          {% if fuel_excluded_amt %}ไม่หัก {{ '{:,.0f}'.format(fuel_excluded_amt) }} (ถังแรก/ก่อนวิ่ง){% endif %}
-        </td>
-      </tr>
+
+  {# ===== body: 2 คอลัมน์ น้ำหนักเท่ากัน ===== #}
+  <div class="wb-body">
+    <div class="wb-col left">
+      <div class="wb-sec">รายการวิ่งงาน <span>{{ daily_jobs|length }} วัน</span></div>
+
+      {% if mixed %}
+      <div style="font-size:10px; margin:0 0 6px; color:var(--wb-soft);">
+        <span class="wb-chip">🟢 เหมา {{ mixed.n_mao }}</span>
+        <span class="wb-chip">🔵 เที่ยว {{ mixed.n_trip }}</span>
+        <span class="wb-chip">⚪ รถจอด {{ mixed.n_idle }}</span>
+      </div>
+      <table class="daily">
+        <thead><tr>
+          <th style="width:54px;">วันที่</th><th style="width:48px;">ฝั่ง</th>
+          <th>ส่งสินค้า (ต้นทาง → โหลด → ปลายทาง)</th>
+          <th class="num" style="width:58px;">ค่าแรง</th><th class="num" style="width:40px;">ลิตร</th><th class="num" style="width:52px;">น้ำมัน ฿</th>
+        </tr></thead>
+        <tbody>
+        {% for r in daily_jobs %}
+          {% set k = day_kind(r) %}
+          <tr>
+            <td class="c-date">{{ r.work_date | dmy }}</td>
+            <td>{% if k.kind == 'mao' %}เหมา{% elif k.kind == 'trip' %}เที่ยว{% else %}{{ k.label }}{% endif %}</td>
+            <td class="c-route">{{ route_text(r) or '—' }}{% if r.customer_name_raw %} <span class="wb-muted">· {{ r.customer_name_raw }}</span>{% endif %}</td>
+            <td class="num c-trip">
+              {%- if k.kind == 'mao' %}{{ '{:,.0f}'.format((r.revenue_customer or 0) * 0.60) }}
+              {%- elif k.kind == 'trip' %}{{ '{:,.0f}'.format(r.trip_fee_driver) if r.trip_fee_driver else '0' }}
+              {%- else %}—{% endif %}
+            </td>
+            <td class="num">{{ '{:,.0f}'.format(r.fuel_liter) if r.fuel_liter else '' }}</td>
+            <td class="num">
+              {%- if r.fuel_amount %}{{ '{:,.0f}'.format(r.fuel_amount) }}
+                {%- if r.work_date in fuel_deduct_dates %} <span class="tag-cut">หัก</span>
+                {%- elif k.kind == 'trip' %} <span class="tag-co">บริษัท</span>{% endif %}
+              {%- endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr><td colspan="4" style="text-align:right;">รวมน้ำมัน</td>
+            <td class="num">{{ '{:,.0f}'.format(daily_jobs | sum(attribute='fuel_liter')) }}</td>
+            <td class="num">{{ '{:,.0f}'.format(daily_jobs | sum(attribute='fuel_amount')) }}</td></tr>
+        </tfoot>
+      </table>
+      <div class="wb-foot-note">ค่าแรง = วันเหมา 60% ค่าขนส่ง · วันเที่ยวได้ค่าเที่ยว · พิเศษ/OT/รับตู้ดูในช่อง "รายได้"</div>
+
+      {% else %}
+      <table class="daily">
+        <thead><tr>
+          <th style="width:54px;">วันที่</th>
+          <th>ส่งสินค้า (ต้นทาง → โหลด → ปลายทาง)</th>
+          <th class="num" style="width:38px;">ลิตร</th><th class="num" style="width:52px;">น้ำมัน ฿</th><th class="num" style="width:54px;">ค่าเที่ยว</th>
+        </tr></thead>
+        <tbody>
+        {% for r in daily_jobs %}
+          <tr>
+            <td class="c-date">{{ r.work_date | dmy }}</td>
+            <td class="c-route">{{ route_text(r) or r.destination or '<span class="wb-muted">—</span>' | safe }}{% if r.doc_no %} <span class="wb-muted">· {{ r.doc_no }}</span>{% elif r.remark %} <span class="wb-muted">· {{ r.remark }}</span>{% endif %}</td>
+            <td class="num">{% if r.fuel_liter %}{{ '{:.0f}'.format(r.fuel_liter) }}{% endif %}</td>
+            <td class="num">
+              {%- if r.fuel_amount %}{{ '{:,.0f}'.format(r.fuel_amount) }}
+                {%- if r.id in excluded_job_ids %} <span class="tag-free">ไม่หัก</span>{% endif %}
+              {%- endif %}
+            </td>
+            <td class="num c-trip">{% if r.trip_fee_driver %}{{ '{:,.0f}'.format(r.trip_fee_driver) }}{% endif %}</td>
+          </tr>
+        {% endfor %}
+        {% for t in tank_measure_rows %}
+          <tr class="row-tank">
+            <td class="c-date">{{ t.txn_date | dmy }}</td>
+            <td>🛢 วัดถัง (น้ำมันในถังที่หัก){% if t.note and t.note != 'วัดถัง' %} · {{ t.note }}{% endif %}</td>
+            <td class="num">{{ '{:.0f}'.format(t.liter) if t.liter else '' }}</td>
+            <td class="num c-cut">{{ '{:,.0f}'.format(t.amount) }}</td>
+            <td></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr><td colspan="2" style="text-align:right;">รวมน้ำมันในตาราง</td>
+            <td class="num">{{ '{:,.0f}'.format(daily_jobs | sum(attribute='fuel_liter')) }}</td>
+            <td class="num">{{ '{:,.0f}'.format(daily_jobs | sum(attribute='fuel_amount')) }}</td><td></td></tr>
+          {% if item.fuel_cost_self %}
+          <tr class="ft-cut"><td colspan="2" style="text-align:right;">น้ำมันที่หักจริง</td>
+            <td class="num">{{ '{:,.0f}'.format(fuel_deducted_liter) if fuel_deducted_liter else '' }}</td>
+            <td class="num">{{ '{:,.0f}'.format(item.fuel_cost_self) }}</td>
+            <td class="ft-free">{% if fuel_excluded_amt %}ไม่หัก {{ '{:,.0f}'.format(fuel_excluded_amt) }}{% endif %}</td></tr>
+          {% endif %}
+        </tfoot>
+      </table>
       {% endif %}
-    </tfoot>
-  </table>
-  {% endif %}
-
-  <div class="row-grid">
-
-    <div class="panel">
-      <h3>การใช้รถ / น้ำมัน</h3>
-      <div class="line"><span>ไมล์เริ่มต้น</span><span class="v">{{ '{:,.0f}'.format(mile_start) if mile_start else '—' }}</span></div>
-      <div class="line"><span>ไมล์สิ้นสุด</span><span class="v">{{ '{:,.0f}'.format(mile_end) if mile_end else '—' }}</span></div>
-      <div class="line"><span>กม.ที่วิ่ง</span><span class="v">{% if km_run %}{{ '{:,.0f}'.format(km_run) }}{% else %}—{% endif %}</span></div>
-      <div class="line"><span>น้ำมันที่ใช้</span><span class="v">{% if fuel_used_l %}{{ '{:,.2f}'.format(fuel_used_l) }} L{% else %}—{% endif %}</span></div>
-      <div class="line"><span>เรทน้ำมันเฉลี่ย</span><span class="v">{% if avg_km_per_l %}{{ '{:.2f}'.format(avg_km_per_l) }} km/L{% else %}—{% endif %}</span></div>
-      <div style="margin-top:10px; font-size:10px; color:#64748b;">
-        วันทำงาน {{ '{:.0f}'.format(item.days_worked) }} ·
-        ลา {{ '{:.0f}'.format(item.days_leave) }} ·
-        ขาด {{ '{:.0f}'.format(item.days_absent) }}
-      </div>
     </div>
 
-    <div>
-      <div class="panel" style="margin-bottom:8px;">
-        <h3>รายได้</h3>
-        {% set inc_total = 0 %}
-        {% if item.base_salary_earned %}
-          <div class="line"><span>เงินเดือน</span><span class="v">{{ '{:,.2f}'.format(item.base_salary_earned) }}</span></div>
-          {% set inc_total = inc_total + item.base_salary_earned %}
-        {% endif %}
-        {% if item.care_allowance_earned %}
-          <div class="line"><span>ค่าดูแลรถ</span><span class="v">{{ '{:,.2f}'.format(item.care_allowance_earned) }}</span></div>
-          {% set inc_total = inc_total + item.care_allowance_earned %}
-        {% endif %}
+    <div class="wb-col right">
+      {# ----- สรุปเงิน ----- #}
+      <div class="wb-sec">สรุปเงิน</div>
+      <div class="wb-ledger">
+        {% if item.base_salary_earned %}<div class="lr"><span>เงินเดือน</span><span class="amt">{{ '{:,.2f}'.format(item.base_salary_earned) }}</span></div>{% endif %}
+        {% if item.care_allowance_earned %}<div class="lr"><span>ค่าดูแลรถ</span><span class="amt">{{ '{:,.2f}'.format(item.care_allowance_earned) }}</span></div>{% endif %}
         {% if item.pay_mode == "lcb_mixed" %}
-          {% if item.fuel_share_income %}
-            <div class="line"><span>&#9656; เหมา (60% ค่าขนส่ง)</span><span class="v">{{ '{:,.2f}'.format(item.fuel_share_income) }}</span></div>
-            {% set inc_total = inc_total + item.fuel_share_income %}
-          {% endif %}
-          {% if item.trip_fee_total %}
-            <div class="line"><span>&#9656; เที่ยว (ค่าเที่ยว)</span><span class="v">{{ '{:,.2f}'.format(item.trip_fee_total) }}</span></div>
-            {% set inc_total = inc_total + item.trip_fee_total %}
-          {% endif %}
+          {% if item.fuel_share_income %}<div class="lr"><span>&#9656; เหมา (60% ค่าขนส่ง)</span><span class="amt">{{ '{:,.2f}'.format(item.fuel_share_income) }}</span></div>{% endif %}
+          {% if item.trip_fee_total %}<div class="lr"><span>&#9656; เที่ยว (ค่าเที่ยว)</span><span class="amt">{{ '{:,.2f}'.format(item.trip_fee_total) }}</span></div>{% endif %}
         {% else %}
-          {% if item.trip_fee_total %}
-            <div class="line"><span>ค่าเที่ยว</span><span class="v">{{ '{:,.2f}'.format(item.trip_fee_total) }}</span></div>
-            {% set inc_total = inc_total + item.trip_fee_total %}
-          {% endif %}
-          {% if item.fuel_rate_income %}
-            <div class="line"><span>ค่าเรทน้ำมัน</span><span class="v">{{ '{:,.2f}'.format(item.fuel_rate_income) }}</span></div>
-            {% set inc_total = inc_total + item.fuel_rate_income %}
-          {% endif %}
-          {% if item.fuel_share_income %}
-            <div class="line"><span>ส่วนแบ่งน้ำมัน</span><span class="v">{{ '{:,.2f}'.format(item.fuel_share_income) }}</span></div>
-            {% set inc_total = inc_total + item.fuel_share_income %}
-          {% endif %}
+          {% if item.trip_fee_total %}<div class="lr"><span>ค่าเที่ยว</span><span class="amt">{{ '{:,.2f}'.format(item.trip_fee_total) }}</span></div>{% endif %}
+          {% if item.fuel_rate_income %}<div class="lr"><span>ค่าเรทน้ำมัน</span><span class="amt">{{ '{:,.2f}'.format(item.fuel_rate_income) }}</span></div>{% endif %}
+          {% if item.fuel_share_income %}<div class="lr"><span>ส่วนแบ่งน้ำมัน</span><span class="amt">{{ '{:,.2f}'.format(item.fuel_share_income) }}</span></div>{% endif %}
         {% endif %}
-        {% if item.guarantee_topup %}
-          <div class="line"><span>ชดเชยการันตี</span><span class="v">{{ '{:,.2f}'.format(item.guarantee_topup) }}</span></div>
-          {% set inc_total = inc_total + item.guarantee_topup %}
-        {% endif %}
-        {% if item.special_income %}
-          <div class="line"><span>พิเศษ</span><span class="v">{{ '{:,.2f}'.format(item.special_income) }}</span></div>
-        {% endif %}
-        {% if item.ot_income %}
-          <div class="line"><span>OT</span><span class="v">{{ '{:,.2f}'.format(item.ot_income) }}</span></div>
-        {% endif %}
-        {% if item.pickup_return_income %}
-          <div class="line"><span>รับตู้คืนตู้</span><span class="v">{{ '{:,.2f}'.format(item.pickup_return_income) }}</span></div>
-        {% endif %}
+        {% if item.guarantee_topup %}<div class="lr"><span>ชดเชยการันตี</span><span class="amt">{{ '{:,.2f}'.format(item.guarantee_topup) }}</span></div>{% endif %}
+        {% if item.special_income %}<div class="lr"><span>พิเศษ</span><span class="amt">{{ '{:,.2f}'.format(item.special_income) }}</span></div>{% endif %}
+        {% if item.ot_income %}<div class="lr"><span>OT</span><span class="amt">{{ '{:,.2f}'.format(item.ot_income) }}</span></div>{% endif %}
+        {% if item.pickup_return_income %}<div class="lr"><span>รับตู้คืนตู้</span><span class="amt">{{ '{:,.2f}'.format(item.pickup_return_income) }}</span></div>{% endif %}
         {% set other_rest = item.other_income - item.special_income - item.ot_income - item.pickup_return_income %}
-        {% if other_rest|round(2) != 0 %}
-          <div class="line"><span>รายได้อื่น</span><span class="v">{{ '{:,.2f}'.format(other_rest) }}</span></div>
-        {% endif %}
-        {% if item.other_income %}{% set inc_total = inc_total + item.other_income %}{% endif %}
-        <div class="line"><span>รวมรายได้</span><span class="v">{{ '{:,.2f}'.format(item.gross_total) }}</span></div>
-        {% if item.fuel_cost_self %}
-          <div class="line"><span>− ค่าน้ำมัน</span><span class="v" style="color:#b91c1c;">{{ '{:,.2f}'.format(item.fuel_cost_self) }}</span></div>
-        {% endif %}
-        <div class="total"><span>รายได้หลังหักน้ำมัน</span><span>{{ '{:,.2f}'.format(item.gross_total - item.fuel_cost_self) }}</span></div>
+        {% if other_rest|round(2) != 0 %}<div class="lr"><span>รายได้อื่น</span><span class="amt">{{ '{:,.2f}'.format(other_rest) }}</span></div>{% endif %}
+        <div class="lr sum"><span>รวมรายได้</span><span class="amt">{{ '{:,.2f}'.format(item.gross_total) }}</span></div>
+        {% if item.fuel_cost_self %}<div class="lr minus"><span>− ค่าน้ำมัน (หักจริง)</span><span class="amt">{{ '{:,.2f}'.format(item.fuel_cost_self) }}</span></div>{% endif %}
+        <div class="lr sum"><span>รายได้หลังหักน้ำมัน</span><span class="amt">{{ '{:,.2f}'.format(item.gross_total - item.fuel_cost_self) }}</span></div>
       </div>
 
-      <div class="panel">
-        <h3>เงินหัก</h3>
-        {% if item.social_security %}
-          <div class="line"><span>ประกันสังคม</span><span class="v">{{ '{:,.2f}'.format(item.social_security) }}</span></div>
-        {% endif %}
-        {% if item.income_tax_withholding %}
-          <div class="line"><span>ภาษีหัก ณ ที่จ่าย</span><span class="v">{{ '{:,.2f}'.format(item.income_tax_withholding) }}</span></div>
-        {% endif %}
-        {% if item.deposit_install %}
-          {% set dep_no = employee | dep_install %}
-          <div class="line"><span>เงินประกัน (ผ่อน){% if dep_no %} งวดที่ {{ dep_no }}{% endif %}</span><span class="v">{{ '{:,.2f}'.format(item.deposit_install) }}</span></div>
-        {% endif %}
-        {% if item.accident_install %}
-          <div class="line"><span>ผ่อนอุบัติเหตุ</span><span class="v">{{ '{:,.2f}'.format(item.accident_install) }}</span></div>
-        {% endif %}
-        {# เงินเบิก/หัก: รายการที่หัก โชว์เสมอ; รายการไม่หัก ติ๊กซ่อนได้ #}
+      {# ----- เงินหัก ----- #}
+      <div class="wb-sub">เงินหัก</div>
+      <div class="wb-ledger">
+        {% if item.social_security %}<div class="lr minus"><span>ประกันสังคม</span><span class="amt">{{ '{:,.2f}'.format(item.social_security) }}</span></div>{% endif %}
+        {% if item.income_tax_withholding %}<div class="lr minus"><span>ภาษีหัก ณ ที่จ่าย</span><span class="amt">{{ '{:,.2f}'.format(item.income_tax_withholding) }}</span></div>{% endif %}
+        {% if item.deposit_install %}{% set dep_no = employee | dep_install %}<div class="lr minus"><span>เงินประกัน (ผ่อน){% if dep_no %}<span class="dep-badge">งวด {{ dep_no }}</span>{% endif %}</span><span class="amt">{{ '{:,.2f}'.format(item.deposit_install) }}</span></div>{% endif %}
+        {% if item.accident_install %}<div class="lr minus"><span>ผ่อนอุบัติเหตุ</span><span class="amt">{{ '{:,.2f}'.format(item.accident_install) }}</span></div>{% endif %}
         {% if petty_lines or petty_lines_extra %}
-        <div class="pettyControls no-print" style="font-size:10px; color:#475569; margin:4px 0; display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+        <div class="pettyControls no-print" style="font-size:10px; color:var(--wb-soft); margin:4px 0; display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
           <span style="font-weight:600;">เงินเบิก:</span>
           <label><input type="radio" name="pettyView" value="date" checked> เรียงวันที่</label>
           <label><input type="radio" name="pettyView" value="cat"> แยกหมวด</label>
-          <span style="border-left:1px solid #cbd5e1; padding-left:8px;">โชว์รายการไม่หัก:</span>
-          {% for cat, catlabel in petty_categories %}
-          <label><input type="checkbox" class="pettyCatChk" value="{{ cat }}" checked> {{ catlabel }}</label>
-          {% endfor %}
+          <span style="border-left:1px solid var(--wb-line); padding-left:8px;">โชว์รายการไม่หัก:</span>
+          {% for cat, catlabel in petty_categories %}<label><input type="checkbox" class="pettyCatChk" value="{{ cat }}" checked> {{ catlabel }}</label>{% endfor %}
         </div>
         {% endif %}
         <div id="pettyLines">
         {% for p in petty_lines %}
-          <div class="line petty-row" data-deducted="1" data-cat="{{ p.category }}" data-date="{{ p.txn_date.isoformat() }}">
-            <span>{{ p.txn_date | dmy }} · {{ p.label }} <span style="color:#b91c1c; font-size:9px;">(หัก)</span></span>
-            <span class="v">{{ '{:,.2f}'.format(p.amount) }}</span>
+          <div class="lr sub petty-row" data-deducted="1" data-cat="{{ p.category }}" data-date="{{ p.txn_date.isoformat() }}">
+            <span>{{ p.txn_date | dmy }} · {{ p.label }}</span><span class="amt">{{ '{:,.2f}'.format(p.amount) }}</span>
           </div>
         {% endfor %}
         {% for p in petty_lines_extra %}
-          <div class="line petty-row" data-deducted="0" data-cat="{{ p.category }}" data-date="{{ p.txn_date.isoformat() }}" style="color:#64748b;">
-            <span>{{ p.txn_date | dmy }} · {{ p.label }}{% if p.direction == 'in' %} <span style="color:#047857; font-size:9px;">(รับเข้า)</span>{% else %} <span style="font-size:9px;">(ไม่หัก)</span>{% endif %}</span>
-            <span class="v">{{ '{:,.2f}'.format(p.amount) }}</span>
+          <div class="lr sub petty-row off" data-deducted="0" data-cat="{{ p.category }}" data-date="{{ p.txn_date.isoformat() }}">
+            <span>{{ p.txn_date | dmy }} · {{ p.label }}{% if p.direction == 'in' %} (รับเข้า){% else %} (ไม่หัก){% endif %}</span><span class="amt">{{ '{:,.2f}'.format(p.amount) }}</span>
           </div>
         {% endfor %}
         </div>
-        <div id="pettyHiddenNote" class="no-print" style="font-size:9px; color:#94a3b8; display:none;"></div>
-        {% if item.other_deduction %}
-          <div class="line"><span>หักอื่นๆ</span><span class="v">{{ '{:,.2f}'.format(item.other_deduction) }}</span></div>
-        {% endif %}
-        <div class="total"><span>รวมหัก (ไม่รวมน้ำมัน)</span><span>{{ '{:,.2f}'.format(item.deduction_total - item.fuel_cost_self) }}</span></div>
+        <div id="pettyHiddenNote" class="no-print" style="font-size:9px; color:var(--wb-muted); display:none;"></div>
+        {% if item.other_deduction %}<div class="lr minus"><span>หักอื่นๆ</span><span class="amt">{{ '{:,.2f}'.format(item.other_deduction) }}</span></div>{% endif %}
+        <div class="lr sum minus"><span>รวมหัก (ไม่รวมน้ำมัน)</span><span class="amt">{{ '{:,.2f}'.format(item.deduction_total - item.fuel_cost_self) }}</span></div>
+      </div>
+
+      {# ----- การใช้รถ ----- #}
+      <div class="wb-sub">การใช้รถ / น้ำมัน</div>
+      <div class="wb-gauge">
+        <div class="cell"><div class="wb-k">กม.ที่วิ่ง</div><div class="g-v">{% if km_run %}{{ '{:,.0f}'.format(km_run) }}{% else %}—{% endif %}</div></div>
+        <div class="cell"><div class="wb-k">น้ำมันใช้</div><div class="g-v">{% if fuel_used_l %}{{ '{:,.0f}'.format(fuel_used_l) }}<span style="font-size:9px;"> L</span>{% else %}—{% endif %}</div></div>
+        <div class="cell"><div class="wb-k">เรทเฉลี่ย</div><div class="g-v">{% if avg_km_per_l %}{{ '{:.2f}'.format(avg_km_per_l) }}<span style="font-size:9px;"> km/L</span>{% else %}—{% endif %}</div></div>
       </div>
     </div>
   </div>
 
-  <div class="net-box">
-    <div class="lbl">ยอดรับสุทธิ (หลังหักค่าใช้จ่าย)</div>
-    <div class="val {% if item.net_pay < 0 %}net-neg{% else %}net-pos{% endif %}">
-      {{ '{:,.2f}'.format(item.net_pay) }} ฿
-    </div>
-  </div>
-
-  <div class="footer-note">
-    <div>คำนวณ: {{ item.computed_at | dmy_hm if item.computed_at else '—' }}</div>
-    <div>Y.K. Logistics · One Platform</div>
+  <div class="wb-footer">
+    <span>คำนวณ: {{ item.computed_at | dmy_hm if item.computed_at else '—' }}</span>
+    <span>Y.K. Logistics · One Platform</span>
   </div>
 
 </div>
