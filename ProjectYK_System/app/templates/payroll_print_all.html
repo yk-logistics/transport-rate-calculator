@@ -33,14 +33,17 @@
 <body>
 
 <div class="toolbar no-print">
-  <button onclick="window.print()">🖨 พิมพ์</button>
-  <button onclick="window.print()" style="margin-left:8px;">💾 เซฟ PDF</button>
+  <button onclick="window.print()">🖨 พิมพ์ (ไฟล์รวม)</button>
+  <button onclick="window.print()" style="margin-left:8px;">💾 เซฟ PDF (ไฟล์รวม)</button>
+  <button id="zipBtn" onclick="exportPerDriverZip()" style="margin-left:8px; background:#2563eb; color:#fff; border:none; border-radius:4px;">📦 แยกไฟล์ต่อคน (ZIP)</button>
   <a href="/payroll/{{ run.id }}" style="margin-left:12px;">← กลับหน้า Payroll</a>
   <div class="muted" style="margin-top:6px; font-size:12px;">
-    เซฟ PDF: กดปุ่ม → ในช่อง "ปลายทาง/Destination" เลือก <b>Save as PDF</b> → เลือกโฟลเดอร์ที่เก็บ
-    · ชื่อไฟล์ตั้งให้แล้ว = <b>เงินเดือน_{{ run.site_code }}_{{ run.pay_cycle_tag }}_{{ 'ผู้บริหาร' if is_boss else 'คนขับ' }}</b>
+    เซฟ PDF (ไฟล์รวม): กดปุ่ม → ช่อง "ปลายทาง/Destination" เลือก <b>Save as PDF</b>
+    · ชื่อไฟล์ = <b>เงินเดือน_{{ run.site_code }}_{{ run.pay_cycle_tag }}_{{ 'ผู้บริหาร' if is_boss else 'คนขับ' }}</b><br>
+    <b>แยกไฟล์ต่อคน (ZIP):</b> กดปุ่มสีฟ้า → ดาวน์โหลด ZIP ที่มี PDF แยกตามชื่อคนขับ (เซฟลงเครื่องนี้ ไม่ใช่ server)
     {% if is_boss %}<span style="color:#b91c1c;"> · ⚠ เวอร์ชันผู้บริหาร (มี KB) อย่าส่งให้คนขับ</span>{% endif %}
   </div>
+  <div id="zipStatus" class="muted" style="margin-top:4px; font-size:12px;"></div>
 </div>
 
 {# ---------- 1. สรุปทุกคน ---------- #}
@@ -127,7 +130,7 @@
 {# ---------- 3. สลิปรายคน ---------- #}
 {% for r in rows %}
 {% set it = r.item %}
-<div class="slip">
+<div class="slip" data-driver="{{ r.employee.full_name }}" data-emp="{{ r.employee.id }}">
   <h3>สลิปเงินเดือน · {{ r.employee.full_name }}{% if is_boss %} <span style="font-size:11px; background:#fde68a; padding:1px 6px; border-radius:3px;">ผู้บริหาร</span>{% endif %}</h3>
   <div class="muted" style="font-size:12px; margin-bottom:6px;">
     {{ run.site_code }} · {{ run.pay_cycle_tag }} · {{ run.period_start | dmy }} – {{ run.period_end | dmy }}
@@ -221,5 +224,61 @@
 </div>
 {% endfor %}
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+  const PR_SITE = {{ run.site_code | tojson }};
+  const PR_CYCLE = {{ run.pay_cycle_tag | tojson }};
+  const PR_MODE = {{ ('ผู้บริหาร' if is_boss else 'คนขับ') | tojson }};
+
+  function _safeName(s) {
+    return (s || 'unknown').replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, ' ').trim().slice(0, 80);
+  }
+
+  async function exportPerDriverZip() {
+    const btn = document.getElementById('zipBtn');
+    const status = document.getElementById('zipStatus');
+    if (typeof html2pdf === 'undefined' || typeof JSZip === 'undefined') {
+      status.textContent = '⚠ โหลดไลบรารีไม่สำเร็จ (เช็คเน็ต) — ลองใหม่หรือใช้ปุ่มเซฟ PDF ไฟล์รวมแทน';
+      return;
+    }
+    const slips = Array.from(document.querySelectorAll('.slip'));
+    if (!slips.length) { status.textContent = 'ไม่มีสลิป'; return; }
+    btn.disabled = true;
+    const zip = new JSZip();
+    const opt = {
+      margin: 6,
+      image: { type: 'jpeg', quality: 0.95 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    };
+    try {
+      for (let i = 0; i < slips.length; i++) {
+        const el = slips[i];
+        const name = _safeName(el.dataset.driver);
+        status.textContent = `กำลังสร้าง PDF ${i + 1}/${slips.length} — ${name} …`;
+        // clone so page-break/border styles don't bleed; render off the live node
+        const blob = await html2pdf().set(opt).from(el).outputPdf('blob');
+        const fname = `${name}_${PR_SITE}_${PR_CYCLE}_${PR_MODE}.pdf`;
+        zip.file(fname, blob);
+      }
+      status.textContent = 'กำลังบีบอัด ZIP …';
+      const content = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(content);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `สลิปแยกคน_${PR_SITE}_${PR_CYCLE}_${PR_MODE}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      status.textContent = `✓ เสร็จ ${slips.length} ไฟล์ — เช็คโฟลเดอร์ Downloads`;
+    } catch (e) {
+      status.textContent = '⚠ ผิดพลาด: ' + (e && e.message ? e.message : e);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+</script>
 </body>
 </html>
