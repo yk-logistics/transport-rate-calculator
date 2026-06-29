@@ -138,3 +138,7 @@ ProjectYK_System/slip_reader/_devdata/
 
 # Superpowers brainstorm scratch (mockups, transient)
 .superpowers/
+
+# net_guard / snapshot ชั่วคราว (ผลรัน ไม่ใช่โค้ด)
+ProjectYK_System/reports/_net_guard.json
+ProjectYK_System/reports/_bigc_guard.json
