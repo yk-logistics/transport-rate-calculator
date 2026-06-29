@@ -160,7 +160,18 @@
       {% if it.income_tax_withholding %}<div class="line"><span>ภาษีหัก ณ ที่จ่าย</span><span>{{ '{:,.2f}'.format(it.income_tax_withholding) }}</span></div>{% endif %}
       {% if it.deposit_install %}<div class="line"><span>เงินประกัน (ผ่อน){% set dep_no = r.employee | dep_install %}{% if dep_no %} งวดที่ {{ dep_no }}{% endif %}</span><span>{{ '{:,.2f}'.format(it.deposit_install) }}</span></div>{% endif %}
       {% if it.accident_install %}<div class="line"><span>ผ่อนอุบัติเหตุ</span><span>{{ '{:,.2f}'.format(it.accident_install) }}</span></div>{% endif %}
-      {% if it.petty_cash_deduction %}<div class="line"><span>หักสดย่อย</span><span>{{ '{:,.2f}'.format(it.petty_cash_deduction) }}</span></div>{% endif %}
+      {% if it.petty_cash_deduction %}
+        {% if r.petty_lines %}
+        <div class="line" style="font-weight:600; margin-top:2px;"><span>หักสดย่อย (เบิก/เงินยืม)</span><span>{{ '{:,.2f}'.format(it.petty_cash_deduction) }}</span></div>
+        {% for p in r.petty_lines %}
+        <div class="line" style="font-size:11px; color:#444; padding-left:10px;">
+          <span>{{ p.txn_date | dmy if p.txn_date else '—' }} · {{ p.label }}</span><span>{{ '{:,.2f}'.format(p.amount) }}</span>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="line"><span>หักสดย่อย</span><span>{{ '{:,.2f}'.format(it.petty_cash_deduction) }}</span></div>
+        {% endif %}
+      {% endif %}
       {% if it.other_deduction %}<div class="line"><span>หักอื่นๆ</span><span>{{ '{:,.2f}'.format(it.other_deduction) }}</span></div>{% endif %}
       <div class="line total"><span>รวมหัก (ไม่รวมน้ำมัน)</span><span>{{ '{:,.2f}'.format(it.deduction_total - it.fuel_cost_self) }}</span></div>
       <div class="line total" style="margin-top:6px; font-size:15px;">

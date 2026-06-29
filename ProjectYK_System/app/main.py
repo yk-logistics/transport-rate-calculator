@@ -4297,14 +4297,18 @@ def payroll_print_all(run_id: int, request: Request):
             return RedirectResponse("/payroll?err=notfound", status_code=303)
         items = s.exec(select(PayRunItem).where(PayRunItem.pay_run_id == pr.id)).all()
         ytd_by_emp = _ytd_income_tax_by_emp(s, pr)
+        from services.payroll_slip import build_payroll_slip_context
         rows = []
         for it in items:
             emp = s.get(Employee, it.employee_id)
             note = (it.transfer_note or "").strip() or _auto_transfer_note(emp, it, pr.period_end)
             ytd = ytd_by_emp.get(it.employee_id, {"income": 0.0, "tax": 0.0})
             daily = _slip_daily_rows(s, it.employee_id, pr, it.pay_mode, is_boss)
+            # แจกแจงรายการหักสดย่อย (วันที่/รายการ/ยอด) — reuse slip context (single source)
+            slip_ctx = build_payroll_slip_context(s, pr, emp, it)
             rows.append({"item": it, "employee": emp, "transfer_note": note,
-                         "ytd": ytd, "daily": daily})
+                         "ytd": ytd, "daily": daily,
+                         "petty_lines": slip_ctx.get("petty_lines", [])})
         rows.sort(key=lambda r: -(r["item"].net_pay or 0))
         totals = {
             "gross": sum((r["item"].gross_total or 0) for r in rows),
