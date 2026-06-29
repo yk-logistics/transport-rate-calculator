@@ -14,6 +14,13 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+# Windows console เริ่มต้นเป็น cp1252 — print ภาษาไทยจะ crash. บังคับ stdout เป็น utf-8
+# กันเครื่อง/เซิร์ฟเวอร์ที่ไม่ได้ตั้ง PYTHONIOENCODING (เช่น deploy run).
+try:
+    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+except (AttributeError, ValueError):
+    pass
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "app"))
 
 from sqlmodel import Session, select  # noqa: E402
