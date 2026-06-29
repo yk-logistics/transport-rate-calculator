@@ -4009,6 +4009,41 @@ def payroll_export_pdfs(run_id: int, request: Request):
     return templates.TemplateResponse("payroll_export_done.html", ctx)
 
 
+@app.post("/payroll/{run_id}/export-zip")
+def payroll_export_zip(run_id: int, request: Request):
+    """แยกไฟล์ต่อคน (ZIP) — render สลิปรายคนเป็น PDF ด้วย headless Chrome (ไทยคมชัด layout เดิม)
+    แล้วส่ง ZIP กลับให้ดาวน์โหลดลงเครื่องผู้ใช้ (ไม่เซฟบน server).
+
+    ?for=boss → สลิปผู้บริหาร (มี KB/ค่าขนส่งจริง). ใช้ template+context เดียวกับหน้าสลิปรายคน
+    (single source) ต่างจากปุ่มเก่าที่ใช้ html2canvas ซึ่ง shaping ไทยพัง (วรรณยุกต์ลอย).
+    """
+    from urllib.parse import quote
+
+    from services.payroll_zip_pdf import export_payroll_slips_zip
+
+    is_boss = request.query_params.get("for", "driver").lower() == "boss"
+
+    def render_slip_html(ctx: dict) -> str:
+        return templates.get_template("payroll_slip.html").render(ctx)
+
+    with Session(engine) as s:
+        pr = s.get(PayRun, run_id)
+        if pr is None:
+            return RedirectResponse("/payroll?err=notfound", status_code=303)
+        try:
+            zip_bytes, zip_name = export_payroll_slips_zip(
+                s, run_id, render_slip_html, is_boss=is_boss
+            )
+        except (RuntimeError, ValueError) as e:
+            return PlainTextResponse(f"สร้าง ZIP ไม่สำเร็จ: {e}", status_code=500)
+
+    headers = {
+        "Content-Disposition": "attachment; filename=payroll_slips.zip; "
+        f"filename*=UTF-8''{quote(zip_name)}"
+    }
+    return Response(content=zip_bytes, media_type="application/zip", headers=headers)
+
+
 @app.post("/payroll/{run_id}/ss-settings")
 def payroll_ss_settings(
     run_id: int,
@@ -4317,13 +4352,28 @@ def payroll_print_all(run_id: int, request: Request):
             daily = _slip_daily_rows(s, it.employee_id, pr, it.pay_mode, is_boss)
             # แจกแจงรายการหักสดย่อย (วันที่/รายการ/ยอด) — reuse slip context (single source)
             slip_ctx = build_payroll_slip_context(s, pr, emp, it)
-            # เก็บ context เต็มต่อคน → print-all include _slip_body.html (ดีไซน์เดียวกับหน้ารายคน)
-            rows.append({"item": it, "employee": emp, "transfer_note": note,
-                         "ytd": ytd, "daily": daily, "ctx": slip_ctx,
-                         "petty_lines": slip_ctx.get("petty_lines", []),
-                         "fuel_excluded_amt": slip_ctx.get("fuel_excluded_amt", 0.0),
-                         "fuel_deducted_liter": slip_ctx.get("fuel_deducted_liter", 0.0),
-                         "tank_measure_rows": slip_ctx.get("tank_measure_rows", [])})
+            row = {"item": it, "employee": emp, "transfer_note": note,
+                   "ytd": ytd, "daily": daily, "ctx": slip_ctx,
+                   "petty_lines": slip_ctx.get("petty_lines", []),
+                   "fuel_excluded_amt": slip_ctx.get("fuel_excluded_amt", 0.0),
+                   "fuel_deducted_liter": slip_ctx.get("fuel_deducted_liter", 0.0),
+                   "tank_measure_rows": slip_ctx.get("tank_measure_rows", [])}
+            if is_boss:
+                # หน้าสรุปผู้บริหาร: วางบิล / KB / ค่าน้ำมันรวม / รายได้คนขับ + % เทียบวางบิลหลังหัก KB
+                djs = slip_ctx.get("daily_jobs") or []
+                billed = sum((d.revenue_customer or 0.0) for d in djs)
+                kb = sum((d.kb_amount or 0.0) for d in djs)
+                base100 = billed - kb  # ฐาน 100% = วางบิลหลังหัก KB
+                fuel_total = (slip_ctx.get("fuel_excluded_amt") or 0.0) + (slip_ctx.get("fuel_deducted_amt") or 0.0)
+                # รายได้คนขับ: เหมา = ค่าเที่ยว−น้ำมัน, เที่ยว = เงินเดือน+ดูแลรถ+ค่าเที่ยว → ทั้งคู่ = gross−fuel_self
+                drv_income = (it.gross_total or 0.0) - (it.fuel_cost_self or 0.0)
+                row["boss"] = {
+                    "billed": billed, "kb": kb, "base100": base100,
+                    "fuel_total": fuel_total, "drv_income": drv_income,
+                    "fuel_pct": (fuel_total / base100 * 100.0) if base100 else None,
+                    "drv_pct": (drv_income / base100 * 100.0) if base100 else None,
+                }
+            rows.append(row)
         rows.sort(key=lambda r: -(r["item"].net_pay or 0))
         totals = {
             "gross": sum((r["item"].gross_total or 0) for r in rows),
@@ -4331,6 +4381,11 @@ def payroll_print_all(run_id: int, request: Request):
             "ded": sum((r["item"].deduction_total or 0) for r in rows),
             "net": sum((r["item"].net_pay or 0) for r in rows),
         }
+        if is_boss:
+            tb = {k: sum((r["boss"][k] or 0) for r in rows) for k in ("billed", "kb", "base100", "fuel_total", "drv_income")}
+            tb["fuel_pct"] = (tb["fuel_total"] / tb["base100"] * 100.0) if tb["base100"] else None
+            tb["drv_pct"] = (tb["drv_income"] / tb["base100"] * 100.0) if tb["base100"] else None
+            totals["boss"] = tb
     ctx = base_context(request)
     ctx.update({"run": pr, "rows": rows, "totals": totals, "is_boss": is_boss})
     return templates.TemplateResponse("payroll_print_all.html", ctx)
