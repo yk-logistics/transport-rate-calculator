@@ -154,19 +154,21 @@ DEPOSIT_INSTALL_UNIT = 1000.0  # เงินประกันตนหัก�
 
 
 def _fmt_dep_install(emp) -> str:
-    """งวดเงินประกันตน 'X/Y' จากยอดสะสม/เพดาน (หน่วยงวด = 1,000).
+    """งวดเงินประกันตน 'X/Y' — X = **งวดที่กำลังหักรอบนี้** (ไม่ใช่งวดสะสม).
 
-    X = ยอดสะสม // 1000 (งวดที่เก็บถึงแล้ว) · Y = เพดาน // 1000 (งวดทั้งหมด).
-    คืน '' เมื่อไม่มีเพดาน (คนไม่มีเงินประกัน)."""
+    deposit_balance = ยอดที่จ่ายไปแล้ว 'ก่อน' รอบนี้ = (งวดก่อน)×1000.
+    ถ้ายังผ่อนไม่หมด (bal<tgt) งวดที่กำลังหัก = bal//1000 + 1 (เช่น bal 0 → หักงวด 1/10).
+    ถ้าผ่อนหมดแล้ว (bal>=tgt) โชว์ Y/Y (งวดสุดท้าย จ่ายครบ). คืน '' เมื่อไม่มีเพดาน."""
     if emp is None:
         return ""
     tgt = getattr(emp, "deposit_target", 0) or 0
     if tgt <= 0:
         return ""
     bal = getattr(emp, "deposit_balance", 0) or 0
-    done = int(round(bal / DEPOSIT_INSTALL_UNIT))
     total = int(round(tgt / DEPOSIT_INSTALL_UNIT))
-    return f"{done}/{total}"
+    paid = int(round(bal / DEPOSIT_INSTALL_UNIT))
+    current = paid + 1 if paid < total else total   # งวดที่กำลังหัก (จ่ายหมดแล้ว=งวดสุดท้าย)
+    return f"{current}/{total}"
 
 
 templates.env.filters["dmy"] = _fmt_dmy
