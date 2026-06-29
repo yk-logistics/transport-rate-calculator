@@ -307,6 +307,34 @@ def build_payroll_slip_context(
     fuel_used_l = sum((r.liter or 0) for r in fuel_rows) or sum((r.fuel_liter or 0) for r in daily_jobs)
     avg_km_per_l = (km_run / fuel_used_l) if (km_run > 0 and fuel_used_l > 0) else 0
 
+    # --- แถว "เติมน้ำมัน แต่ไม่มีงาน" (กันคนขับงงว่าทำไมวันไม่วิ่งมีน้ำมัน) ---
+    # คนคีย์ลงการเติมน้ำมันเป็น DailyJob แยกแถว (work_date = วันไปเติม) โดยไม่มี route/ค่าเที่ยว/ค่าขนส่ง.
+    # บอกคนขับว่าน้ำมันบรรทัดนี้คืออะไร โดยใช้ลำดับความเชื่อถือ:
+    #   1) fuel_date (วันเติม ที่คนคีย์กรอก คอลัมน์ AC) — แม่นสุด ถ้ามี
+    #   2) ไมล์ตรงกับวันที่วิ่งจริง — ใช้เดาว่า "สำหรับงานวันที่ ..." (กรณี DB เก่ายังไม่มี fuel_date)
+    def _has_work(r) -> bool:
+        return bool(
+            (r.origin or "").strip() or (r.destination or "").strip()
+            or (r.customer_name_raw or "").strip()
+            or (r.trip_fee_driver or 0) or (r.revenue_customer or 0)
+        )
+
+    fuel_only_info: dict[int, dict] = {}
+    for r in daily_jobs:
+        has_fuel = (r.fuel_amount or 0) or (r.fuel_liter or 0)
+        if has_fuel and not _has_work(r):
+            fill_date = r.fuel_date  # วันเติมที่คนคีย์กรอกจริง (ถ้ามี)
+            for_date = None
+            if (r.mile_snapshot or 0) > 0:
+                match = next(
+                    (d for d in daily_jobs
+                     if d.id != r.id and d.mile_snapshot == r.mile_snapshot and _has_work(d)),
+                    None,
+                )
+                if match:
+                    for_date = match.work_date
+            fuel_only_info[r.id] = {"fill_date": fill_date, "for_date": for_date}
+
     # รายการ "ไม่หัก" ในรอบเดียวกัน (เบิกที่ไม่หัก / รับเข้า) — สำหรับโชว์เพิ่ม
     # (ติ๊กซ่อนได้ ไม่กระทบยอดหัก). ไม่รวมตัวที่หักอยู่แล้วใน petty_rows.
     petty_extra_rows = session.exec(
@@ -393,6 +421,7 @@ def build_payroll_slip_context(
         "tank_measure_rows": tank_measure_rows,
         "excluded_job_ids": excluded_job_ids,
         "fuel_grade_by_job": fuel_grade_by_job,
+        "fuel_only_info": fuel_only_info,
         "petty_lines": petty_lines,
         "petty_lines_extra": petty_lines_extra,
         "petty_categories": petty_categories,
