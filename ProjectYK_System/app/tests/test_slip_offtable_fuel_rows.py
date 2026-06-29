@@ -49,13 +49,14 @@ def client():
         # mao: วันเหมา + handover off-table
         s.add(DailyJob(site_code="LCB", driver_id=71, work_date=date(2026, 5, 28),
                        status_code="KAO", revenue_customer=5000, trip_fee_driver=3000))
+        # รับคืน (หัก) ใส่ก่อน + วัน 28/5 (เหตุการณ์ทีหลัง)
         s.add(FuelTxn(driver_id=71, site_code="LCB", txn_date=date(2026, 5, 28), liter=28.0,
                       amount=1034.16, source="handover_measure", daily_job_id=None,
                       note="วัดน้ำมัน GPS: รับรถคืนจากคนมาขับแทน 28/5 หัก"))
-        # handover ขาส่งมอบ = เงินคืน (amount ติดลบ) — สลิปต้องโชว์ "คืน" ชัด ไม่ใช่เลขแดงเฉยๆ
-        s.add(FuelTxn(driver_id=71, site_code="LCB", txn_date=date(2026, 5, 28), liter=44.0,
+        # ส่งมอบ (คืน) ใส่ทีหลัง แต่วัน 27/5 (เหตุการณ์เกิดก่อน) → ต้อง render ก่อนหัก
+        s.add(FuelTxn(driver_id=71, site_code="LCB", txn_date=date(2026, 5, 27), liter=44.0,
                       amount=-1813.68, source="handover_measure", daily_job_id=None,
-                      note="วัดน้ำมัน GPS: ขาส่งมอบ 28/5 คืนน้ำมันในถัง"))
+                      note="วัดน้ำมัน GPS: ขาส่งมอบ 27/5 คืนน้ำมันในถัง"))
         s.commit()
         from services.payroll import compute_pay_run
         compute_pay_run(s, s.get(PayRun, 1), recompute=True); s.commit()
@@ -89,3 +90,12 @@ def test_credit_row_labeled_keun_not_red_negative(client):
     # โชว์ยอดเป็นบวก 1,814 (ไม่ใช่เลขติดลบ -1,814)
     assert "1,814" in b
     assert "-1,814" not in b and "−1,814" not in b
+
+
+def test_offtable_rows_sorted_by_date_credit_before_deduct(client):
+    # คืน (ส่งมอบ 27/5) ต้องมาก่อน หัก (รับคืน 28/5) แม้ใส่ทีหลัง — เรียงตามวันที่
+    b = client.get("/payroll/1/employee/71/slip", follow_redirects=True).text
+    i_keun = b.find("คืนน้ำมัน")              # แถวคืน 27/5
+    i_huk = b.find("รับรถคืนจากคนมาขับแทน")   # แถวหัก 28/5
+    assert i_keun != -1 and i_huk != -1
+    assert i_keun < i_huk
