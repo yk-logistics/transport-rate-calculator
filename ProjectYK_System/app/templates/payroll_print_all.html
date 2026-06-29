@@ -250,19 +250,24 @@
   const PR_MODE = {{ ('ผู้บริหาร' if is_boss else 'คนขับ') | tojson }};
 
   // 1 คน = 1 หน้า: ย่อ (zoom) แต่ละสลิปที่ยาวเกิน 1 หน้า A4 ให้พอดี
+  // ย่อให้พอ 1 หน้า ทั้งสูง+กว้าง (หน้า boss ตารางกว้างเกิน → ต้องเช็คกว้างด้วย)
+  function _fitEl(el, PAGE_H, PAGE_W) {
+    el.style.zoom = "";
+    for (let i = 0; i < 6; i++) {
+      const r = el.getBoundingClientRect();
+      const cur = parseFloat(el.style.zoom) || 1;
+      const w = Math.max(r.width, el.scrollWidth * cur);
+      const over = Math.max(r.height / PAGE_H, w / PAGE_W);
+      if (over <= 1.0) break;
+      const next = Math.max(0.40, cur / over * 0.98);
+      if (next >= cur) break;
+      el.style.zoom = next;
+    }
+  }
   function fitSlipsOnePage() {
-    const PAGE = 1010;   // A4 portrait usable ~1040px, เผื่อ safety
-    document.querySelectorAll('.slip').forEach(function (slip) {
-      slip.style.zoom = "";
-      for (let i = 0; i < 5; i++) {
-        const actual = slip.getBoundingClientRect().height;
-        if (actual <= PAGE) break;
-        const cur = parseFloat(slip.style.zoom) || 1;
-        const next = Math.max(0.42, cur * PAGE / actual * 0.98);
-        if (next >= cur) break;
-        slip.style.zoom = next;
-      }
-    });
+    const PAGE_H = 1010, PAGE_W = 720;   // A4 portrait usable
+    document.querySelectorAll('.slip').forEach(s => _fitEl(s, PAGE_H, PAGE_W));
+    document.querySelectorAll('.block').forEach(b => _fitEl(b, PAGE_H, PAGE_W));  // หน้าสรุป/โอนเงิน boss กว้างเกินด้วย
   }
   window.addEventListener('load', fitSlipsOnePage);
   window.addEventListener('beforeprint', fitSlipsOnePage);

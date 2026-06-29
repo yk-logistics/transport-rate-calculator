@@ -468,17 +468,23 @@
   function fitOnePage() {
     const slip = document.querySelector(".slip");
     if (!slip) return;
+    fitOneSlip(slip);
+  }
+  // ย่อสลิปให้พอ 1 หน้า A4 ทั้ง "สูง" และ "กว้าง" (หน้า boss มีคอลัมน์เพิ่ม → ตารางกว้างเกิน)
+  function fitOneSlip(slip) {
     slip.style.zoom = "";
-    // A4 portrait usable: 297mm − margin ~14mm ≈ 1040px; เผื่อ safety ใช้ 1010
-    const PAGE = 1010;
-    // ใช้ zoom (ลด layout height จริง → ลดจำนวนหน้า). วนปรับให้ลู่เข้า
-    // (getBoundingClientRect().height สะท้อนขนาดจริงหลัง zoom ทุก browser)
-    for (let i = 0; i < 5; i++) {
-      const actual = slip.getBoundingClientRect().height;
-      if (actual <= PAGE) break;
+    const PAGE_H = 1010;   // A4 portrait usable สูง ~1040px
+    const PAGE_W = 720;    // A4 portrait usable กว้าง ~744px (210mm − margin)
+    for (let i = 0; i < 6; i++) {
+      const r = slip.getBoundingClientRect();
       const cur = parseFloat(slip.style.zoom) || 1;
-      const next = Math.max(0.42, cur * PAGE / actual * 0.98);
-      if (next >= cur) break;               // ลู่เข้าแล้ว/ถึง floor
+      // scrollWidth จับ overflow แนวนอน (ตาราง boss กว้างเกิน) ที่ rect ไม่เห็น
+      const w = Math.max(r.width, slip.scrollWidth * cur);
+      const overH = r.height / PAGE_H, overW = w / PAGE_W;
+      const over = Math.max(overH, overW);
+      if (over <= 1.0) break;
+      const next = Math.max(0.40, cur / over * 0.98);
+      if (next >= cur) break;
       slip.style.zoom = next;
     }
   }
