@@ -1234,8 +1234,10 @@ def calc_one_employee(
     raw_ss = capped_base * ss_rate
     calc.social_security = float(math.ceil(raw_ss)) if raw_ss > 0 else 0.0
 
-    # Deposit: 1000/mo until target reached
-    if (employee.deposit_balance or 0.0) < (employee.deposit_target or 10000.0):
+    # Deposit: 1000/mo until target reached — drivers only.
+    # Office staff (พนักงานออฟฟิส) never pay เงินประกันตน.
+    is_office = (employee.role == "office") or (mode == "office_monthly")
+    if not is_office and (employee.deposit_balance or 0.0) < (employee.deposit_target or 10000.0):
         remaining = (employee.deposit_target or 10000.0) - (employee.deposit_balance or 0.0)
         calc.deposit_install = round(min(1000.0, remaining), 2)
 
