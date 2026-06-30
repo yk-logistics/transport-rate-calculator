@@ -375,30 +375,33 @@
   // คอลัมน์ที่ให้ freeze ได้ (ยกเว้น id ที่ pin ไว้แล้ว และคอลัมน์ action)
   function isFreezable(field){ return field !== "id" && field !== "_actions"; }
 
-  // ปรับ freeze บนตารางที่สร้างแล้ว — set frozen ต่อคอลัมน์ แล้วดัน frozen ทั้งหมด
-  // มาเรียง "ติดกันหน้าสุด" ตามลำดับ FIELD_ORDER (กันทับซ้อน). async เพราะ
-  // updateColumnDefinition คืน promise (rebuild คอลัมน์).
-  async function applyFrozen(){
-    const want = new Set(FROZEN_FIELDS);
-    // 1) set/unset frozen ต่อคอลัมน์ (เฉพาะที่ค่าเปลี่ยน เพื่อลด rebuild)
-    for (const field of FIELD_ORDER){
-      const col = table.getColumn(field);
-      if (!col) continue;
-      const now = !!col.getDefinition().frozen;
-      const next = want.has(field);
-      if (now !== next){
-        try { await table.updateColumnDefinition(field, { frozen: next }); } catch(e){}
-      }
-    }
-    // 2) จัดลำดับ frozen ให้ติดกันหน้าสุด (หลังคอลัมน์ action) ตาม FIELD_ORDER
-    const frozenInOrder = FIELD_ORDER.filter(f => want.has(f));
-    let prev = "_actions";   // คอลัมน์ "เปิด" — ตัวสุดท้ายของ action ที่ frozen เสมอ
-    for (const field of frozenInOrder){
-      const col = table.getColumn(field);
-      if (!col) continue;
-      try { table.moveColumn(field, prev, true); } catch(e){}  // วางหลัง prev
-      prev = field;
-    }
+  // ซ่อนคอลัมน์ตามที่บันทึก (หรือ default) — เรียกตอน tableBuilt และหลัง setColumns
+  const DEFAULT_HIDDEN = [
+    "leave_status","pickup_location",
+    "driver_raw_name","plate_no_raw","tail_plate_raw","customer_name_raw",
+    "customer_id","driver_id",
+    "head_vehicle_id","tail_vehicle_id","trip_group_id",
+    "store_code","truck_type_raw",
+    "invoice_no","invoice_date","wht_53",
+    "source","created_at","updated_at",
+  ];
+  function applyHidden(){
+    const saved = getHiddenFields();
+    const hidden = new Set(saved.length > 0 ? saved : DEFAULT_HIDDEN);
+    hidden.forEach((field) => { if (field !== "id") { const c = table.getColumn(field); if (c) table.hideColumn(field); } });
+  }
+
+  // ปรับ freeze บนตารางที่สร้างแล้ว — สร้าง column definitions ใหม่ทั้งชุดผ่าน
+  // setColumns (อ่าน FROZEN_FIELDS ล่าสุด ตั้ง frozen + เรียงติดกันหน้าสุดในตัว)
+  // วิธีนี้เชื่อถือได้กว่าแก้ frozen ทีละคอลัมน์ (ซึ่งทำ frozen เดิมหลุด/ทับซ้อน).
+  // setColumns รีเซ็ตสถานะซ่อน → ต้อง re-apply hidden หลังสร้างใหม่.
+  function applyFrozen(){
+    try {
+      table.setColumns(buildColumns());
+      applyHidden();
+      // header DOM ถูกสร้างใหม่ → ผูก contextmenu ใหม่ (รอ 1 tick ให้ DOM พร้อม)
+      setTimeout(() => { attachHeaderContextMenu(); renderColumnsChecklist(); }, 0);
+    } catch(e){}
   }
   function toggleFreeze(field, on){
     const set = new Set(FROZEN_FIELDS);
@@ -615,6 +618,9 @@
   }
 
   // ── Tabulator ───────────────────────────────────────────────────────────────
+  // สร้าง column definitions — เรียกตอน init และตอนเปลี่ยน freeze (setColumns)
+  // อ่าน FROZEN_FIELDS ปัจจุบัน → ตั้ง frozen:true + เรียง frozen ติดกันหน้าสุด
+  // (สร้างใหม่ทั้งชุดผ่าน setColumns เชื่อถือได้กว่าการแก้ frozen ทีละคอลัมน์)
   const table = new Tabulator("#dailyGridTable", {
     ajaxURL: apiUrl,
     ajaxResponse: function(url, params, resp){ return resp.items || []; },
@@ -641,7 +647,14 @@
         }
       });
     },
-    columns: [
+    columns: buildColumns(),
+  });
+
+  // สร้าง column definitions — เรียกตอน init และตอนเปลี่ยน freeze (setColumns).
+  // อ่าน FROZEN_FIELDS ปัจจุบัน → ตั้ง frozen:true ต่อคอลัมน์ + เรียง frozen ติดกัน
+  // หน้าสุด (กันทับซ้อน). สร้างใหม่ทั้งชุดเชื่อถือได้กว่าแก้ frozen ทีละคอลัมน์.
+  function buildColumns(){
+    return [
       // Checkbox select column
       {
         formatter: "rowSelection",
@@ -744,8 +757,10 @@
       if (ia === -1) return 1;
       if (ib === -1) return -1;
       return ia - ib;
-    })),
-    cellEdited: function(cell){
+    }));
+  }
+
+  table.on("cellEdited", function(cell){
       currentEditCell = null;
       const row = cell.getRow().getData();
       const field = cell.getField();
@@ -768,7 +783,6 @@
       saveDetails.className = "hidden rounded-lg border p-3 text-xs mb-3";
       saveDetails.innerHTML = "";
       updateDirtyFeedback();
-    }
   });
 
   // ── Undo / Redo (เฉพาะการแก้ที่ยังไม่ Save) ───────────────────────────────
@@ -1089,25 +1103,11 @@
     ctxMenu = menu;
   }
 
-  // ── tableBuilt ──────────────────────────────────────────────────────────────
-  table.on("tableBuilt", function(){
-    const DEFAULT_HIDDEN = [
-      "leave_status","pickup_location",
-      // โชว์ชื่อจริง (driver_name/plate_no/customer_name) เป็นหลัก — ซ่อน raw ที่ซ้ำ
-      "driver_raw_name","plate_no_raw","tail_plate_raw","customer_name_raw",
-      "customer_id","driver_id",
-      "head_vehicle_id","tail_vehicle_id","trip_group_id",
-      "store_code","truck_type_raw",
-      "invoice_no","invoice_date","wht_53",
-      "source","created_at","updated_at",
-    ];
-    const saved = getHiddenFields();
-    const hidden = new Set(saved.length > 0 ? saved : DEFAULT_HIDDEN);
-    hidden.forEach((field) => { if (field !== "id") table.hideColumn(field); });
-    renderColumnsChecklist();
-
-    // Right-click on column headers
+  // ผูก contextmenu (คลิกขวา) บนหัวคอลัมน์ — เรียกซ้ำหลัง setColumns เพราะ header DOM สร้างใหม่
+  function attachHeaderContextMenu(){
     document.querySelectorAll("#dailyGridTable .tabulator-col[tabulator-field]").forEach((el) => {
+      if (el.dataset.ykCtx) return;   // กันผูกซ้ำ
+      el.dataset.ykCtx = "1";
       el.addEventListener("contextmenu", (e) => {
         const field = el.getAttribute("tabulator-field");
         if (!field || field === "_actions") return;
@@ -1117,6 +1117,13 @@
         showColContextMenu(e, field, colTitle);
       });
     });
+  }
+
+  // ── tableBuilt ──────────────────────────────────────────────────────────────
+  table.on("tableBuilt", function(){
+    applyHidden();
+    renderColumnsChecklist();
+    attachHeaderContextMenu();
 
     // Deselect all button in status bar
     document.getElementById("ykSelClear").addEventListener("click", function() {
