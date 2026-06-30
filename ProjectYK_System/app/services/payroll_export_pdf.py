@@ -32,12 +32,31 @@ def _fmt_money_simple(x: float) -> str:
 
 
 def _dep_install_str(emp) -> str:
-    """งวดเงินประกันตน 'X/Y' จากยอดสะสม/เพดาน (หน่วยงวด = 1,000) — '' ถ้าไม่มีเพดาน."""
+    """งวดเงินประกันตน 'X/Y' — ตรงกับ web slip (_fmt_dep_install):
+    X = งวดที่กำลังหักรอบนี้ = paid+1 (paid = bal//unit); ถ้าครบ/พักหัก = paid.
+    หน่วยงวดต่อคน (deposit_install_unit ใน custom_terms; ธัชชนพล/เสรี = 2,000)."""
+    import json as _json
     tgt = getattr(emp, "deposit_target", 0) or 0
     if tgt <= 0:
         return ""
+    raw = getattr(emp, "custom_terms", "") or ""
+    unit = 1000.0
+    held = False
+    try:
+        obj = _json.loads(raw) if raw else {}
+        if isinstance(obj, dict):
+            unit = float(obj.get("deposit_install_unit") or 1000.0)
+            held = bool(obj.get("deposit_hold"))
+    except Exception:
+        pass
     bal = getattr(emp, "deposit_balance", 0) or 0
-    return f"{int(round(bal / 1000.0))}/{int(round(tgt / 1000.0))}"
+    total = int(round(tgt / unit))
+    paid = int(round(bal / unit))
+    if held or paid >= total:
+        current = min(paid, total)
+    else:
+        current = paid + 1
+    return f"{current}/{total}"
 
 
 def _safe_filename(name: str, max_len: int = 80) -> str:
