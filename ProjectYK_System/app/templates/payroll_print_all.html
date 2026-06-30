@@ -157,14 +157,15 @@ table.run tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding
   .totband .cell:last-child{color:#000;border-left:3px double #000;}
   .totband .cell:last-child .wb-k{color:#000;font-weight:700;}
   /* หน้าโอนเงิน/สรุป — ตัวอักษรใหญ่ขึ้นตอนพิมพ์ (โอ 30มิ.ย. เล็กไป) ยกเว้น boss ที่คอลัมน์เยอะ */
-  table.run:not(.boss){font-size:15px;}
-  table.run:not(.boss) th{font-size:11px;padding:0 8px 8px;}
-  table.run:not(.boss) td{padding:9px 8px;}
-  table.run:not(.boss) .r-bank{font-size:13px;}
-  table.run:not(.boss) td.num{font-size:15.5px;}
-  table.run:not(.boss) tfoot td{font-size:16px;padding-top:11px;}
-  .totband .t-v{font-size:24px;}
-  .totband .cell:last-child .t-v{font-size:29px;}
+  table.run:not(.boss){font-size:18px;}
+  table.run:not(.boss) th{font-size:12px;padding:0 10px 9px;}
+  table.run:not(.boss) td{padding:13px 10px;}
+  table.run:not(.boss) .r-bank{font-size:15px;}
+  table.run:not(.boss) td.num{font-size:19px;}
+  table.run:not(.boss) tfoot td{font-size:19px;padding-top:13px;}
+  table.run:not(.boss) tr{page-break-inside:avoid;}  /* แถวไม่ถูกตัดคร่อมหน้า */
+  .totband .t-v{font-size:26px;}
+  .totband .cell:last-child .t-v{font-size:32px;}
   @page{size:A4 portrait;margin:7mm;}
 }
 </style>
@@ -292,13 +293,15 @@ table.run tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding
   // 1 คน = 1 หน้า: ย่อ (zoom) แต่ละสลิปที่ยาวเกิน 1 หน้า A4 ให้พอดี (สำหรับ window.print() ไฟล์รวม)
   // ปุ่ม "แยกไฟล์ต่อคน (ZIP)" ทำฝั่ง server (Chrome) แล้ว — ไม่ใช้ html2canvas อีก (ไทย shaping พัง)
   // ย่อให้พอ 1 หน้า ทั้งสูง+กว้าง (หน้า boss ตารางกว้างเกิน → ต้องเช็คกว้างด้วย)
-  function _fitEl(el, PAGE_H, PAGE_W) {
+  // widthOnly=true → ย่อเฉพาะตอนกว้างเกินหน้า (boss ตารางกว้าง); ไม่ย่อตามความสูง
+  // → ปล่อยให้เนื้อหายาว (หน้าโอนเงินหลายคน) ไหลข้ามหน้าเองตามธรรมชาติ ตัวไม่เล็กลง
+  function _fitEl(el, PAGE_H, PAGE_W, widthOnly) {
     el.style.zoom = "";
     for (let i = 0; i < 6; i++) {
       const r = el.getBoundingClientRect();
       const cur = parseFloat(el.style.zoom) || 1;
       const w = Math.max(r.width, el.scrollWidth * cur);
-      const over = Math.max(r.height / PAGE_H, w / PAGE_W);
+      const over = widthOnly ? (w / PAGE_W) : Math.max(r.height / PAGE_H, w / PAGE_W);
       if (over <= 1.0) break;
       const next = Math.max(0.40, cur / over * 0.98);
       if (next >= cur) break;
@@ -307,8 +310,9 @@ table.run tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding
   }
   function fitSlipsOnePage() {
     const PAGE_H = 1010, PAGE_W = 720;   // A4 portrait usable
-    document.querySelectorAll('.slip').forEach(s => _fitEl(s, PAGE_H, PAGE_W));
-    document.querySelectorAll('.block').forEach(b => _fitEl(b, PAGE_H, PAGE_W));  // หน้าสรุป/โอนเงิน boss กว้างเกินด้วย
+    document.querySelectorAll('.slip').forEach(s => _fitEl(s, PAGE_H, PAGE_W, false));
+    // .block (สรุป/โอนเงิน): ย่อเฉพาะกว้างเกิน (boss) — ปล่อยสูงให้ไหลข้ามหน้า ตัวไม่หด
+    document.querySelectorAll('.block').forEach(b => _fitEl(b, PAGE_H, PAGE_W, true));
   }
   window.addEventListener('load', fitSlipsOnePage);
   window.addEventListener('beforeprint', fitSlipsOnePage);
