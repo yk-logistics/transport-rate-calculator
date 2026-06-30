@@ -355,6 +355,11 @@
 
   const NUM_FIELDS = new Set(["revenue_customer","trip_fee_driver","fee_special","fee_ot","fee_pickup_return","fee_lift","fee_yard","fee_clean","fee_shore","fee_port_entry","fee_weighing","fee_mflow","kb_amount","price_override","driver_calc_price","fuel_liter","fuel_amount","fuel_rate_km_per_l","gps_rate","mile_snapshot","wht_53"]);
 
+  // คอลัมน์ที่ "ค้างซ้าย" (frozen) — เลื่อนตารางไปขวาแล้วยังเห็น วันที่/คนขับ/ทะเบียน
+  // (แบบ Excel Freeze Panes). Tabulator ต้องการให้ frozen-left อยู่ "ติดกันหน้าสุด"
+  // ไม่งั้นคอลัมน์อื่นจะมุดใต้ frozen เวลาเลื่อน (ทับซ้อน) — เลยดันให้นำหน้าตามลำดับนี้
+  const FROZEN_FIELDS = ["work_date", "driver_name", "plate_no"];
+
   // Returns a closure over calcMode — called per column, recalc() re-invokes it
   function makeCalc() {
     return function(values) {
@@ -619,9 +624,6 @@
         clipboard: false,
       }
     ].concat(ALL_FIELDS.map(([field, title, editable]) => {
-      // คอลัมน์ที่ "ค้างซ้าย" (frozen) — เลื่อนตารางไปขวาแล้วยังเห็น วันที่/คนขับ/ทะเบียน
-      // (แบบ Excel Freeze Panes) เพื่อรู้ว่ากำลังดูแถวของใคร
-      const FROZEN_FIELDS = ["work_date", "driver_name", "plate_no"];
       const MISSING_FIELDS = ["revenue_customer", "trip_fee_driver"];
       const NUM_FIELDS_ARR = ["revenue_customer","trip_fee_driver","kb_amount","price_override","driver_calc_price","fuel_liter","fuel_amount","fuel_rate_km_per_l","gps_rate","mile_snapshot","wht_53"];
       const RIGHT_ALIGN    = ["id","driver_id","head_vehicle_id","tail_vehicle_id","customer_id","trip_group_id","revenue_customer","trip_fee_driver","fee_special","fee_ot","fee_pickup_return","fee_lift","fee_yard","fee_clean","fee_shore","fee_port_entry","fee_weighing","fee_mflow","kb_amount","price_override","driver_calc_price","fuel_liter","fuel_amount","fuel_rate_km_per_l","gps_rate","mile_snapshot","wht_53"];
@@ -686,6 +688,14 @@
         col.bottomCalc = makeCalc();
       }
       return col;
+    }).sort((a, b) => {
+      // ดัน frozen-left ขึ้นหน้าสุด (ตามลำดับใน FROZEN_FIELDS) ให้ "ติดกัน" กันทับซ้อน;
+      // คอลัมน์ที่เหลือคงลำดับเดิม
+      const ia = FROZEN_FIELDS.indexOf(a.field), ib = FROZEN_FIELDS.indexOf(b.field);
+      if (ia === -1 && ib === -1) return 0;
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
     })),
     cellEdited: function(cell){
       currentEditCell = null;
