@@ -19,7 +19,7 @@
     <div><div class="wb-k">คนขับ</div><div class="wb-v">{{ employee.full_name }}{% if employee.nickname %} ({{ employee.nickname }}){% endif %}</div></div>
     <div><div class="wb-k">รหัส</div><div class="wb-v">{{ employee.code }}</div></div>
     <div><div class="wb-k">ทะเบียนรถ</div><div class="wb-v">{{ plates_used or '—' }}</div></div>
-    <div><div class="wb-k">จำนวนเที่ยว</div><div class="wb-v">{{ trip_count|default(0) }} <span class="wb-muted" style="font-size:11px;">เที่ยว</span></div></div>
+    <div><div class="wb-k">วันทำงาน</div><div class="wb-v">{{ '{:.0f}'.format(item.days_worked) }} <span class="wb-muted" style="font-size:11px;">ลา {{ '{:.0f}'.format(item.days_leave) }}</span></div></div>
   </div>
 
   {# ===== money ribbon (signature): รายได้ → −น้ำมัน → −หัก → สุทธิ ===== #}
@@ -43,7 +43,7 @@
       </div>
       <table class="daily">
         <thead><tr>
-          <th style="width:54px;">วันที่</th><th style="width:48px;">ฝั่ง</th>
+          <th style="width:62px;">วันที่</th><th style="width:44px;">ฝั่ง</th>
           <th>ส่งสินค้า (ต้นทาง → โหลด → ปลายทาง)</th>
           <th class="num" style="width:58px;">ค่าแรง</th><th class="num" style="width:40px;">ลิตร</th><th class="num" style="width:52px;">น้ำมัน ฿</th>
         </tr></thead>
@@ -105,7 +105,7 @@
       {% else %}
       <table class="daily">
         <thead><tr>
-          <th style="width:54px;">วันที่</th>
+          <th style="width:62px;">วันที่</th>
           <th>ส่งสินค้า (ต้นทาง → โหลด → ปลายทาง)</th>
           <th class="num" style="width:38px;">ลิตร</th><th class="num" style="width:52px;">น้ำมัน ฿</th><th class="num" style="width:54px;">ค่าเที่ยว</th>
           {%- if is_boss|default(false) %}

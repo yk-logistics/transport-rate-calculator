@@ -24,7 +24,7 @@ from sqlmodel import SQLModel, Session
 from db_config import engine
 import main as appmod
 from models import Employee, DailyJob, FuelTxn, PayRun, PayRunItem
-from services.payroll_slip import build_payroll_slip_context
+from services.payroll_slip import build_payroll_slip_context, slip_route_remark
 
 
 @pytest.fixture()
@@ -199,7 +199,24 @@ def test_trip_count_excludes_idle_leave_fuelonly(db):
         # วันเติมน้ำมันล้วน (มีน้ำมัน ไม่มีงาน) — ไม่นับ
         s.add(DailyJob(driver_id=emp.id, site_code="LCB", work_date=date(2026, 6, 5),
                        fuel_liter=40, fuel_amount=1600))
+        # ลา ที่บันทึกเป็น origin='ลา' (ไม่มี leave_status) + status "ลา / ไม่พร้อม" — ไม่นับ
+        s.add(DailyJob(driver_id=emp.id, site_code="LCB", work_date=date(2026, 6, 6),
+                       origin="ลา", status_code="ลา / ไม่พร้อม", remark="tel=091-774-1369"))
+        # รถจอด ที่มี tel= ใน remark — ไม่นับ
+        s.add(DailyJob(driver_id=emp.id, site_code="LCB", work_date=date(2026, 6, 7),
+                       status_code="รถจอด", remark="tel=0"))
         s.flush()
         ctx = build_payroll_slip_context(s, _pr(), emp, PayRunItem(pay_mode="lcb_trip"))
-        # 3 เที่ยวจริง (2 วัน 1/6 + 1 วัน 2/6); ตัด รถจอด/ลา/เติมน้ำมัน
+        # 3 เที่ยวจริง (2 วัน 1/6 + 1 วัน 2/6); ตัด รถจอด/ลา(leave+origin'ลา')/เติมน้ำมัน/tel
         assert ctx["trip_count"] == 3, ctx["trip_count"]
+
+
+def test_route_remark_strips_tel(db):
+    """ช่องส่งสินค้า: ไม่โชว์ tel=... (เลขโทรเทาๆ ไม่เกี่ยวคนขับ); คงข้อความ remark อื่น."""
+    class R:
+        def __init__(self, remark): self.remark = remark
+    assert slip_route_remark(R("tel=091-774-1369")) == ""
+    assert slip_route_remark(R("tel=0")) == ""
+    assert slip_route_remark(R("ค้างคืน || tel=0")) == "ค้างคืน"
+    assert slip_route_remark(R("ค้างคืน")) == "ค้างคืน"
+    assert slip_route_remark(R("[งานยกเลิก] เดิม 1200")) == ""  # internal ยังตัด
