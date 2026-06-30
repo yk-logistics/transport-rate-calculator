@@ -1237,12 +1237,19 @@ def calc_one_employee(
     raw_ss = capped_base * ss_rate
     calc.social_security = float(math.ceil(raw_ss)) if raw_ss > 0 else 0.0
 
-    # Deposit: 1000/mo until target reached — drivers only.
+    # Deposit: หักต่องวดจนถึง target — เฉพาะคนขับ.
     # Office staff (พนักงานออฟฟิส) never pay เงินประกันตน.
+    # งวดละ 1,000 มาตรฐาน; บางคนตกลงงวดละอื่น (เช่น ธัชชนพล 2,000) ตั้งผ่าน
+    # custom_terms {"deposit_install_unit": 2000}.
     is_office = (employee.role == "office") or (mode == "office_monthly")
-    if not is_office and (employee.deposit_balance or 0.0) < (employee.deposit_target or 10000.0):
+    dep_terms = _parse_custom_terms(employee.custom_terms or "")
+    dep_unit = float(dep_terms.get("deposit_install_unit") or 1000.0)
+    # deposit_hold = พักหักเงินประกันตนรอบนี้ (โอสั่งตัดออกก่อน) แม้ยังไม่ครบเป้า
+    dep_hold = bool(dep_terms.get("deposit_hold"))
+    if (not is_office and not dep_hold
+            and (employee.deposit_balance or 0.0) < (employee.deposit_target or 10000.0)):
         remaining = (employee.deposit_target or 10000.0) - (employee.deposit_balance or 0.0)
-        calc.deposit_install = round(min(1000.0, remaining), 2)
+        calc.deposit_install = round(min(dep_unit, remaining), 2)
 
     calc.accident_install = _sum_accident_install(session, employee.id, tag)
     # For ayu_mao, tolls are already in other_deduction; don't double-count.
