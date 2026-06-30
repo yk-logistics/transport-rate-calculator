@@ -335,33 +335,42 @@ def build_payroll_slip_context(
         if f.daily_job_id and f.fuel_grade
     }
 
-    # --- รวมน้ำมัน "เติมรอบเดียวกัน" ให้โชว์ช่องเดียวบนสลิป (แสดงผลอย่างเดียว) ---
-    # ปั๊มมักออกบิลแยก B7 + B20 ในการเติมครั้งเดียว แต่คนคีย์ลงคนละ DailyJob
-    # (บางทีคนละ work_date) → สลิปเดิมโชว์ 2 บรรทัด คนขับงง.
-    # โอเลือก: คีย์ตาม "วันที่เติมจริง" (FuelTxn.txn_date) ไม่อ้างอิงเลขไมล์.
-    # group บิลในตาราง (มี daily_job_id) ตามวันเติมต่อคน → ถ้าวันเดียวกันแตะ ≥2 DailyJob
-    # ให้บรรทัดแรกในสลิป (anchor) โชว์ลิตร+ยอดรวม+เกรดทั้งหมด, บรรทัดที่เหลือเว้นช่องน้ำมัน.
-    # ผลรวมคอลัมน์น้ำมัน + fuel_cost_self ไม่เปลี่ยน (เป็นแค่การยุบการแสดงผล).
+    # --- โชว์น้ำมันตาม "วันที่เติมจริง" (FuelTxn.txn_date) บนสลิป (แสดงผลอย่างเดียว) ---
+    # โอสั่ง 30มิ.ย.: คนคีย์มักผูกบิลที่เติม "เมื่อวาน" ไว้กับงานวันนี้ (เคสจริง LCB มิ.ย.
+    # = 74/384 บิล txn_date = work_date − 1 วัน) → สลิปเดิมโชว์ผิดวัน. ปั๊มยังออกบิลแยก
+    # B7 + B20 ในการเติมครั้งเดียว ลงคนละ DailyJob อีก. แก้ทั้งสองด้วยการ group ตาม
+    # "วันเติมจริง": บิลในตาราง (มี daily_job_id) group ตาม txn_date ต่อคน → anchor =
+    # แถวงานที่ work_date == txn_date (วันเติมจริง); ถ้าไม่มี ใช้แถวบนสุดของกลุ่ม.
+    # anchor ถือ list บรรทัดย่อย [{liter, amount, grade, excluded}] (โชว์ซ้อนในเซลล์เดียว),
+    # job อื่นในกลุ่ม → [] (เว้นช่อง). ผลรวมคอลัมน์น้ำมัน + fuel_cost_self ไม่เปลี่ยน.
     _dj_order = {r.id: i for i, r in enumerate(daily_jobs)}
+    _work_date_to_job = {}   # work_date → job id (แรกสุดตามลำดับแสดงผล)
+    for r in daily_jobs:
+        _work_date_to_job.setdefault(r.work_date, r.id)
     _fill_groups: dict[Any, list] = {}
     for f in fuel_rows:
         if f.daily_job_id and f.daily_job_id in _dj_order:
             _fill_groups.setdefault(f.txn_date, []).append(f)
-    fuel_merge_by_job: dict[int, dict] = {}
-    for _txns in _fill_groups.values():
+    fuel_lines_by_job: dict[int, list] = {}
+    for _fill_date, _txns in _fill_groups.items():
         _job_ids = list(dict.fromkeys(t.daily_job_id for t in _txns))  # ลำดับ + ไม่ซ้ำ
-        if len(_job_ids) < 2:
-            continue  # เติมจุดเดียว ไม่ต้องรวม
-        anchor = min(_job_ids, key=lambda j: _dj_order[j])  # บรรทัดบนสุดในสลิป
-        fuel_merge_by_job[anchor] = {
-            "role": "anchor",
-            "liter": sum((t.liter or 0.0) for t in _txns),
-            "amount": sum((t.amount or 0.0) for t in _txns),
-            "grades": list(dict.fromkeys(t.fuel_grade for t in _txns if t.fuel_grade)),
-        }
+        # anchor = แถวงานวันเติมจริง ถ้ามีในตาราง, ไม่งั้นแถวบนสุดของกลุ่ม
+        if _fill_date in _work_date_to_job:
+            anchor = _work_date_to_job[_fill_date]
+        else:
+            anchor = min(_job_ids, key=lambda j: _dj_order[j])
+        # ต้องจัดกลุ่มเมื่อ: หลายบิล (B7+B20) หรือ บิลผูกผิดวัน (anchor ≠ job ที่บิลผูก)
+        if len(_job_ids) < 2 and _job_ids[0] == anchor:
+            continue  # เติมจุดเดียว ตรงวัน → โชว์ปกติ (fallback r.fuel_*)
+        _txns_sorted = sorted(_txns, key=lambda t: (t.txn_date, t.id or 0))
+        fuel_lines_by_job[anchor] = [
+            {"liter": t.liter or 0.0, "amount": t.amount or 0.0,
+             "grade": t.fuel_grade or "", "excluded": bool(t.exclude_from_driver)}
+            for t in _txns_sorted
+        ]
         for j in _job_ids:
             if j != anchor:
-                fuel_merge_by_job[j] = {"role": "merged", "anchor": anchor}
+                fuel_lines_by_job[j] = []   # merged: เว้นช่อง
 
     plates = sorted({r.plate_no_raw for r in daily_jobs if r.plate_no_raw})
     plates_used = ", ".join(plates) if plates else ""
@@ -489,7 +498,7 @@ def build_payroll_slip_context(
         "tank_measure_rows": tank_measure_rows,
         "excluded_job_ids": excluded_job_ids,
         "fuel_grade_by_job": fuel_grade_by_job,
-        "fuel_merge_by_job": fuel_merge_by_job,
+        "fuel_lines_by_job": fuel_lines_by_job,
         "fuel_only_info": fuel_only_info,
         "petty_lines": petty_lines,
         "petty_lines_extra": petty_lines_extra,

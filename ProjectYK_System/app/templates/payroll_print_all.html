@@ -61,6 +61,10 @@ table.daily td.num{text-align:right;font-family:"IBM Plex Mono";font-variant-num
 .tag-co{display:inline-block;font-size:8px;background:#eceae2;color:var(--wb-muted);padding:0 4px;border-radius:2px;}
 .tag-grade{display:inline-block;font-size:8px;background:#eef2f7;color:#3a4a68;padding:0 4px;border-radius:2px;border:1px solid #d4dae3;}
 .tag-fuel{display:inline-block;font-size:9px;font-weight:600;background:#fdf1dd;color:#9a6a1a;padding:0 5px;border-radius:2px;border:1px solid #ecd3a3;}
+/* น้ำมันหลายบิลวันเติมเดียว = บรรทัดย่อยซ้อนในเซลล์เดียว */
+.daily td .fline{font-size:10px;line-height:1.25;white-space:nowrap;}
+.daily td .fline + .fline{border-top:1px dotted #d4dae3;}
+.slip.dense .daily td .fline,.slip.ultra .daily td .fline{font-size:9px;line-height:1.15;}
 .row-fuelonly{background:#fcfaf4;}
 .row-fuelonly .c-date{color:var(--wb-muted);}
 table.daily tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding-top:5px;font-weight:600;}
@@ -284,7 +288,7 @@ table.run tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding
           mile_start=r.ctx.mile_start, mile_end=r.ctx.mile_end, km_run=r.ctx.km_run,
           fuel_used_l=r.ctx.fuel_used_l, avg_km_per_l=r.ctx.avg_km_per_l,
           fuel_grade_by_job=r.ctx.fuel_grade_by_job,
-          fuel_merge_by_job=r.ctx.fuel_merge_by_job, is_boss=is_boss %}
+          fuel_lines_by_job=r.ctx.fuel_lines_by_job, is_boss=is_boss %}
     {% include "_slip_body.html" %}
   {% endwith %}
 {% endfor %}
