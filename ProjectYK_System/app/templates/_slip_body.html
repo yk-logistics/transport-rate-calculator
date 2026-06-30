@@ -19,7 +19,7 @@
     <div><div class="wb-k">คนขับ</div><div class="wb-v">{{ employee.full_name }}{% if employee.nickname %} ({{ employee.nickname }}){% endif %}</div></div>
     <div><div class="wb-k">รหัส</div><div class="wb-v">{{ employee.code }}</div></div>
     <div><div class="wb-k">ทะเบียนรถ</div><div class="wb-v">{{ plates_used or '—' }}</div></div>
-    <div><div class="wb-k">วันทำงาน</div><div class="wb-v">{{ '{:.0f}'.format(item.days_worked) }} <span class="wb-muted" style="font-size:11px;">ลา {{ '{:.0f}'.format(item.days_leave) }} · ขาด {{ '{:.0f}'.format(item.days_absent) }}</span></div></div>
+    <div><div class="wb-k">จำนวนเที่ยว</div><div class="wb-v">{{ trip_count|default(0) }} <span class="wb-muted" style="font-size:11px;">เที่ยว</span></div></div>
   </div>
 
   {# ===== money ribbon (signature): รายได้ → −น้ำมัน → −หัก → สุทธิ ===== #}
@@ -33,7 +33,7 @@
   {# ===== body: 2 คอลัมน์ น้ำหนักเท่ากัน ===== #}
   <div class="wb-body">
     <div class="wb-col left">
-      <div class="wb-sec">รายการวิ่งงาน <span>{{ daily_jobs|length }} วัน</span></div>
+      <div class="wb-sec">รายการวิ่งงาน <span>{{ trip_count|default(0) }} เที่ยว</span></div>
 
       {% if mixed %}
       <div style="font-size:10px; margin:0 0 6px; color:var(--wb-soft);">
