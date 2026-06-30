@@ -470,15 +470,12 @@ def build_payroll_slip_context(
 
     def _mk_line(p, amt, deducted):
         cat_label = _CAT_LABEL.get(p.category or "", p.category or "เงินเบิก")
-        # ชื่อหมวดนำ + memo สั้นๆ ถ้ามีประโยชน์ (ตัด memo ระบบที่ขึ้นต้นด้วยชื่อ
-        # คนขับ/"รวมหักช่อง" ออก — คนขับไม่ต้องเห็น)
+        # โอ 1ก.ค.: ยังไม่จัดหมวด → ซ่อนชื่อหมวดนำ (กัน "เงินเบิก · เงินเบิก" ซ้ำ),
+        # โชว้รายละเอียด (memo) เต็มๆ ไม่ตัด …; ถ้าไม่มี memo ใช้ชื่อหมวดเป็น label.
+        # (ตัด memo ระบบที่ขึ้นต้นด้วยชื่อคนขับ/"รวมหักช่อง" ออก — คนขับไม่ต้องเห็น)
         memo = (p.memo or "").strip()
         sys_memo = ("รวมหัก" in memo) or ("ช่อง O" in memo) or ("สดย่อย" in memo)
-        if memo and not sys_memo:
-            extra = memo if len(memo) <= 24 else memo[:22] + "…"
-            label = f"{cat_label} · {extra}"
-        else:
-            label = cat_label
+        label = memo if (memo and not sys_memo) else cat_label
         return {
             "txn_date": p.txn_date,
             "label": label,
