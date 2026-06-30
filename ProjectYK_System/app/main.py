@@ -4420,6 +4420,13 @@ def payroll_print_all(run_id: int, request: Request):
             tb = {k: sum((r["boss"][k] or 0) for r in rows) for k in ("billed", "kb", "base100", "fuel_total", "drv_income")}
             tb["fuel_pct"] = (tb["fuel_total"] / tb["base100"] * 100.0) if tb["base100"] else None
             tb["drv_pct"] = (tb["drv_income"] / tb["base100"] * 100.0) if tb["base100"] else None
+            # แตกรวมหัก: ปกส / ปกต / หักอื่น (เงินเบิก/สดย่อย + อุบัติเหตุ + อื่นๆ) — โอ 1ก.ค.
+            tb["ss"] = sum((r["item"].social_security or 0) for r in rows)
+            tb["deposit"] = sum((r["item"].deposit_install or 0) for r in rows)
+            tb["other_ded"] = sum(
+                (r["item"].petty_cash_deduction or 0) + (r["item"].accident_install or 0)
+                + (r["item"].other_deduction or 0) for r in rows
+            )
             totals["boss"] = tb
     ctx = base_context(request)
     ctx.update({"run": pr, "rows": rows, "totals": totals, "is_boss": is_boss})
