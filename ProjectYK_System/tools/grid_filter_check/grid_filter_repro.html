@@ -1,0 +1,61 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link href="tabulator.min.css" rel="stylesheet"><script src="tabulator.min.js"></script>
+</head><body>
+<div id="t"></div>
+<div id="verdict" style="font:bold 26px monospace;color:#b00;padding:10px">RUNNING…</div>
+<pre id="log" style="font:15px monospace;white-space:pre-wrap"></pre>
+<script>
+const LOG=[]; function log(...a){ LOG.push(a.join(" ")); document.getElementById("log").textContent=LOG.join("\n"); }
+const FIX = location.hash !== "#nofix";   // default: fix ON
+
+function makeExcelFilter(fieldName){
+  return function(cell,onRendered,success){
+    let sel=new Set(["__ALL__"]); let pop=null;
+    const btn=document.createElement("button"); btn.type="button"; btn.className="ef"; btn.dataset.field=fieldName;
+    function getVals(){ const m=new Map(); (table.getData?table.getData():[]).forEach(r=>{const v=r[fieldName];const k=(v==null||v==="")?"\0B":String(v);m.set(k,(m.get(k)||0)+1);}); return [...m.entries()].sort(([a],[b])=>a==="\0B"?1:b==="\0B"?-1:a.localeCompare(b,"th")); }
+    function applyFilter(){ success(sel.has("__ALL__")||sel.size===0?null:new Set(sel)); if(FIX&&table.refreshFilter) table.refreshFilter(); }
+    btn._setSel=s=>{sel=s;}; btn._apply=applyFilter; btn._sel=()=>sel;
+    // emulate per-key toggle exactly like real onchange (for multi-select tests)
+    btn._toggle=(key,checked)=>{ const entries=getVals();
+      if(key==="__ALL__"){ sel= checked? new Set(["__ALL__"]) : new Set(); }
+      else { if(sel.has("__ALL__")){ sel=new Set(entries.map(([k])=>k)); } sel.delete("__ALL__"); checked?sel.add(key):sel.delete(key);
+        const allKeys=entries.map(([k])=>k); if(allKeys.every(k=>sel.has(k))) sel=new Set(["__ALL__"]); } };
+    onRendered(()=>{}); return btn;
+  };
+}
+function excelFilterFunc(hv,rv){ if(!hv||!(hv instanceof Set)||hv.has("__ALL__")) return true; const v=(rv==null||rv==="")?"\0B":String(rv); return hv.has(v); }
+const data=[{id:1,driver:"A"},{id:2,driver:"B"},{id:3,driver:"C"},{id:4,driver:"A"},{id:5,driver:"B"},{id:6,driver:"C"}];
+const table=new Tabulator("#t",{data,layout:"fitColumns",headerFilterLiveFilterDelay:300,
+  columns:[{title:"id",field:"id"},{title:"driver",field:"driver",headerFilter:makeExcelFilter("driver"),headerFilterFunc:excelFilterFunc}]});
+const vis=()=> table.getRows("active").map(r=>r.getData().driver).sort();
+const eq=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+function step(ms){return new Promise(r=>setTimeout(r,ms));}
+table.on("tableBuilt",async()=>{
+  await step(50); const btn=document.querySelector(".ef[data-field='driver']");
+  const results=[];
+  // T1: A then B (no clear)
+  btn._setSel(new Set(["A"])); btn._apply(); await step(350);
+  btn._setSel(new Set(["B"])); btn._apply(); await step(350);
+  results.push(["T1 A->B", eq(vis(),["B","B"])]);
+  // T2: clear (ALL) -> works
+  btn._setSel(new Set(["__ALL__"])); btn._apply(); await step(350);
+  results.push(["T2 clear->all6", eq(vis(),["A","A","B","B","C","C"])]);
+  // T3: multi-select A+B via toggles from ALL
+  btn._setSel(new Set(["__ALL__"]));
+  btn._toggle("C",false); // ALL minus C => A,B
+  btn._apply(); await step(350);
+  results.push(["T3 ALL-minus-C", eq(vis(),["A","A","B","B"])]);
+  // T4: from {A,B} uncheck B, check C  (the exact bug shape, multi)
+  btn._setSel(new Set(["A","B"])); btn._apply(); await step(350);
+  btn._setSel(new Set(["A","C"])); btn._apply(); await step(350);
+  results.push(["T4 {A,B}->{A,C}", eq(vis(),["A","A","C","C"])]);
+  // T5: single C then single A
+  btn._setSel(new Set(["C"])); btn._apply(); await step(350);
+  btn._setSel(new Set(["A"])); btn._apply(); await step(350);
+  results.push(["T5 C->A", eq(vis(),["A","A"])]);
+  let allpass=true;
+  results.forEach(([n,p])=>{ log((p?"PASS":"FAIL"), n); if(!p) allpass=false; });
+  const v = "FIX="+FIX+"  "+(allpass?"ALL_PASS":"SOME_FAIL");
+  log("=>",v); document.title="V:"+v; document.getElementById("verdict").textContent=v;
+});
+</script></body></html>
