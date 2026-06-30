@@ -156,6 +156,15 @@ table.run tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding
   .totband,.totband .cell{background:#fff !important;}
   .totband .cell:last-child{color:#000;border-left:3px double #000;}
   .totband .cell:last-child .wb-k{color:#000;font-weight:700;}
+  /* หน้าโอนเงิน/สรุป — ตัวอักษรใหญ่ขึ้นตอนพิมพ์ (โอ 30มิ.ย. เล็กไป) ยกเว้น boss ที่คอลัมน์เยอะ */
+  table.run:not(.boss){font-size:15px;}
+  table.run:not(.boss) th{font-size:11px;padding:0 8px 8px;}
+  table.run:not(.boss) td{padding:9px 8px;}
+  table.run:not(.boss) .r-bank{font-size:13px;}
+  table.run:not(.boss) td.num{font-size:15.5px;}
+  table.run:not(.boss) tfoot td{font-size:16px;padding-top:11px;}
+  .totband .t-v{font-size:24px;}
+  .totband .cell:last-child .t-v{font-size:29px;}
   @page{size:A4 portrait;margin:7mm;}
 }
 </style>
@@ -241,8 +250,8 @@ table.run tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding
   </div>
   <div class="bk-wrap">
     <div class="totband">
-      <div class="cell"><div class="wb-k">จำนวนรายการ</div><div class="t-v">{{ rows|length }}</div></div>
-      <div class="cell pay" style="flex:1.3"><div class="wb-k">ยอดโอนรวมทั้งสิ้น</div><div class="t-v">฿ {{ '{:,.2f}'.format(totals.net) }}</div></div>
+      <div class="cell"><div class="wb-k">จำนวนที่ต้องโอน</div><div class="t-v">{{ totals.transfer_count }}<small style="font-size:.5em;color:var(--wb-soft)"> / {{ rows|length }} คน</small></div></div>
+      <div class="cell pay" style="flex:1.3"><div class="wb-k">ยอดเตรียมเงินโอนรวม</div><div class="t-v">฿ {{ '{:,.2f}'.format(totals.transfer) }}</div></div>
     </div>
     <table class="run">
       <thead><tr><th class="r-idx">#</th><th>ชื่อ–สกุล</th><th>ธนาคาร / เลขบัญชี</th><th>หมายเหตุ</th><th class="num">จำนวนโอน</th><th class="no-print">แก้</th></tr></thead>
@@ -255,7 +264,7 @@ table.run tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding
           <td class="no-print">{% if run.status != 'finalized' %}<form method="post" action="/payroll/{{ run.id }}/employee/{{ r.employee.id }}/transfer-note" class="noteform"><input type="text" name="note" value="{{ it.transfer_note }}" placeholder="{{ r.transfer_note }}"><button type="submit">บันทึก</button></form>{% endif %}</td></tr>
       {% endfor %}
       </tbody>
-      <tfoot><tr><td colspan="4">รวมโอน {{ rows|length }} คน</td><td class="num net">{{ '{:,.0f}'.format(totals.net) }}</td><td class="no-print"></td></tr></tfoot>
+      <tfoot><tr><td colspan="4">ยอดเตรียมเงินโอน ({{ totals.transfer_count }} คน · ไม่รวมยอดติดลบ)</td><td class="num net">{{ '{:,.0f}'.format(totals.transfer) }}</td><td class="no-print"></td></tr></tfoot>
     </table>
   </div>
   <div class="bk-foot"><span>ตรวจเลขบัญชีก่อนโอนทุกครั้ง</span><span>Y.K. Logistics · One Platform</span></div>
