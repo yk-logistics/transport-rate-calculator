@@ -222,14 +222,14 @@ table.run tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding
   <div class="bk-wrap">
     <div class="totband">
       {% if is_boss %}<div class="cell"><div class="wb-k">ค่าขนส่งรวม</div><div class="t-v">{{ '{:,.0f}'.format(totals.boss.billed) }}</div></div>{% endif %}
-      <div class="cell"><div class="wb-k">รวมรายได้</div><div class="t-v">{{ '{:,.0f}'.format(totals.gross) }}</div></div>
       <div class="cell"><div class="wb-k">รวมค่าน้ำมัน{% if is_boss and totals.boss.fuel_pct is not none %} <span class="cell-pct">({{ '{:.0f}%'.format(totals.boss.fuel_pct) }})</span>{% endif %}</div><div class="t-v" style="color:var(--wb-neg)">{{ '{:,.0f}'.format(totals.fuel) }}</div></div>
+      <div class="cell"><div class="wb-k">รายได้หลังหักน้ำมัน{% if is_boss and totals.boss.drv_pct is not none %} <span class="cell-pct">({{ '{:.0f}%'.format(totals.boss.drv_pct) }})</span>{% endif %}</div><div class="t-v">{{ '{:,.0f}'.format(totals.gross - totals.fuel) }}</div></div>
       <div class="cell"><div class="wb-k">รวมหัก</div><div class="t-v" style="color:var(--wb-neg)">{{ '{:,.0f}'.format(totals.ded - totals.fuel) }}</div></div>
       <div class="cell"><div class="wb-k">รวมจ่ายสุทธิ · {{ rows|length }} คน</div><div class="t-v">{{ '{:,.0f}'.format(totals.net) }}</div></div>
     </div>
     <table class="run{% if is_boss %} boss{% endif %}">
       <thead><tr><th class="r-idx">#</th><th>ชื่อ–สกุล</th><th>โหมด</th>
-        {% if is_boss %}<th class="num">ค่าขนส่ง</th><th class="num">KB</th><th class="num">น้ำมัน <span class="th-pct">(%ขนส่ง)</span></th><th class="num">รวมรายได้</th><th class="num">หลังหักน้ำมัน <span class="th-pct">(%ขนส่ง)</span></th><th class="num">ปกส</th><th class="num">ปกต</th><th class="num">หักอื่น</th><th class="num">สุทธิ</th>
+        {% if is_boss %}<th class="num">ค่าขนส่ง</th><th class="num">KB <span class="th-pct">(%ขนส่ง)</span></th><th class="num">น้ำมัน <span class="th-pct">(%ขนส่ง)</span></th><th class="num">รวมรายได้</th><th class="num">หลังหักน้ำมัน <span class="th-pct">(%ขนส่ง)</span></th><th class="num">ปกส</th><th class="num">ปกต</th><th class="num">หักอื่น</th><th class="num">สุทธิ</th>
         {% else %}<th class="num">รวมรายได้</th><th class="num">น้ำมัน(หัก)</th><th class="num">หลังหักน้ำมัน</th><th class="num">รวมหัก</th><th class="num">สุทธิ</th>{% endif %}</tr></thead>
       <tbody>
       {% for r in rows %}{% set it = r.item %}
@@ -237,12 +237,12 @@ table.run tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding
           <td class="r-mode">{{ it.pay_mode }}</td>
           {% if is_boss %}{% set b = r.boss %}{% set _other = (it.petty_cash_deduction or 0) + (it.accident_install or 0) + (it.other_deduction or 0) %}
           <td class="num">{{ '{:,.0f}'.format(b.billed) }}</td>
-          <td class="num minus">{{ '{:,.0f}'.format(b.kb) if b.kb else '—' }}</td>
+          <td class="num minus">{{ '{:,.0f}'.format(b.kb) if b.kb else '—' }}{% if b.kb and b.billed %} <span class="cell-pct">({{ '{:.0f}%'.format(b.kb / b.billed * 100) }})</span>{% endif %}</td>
           <td class="num minus">{{ '{:,.0f}'.format(b.fuel_total) if b.fuel_total else '—' }}{% if b.fuel_pct is not none %} <span class="cell-pct {% if b.fuel_pct > 50 %}pct-bad{% endif %}">({{ '{:.0f}%'.format(b.fuel_pct) }})</span>{% endif %}</td>
           <td class="num">{{ '{:,.0f}'.format(it.gross_total) }}</td>
           <td class="num">{{ '{:,.0f}'.format(b.drv_income) }}{% if b.drv_pct is not none %} <span class="cell-pct {% if b.drv_pct < 15 %}pct-bad{% endif %}">({{ '{:.0f}%'.format(b.drv_pct) }})</span>{% endif %}</td>
           <td class="num minus">{{ '{:,.0f}'.format(it.social_security) if it.social_security else '—' }}</td>
-          <td class="num minus">{{ '{:,.0f}'.format(it.deposit_install) if it.deposit_install else '—' }}</td>
+          <td class="num minus">{% if it.deposit_install %}{{ '{:,.0f}'.format(it.deposit_install) }}{% set _dn = r.employee | dep_install %}{% if _dn %} <span class="dep-badge">{{ _dn }}</span>{% endif %}{% else %}—{% endif %}</td>
           <td class="num minus">{{ '{:,.0f}'.format(_other) if _other else '—' }}</td>
           <td class="num net {% if it.net_pay < 0 %}neg{% endif %}">{{ '{:,.0f}'.format(it.net_pay) }}</td></tr>
           {% else %}
