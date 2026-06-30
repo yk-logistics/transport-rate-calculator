@@ -619,6 +619,9 @@
         clipboard: false,
       }
     ].concat(ALL_FIELDS.map(([field, title, editable]) => {
+      // คอลัมน์ที่ "ค้างซ้าย" (frozen) — เลื่อนตารางไปขวาแล้วยังเห็น วันที่/คนขับ/ทะเบียน
+      // (แบบ Excel Freeze Panes) เพื่อรู้ว่ากำลังดูแถวของใคร
+      const FROZEN_FIELDS = ["work_date", "driver_name", "plate_no"];
       const MISSING_FIELDS = ["revenue_customer", "trip_fee_driver"];
       const NUM_FIELDS_ARR = ["revenue_customer","trip_fee_driver","kb_amount","price_override","driver_calc_price","fuel_liter","fuel_amount","fuel_rate_km_per_l","gps_rate","mile_snapshot","wht_53"];
       const RIGHT_ALIGN    = ["id","driver_id","head_vehicle_id","tail_vehicle_id","customer_id","trip_group_id","revenue_customer","trip_fee_driver","fee_special","fee_ot","fee_pickup_return","fee_lift","fee_yard","fee_clean","fee_shore","fee_port_entry","fee_weighing","fee_mflow","kb_amount","price_override","driver_calc_price","fuel_liter","fuel_amount","fuel_rate_km_per_l","gps_rate","mile_snapshot","wht_53"];
@@ -637,6 +640,7 @@
         width: field === "id" ? 70 : undefined,
         headerFilter: makeExcelFilter(field),
         headerFilterFunc: excelFilterFunc,
+        ...(FROZEN_FIELDS.includes(field) ? { frozen: true } : {}),
         ...(editable && CELL_EDITORS[field] ? CELL_EDITORS[field] : {}),
       };
       if (MISSING_FIELDS.includes(field)) {
