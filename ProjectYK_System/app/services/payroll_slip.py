@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any, Optional
 
@@ -179,11 +180,15 @@ def slip_route_cell(r) -> str:
 
 
 def slip_route_remark(r) -> str:
-    """remark ที่ "ปลอดภัยจะโชว์ให้คนขับ" — ตัดโน้ตภายใน ([...]) ออก กันเลขงานยกเลิกรั่ว."""
+    """remark ที่ "ปลอดภัยจะโชว์ให้คนขับ" — ตัดโน้ตภายใน ([...]) ออก กันเลขงานยกเลิกรั่ว
+    + ตัด tel=... (เลขโทรเทาๆ ไม่เกี่ยวคนขับ ไม่มีผล — โอ 1ก.ค.)."""
     remark = (getattr(r, "remark", "") or "").strip()
-    if remark and not _remark_is_internal(remark):
-        return remark
-    return ""
+    if not remark or _remark_is_internal(remark):
+        return ""
+    # ตัด token "tel=<อะไรก็ตามจนจบ/จนเจอ ||>" ออก แล้วเก็บกวาดตัวคั่น || ที่ค้าง
+    cleaned = re.sub(r"\s*tel=\S*", "", remark, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s*\|\|\s*", " ", cleaned).strip(" |")
+    return cleaned.strip()
 
 
 # กติกาเดียวกับ services.payroll._classify_lcb_days (ratio = ค่าเที่ยว/รายได้)
@@ -395,12 +400,20 @@ def build_payroll_slip_context(
         )
 
     # จำนวน "เที่ยววิ่งจริง" สำหรับหัวสลิป — นับเฉพาะแถวที่มีงานจริง (route/ค่าเที่ยว/รายได้)
-    # ตัด รถจอด / ลา / วันเติมน้ำมันล้วน ออก (โอ: หน่วยเที่ยวมีประโยชน์กว่าจำนวนบรรทัด).
+    # ตัด รถจอด / ลา / รถซ่อม / วันเติมน้ำมันล้วน ออก (โอ: หน่วยเที่ยวมีประโยชน์กว่าจำนวนบรรทัด).
     # วันเดียววิ่งหลายเที่ยว = หลาย DailyJob → นับแยกตามจริง.
-    trip_count = sum(
-        1 for r in daily_jobs
-        if _has_work(r) and (getattr(r, "leave_status", "") or "") != "leave"
-    )
+    # NB: วันลาบางแถวบันทึกเป็น origin='ลา' (ไม่มี leave_status) + status "ลา / ไม่พร้อม"
+    #     → _has_work=True (origin ไม่ว่าง) จะนับผิด ต้องกันด้วย status_code ของวันหยุด/ลาด้วย.
+    _IDLE_STATUS = {"รถจอด", "ลา / ไม่พร้อม", "ลา", "รถซ่อม", "รถอุบัติเหตุ"}
+
+    def _is_trip(r) -> bool:
+        if (getattr(r, "leave_status", "") or "") == "leave":
+            return False
+        if (getattr(r, "status_code", "") or "").strip() in _IDLE_STATUS:
+            return False
+        return _has_work(r)
+
+    trip_count = sum(1 for r in daily_jobs if _is_trip(r))
 
     fuel_only_info: dict[int, dict] = {}
     for r in daily_jobs:
