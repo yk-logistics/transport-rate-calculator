@@ -4,7 +4,7 @@
 {% set _grades = fuel_grade_by_job|default({}) %}
 {% set _fuelonly = fuel_only_info|default({}) %}
 {# น้ำมันโชว์ตามวันเติมจริง: anchor (แถววันเติม) ถือ list บรรทัดย่อย [{liter,amount,grade,excluded}];
-   job ที่ถูกดูดเข้ากลุ่ม = [] (เว้นช่อง ↳); ไม่อยู่ใน map = โชว์ปกติจาก r.fuel_* #}
+   job ที่ถูกดูดเข้ากลุ่ม = [] (เว้นช่องว่าง); ไม่อยู่ใน map = โชว์ปกติจาก r.fuel_* #}
 {% set _flines = fuel_lines_by_job|default({}) %}
 <div class="slip{% if daily_jobs|length > 52 %} ultra{% elif daily_jobs|length > 38 %} dense{% endif %}"{% if employee %} data-driver="{{ employee.full_name }}" data-emp="{{ employee.id }}"{% endif %}>
 
@@ -65,8 +65,9 @@
             </td>
             {% set _lines = _flines.get(r.id) %}
             {%- if _lines == [] %}
-            <td class="num"><span class="wb-muted">↳</span></td>
-            <td class="num"><span class="wb-muted">↳</span></td>
+            {# น้ำมันบรรทัดนี้ย้ายไปโชว์วันเติมจริงแล้ว → เว้นช่องว่าง #}
+            <td class="num"></td>
+            <td class="num"></td>
             {%- elif _lines %}
             {# วันเติมจริง: หลายบิลอัดในแถวเดียว เป็นบรรทัดย่อย #}
             <td class="num">{% for l in _lines %}<div class="fline">{{ '{:,.0f}'.format(l.liter) if l.liter else '' }}</div>{% endfor %}</td>
@@ -122,8 +123,9 @@
             {%- endif %}
             {% set _lines = _flines.get(r.id) %}
             {%- if _lines == [] %}
-            <td class="num"><span class="wb-muted">↳</span></td>
-            <td class="num"><span class="wb-muted">↳</span></td>
+            {# น้ำมันบรรทัดนี้ย้ายไปโชว์วันเติมจริงแล้ว → เว้นช่องว่าง #}
+            <td class="num"></td>
+            <td class="num"></td>
             {%- elif _lines %}
             {# วันเติมจริง: หลายบิลอัดในแถวเดียว เป็นบรรทัดย่อย #}
             <td class="num">{% for l in _lines %}<div class="fline">{{ '{:.0f}'.format(l.liter) if l.liter else '' }}</div>{% endfor %}</td>
