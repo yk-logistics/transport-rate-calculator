@@ -792,6 +792,10 @@ def _count_work_days(
         import re as _re_local
         tokens: set[str] = set()
         has_home_visit = False
+        # full_blob includes destination — used ONLY for substring markers that
+        # Thai can't tokenize (ลาหยุด/หยุด/อนุโลม). destination stays OUT of the
+        # token set so place names (ลาดพร้าว ฯลฯ) can't trip the ลา/ขาด rules.
+        full_blob_parts: list[str] = []
         for r in drows:
             blob = " ".join([
                 (r.leave_status or ""),
@@ -804,8 +808,21 @@ def _count_work_days(
                     tokens.add(tok)
             # "เข้าบ้าน" might be in destination (admin uses it as a status marker)
             dest_blob = (r.destination or "").strip().lower()
+            full_blob_parts.append(blob)
+            full_blob_parts.append(dest_blob)
             if "เข้าบ้าน" in dest_blob or "เข้าบ้าน" in blob:
                 has_home_visit = True
+        full_blob = " ".join(full_blob_parts)
+
+        # BIGC keys "ลาหยุด" into the delivery-location column (destination);
+        # it's a single Thai token so only substring match catches it.
+        # "(อนุโลม)" = exempt → not deducted (counts as worked). อนุโลม wins.
+        is_exempt = "อนุโลม" in full_blob
+        is_holiday = (not is_exempt) and ("หยุด" in full_blob)
+
+        # "อนุโลม" exempts the whole day → treat as worked, skip deductions.
+        if is_exempt:
+            continue
 
         is_absent = (
             ("absent" in leave_statuses)
@@ -821,6 +838,7 @@ def _count_work_days(
             or ("ลาป่วย" in tokens)
             or ("ลาออก" in tokens)
             or ("หยุด" in tokens)
+            or is_holiday
             # Domain rule: คนขับแจ้ง "เข้าบ้าน" = ขอลากลับบ้าน (นับเป็นลา)
             or has_home_visit
         )
