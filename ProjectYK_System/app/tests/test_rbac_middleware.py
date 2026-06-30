@@ -29,6 +29,16 @@ def test_unauthenticated_redirects_to_login(client):
     assert "/login" in r.headers.get("location", "")
 
 
+def test_unauthenticated_api_returns_401_json(client):
+    # /api/* must answer 401 JSON (not redirect to login HTML) so AJAX saves
+    # surface a clear "session expired" message instead of failing silently.
+    r = client.post("/api/daily/grid-save", json={"rows": [{"id": 1, "remark": "x"}]},
+                    follow_redirects=False)
+    assert r.status_code == 401
+    assert r.headers.get("content-type", "").startswith("application/json")
+    assert r.json().get("error") == "auth_required"
+
+
 def test_office_denied_payroll(office_client):
     r = office_client.get("/payroll", follow_redirects=False)
     assert r.status_code == 403

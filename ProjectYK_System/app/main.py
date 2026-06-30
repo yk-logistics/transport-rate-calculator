@@ -605,6 +605,10 @@ class RbacMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         user = current_user(request)
         if user is None:
+            # AJAX/API → ตอบ 401 JSON ให้ fetch จับได้ (อย่า redirect HTML login เงียบ ๆ
+            # ซึ่งทำให้หน้า grid เซฟไม่ติดแบบไม่มีข้อความ)
+            if path.startswith("/api/"):
+                return JSONResponse({"ok": False, "error": "auth_required"}, status_code=401)
             return RedirectResponse("/login", status_code=303)
         if user.must_change_pw and not path.startswith("/account/password"):
             return RedirectResponse("/account/password", status_code=303)

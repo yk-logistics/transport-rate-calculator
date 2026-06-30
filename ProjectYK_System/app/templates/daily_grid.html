@@ -566,10 +566,10 @@
     ajaxURL: apiUrl,
     ajaxResponse: function(url, params, resp){ return resp.items || []; },
     layout: "fitDataStretch",
-    height: "70vh",
+    height: "75vh",
     pagination: true,
-    paginationSize: 100,
-    paginationSizeSelector: [50, 100, 200, 400, true],
+    paginationSize: 1000,
+    paginationSizeSelector: [100, 200, 400, 1000, true],
     paginationCounter: "rows",
     movableColumns: true,
     clipboard: true,
@@ -887,7 +887,19 @@
   }, true /* capture phase */);
 
   // ── Save button ─────────────────────────────────────────────────────────────
+  // กด Save ตอนช่องหนึ่งยัง "เปิดแก้อยู่" → ค่าที่เพิ่งพิมพ์อาจยังไม่ commit เข้า dirtyRows
+  // (Tabulator commit ตอน blur). บังคับ blur ช่องที่กำลังแก้ + รอ 1 tick ให้ cellEdited วิ่ง
+  // ก่อนเช็ก dirtyRows — กันอาการ "ไม่มีข้อมูลที่แก้ไข" ทั้งที่พิมพ์ไปแล้ว
+  async function commitOpenEditor(){
+    const el = document.activeElement;
+    if (el && typeof el.blur === "function" &&
+        el.closest && el.closest(".tabulator-cell")) {
+      el.blur();
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
   saveBtn.addEventListener("click", async function(){
+    await commitOpenEditor();
     if (!dirtyRows.size){
       saveMsg.textContent = "ไม่มีข้อมูลที่แก้ไข";
       saveMsg.className = "text-xs text-slate-500";
@@ -904,7 +916,18 @@
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({rows: Array.from(dirtyRows.values())}),
+        redirect: "manual",   // เซสชันหมดอายุ → อย่าตามไปหน้า login เงียบ ๆ
       });
+      // session หมดอายุ: middleware เด้งไป /login (303) หรือคืน HTML ไม่ใช่ JSON
+      const ct = res.headers.get("content-type") || "";
+      if (res.type === "opaqueredirect" || res.status === 401 || res.status === 403 ||
+          (res.status >= 300 && res.status < 400) || !ct.includes("application/json")) {
+        saveMsg.textContent = "เซสชันหมดอายุ — กรุณาล็อกอินใหม่ (ข้อมูลที่แก้ยังอยู่ครบ)";
+        saveMsg.className = "text-xs text-red-600 font-semibold";
+        saveDetails.className = "rounded-lg border border-red-200 bg-red-50 text-red-800 p-3 text-xs mb-3";
+        saveDetails.innerHTML = '<a href="/login" target="_blank" rel="noopener" class="underline font-semibold">เปิดหน้าล็อกอินในแท็บใหม่ →</a> แล้วกลับมากด Save อีกครั้ง';
+        return;   // คง dirtyRows ไว้
+      }
       const out = await res.json();
       if (!res.ok || !out.ok){ throw new Error(out.error || "save failed"); }
       const errors = out.errors || [];
