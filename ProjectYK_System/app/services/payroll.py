@@ -1145,14 +1145,17 @@ def calc_one_employee(
         )
 
     elif mode == "ayu_mao":
-        revenue = _sum_gross_revenue(session, employee.id, start, end, site_code=site)
-        share_rate = employee.gross_share_rate or 0.60
-        calc.fuel_share_income = round(revenue * share_rate, 2)
+        # ค่าขนส่งคนขับ = ผลรวม trip_fee_driver ที่บันทึกไว้ต่อเที่ยวในเดลี่
+        # (importer ลง = revenue×60% เป็นค่าตั้งต้น แต่บางเที่ยวโอแก้มือเป็นเรท
+        # อื่น เช่น งานฝาก เฮงเค็ล จ่าย 100 ไม่ใช่ 60%). เดิม engine คิด
+        # revenue×60% ใหม่ทุกเที่ยว → ทับค่าที่แก้มือ จ่ายผิด. อ้าง trip_fee_driver
+        # เป็น single source ตรงกับเดลี่/สลิป.
+        calc.fuel_share_income = _sum_trip_fees(session, employee.id, start, end, site_code=site)
         calc.fuel_cost_self = _sum_fuel_cost(session, employee.id, start, end, site_code=site)
         # AYU mao drivers ALSO pay their own tolls/Mflow — petty cash rows with
         # category=toll for this driver become a deduction.
         calc.other_deduction += _sum_ayu_toll_deduction(session, employee.id, tag, site_code=site)
-        calc.note = f"60% × {revenue:,.0f} − น้ำมัน − ทางด่วน/Mflow"
+        calc.note = f"ค่าขนส่งต่อเที่ยว {calc.fuel_share_income:,.0f} − น้ำมัน − ทางด่วน/Mflow"
 
     elif mode == "office_monthly":
         # Office staff: base salary + fixed monthly bonus (stored in
