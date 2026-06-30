@@ -394,6 +394,14 @@ def build_payroll_slip_context(
             or (r.trip_fee_driver or 0) or (r.revenue_customer or 0)
         )
 
+    # จำนวน "เที่ยววิ่งจริง" สำหรับหัวสลิป — นับเฉพาะแถวที่มีงานจริง (route/ค่าเที่ยว/รายได้)
+    # ตัด รถจอด / ลา / วันเติมน้ำมันล้วน ออก (โอ: หน่วยเที่ยวมีประโยชน์กว่าจำนวนบรรทัด).
+    # วันเดียววิ่งหลายเที่ยว = หลาย DailyJob → นับแยกตามจริง.
+    trip_count = sum(
+        1 for r in daily_jobs
+        if _has_work(r) and (getattr(r, "leave_status", "") or "") != "leave"
+    )
+
     fuel_only_info: dict[int, dict] = {}
     for r in daily_jobs:
         has_fuel = (r.fuel_amount or 0) or (r.fuel_liter or 0)
@@ -499,6 +507,7 @@ def build_payroll_slip_context(
         "excluded_job_ids": excluded_job_ids,
         "fuel_grade_by_job": fuel_grade_by_job,
         "fuel_lines_by_job": fuel_lines_by_job,
+        "trip_count": trip_count,
         "fuel_only_info": fuel_only_info,
         "petty_lines": petty_lines,
         "petty_lines_extra": petty_lines_extra,

@@ -173,3 +173,33 @@ def test_lines_total_reconciles_with_footer(db):
             else:
                 disp += d.fuel_amount or 0
         assert abs(true_total - disp) < 0.01, f"{true_total} != {disp}"
+
+
+def test_trip_count_excludes_idle_leave_fuelonly(db):
+    """หัวสลิป 'X เที่ยว' = นับเฉพาะเที่ยววิ่งจริง (มี route/ค่าเที่ยว/รายได้),
+    ตัด รถจอด / ลา / วันเติมน้ำมันล้วน ออก. วันเดียว 2 เที่ยว = นับ 2."""
+    with Session(engine) as s:
+        emp = Employee(code="D-TC-1", full_name="ทดสอบ นับเที่ยว",
+                       home_site_code="LCB", pay_mode="lcb_trip")
+        s.add(emp); s.flush()
+        # 2 เที่ยวจริงวันเดียว (1/6)
+        s.add(DailyJob(driver_id=emp.id, site_code="LCB", work_date=date(2026, 6, 1),
+                       destination="OM", trip_fee_driver=500))
+        s.add(DailyJob(driver_id=emp.id, site_code="LCB", work_date=date(2026, 6, 1),
+                       destination="KCD", trip_fee_driver=300))
+        # เที่ยวจริง (2/6)
+        s.add(DailyJob(driver_id=emp.id, site_code="LCB", work_date=date(2026, 6, 2),
+                       destination="TICS", revenue_customer=2000))
+        # รถจอด (ไม่มี route/fee) — ไม่นับ
+        s.add(DailyJob(driver_id=emp.id, site_code="LCB", work_date=date(2026, 6, 3),
+                       status_code="รถจอด"))
+        # ลา (มี destination แต่ leave) — ไม่นับ
+        s.add(DailyJob(driver_id=emp.id, site_code="LCB", work_date=date(2026, 6, 4),
+                       destination="ลาหยุด", leave_status="leave"))
+        # วันเติมน้ำมันล้วน (มีน้ำมัน ไม่มีงาน) — ไม่นับ
+        s.add(DailyJob(driver_id=emp.id, site_code="LCB", work_date=date(2026, 6, 5),
+                       fuel_liter=40, fuel_amount=1600))
+        s.flush()
+        ctx = build_payroll_slip_context(s, _pr(), emp, PayRunItem(pay_mode="lcb_trip"))
+        # 3 เที่ยวจริง (2 วัน 1/6 + 1 วัน 2/6); ตัด รถจอด/ลา/เติมน้ำมัน
+        assert ctx["trip_count"] == 3, ctx["trip_count"]
