@@ -355,10 +355,58 @@
 
   const NUM_FIELDS = new Set(["revenue_customer","trip_fee_driver","fee_special","fee_ot","fee_pickup_return","fee_lift","fee_yard","fee_clean","fee_shore","fee_port_entry","fee_weighing","fee_mflow","kb_amount","price_override","driver_calc_price","fuel_liter","fuel_amount","fuel_rate_km_per_l","gps_rate","mile_snapshot","wht_53"]);
 
-  // คอลัมน์ที่ "ค้างซ้าย" (frozen) — เลื่อนตารางไปขวาแล้วยังเห็น วันที่/คนขับ/ทะเบียน
+  // คอลัมน์ที่ "ค้างซ้าย" (frozen) — เลื่อนตารางไปขวาแล้วยังเห็นคอลัมน์ที่เลือก
   // (แบบ Excel Freeze Panes). Tabulator ต้องการให้ frozen-left อยู่ "ติดกันหน้าสุด"
-  // ไม่งั้นคอลัมน์อื่นจะมุดใต้ frozen เวลาเลื่อน (ทับซ้อน) — เลยดันให้นำหน้าตามลำดับนี้
-  const FROZEN_FIELDS = ["work_date", "driver_name", "plate_no"];
+  // ไม่งั้นคอลัมน์อื่นจะมุดใต้ frozen เวลาเลื่อน (ทับซ้อน) — buildColumns() เลยดันให้นำหน้า
+  // โอเลือก freeze เองได้ (เมนูคอลัมน์ + คลิกขวาหัวคอลัมน์) → จำใน localStorage
+  const FROZEN_KEY = "yk_daily_frozen_v1";
+  const FROZEN_DEFAULT = ["work_date", "driver_name", "plate_no"];
+  function getFrozenFields(){
+    try {
+      const v = JSON.parse(localStorage.getItem(FROZEN_KEY));
+      return Array.isArray(v) ? v : FROZEN_DEFAULT;   // null (ยังไม่เคยตั้ง) → default
+    } catch(e){ return FROZEN_DEFAULT; }
+  }
+  function setFrozenFields(arr){ localStorage.setItem(FROZEN_KEY, JSON.stringify(arr)); }
+  let FROZEN_FIELDS = getFrozenFields();
+  // ลำดับคงที่ของทุกคอลัมน์ (= ลำดับ ALL_FIELDS) — ใช้จัด frozen ให้เรียงเดาได้
+  const FIELD_ORDER = ALL_FIELDS.map(([f]) => f);
+
+  // คอลัมน์ที่ให้ freeze ได้ (ยกเว้น id ที่ pin ไว้แล้ว และคอลัมน์ action)
+  function isFreezable(field){ return field !== "id" && field !== "_actions"; }
+
+  // ปรับ freeze บนตารางที่สร้างแล้ว — set frozen ต่อคอลัมน์ แล้วดัน frozen ทั้งหมด
+  // มาเรียง "ติดกันหน้าสุด" ตามลำดับ FIELD_ORDER (กันทับซ้อน). async เพราะ
+  // updateColumnDefinition คืน promise (rebuild คอลัมน์).
+  async function applyFrozen(){
+    const want = new Set(FROZEN_FIELDS);
+    // 1) set/unset frozen ต่อคอลัมน์ (เฉพาะที่ค่าเปลี่ยน เพื่อลด rebuild)
+    for (const field of FIELD_ORDER){
+      const col = table.getColumn(field);
+      if (!col) continue;
+      const now = !!col.getDefinition().frozen;
+      const next = want.has(field);
+      if (now !== next){
+        try { await table.updateColumnDefinition(field, { frozen: next }); } catch(e){}
+      }
+    }
+    // 2) จัดลำดับ frozen ให้ติดกันหน้าสุด (หลังคอลัมน์ action) ตาม FIELD_ORDER
+    const frozenInOrder = FIELD_ORDER.filter(f => want.has(f));
+    let prev = "_actions";   // คอลัมน์ "เปิด" — ตัวสุดท้ายของ action ที่ frozen เสมอ
+    for (const field of frozenInOrder){
+      const col = table.getColumn(field);
+      if (!col) continue;
+      try { table.moveColumn(field, prev, true); } catch(e){}  // วางหลัง prev
+      prev = field;
+    }
+  }
+  function toggleFreeze(field, on){
+    const set = new Set(FROZEN_FIELDS);
+    if (on) set.add(field); else set.delete(field);
+    FROZEN_FIELDS = FIELD_ORDER.filter(f => set.has(f));   // เก็บตามลำดับคงที่
+    setFrozenFields(FROZEN_FIELDS);
+    applyFrozen();
+  }
 
   // Returns a closure over calcMode — called per column, recalc() re-invokes it
   function makeCalc() {
@@ -969,14 +1017,15 @@
   // ── Columns dialog ──────────────────────────────────────────────────────────
   function renderColumnsChecklist(){
     columnsChecklist.innerHTML = "";
+    const frozenSet = new Set(FROZEN_FIELDS);
     ALL_FIELDS.forEach(([field, title]) => {
       const col = table.getColumn(field);
       const isVisible = col ? col.isVisible() : true;
-      const wrap = document.createElement("label");
-      wrap.className = "flex items-center gap-2 py-0.5 cursor-pointer hover:bg-slate-50 rounded px-1";
+      const wrap = document.createElement("div");
+      wrap.className = "flex items-center gap-2 py-0.5 hover:bg-slate-50 rounded px-1";
       const chk = document.createElement("input");
       chk.type = "checkbox";
-      chk.className = "accent-indigo-600";
+      chk.className = "accent-indigo-600 cursor-pointer";
       chk.checked = isVisible;
       if (field === "id"){ chk.disabled = true; chk.checked = true; }
       chk.addEventListener("change", () => {
@@ -986,9 +1035,22 @@
       });
       const lbl = document.createElement("span");
       lbl.textContent = title;
-      lbl.className = isVisible ? "" : "text-slate-400 line-through";
+      lbl.className = "flex-1 cursor-pointer " + (isVisible ? "" : "text-slate-400 line-through");
+      lbl.addEventListener("click", () => { chk.checked = !chk.checked; chk.dispatchEvent(new Event("change")); });
       wrap.appendChild(chk);
       wrap.appendChild(lbl);
+      // ปุ่ม freeze (ค้างซ้าย) ต่อคอลัมน์
+      if (isFreezable(field)){
+        const frz = document.createElement("button");
+        frz.type = "button";
+        const on = frozenSet.has(field);
+        frz.textContent = on ? "📌 ค้างซ้าย" : "ค้างซ้าย";
+        frz.title = on ? "กำลังค้างซ้าย — คลิกเพื่อปลด" : "คลิกเพื่อค้างคอลัมน์นี้ไว้ซ้าย";
+        frz.className = "text-[11px] px-1.5 py-0.5 rounded border shrink-0 " +
+          (on ? "bg-sky-100 border-sky-300 text-sky-700 font-semibold" : "bg-white border-slate-200 text-slate-400 hover:text-slate-700");
+        frz.addEventListener("click", () => { toggleFreeze(field, !on); renderColumnsChecklist(); });
+        wrap.appendChild(frz);
+      }
       columnsChecklist.appendChild(wrap);
     });
   }
@@ -1005,11 +1067,17 @@
     menu.className = "fixed z-50 bg-white border rounded shadow-lg py-1 text-sm min-w-36";
     menu.style.left = Math.min(e.clientX, window.innerWidth - 160) + "px";
     menu.style.top  = Math.min(e.clientY, window.innerHeight - 120) + "px";
+    const isFrozen = FROZEN_FIELDS.includes(field);
     const items = [
+      isFreezable(field)
+        ? (isFrozen
+            ? { label: `📌 ปลดค้างซ้าย "${colTitle}"`, action: () => { toggleFreeze(field, false); renderColumnsChecklist(); } }
+            : { label: `📌 ค้างซ้าย "${colTitle}"`,    action: () => { toggleFreeze(field, true);  renderColumnsChecklist(); } })
+        : null,
       { label: `🙈 ซ่อน "${colTitle}"`, action: () => { table.hideColumn(field); saveHiddenState(); renderColumnsChecklist(); } },
       { label: "🗂 แสดงทุกคอลัมน์",     action: () => applyPreset("all") },
       { label: "✏️ ตั้งค่าคอลัมน์...",  action: () => { columnsDialog.showModal(); renderColumnsChecklist(); } },
-    ];
+    ].filter(Boolean);
     items.forEach(({ label, action }) => {
       const li = document.createElement("div");
       li.textContent = label;
