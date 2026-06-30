@@ -1058,9 +1058,13 @@ def calc_one_employee(
         )
 
     elif mode == "lcb_mao":
+        # ค่าขนส่งคนขับ = ผลรวม trip_fee_driver ที่บันทึกต่อเที่ยวในเดลี่
+        # (importer ลง = รายได้×60% เป็นค่าตั้งต้น แต่บางเที่ยวแก้มือต่อเที่ยว เช่น NHL
+        # ให้มากกว่า 60%). เดิม engine คิด revenue×60% รวมรอบ → ทับ override ต่อเที่ยว
+        # จ่ายขาด. อ้าง trip_fee_driver เป็น single source ตรงกับเดลี่/สลิป
+        # (เหมือน ayu_mao). ตรวจแล้ว run ปัจจุบันทุกเที่ยว rev>0 มี tfd>0 ครบ.
+        calc.fuel_share_income = _sum_trip_fees(session, employee.id, start, end, site_code=site)
         revenue = _sum_gross_revenue(session, employee.id, start, end, site_code=site)
-        share_rate = employee.gross_share_rate or 0.60
-        calc.fuel_share_income = round(revenue * share_rate, 2)
         calc.fuel_cost_self = _sum_fuel_cost(session, employee.id, start, end, site_code=site)
         # คนเหมาไม่ได้พิเศษ (โอ 2026-06-25) — แต่ได้ OT/รับตู้แทน ถ้ามี
         extra = _sum_lcb_driver_extra_fees(session, employee.id, start, end, site_code=site)
@@ -1069,7 +1073,7 @@ def calc_one_employee(
         calc.ot_income = extra["ot"]
         calc.pickup_return_income = extra["pickup_return"]
         calc.note = (
-            f"Gross revenue {revenue:,.2f} × {share_rate*100:.0f}% − น้ำมันจริง"
+            f"ค่าขนส่งต่อเที่ยว {calc.fuel_share_income:,.2f} (รายได้ {revenue:,.0f}) − น้ำมันจริง"
             f" + OT {extra['ot']:,.0f} + รับตู้แทน {extra['pickup_return']:,.0f}"
         )
 
