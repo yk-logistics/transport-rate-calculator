@@ -508,6 +508,10 @@
       function applyFilter() {
         success(sel.has("__ALL__") || sel.size === 0 ? null : new Set(sel));
         styleBtn();
+        // Tabulator เก็บค่า header-filter ไว้ แล้วไม่ re-run กรองซ้ำเมื่อเรียก success()
+        // ด้วยค่าใหม่ติดๆ กัน (เปลี่ยนจากชุด A→ชุด B โดยไม่ล้างก่อน) → แถวยังค้างชุดเดิม.
+        // refreshFilter() บังคับประเมินตัวกรองใหม่ทุกครั้ง (พิสูจน์ด้วย repro headless).
+        if (table && table.refreshFilter) table.refreshFilter();
       }
 
       function openPop() {
