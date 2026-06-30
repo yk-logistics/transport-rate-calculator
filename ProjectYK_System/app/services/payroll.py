@@ -233,6 +233,28 @@ def _sum_trip_fees(
     return round(sum((r.trip_fee_driver or 0.0) for r in rows), 2)
 
 
+def _sum_mao_kb_share(
+    session: Session, emp_id: int, start: date, end: date,
+    site_code: str = "", share_rate: float = 0.60,
+) -> float:
+    """ส่วนแบ่ง KB ที่ต้องหักจากค่าเที่ยวคนเหมา. ค่าเที่ยวในเดลี่คีย์ = 60% ของ
+    ค่าขนส่ง 'เต็ม' (ไม่หัก KB) แต่คนเหมาต้องได้ 60% ของ (ค่าขนส่ง−KB) → หัก
+    KB×share เฉพาะแถวที่มีค่าเที่ยวจริง (tfd>0; แถว tfd=0 = ไม่จ่าย ไม่หัก)."""
+    stmt = select(DailyJob).where(
+        DailyJob.driver_id == emp_id,
+        DailyJob.work_date >= start,
+        DailyJob.work_date <= end,
+    )
+    if site_code:
+        stmt = stmt.where(DailyJob.site_code == site_code)
+    rows = session.exec(stmt).all()
+    return round(
+        sum((r.kb_amount or 0.0) * share_rate
+            for r in rows if (r.trip_fee_driver or 0.0) > 0),
+        2,
+    )
+
+
 
 def _sum_gross_revenue(
     session: Session, emp_id: int, start: date, end: date, site_code: str = ""
@@ -1063,7 +1085,13 @@ def calc_one_employee(
         # ให้มากกว่า 60%). เดิม engine คิด revenue×60% รวมรอบ → ทับ override ต่อเที่ยว
         # จ่ายขาด. อ้าง trip_fee_driver เป็น single source ตรงกับเดลี่/สลิป
         # (เหมือน ayu_mao). ตรวจแล้ว run ปัจจุบันทุกเที่ยว rev>0 มี tfd>0 ครบ.
-        calc.fuel_share_income = _sum_trip_fees(session, employee.id, start, end, site_code=site)
+        share_rate = employee.gross_share_rate or 0.60
+        # ค่าเที่ยวต่อเที่ยว − ส่วนแบ่ง KB (KB ใต้โต๊ะหักจากส่วนแบ่งคนเหมาก่อน:
+        # คนได้ 60% ของ (ค่าขนส่ง−KB) ไม่ใช่ 60% ของเต็ม). โอยืนยัน 30มิ.ย.
+        kb_share = _sum_mao_kb_share(session, employee.id, start, end, site_code=site, share_rate=share_rate)
+        calc.fuel_share_income = round(
+            _sum_trip_fees(session, employee.id, start, end, site_code=site) - kb_share, 2
+        )
         revenue = _sum_gross_revenue(session, employee.id, start, end, site_code=site)
         calc.fuel_cost_self = _sum_fuel_cost(session, employee.id, start, end, site_code=site)
         # คนเหมาไม่ได้พิเศษ (โอ 2026-06-25) — แต่ได้ OT/รับตู้แทน ถ้ามี
