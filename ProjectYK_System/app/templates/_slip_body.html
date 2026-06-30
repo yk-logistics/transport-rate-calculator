@@ -6,6 +6,9 @@
 {# น้ำมันโชว์ตามวันเติมจริง: anchor (แถววันเติม) ถือ list บรรทัดย่อย [{liter,amount,grade,excluded}];
    job ที่ถูกดูดเข้ากลุ่ม = [] (เว้นช่องว่าง); ไม่อยู่ใน map = โชว์ปกติจาก r.fuel_* #}
 {% set _flines = fuel_lines_by_job|default({}) %}
+{# ค่าพิเศษ/OT/รับตู้คืนตู้ ต่อแถว — โชว้ว่ามาจากเที่ยวไหน (มาโคร render เป็น tag เล็ก) #}
+{% set _dfees = driver_fees_by_job|default({}) %}
+{% macro feetags(jid) %}{% set f = _dfees.get(jid) %}{% if f %}{% if f.special %} <span class="tag-fee">พิเศษ {{ '{:,.0f}'.format(f.special) }}</span>{% endif %}{% if f.ot %} <span class="tag-fee">OT {{ '{:,.0f}'.format(f.ot) }}</span>{% endif %}{% if f.pickup_return %} <span class="tag-fee">รับตู้ {{ '{:,.0f}'.format(f.pickup_return) }}</span>{% endif %}{% endif %}{% endmacro %}
 <div class="slip{% if daily_jobs|length > 52 %} ultra{% elif daily_jobs|length > 38 %} dense{% endif %}"{% if employee %} data-driver="{{ employee.full_name }}" data-emp="{{ employee.id }}"{% endif %}>
 
   {# ===== masthead ===== #}
@@ -25,7 +28,9 @@
   {# ===== money ribbon (signature): รายได้ → −น้ำมัน → −หัก → สุทธิ ===== #}
   <div class="wb-ribbon">
     <div class="seg"><div class="lab">รวมรายได้</div><div class="fig">{{ '{:,.0f}'.format(item.gross_total) }}</div></div>
+    {%- if item.fuel_cost_self %}
     <div class="seg minus"><div class="lab">− ค่าน้ำมัน</div><div class="fig">{{ '{:,.0f}'.format(item.fuel_cost_self) }}</div></div>
+    {%- endif %}
     <div class="seg minus"><div class="lab">− เงินหัก</div><div class="fig">{{ '{:,.0f}'.format(item.deduction_total - item.fuel_cost_self) }}</div></div>
     <div class="seg net"><div class="lab">ยอดรับสุทธิ</div><div class="fig {% if item.net_pay < 0 %}neg{% endif %}">฿ {{ '{:,.2f}'.format(item.net_pay) }}</div></div>
   </div>
@@ -61,7 +66,7 @@
             <td class="num c-trip">
               {%- if k.kind == 'mao' %}{{ '{:,.0f}'.format((r.revenue_customer or 0) * 0.60) }}
               {%- elif k.kind == 'trip' %}{{ '{:,.0f}'.format(r.trip_fee_driver) if r.trip_fee_driver else '0' }}
-              {%- else %}—{% endif %}
+              {%- else %}—{% endif %}{{ feetags(r.id) }}
             </td>
             {% set _lines = _flines.get(r.id) %}
             {%- if _lines == [] %}
@@ -107,7 +112,7 @@
         <thead><tr>
           <th style="width:62px;">วันที่</th>
           <th>ส่งสินค้า (ต้นทาง → โหลด → ปลายทาง)</th>
-          <th class="num" style="width:38px;">ลิตร</th><th class="num" style="width:52px;">น้ำมัน ฿</th><th class="num" style="width:54px;">ค่าเที่ยว</th>
+          <th class="num" style="width:36px;">ลิตร</th><th class="num" style="width:50px;">น้ำมัน ฿</th><th class="num" style="width:96px;">ค่าเที่ยว</th>
           {%- if is_boss|default(false) %}
           <th class="num" style="width:60px;">ค่าขนส่งจริง</th><th class="num" style="width:56px;">ราคากลาง</th><th class="num" style="width:46px;">KB</th>
           {%- endif %}
@@ -128,18 +133,13 @@
             <td class="num"></td>
             {%- elif _lines %}
             {# วันเติมจริง: หลายบิลอัดในแถวเดียว เป็นบรรทัดย่อย #}
-            <td class="num">{% for l in _lines %}<div class="fline">{{ '{:.0f}'.format(l.liter) if l.liter else '' }}</div>{% endfor %}</td>
-            <td class="num">{% for l in _lines %}<div class="fline">{%- if l.amount %}{{ '{:,.0f}'.format(l.amount) }}{% if l.grade %} <span class="tag-grade">{{ l.grade }}</span>{% endif %}{% if l.excluded %} <span class="tag-free">ไม่หัก</span>{% endif %}{%- endif %}</div>{% endfor %}</td>
+            <td class="num">{% for l in _lines %}<div class="fline"><span class="fnum">{{ '{:.0f}'.format(l.liter) if l.liter else '' }}</span></div>{% endfor %}</td>
+            <td class="num">{% for l in _lines %}<div class="fline">{%- if l.amount %}<span class="fnum">{{ '{:,.0f}'.format(l.amount) }}</span>{% if l.grade %}<span class="tag-grade">{{ l.grade }}</span>{% endif %}{% if l.excluded %} <span class="tag-free">ไม่หัก</span>{% endif %}{%- endif %}</div>{% endfor %}</td>
             {%- else %}
-            <td class="num">{% if r.fuel_liter %}{{ '{:.0f}'.format(r.fuel_liter) }}{% endif %}</td>
-            <td class="num">
-              {%- if r.fuel_amount %}{{ '{:,.0f}'.format(r.fuel_amount) }}
-                {%- if _grades.get(r.id) %} <span class="tag-grade">{{ _grades[r.id] }}</span>{% endif %}
-                {%- if r.id in excluded_job_ids %} <span class="tag-free">ไม่หัก</span>{% endif %}
-              {%- endif %}
-            </td>
+            <td class="num"><span class="fnum">{% if r.fuel_liter %}{{ '{:.0f}'.format(r.fuel_liter) }}{% endif %}</span></td>
+            <td class="num"><span class="fnum">{% if r.fuel_amount %}{{ '{:,.0f}'.format(r.fuel_amount) }}{% endif %}</span>{% if r.fuel_amount %}{%- if _grades.get(r.id) %} <span class="tag-grade">{{ _grades[r.id] }}</span>{% endif %}{%- if r.id in excluded_job_ids %} <span class="tag-free">ไม่หัก</span>{% endif %}{% endif %}</td>
             {%- endif %}
-            <td class="num c-trip">{% if r.trip_fee_driver %}{{ '{:,.0f}'.format(r.trip_fee_driver) }}{% endif %}</td>
+            <td class="num c-trip">{% if r.trip_fee_driver %}{{ '{:,.0f}'.format(r.trip_fee_driver) }}{% endif %}{{ feetags(r.id) }}</td>
             {%- if is_boss|default(false) %}
             <td class="num">{% if r.revenue_customer %}{{ '{:,.0f}'.format(r.revenue_customer) }}{% endif %}</td>
             <td class="num">{% if r.price_override or r.revenue_customer %}{{ '{:,.0f}'.format(r.price_override or r.revenue_customer) }}{% endif %}</td>
@@ -198,18 +198,20 @@
         {% set other_rest = item.other_income - item.special_income - item.ot_income - item.pickup_return_income %}
         {% if other_rest|round(2) != 0 %}<div class="lr"><span>รายได้อื่น</span><span class="amt">{{ '{:,.2f}'.format(other_rest) }}</span></div>{% endif %}
         <div class="lr sum"><span>รวมรายได้</span><span class="amt">{{ '{:,.2f}'.format(item.gross_total) }}</span></div>
-        {% if item.fuel_cost_self %}<div class="lr minus"><span>− ค่าน้ำมัน (หักจริง)</span><span class="amt">{{ '{:,.2f}'.format(item.fuel_cost_self) }}</span></div>{% endif %}
+        {%- if item.fuel_cost_self %}
+        <div class="lr minus"><span>− ค่าน้ำมัน (หักจริง)</span><span class="amt">{{ '{:,.2f}'.format(item.fuel_cost_self) }}</span></div>
         <div class="lr sum"><span>รายได้หลังหักน้ำมัน</span><span class="amt">{{ '{:,.2f}'.format(item.gross_total - item.fuel_cost_self) }}</span></div>
+        {%- endif %}
       </div>
 
       {# ----- เงินหัก ----- #}
       <div class="wb-sub">เงินหัก</div>
       <div class="wb-ledger">
-        {% if item.social_security %}<div class="lr minus"><span>ประกันสังคม</span><span class="amt">{{ '{:,.2f}'.format(item.social_security) }}</span></div>{% endif %}
+        {% if item.social_security %}<div class="lr minus"><span>ประกันสังคม{% if (employee.social_security_base or 0) > 0 %} <span class="wb-muted" style="font-size:10px;">(ฐาน {{ '{:,.0f}'.format(employee.social_security_base) }} × {{ '{:.0f}'.format((employee.social_security_rate or 0.05) * 100) }}%)</span>{% endif %}</span><span class="amt">{{ '{:,.2f}'.format(item.social_security) }}</span></div>{% endif %}
         {% if item.income_tax_withholding %}<div class="lr minus"><span>ภาษีหัก ณ ที่จ่าย</span><span class="amt">{{ '{:,.2f}'.format(item.income_tax_withholding) }}</span></div>{% endif %}
-        {% if item.deposit_install %}{% set dep_no = employee | dep_install %}<div class="lr minus"><span>เงินประกัน (ผ่อน){% if dep_no %}<span class="dep-badge">งวด {{ dep_no }}</span>{% endif %}</span><span class="amt">{{ '{:,.2f}'.format(item.deposit_install) }}</span></div>
-        {% elif (employee.deposit_target or 0) > 0 and (employee.deposit_balance or 0) >= (employee.deposit_target or 0) %}{% set dep_no = employee | dep_install %}<div class="lr"><span style="color:var(--wb-soft)">เงินประกันครบแล้ว{% if dep_no %} <span class="dep-badge">งวด {{ dep_no }}</span>{% endif %}</span><span class="amt" style="color:var(--wb-soft)">— ไม่หัก</span></div>
-        {% elif (employee.deposit_target or 0) > 0 %}{% set dep_no = employee | dep_install %}<div class="lr"><span style="color:var(--wb-soft)">เงินประกัน (สะสม {{ '{:,.0f}'.format(employee.deposit_balance or 0) }}){% if dep_no %} <span class="dep-badge">งวด {{ dep_no }}</span>{% endif %}</span><span class="amt" style="color:var(--wb-soft)">— เดือนนี้ไม่หัก</span></div>{% endif %}
+        {% if item.deposit_install %}{% set dep_no = employee | dep_install %}<div class="lr minus"><span>เงินประกันตน (ผ่อน){% if dep_no %}<span class="dep-badge">งวด {{ dep_no }}</span>{% endif %}</span><span class="amt">{{ '{:,.2f}'.format(item.deposit_install) }}</span></div>
+        {% elif (employee.deposit_target or 0) > 0 and (employee.deposit_balance or 0) >= (employee.deposit_target or 0) %}{% set dep_no = employee | dep_install %}<div class="lr"><span style="color:var(--wb-soft)">เงินประกันตนครบแล้ว{% if dep_no %} <span class="dep-badge">งวด {{ dep_no }}</span>{% endif %}</span><span class="amt" style="color:var(--wb-soft)">— ไม่หัก</span></div>
+        {% elif (employee.deposit_target or 0) > 0 %}{% set dep_no = employee | dep_install %}<div class="lr"><span style="color:var(--wb-soft)">เงินประกันตน (สะสม {{ '{:,.0f}'.format(employee.deposit_balance or 0) }}){% if dep_no %} <span class="dep-badge">งวด {{ dep_no }}</span>{% endif %}</span><span class="amt" style="color:var(--wb-soft)">— เดือนนี้ไม่หัก</span></div>{% endif %}
         {% if item.accident_install %}<div class="lr minus"><span>ผ่อนอุบัติเหตุ</span><span class="amt">{{ '{:,.2f}'.format(item.accident_install) }}</span></div>{% endif %}
         {% if petty_lines or petty_lines_extra %}
         <div class="pettyControls no-print" style="font-size:10px; color:var(--wb-soft); margin:4px 0; display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
@@ -234,7 +236,7 @@
         </div>
         <div id="pettyHiddenNote" class="no-print" style="font-size:9px; color:var(--wb-muted); display:none;"></div>
         {% if item.other_deduction %}<div class="lr minus"><span>หักอื่นๆ</span><span class="amt">{{ '{:,.2f}'.format(item.other_deduction) }}</span></div>{% endif %}
-        <div class="lr sum minus"><span>รวมหัก (ไม่รวมน้ำมัน)</span><span class="amt">{{ '{:,.2f}'.format(item.deduction_total - item.fuel_cost_self) }}</span></div>
+        <div class="lr sum minus"><span>รวมหัก{% if item.fuel_cost_self %} (ไม่รวมน้ำมัน){% endif %}</span><span class="amt">{{ '{:,.2f}'.format(item.deduction_total - item.fuel_cost_self) }}</span></div>
       </div>
 
       {# ----- การใช้รถ ----- #}

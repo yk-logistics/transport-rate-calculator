@@ -23,7 +23,7 @@ import pytest
 from sqlmodel import SQLModel, Session
 from db_config import engine
 import main as appmod
-from models import Employee, DailyJob, FuelTxn, PayRun, PayRunItem
+from models import Employee, DailyJob, DailyJobFee, FuelTxn, PayRun, PayRunItem
 from services.payroll_slip import build_payroll_slip_context, slip_route_remark
 
 
@@ -209,6 +209,32 @@ def test_trip_count_excludes_idle_leave_fuelonly(db):
         ctx = build_payroll_slip_context(s, _pr(), emp, PayRunItem(pay_mode="lcb_trip"))
         # 3 เที่ยวจริง (2 วัน 1/6 + 1 วัน 2/6); ตัด รถจอด/ลา(leave+origin'ลา')/เติมน้ำมัน/tel
         assert ctx["trip_count"] == 3, ctx["trip_count"]
+
+
+def test_driver_fees_by_job_buckets_per_row(db):
+    """ค่าพิเศษ/OT/รับตู้คืนตู้ แตกตามแถว (job) — โชว้ในรายการวิ่งงาน (มาจากเที่ยวไหน).
+    ctx['driver_fees_by_job'] = {job_id: {special, ot, pickup_return}} เฉพาะที่ >0;
+    reserve fees (ยกตู้/ผ่านลาน ฯลฯ) ไม่นับ (เป็นเงินบริษัท)."""
+    with Session(engine) as s:
+        emp = Employee(code="D-DF-1", full_name="ทดสอบ ค่าพิเศษ",
+                       home_site_code="LCB", pay_mode="lcb_trip")
+        s.add(emp); s.flush()
+        dj1 = DailyJob(driver_id=emp.id, site_code="LCB", work_date=date(2026, 6, 1),
+                       destination="OM", trip_fee_driver=500)
+        dj2 = DailyJob(driver_id=emp.id, site_code="LCB", work_date=date(2026, 6, 2),
+                       destination="KERRY", trip_fee_driver=350)
+        s.add(dj1); s.add(dj2); s.flush()
+        # dj1: พิเศษ 100 + ยกตู้ 1400 (เงินบริษัท ไม่นับ)
+        s.add(DailyJobFee(daily_job_id=dj1.id, fee_type="ค่าพิเศษ", amount=100))
+        s.add(DailyJobFee(daily_job_id=dj1.id, fee_type="ค่ายกตู้", amount=1400))
+        # dj2: OT 200 + รับตู้แทน 150
+        s.add(DailyJobFee(daily_job_id=dj2.id, fee_type="ค่าล่วงเวลา", amount=200))
+        s.add(DailyJobFee(daily_job_id=dj2.id, fee_type="รับตู้แทน", amount=150))
+        s.flush()
+        ctx = build_payroll_slip_context(s, _pr(), emp, PayRunItem(pay_mode="lcb_trip"))
+        fees = ctx["driver_fees_by_job"]
+        assert fees[dj1.id] == {"special": 100.0}              # ยกตู้ ไม่หลุดเข้า
+        assert fees[dj2.id] == {"ot": 200.0, "pickup_return": 150.0}
 
 
 def test_route_remark_strips_tel(db):

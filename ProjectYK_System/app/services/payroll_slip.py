@@ -9,7 +9,7 @@ from typing import Any, Optional
 
 from sqlmodel import Session, select
 
-from models import DailyJob, Employee, FuelTxn, PayRunItem, PettyCashTxn
+from models import DailyJob, DailyJobFee, Employee, FuelTxn, PayRunItem, PettyCashTxn
 from services.alias_map import canonical_person_name
 
 
@@ -415,6 +415,23 @@ def build_payroll_slip_context(
 
     trip_count = sum(1 for r in daily_jobs if _is_trip(r))
 
+    # ค่าพิเศษ / OT / รับตู้คืนตู้ แตกตามแถว (job) — โชว้ในรายการวิ่งงานว่ามาจากเที่ยวไหน
+    # (โอ 1ก.ค.: เดิมโชว้แค่ก้อนรวมในสรุปเงิน ไม่รู้มาจากไหน). reserve fees (ยกตู้/ผ่านลาน/
+    # คลีน/ชอร์/เข้าท่า/ชั่ง) = เงินบริษัท ไม่นับ — ใช้ classify_driver_fee ตัวเดียวกับ engine.
+    from services.payroll import classify_driver_fee
+    driver_fees_by_job: dict[int, dict] = {}
+    _job_ids_in_table = [r.id for r in daily_jobs]
+    if _job_ids_in_table:
+        _fee_rows = session.exec(
+            select(DailyJobFee).where(DailyJobFee.daily_job_id.in_(_job_ids_in_table))
+        ).all()
+        for f in _fee_rows:
+            bucket = classify_driver_fee(f.fee_type)
+            if not bucket or not (f.amount or 0):
+                continue
+            d = driver_fees_by_job.setdefault(f.daily_job_id, {})
+            d[bucket] = round(d.get(bucket, 0.0) + (f.amount or 0.0), 2)
+
     fuel_only_info: dict[int, dict] = {}
     for r in daily_jobs:
         has_fuel = (r.fuel_amount or 0) or (r.fuel_liter or 0)
@@ -521,6 +538,7 @@ def build_payroll_slip_context(
         "fuel_grade_by_job": fuel_grade_by_job,
         "fuel_lines_by_job": fuel_lines_by_job,
         "trip_count": trip_count,
+        "driver_fees_by_job": driver_fees_by_job,
         "fuel_only_info": fuel_only_info,
         "petty_lines": petty_lines,
         "petty_lines_extra": petty_lines_extra,
