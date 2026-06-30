@@ -315,8 +315,9 @@ table.run tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding
   function fitSlipsOnePage() {
     const PAGE_H = 1010, PAGE_W = 720;   // A4 portrait usable
     document.querySelectorAll('.slip').forEach(s => _fitEl(s, PAGE_H, PAGE_W, false));
-    // .block (สรุป/โอนเงิน): ย่อเฉพาะกว้างเกิน (boss) — ปล่อยสูงให้ไหลข้ามหน้า ตัวไม่หด
-    document.querySelectorAll('.block').forEach(b => _fitEl(b, PAGE_H, PAGE_W, true));
+    // .block (สรุป/โอนเงิน): ย่อให้พอ 1 หน้า ทั้งสูง+กว้าง (โอ: แต่ละหน้าพอดี 1 หน้า)
+    // → ตัวใหญ่เป็นค่าเริ่ม ถ้าคนเยอะล้น ค่อย zoom ลงให้พอดี 1 หน้า (ไม่ไหลข้ามหน้า)
+    document.querySelectorAll('.block').forEach(b => _fitEl(b, PAGE_H, PAGE_W, false));
   }
   window.addEventListener('load', fitSlipsOnePage);
   window.addEventListener('beforeprint', fitSlipsOnePage);
