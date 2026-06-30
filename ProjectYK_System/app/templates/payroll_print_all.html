@@ -46,12 +46,14 @@ html,body{margin:0;padding:0;background:#edeae1;font-family:"IBM Plex Sans Thai"
 table.daily{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed;}
 table.daily th{text-align:left;font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--wb-muted);font-weight:600;padding:0 5px 5px;border-bottom:1px solid var(--wb-line);}
 table.daily th.num{text-align:right;}
-table.daily td{padding:3px 5px;border-bottom:1px solid #efece3;vertical-align:middle;}
+table.daily td{padding:3px 5px;border-bottom:1px solid #efece3;vertical-align:baseline;}
 table.daily td.num{text-align:right;font-family:"IBM Plex Mono";font-variant-numeric:tabular-nums;white-space:nowrap;}
 .c-date{white-space:nowrap;color:var(--wb-soft);font-family:"IBM Plex Mono";font-size:10px;}
 /* route บรรทัดเดียวเสมอ (ทุกแถวสูงเท่ากัน) — ถ้ายาวเกิน JS fitRouteCells ย่อ font เฉพาะช่อง */
 .c-route{line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.c-trip{font-weight:600;}
+.c-trip{font-weight:600;white-space:normal;}
+/* tag พิเศษ/OT ในช่องค่าเที่ยว */
+.c-trip .tag-fee{display:inline-block;margin-left:3px;vertical-align:middle;}
 .c-cut{color:var(--wb-neg);}
 .c-credit{color:var(--wb-pos);font-weight:600;}
 .tag-credit{display:inline-block;font-size:8px;background:#e7f1ea;color:var(--wb-pos);padding:0 4px;border-radius:2px;font-weight:600;}
@@ -62,10 +64,15 @@ table.daily td.num{text-align:right;font-family:"IBM Plex Mono";font-variant-num
 .tag-co{display:inline-block;font-size:8px;background:#eceae2;color:var(--wb-muted);padding:0 4px;border-radius:2px;}
 .tag-grade{display:inline-block;font-size:8px;background:#eef2f7;color:#3a4a68;padding:0 4px;border-radius:2px;border:1px solid #d4dae3;}
 .tag-fuel{display:inline-block;font-size:9px;font-weight:600;background:#fdf1dd;color:#9a6a1a;padding:0 5px;border-radius:2px;border:1px solid #ecd3a3;}
+/* ค่าพิเศษ/OT/รับตู้คืนตู้ ต่อแถว (โชว้มาจากเที่ยวไหน) */
+.tag-fee{display:inline-block;font-size:8px;font-weight:600;background:#eef4ff;color:#2c5aa0;padding:0 4px;border-radius:2px;border:1px solid #cdddf5;}
 /* น้ำมันหลายบิลวันเติมเดียว = บรรทัดย่อยตัวเล็กบีบให้รวมสูง = 1 บรรทัดปกติ (แถวสูงเท่ากัน) */
-.daily td .fline{font-size:8px;line-height:1.05;white-space:nowrap;color:var(--wb-soft);}
+.daily td .fline{font-size:8px;line-height:1.05;white-space:nowrap;color:var(--wb-ink);display:flex;justify-content:flex-end;align-items:baseline;gap:3px;}
 .daily td .fline + .fline{margin-top:0;}
 .slip.dense .daily td .fline,.slip.ultra .daily td .fline{font-size:7px;line-height:1.0;}
+/* เลขน้ำมันความกว้างคงที่ → เกรด B7/B20 เรียงเป็นแถวตรง ไม่ขยับซ้ายขวา */
+.daily td.num .fnum{display:inline-block;min-width:34px;text-align:right;}
+.daily td.num .tag-grade{min-width:24px;text-align:center;}
 .row-fuelonly{background:#fcfaf4;}
 .row-fuelonly .c-date{color:var(--wb-muted);}
 table.daily tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding-top:5px;font-weight:600;}
@@ -289,7 +296,8 @@ table.run tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding
           mile_start=r.ctx.mile_start, mile_end=r.ctx.mile_end, km_run=r.ctx.km_run,
           fuel_used_l=r.ctx.fuel_used_l, avg_km_per_l=r.ctx.avg_km_per_l,
           fuel_grade_by_job=r.ctx.fuel_grade_by_job,
-          fuel_lines_by_job=r.ctx.fuel_lines_by_job, trip_count=r.ctx.trip_count, is_boss=is_boss %}
+          fuel_lines_by_job=r.ctx.fuel_lines_by_job, trip_count=r.ctx.trip_count,
+          driver_fees_by_job=r.ctx.driver_fees_by_job, is_boss=is_boss %}
     {% include "_slip_body.html" %}
   {% endwith %}
 {% endfor %}
