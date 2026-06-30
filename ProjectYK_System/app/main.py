@@ -4407,6 +4407,11 @@ def payroll_print_all(run_id: int, request: Request):
             "ded": sum((r["item"].deduction_total or 0) for r in rows),
             "net": sum((r["item"].net_pay or 0) for r in rows),
         }
+        # ยอด "เตรียมเงินโอน" = นับเฉพาะคน net > 0 (คนติดลบ=เป็นหนี้บริษัท ไม่ได้โอนให้
+        # ห้ามเอายอดลบไปหักยอดรวม ไม่งั้นเตรียมเงินโอนคนอื่นไม่พอ — โอ 30มิ.ย.)
+        pos = [r for r in rows if (r["item"].net_pay or 0) > 0]
+        totals["transfer"] = sum((r["item"].net_pay or 0) for r in pos)
+        totals["transfer_count"] = len(pos)
         if is_boss:
             tb = {k: sum((r["boss"][k] or 0) for r in rows) for k in ("billed", "kb", "base100", "fuel_total", "drv_income")}
             tb["fuel_pct"] = (tb["fuel_total"] / tb["base100"] * 100.0) if tb["base100"] else None
