@@ -108,13 +108,13 @@
       <div class="wb-foot-note">ค่าแรง = วันเหมา 60% ค่าขนส่ง · วันเที่ยวได้ค่าเที่ยว · พิเศษ/OT/รับตู้ดูในช่อง "รายได้" · 🛢 วัดถัง = น้ำมันในถังที่หัก</div>
 
       {% else %}
-      <table class="daily">
+      <table class="daily{% if is_boss|default(false) %} daily-boss{% endif %}">
         <thead><tr>
-          <th style="width:62px;">วันที่</th>
-          <th>ส่งสินค้า (ต้นทาง → โหลด → ปลายทาง)</th>
-          <th class="num" style="width:36px;">ลิตร</th><th class="num" style="width:50px;">น้ำมัน ฿</th><th class="num" style="width:96px;">ค่าเที่ยว</th>
+          <th style="width:64px;">วันที่</th>
+          <th>ส่งสินค้า <span class="th-sub">(ต้นทาง→โหลด→ปลายทาง)</span></th>
+          <th class="num" style="width:34px;">ลิตร</th><th class="num" style="width:62px;">น้ำมัน฿</th><th class="num" style="width:70px;">ค่าเที่ยว</th>
           {%- if is_boss|default(false) %}
-          <th class="num" style="width:60px;">ค่าขนส่งจริง</th><th class="num" style="width:56px;">ราคากลาง</th><th class="num" style="width:46px;">KB</th>
+          <th class="num">ค่าขนส่งจริง</th><th class="num">ราคากลาง</th><th class="num">KB</th>
           {%- endif %}
         </tr></thead>
         <tbody>
@@ -126,18 +126,15 @@
             {%- else %}
             <td class="c-route">{% set _cell = route_cell(r) %}{% if _cell %}{{ _cell }}{% else %}<span class="wb-muted">—</span>{% endif %}{% if r.doc_no %} <span class="wb-muted">· {{ r.doc_no }}</span>{% elif route_remark(r) %} <span class="wb-muted">· {{ route_remark(r) }}</span>{% endif %}</td>
             {%- endif %}
-            {% set _lines = _flines.get(r.id) %}
-            {%- if _lines == [] %}
-            {# น้ำมันบรรทัดนี้ย้ายไปโชว์วันเติมจริงแล้ว → เว้นช่องว่าง #}
-            <td class="num"></td>
-            <td class="num"></td>
-            {%- elif _lines %}
-            {# วันเติมจริง: หลายบิลอัดในแถวเดียว เป็นบรรทัดย่อย #}
-            <td class="num">{% for l in _lines %}<div class="fline"><span class="fnum">{{ '{:.0f}'.format(l.liter) if l.liter else '' }}</span></div>{% endfor %}</td>
-            <td class="num">{% for l in _lines %}<div class="fline">{%- if l.amount %}<span class="fnum">{{ '{:,.0f}'.format(l.amount) }}</span>{% if l.grade %}<span class="tag-grade">{{ l.grade }}</span>{% endif %}{% if l.excluded %} <span class="tag-free">ไม่หัก</span>{% endif %}{%- endif %}</div>{% endfor %}</td>
+            {# น้ำมัน: ทุกแถวใช้โครง .fline เหมือนกัน (เดี่ยว=1 บรรทัด, หลายบิล=หลายบรรทัด)
+               → ลิตร/บาท/เกรด เรียงตรงเป็นแถวเดียวกันทุกวัน. _fuel = list ของ {liter,amount,grade,excluded} #}
+            {% set _m = _flines.get(r.id) %}
+            {%- if _m == [] %}
+            <td class="num"></td><td class="num"></td>
             {%- else %}
-            <td class="num"><span class="fnum">{% if r.fuel_liter %}{{ '{:.0f}'.format(r.fuel_liter) }}{% endif %}</span></td>
-            <td class="num"><span class="fnum">{% if r.fuel_amount %}{{ '{:,.0f}'.format(r.fuel_amount) }}{% endif %}</span>{% if r.fuel_amount %}{%- if _grades.get(r.id) %} <span class="tag-grade">{{ _grades[r.id] }}</span>{% endif %}{%- if r.id in excluded_job_ids %} <span class="tag-free">ไม่หัก</span>{% endif %}{% endif %}</td>
+            {% set _fuel = _m if _m else ([{'liter': r.fuel_liter, 'amount': r.fuel_amount, 'grade': _grades.get(r.id, ''), 'excluded': (r.id in excluded_job_ids)}] if (r.fuel_amount or r.fuel_liter) else []) %}
+            <td class="num">{% for l in _fuel %}<div class="fline"><span class="fnum">{{ '{:.0f}'.format(l.liter) if l.liter else '' }}</span></div>{% endfor %}</td>
+            <td class="num">{% for l in _fuel %}<div class="fline">{%- if l.amount %}<span class="fnum">{{ '{:,.0f}'.format(l.amount) }}</span><span class="tag-grade">{{ l.grade or '' }}</span>{% if l.excluded %}<span class="tag-free">ไม่หัก</span>{% endif %}{%- endif %}</div>{% endfor %}</td>
             {%- endif %}
             <td class="num c-trip">{% if r.trip_fee_driver %}{{ '{:,.0f}'.format(r.trip_fee_driver) }}{% endif %}{{ feetags(r.id) }}</td>
             {%- if is_boss|default(false) %}
@@ -207,7 +204,7 @@
       {# ----- เงินหัก ----- #}
       <div class="wb-sub">เงินหัก</div>
       <div class="wb-ledger">
-        {% if item.social_security %}<div class="lr minus"><span>ประกันสังคม{% if (employee.social_security_base or 0) > 0 %} <span class="wb-muted" style="font-size:10px;">(ฐาน {{ '{:,.0f}'.format(employee.social_security_base) }} × {{ '{:.0f}'.format((employee.social_security_rate or 0.05) * 100) }}%)</span>{% endif %}</span><span class="amt">{{ '{:,.2f}'.format(item.social_security) }}</span></div>{% endif %}
+        {% if item.social_security %}{% set _ssrate = employee.social_security_rate or 0.05 %}<div class="lr minus"><span>ประกันสังคม <span class="wb-muted" style="font-size:10px;">(ฐาน {{ '{:,.0f}'.format(item.social_security / _ssrate) }} × {{ '{:.0f}'.format(_ssrate * 100) }}%)</span></span><span class="amt">{{ '{:,.2f}'.format(item.social_security) }}</span></div>{% endif %}
         {% if item.income_tax_withholding %}<div class="lr minus"><span>ภาษีหัก ณ ที่จ่าย</span><span class="amt">{{ '{:,.2f}'.format(item.income_tax_withholding) }}</span></div>{% endif %}
         {% if item.deposit_install %}{% set dep_no = employee | dep_install %}<div class="lr minus"><span>เงินประกันตน (ผ่อน){% if dep_no %}<span class="dep-badge">งวด {{ dep_no }}</span>{% endif %}</span><span class="amt">{{ '{:,.2f}'.format(item.deposit_install) }}</span></div>
         {% elif (employee.deposit_target or 0) > 0 and (employee.deposit_balance or 0) >= (employee.deposit_target or 0) %}{% set dep_no = employee | dep_install %}<div class="lr"><span style="color:var(--wb-soft)">เงินประกันตนครบแล้ว{% if dep_no %} <span class="dep-badge">งวด {{ dep_no }}</span>{% endif %}</span><span class="amt" style="color:var(--wb-soft)">— ไม่หัก</span></div>
