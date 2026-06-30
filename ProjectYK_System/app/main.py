@@ -153,21 +153,47 @@ def _fmt_dmy_hm(value) -> str:
 DEPOSIT_INSTALL_UNIT = 1000.0  # เงินประกันตนหักงวดละ 1,000 (มาตรฐาน ตรงกับชีต SSO)
 
 
+def _dep_install_unit(emp) -> float:
+    """งวดละเท่าไหร่สำหรับคนนี้ — มาตรฐาน 1,000; บางคนตกลงอื่น (เช่น ธัชชนพล 2,000)
+    ตั้งผ่าน custom_terms {"deposit_install_unit": 2000}. ตรงกับ engine payroll."""
+    raw = getattr(emp, "custom_terms", "") or ""
+    try:
+        obj = json.loads(raw) if raw else {}
+        u = obj.get("deposit_install_unit") if isinstance(obj, dict) else None
+        if u:
+            return float(u)
+    except Exception:
+        pass
+    return DEPOSIT_INSTALL_UNIT
+
+
 def _fmt_dep_install(emp) -> str:
     """งวดเงินประกันตน 'X/Y' — X = **งวดที่กำลังหักรอบนี้** (ไม่ใช่งวดสะสม).
 
-    deposit_balance = ยอดที่จ่ายไปแล้ว 'ก่อน' รอบนี้ = (งวดก่อน)×1000.
-    ถ้ายังผ่อนไม่หมด (bal<tgt) งวดที่กำลังหัก = bal//1000 + 1 (เช่น bal 0 → หักงวด 1/10).
-    ถ้าผ่อนหมดแล้ว (bal>=tgt) โชว์ Y/Y (งวดสุดท้าย จ่ายครบ). คืน '' เมื่อไม่มีเพดาน."""
+    deposit_balance = ยอดที่จ่ายไปแล้ว 'ก่อน' รอบนี้ = (งวดก่อน)×งวดละ.
+    ถ้ายังผ่อนไม่หมด (bal<tgt) งวดที่กำลังหัก = bal//งวดละ + 1 (เช่น bal 0 → หักงวด 1/10).
+    ถ้าผ่อนหมดแล้ว (bal>=tgt) โชว์ Y/Y (งวดสุดท้าย จ่ายครบ). คืน '' เมื่อไม่มีเพดาน.
+    งวดละเป็นต่อคน (ธัชชนพล 2,000) ตรงกับ engine ผ่าน custom_terms."""
     if emp is None:
         return ""
     tgt = getattr(emp, "deposit_target", 0) or 0
     if tgt <= 0:
         return ""
+    unit = _dep_install_unit(emp)
     bal = getattr(emp, "deposit_balance", 0) or 0
-    total = int(round(tgt / DEPOSIT_INSTALL_UNIT))
-    paid = int(round(bal / DEPOSIT_INSTALL_UNIT))
-    current = paid + 1 if paid < total else total   # งวดที่กำลังหัก (จ่ายหมดแล้ว=งวดสุดท้าย)
+    total = int(round(tgt / unit))
+    paid = int(round(bal / unit))
+    # deposit_hold = พักหักรอบนี้ → โชว์งวดที่จ่ายแล้ว (ไม่ +1 เพราะรอบนี้ไม่หัก)
+    held = False
+    try:
+        raw = getattr(emp, "custom_terms", "") or ""
+        held = bool(json.loads(raw).get("deposit_hold")) if raw else False
+    except Exception:
+        held = False
+    if held:
+        current = min(paid, total)
+    else:
+        current = paid + 1 if paid < total else total   # งวดที่กำลังหัก (จ่ายหมดแล้ว=งวดสุดท้าย)
     return f"{current}/{total}"
 
 
