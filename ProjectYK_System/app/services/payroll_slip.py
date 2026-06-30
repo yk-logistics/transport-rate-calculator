@@ -308,16 +308,21 @@ def build_payroll_slip_context(
     fuel_excluded_amt = round(sum((f.amount or 0.0) for f in fuel_rows if f.exclude_from_driver), 2)
     fuel_deducted_amt = round(sum((f.amount or 0.0) for f in fuel_rows if not f.exclude_from_driver), 2)
     fuel_deducted_liter = round(sum((f.liter or 0.0) for f in fuel_rows if not f.exclude_from_driver), 2)
-    # น้ำมัน "นอกตาราง" (ไม่มี daily_job_id → ไม่อยู่ในตารางเดลี่) แสดงแยกให้คนขับเห็น:
+    # น้ำมัน "นอกตาราง" — บิลพิเศษที่หักจริงแต่ไม่โผล่ในคอลัมน์น้ำมันของตารางเดลี่
+    # (เพราะตารางอ่าน DailyJob.fuel_amount; บิลพวกนี้เป็น FuelTxn ที่ job มี fuel_amount=0):
     #   mao_tank_measure = วัดถังตอนเริ่มเหมา ; handover_measure/handover_manual =
-    #   วัดน้ำมัน/น้ำมันในถังตอนคนมาขับแทน-รับรถคืน (handover_manual = โอลงมือในชีท)
-    _OFFTABLE_FUEL = ("tank_measure", "handover")
+    #   วัดน้ำมัน/น้ำมันในถังตอนคนมาขับแทน-รับรถคืน ; manual = ยกยอด/ทำคืนน้ำมันตัดรอบ
+    #   (โอลงมือในชีท — ผูก daily_job_id ของเที่ยวจริงแต่ job นั้น fuel_amount=0).
+    _OFFTABLE_FUEL = ("tank_measure", "handover", "manual")
+    # job ที่โชว์น้ำมันในตารางอยู่แล้ว (fuel_amount>0) → กันบิล off-table ซ้ำซ้อน
+    _jobs_with_table_fuel = {r.id for r in daily_jobs if (r.fuel_amount or 0) > 0}
     tank_measure_rows = sorted(
         (
             {"txn_date": f.txn_date, "liter": f.liter or 0.0, "amount": f.amount or 0.0,
              "note": (f.note or "วัดถัง")}
             for f in fuel_rows
-            if any(k in (f.source or "") for k in _OFFTABLE_FUEL) and f.daily_job_id is None
+            if any(k in (f.source or "") for k in _OFFTABLE_FUEL)
+            and (f.daily_job_id is None or f.daily_job_id not in _jobs_with_table_fuel)
         ),
         key=lambda r: r["txn_date"],  # เรียงตามวันที่ (ส่งมอบ/คืน ก่อน รับคืน/หัก ตามจริง)
     )
