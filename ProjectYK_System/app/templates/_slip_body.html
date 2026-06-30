@@ -3,6 +3,8 @@
 {# default({}) กัน UndefinedError ถ้า include site ลืมส่ง fuel_grade_by_job มา #}
 {% set _grades = fuel_grade_by_job|default({}) %}
 {% set _fuelonly = fuel_only_info|default({}) %}
+{# น้ำมันเติมรอบเดียวกัน (B7+B20) → โชว์ช่องเดียว: anchor โชว์ยอดรวม, บรรทัด merged เว้นว่าง #}
+{% set _merge = fuel_merge_by_job|default({}) %}
 <div class="slip{% if daily_jobs|length > 52 %} ultra{% elif daily_jobs|length > 38 %} dense{% endif %}"{% if employee %} data-driver="{{ employee.full_name }}" data-emp="{{ employee.id }}"{% endif %}>
 
   {# ===== masthead ===== #}
@@ -60,14 +62,23 @@
               {%- elif k.kind == 'trip' %}{{ '{:,.0f}'.format(r.trip_fee_driver) if r.trip_fee_driver else '0' }}
               {%- else %}—{% endif %}
             </td>
-            <td class="num">{{ '{:,.0f}'.format(r.fuel_liter) if r.fuel_liter else '' }}</td>
+            {% set _m = _merge.get(r.id) %}
+            {%- if _m and _m.role == 'merged' %}
+            <td class="num"><span class="wb-muted">↳</span></td>
+            <td class="num"><span class="wb-muted">↳</span></td>
+            {%- else %}
+            {% set _flit = _m.liter if _m else r.fuel_liter %}
+            {% set _famt = _m.amount if _m else r.fuel_amount %}
+            <td class="num">{{ '{:,.0f}'.format(_flit) if _flit else '' }}</td>
             <td class="num">
-              {%- if r.fuel_amount %}{{ '{:,.0f}'.format(r.fuel_amount) }}
-                {%- if _grades.get(r.id) %} <span class="tag-grade">{{ _grades[r.id] }}</span>{% endif %}
+              {%- if _famt %}{{ '{:,.0f}'.format(_famt) }}
+                {%- if _m %}{% for g in _m.grades %} <span class="tag-grade">{{ g }}</span>{% endfor %}
+                {%- elif _grades.get(r.id) %} <span class="tag-grade">{{ _grades[r.id] }}</span>{% endif %}
                 {%- if r.work_date in fuel_deduct_dates %} <span class="tag-cut">หัก</span>
                 {%- elif k.kind == 'trip' %} <span class="tag-co">บริษัท</span>{% endif %}
               {%- endif %}
             </td>
+            {%- endif %}
           </tr>
         {% endfor %}
         {% for t in tank_measure_rows %}{% set _credit = t.amount < 0 %}
@@ -107,13 +118,22 @@
             {%- else %}
             <td class="c-route">{% set _cell = route_cell(r) %}{% if _cell %}{{ _cell }}{% else %}<span class="wb-muted">—</span>{% endif %}{% if r.doc_no %} <span class="wb-muted">· {{ r.doc_no }}</span>{% elif route_remark(r) %} <span class="wb-muted">· {{ route_remark(r) }}</span>{% endif %}</td>
             {%- endif %}
-            <td class="num">{% if r.fuel_liter %}{{ '{:.0f}'.format(r.fuel_liter) }}{% endif %}</td>
+            {% set _m = _merge.get(r.id) %}
+            {%- if _m and _m.role == 'merged' %}
+            <td class="num"><span class="wb-muted">↳</span></td>
+            <td class="num"><span class="wb-muted">↳</span></td>
+            {%- else %}
+            {% set _flit = _m.liter if _m else r.fuel_liter %}
+            {% set _famt = _m.amount if _m else r.fuel_amount %}
+            <td class="num">{% if _flit %}{{ '{:.0f}'.format(_flit) }}{% endif %}</td>
             <td class="num">
-              {%- if r.fuel_amount %}{{ '{:,.0f}'.format(r.fuel_amount) }}
-                {%- if _grades.get(r.id) %} <span class="tag-grade">{{ _grades[r.id] }}</span>{% endif %}
+              {%- if _famt %}{{ '{:,.0f}'.format(_famt) }}
+                {%- if _m %}{% for g in _m.grades %} <span class="tag-grade">{{ g }}</span>{% endfor %}
+                {%- elif _grades.get(r.id) %} <span class="tag-grade">{{ _grades[r.id] }}</span>{% endif %}
                 {%- if r.id in excluded_job_ids %} <span class="tag-free">ไม่หัก</span>{% endif %}
               {%- endif %}
             </td>
+            {%- endif %}
             <td class="num c-trip">{% if r.trip_fee_driver %}{{ '{:,.0f}'.format(r.trip_fee_driver) }}{% endif %}</td>
             {%- if is_boss|default(false) %}
             <td class="num">{% if r.revenue_customer %}{{ '{:,.0f}'.format(r.revenue_customer) }}{% endif %}</td>
