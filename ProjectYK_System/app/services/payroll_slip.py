@@ -309,8 +309,9 @@ def build_payroll_slip_context(
     fuel_deducted_amt = round(sum((f.amount or 0.0) for f in fuel_rows if not f.exclude_from_driver), 2)
     fuel_deducted_liter = round(sum((f.liter or 0.0) for f in fuel_rows if not f.exclude_from_driver), 2)
     # น้ำมัน "นอกตาราง" (ไม่มี daily_job_id → ไม่อยู่ในตารางเดลี่) แสดงแยกให้คนขับเห็น:
-    #   mao_tank_measure = วัดถังตอนเริ่มเหมา ; handover_measure = วัดน้ำมันตอนคนมาขับแทนรับรถคืน
-    _OFFTABLE_FUEL = ("tank_measure", "handover_measure")
+    #   mao_tank_measure = วัดถังตอนเริ่มเหมา ; handover_measure/handover_manual =
+    #   วัดน้ำมัน/น้ำมันในถังตอนคนมาขับแทน-รับรถคืน (handover_manual = โอลงมือในชีท)
+    _OFFTABLE_FUEL = ("tank_measure", "handover")
     tank_measure_rows = sorted(
         (
             {"txn_date": f.txn_date, "liter": f.liter or 0.0, "amount": f.amount or 0.0,
