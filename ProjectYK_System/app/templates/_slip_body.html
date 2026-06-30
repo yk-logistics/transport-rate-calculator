@@ -3,6 +3,8 @@
 {# default({}) กัน UndefinedError ถ้า include site ลืมส่ง fuel_grade_by_job มา #}
 {% set _grades = fuel_grade_by_job|default({}) %}
 {% set _fuelonly = fuel_only_info|default({}) %}
+{# BigC: ไม่ใช้ป้ายน้ำตาล "เติมน้ำมัน"/ลูกศรวันซ้ำ/อักษรเทาต่อท้ายส่งสินค้า (โอ 1ก.ค.) #}
+{% set _bigc = (run.site_code == 'BIGC') %}
 {# น้ำมันโชว์ตามวันเติมจริง: anchor (แถววันเติม) ถือ list บรรทัดย่อย [{liter,amount,grade,excluded}];
    job ที่ถูกดูดเข้ากลุ่ม = [] (เว้นช่องว่าง); ไม่อยู่ใน map = โชว์ปกติจาก r.fuel_* #}
 {% set _flines = fuel_lines_by_job|default({}) %}
@@ -119,12 +121,13 @@
         </tr></thead>
         <tbody>
         {% for r in daily_jobs %}
+          {%- if not (_bigc and r.id in _fuelonly) %}{# BigC: ข้ามแถวเติมน้ำมันล้วน (บริษัทออก) #}
           <tr{% if r.id in _fuelonly %} class="row-fuelonly"{% endif %}>
-            <td class="c-date">{% if loop.first or loop.previtem.work_date != r.work_date %}{{ r.work_date | dmy }}{% else %}<span class="wb-muted">↳</span>{% endif %}</td>
+            <td class="c-date">{% if loop.first or loop.previtem.work_date != r.work_date %}{{ r.work_date | dmy }}{% elif not _bigc %}<span class="wb-muted">↳</span>{% endif %}</td>
             {%- if r.id in _fuelonly %}{% set fo = _fuelonly[r.id] %}
             <td class="c-route"><span class="tag-fuel">🛢 เติมน้ำมัน</span> <span class="wb-muted">{% if fo.fill_date %}เติมวันที่ {{ fo.fill_date | dmy }}{% else %}วันไม่มีงาน{% endif %}{% if fo.for_date %} · สำหรับงานวันที่ {{ fo.for_date | dmy }}{% endif %}</span></td>
             {%- else %}
-            <td class="c-route">{% set _cell = route_cell(r) %}{% if _cell %}{{ _cell }}{% else %}<span class="wb-muted">—</span>{% endif %}{% if r.doc_no %} <span class="wb-muted">· {{ r.doc_no }}</span>{% elif route_remark(r) %} <span class="wb-muted">· {{ route_remark(r) }}</span>{% endif %}</td>
+            <td class="c-route">{% set _cell = route_cell(r) %}{% if _cell %}{{ _cell }}{% else %}<span class="wb-muted">—</span>{% endif %}{% if not _bigc %}{% if r.doc_no %} <span class="wb-muted">· {{ r.doc_no }}</span>{% elif route_remark(r) %} <span class="wb-muted">· {{ route_remark(r) }}</span>{% endif %}{% endif %}</td>
             {%- endif %}
             {# น้ำมัน: ทุกแถวใช้โครง .fline เหมือนกัน (เดี่ยว=1 บรรทัด, หลายบิล=หลายบรรทัด)
                → ลิตร/บาท/เกรด เรียงตรงเป็นแถวเดียวกันทุกวัน. _fuel = list ของ {liter,amount,grade,excluded} #}
@@ -143,6 +146,7 @@
             <td class="num">{% if r.kb_amount %}{{ '{:,.0f}'.format(r.kb_amount) }}{% endif %}</td>
             {%- endif %}
           </tr>
+          {%- endif %}{# end BigC fuel-only skip #}
         {% endfor %}
         {% for t in tank_measure_rows %}{% set _credit = t.amount < 0 %}
           <tr class="row-tank">
@@ -238,10 +242,15 @@
 
       {# ----- การใช้รถ ----- #}
       <div class="wb-sub">การใช้รถ / น้ำมัน</div>
-      <div class="wb-gauge">
+      {# BigC: เพิ่ม "น้ำมันที่ได้" (ลิตร) = เรทน้ำมันที่ทำได้ = fuel_rate_income/16; ติดลบ=หักคนขับ #}
+      {% set _bigc_litget = (item.fuel_rate_income / 16) if (_bigc and item.fuel_rate_income) else None %}
+      <div class="wb-gauge"{% if _bigc_litget is not none %} style="grid-template-columns:repeat(4,1fr);"{% endif %}>
         <div class="cell"><div class="wb-k">กม.ที่วิ่ง</div><div class="g-v">{% if km_run %}{{ '{:,.0f}'.format(km_run) }}{% else %}—{% endif %}</div></div>
         <div class="cell"><div class="wb-k">น้ำมันใช้</div><div class="g-v">{% if fuel_used_l %}{{ '{:,.0f}'.format(fuel_used_l) }}<span style="font-size:9px;"> L</span>{% else %}—{% endif %}</div></div>
         <div class="cell"><div class="wb-k">เรทเฉลี่ย</div><div class="g-v">{% if avg_km_per_l %}{{ '{:.2f}'.format(avg_km_per_l) }}<span style="font-size:9px;"> km/L</span>{% else %}—{% endif %}</div></div>
+        {%- if _bigc_litget is not none %}
+        <div class="cell"><div class="wb-k">น้ำมันที่ได้</div><div class="g-v{% if _bigc_litget < 0 %} neg" style="color:var(--wb-neg)"{% else %}"{% endif %}>{{ '{:,.1f}'.format(_bigc_litget) }}<span style="font-size:9px;"> L{% if _bigc_litget < 0 %} (หัก){% endif %}</span></div></div>
+        {%- endif %}
       </div>
     </div>
   </div>
