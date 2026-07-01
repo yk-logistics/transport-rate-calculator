@@ -10,8 +10,8 @@
 {% set _flines = fuel_lines_by_job|default({}) %}
 {# ค่าพิเศษ/OT/รับตู้คืนตู้ ต่อแถว — โชว้ว่ามาจากเที่ยวไหน (มาโคร render เป็น tag เล็ก) #}
 {% set _dfees = driver_fees_by_job|default({}) %}
-{# พิเศษ/OT/รับตู้ = บรรทัดย่อยตัวเล็กซ้อนใต้ค่าเที่ยว (แบบเดียวกับ B7/B20) #}
-{% macro feelines(jid) %}{% set f = _dfees.get(jid) %}{% if f %}{% if f.special %}<div class="fline sub"><span class="fk">พิเศษ</span><span class="fnum">{{ '{:,.0f}'.format(f.special) }}</span></div>{% endif %}{% if f.ot %}<div class="fline sub"><span class="fk">OT</span><span class="fnum">{{ '{:,.0f}'.format(f.ot) }}</span></div>{% endif %}{% if f.pickup_return %}<div class="fline sub"><span class="fk">รับตู้</span><span class="fnum">{{ '{:,.0f}'.format(f.pickup_return) }}</span></div>{% endif %}{% endif %}{% endmacro %}
+{# พิเศษ/OT/รับตู้ = คอลัมน์แยกต่างหาก (โอ 1ก.ค. เดิมซ้อนใต้ค่าเที่ยวแล้วเบียด). แต่ละชนิดเป็น 1 บรรทัด #}
+{% macro feecol(jid) %}{% set f = _dfees.get(jid) %}{% if f %}{% if f.special %}<div class="fline sub"><span class="fnum">{{ '{:,.0f}'.format(f.special) }}</span><span class="fk">พิเศษ</span></div>{% endif %}{% if f.ot %}<div class="fline sub"><span class="fnum">{{ '{:,.0f}'.format(f.ot) }}</span><span class="fk">OT</span></div>{% endif %}{% if f.pickup_return %}<div class="fline sub"><span class="fnum">{{ '{:,.0f}'.format(f.pickup_return) }}</span><span class="fk">รับตู้</span></div>{% endif %}{% endif %}{% endmacro %}
 <div class="slip{% if daily_jobs|length > 52 %} ultra{% elif daily_jobs|length > 38 %} dense{% endif %}"{% if employee %} data-driver="{{ employee.full_name }}" data-emp="{{ employee.id }}"{% endif %}>
 
   {# ===== masthead ===== #}
@@ -53,7 +53,7 @@
         <thead><tr>
           <th style="width:62px;">วันที่</th><th style="width:44px;">ฝั่ง</th>
           <th>ส่งสินค้า (ต้นทาง → โหลด → ปลายทาง)</th>
-          <th class="num" style="width:58px;">ค่าแรง</th><th class="num" style="width:40px;">ลิตร</th><th class="num" style="width:52px;">น้ำมัน ฿</th>
+          <th class="num" style="width:58px;">ค่าแรง</th><th class="num" style="width:50px;">พิเศษ/OT</th><th class="num" style="width:40px;">ลิตร</th><th class="num" style="width:52px;">น้ำมัน ฿</th>
         </tr></thead>
         <tbody>
         {% for r in daily_jobs %}
@@ -69,8 +69,9 @@
             <td class="num c-trip">
               <div class="tripv">{%- if k.kind == 'mao' %}{{ '{:,.0f}'.format((r.revenue_customer or 0) * 0.60) }}
               {%- elif k.kind == 'trip' %}{{ '{:,.0f}'.format(r.trip_fee_driver) if r.trip_fee_driver else '0' }}
-              {%- else %}—{% endif %}</div>{{ feelines(r.id) }}
+              {%- else %}—{% endif %}</div>
             </td>
+            <td class="num c-extra">{{ feecol(r.id) }}</td>
             {% set _lines = _flines.get(r.id) %}
             {%- if _lines == [] %}
             {# น้ำมันบรรทัดนี้ย้ายไปโชว์วันเติมจริงแล้ว → เว้นช่องว่าง #}
@@ -96,26 +97,26 @@
           <tr class="row-tank">
             <td class="c-date">{{ t.txn_date | dmy }}</td>
             <td colspan="2">🛢 วัดถัง ({% if _credit %}<span class="tag-credit">คืนน้ำมัน</span>{% else %}น้ำมันในถังที่หัก{% endif %}){% if t.note and t.note != 'วัดถัง' %} · {{ t.note }}{% endif %}</td>
-            <td></td>
+            <td></td><td></td>
             <td class="num">{{ '{:.0f}'.format(t.liter) if t.liter else '' }}</td>
             <td class="num {{ 'c-credit' if _credit else 'c-cut' }}">{% if _credit %}คืน {{ '{:,.0f}'.format(-t.amount) }}{% else %}{{ '{:,.0f}'.format(t.amount) }}{% endif %}</td>
           </tr>
         {% endfor %}
         </tbody>
         <tfoot>
-          <tr><td colspan="4" style="text-align:right;">รวมน้ำมัน</td>
+          <tr><td colspan="5" style="text-align:right;">รวมน้ำมัน</td>
             <td class="num">{{ '{:,.0f}'.format(daily_jobs | sum(attribute='fuel_liter')) }}</td>
             <td class="num">{{ '{:,.0f}'.format(daily_jobs | sum(attribute='fuel_amount')) }}</td></tr>
         </tfoot>
       </table>
-      <div class="wb-foot-note">ค่าแรง = วันเหมา 60% ค่าขนส่ง · วันเที่ยวได้ค่าเที่ยว · พิเศษ/OT/รับตู้ดูในช่อง "รายได้" · 🛢 วัดถัง = น้ำมันในถังที่หัก</div>
+      <div class="wb-foot-note">ค่าแรง = วันเหมา 60% ค่าขนส่ง · วันเที่ยวได้ค่าเที่ยว · พิเศษ/OT/รับตู้แยกคอลัมน์ · 🛢 วัดถัง = น้ำมันในถังที่หัก</div>
 
       {% else %}
       <table class="daily{% if is_boss|default(false) %} daily-boss{% endif %}">
         <thead><tr>
           <th style="width:64px;">วันที่</th>
           <th>ส่งสินค้า <span class="th-sub">(ต้นทาง→โหลด→ปลายทาง)</span></th>
-          <th class="num" style="width:32px;">ลิตร</th><th class="num" style="width:66px;">น้ำมัน฿</th><th class="num" style="width:72px;">ค่าเที่ยว</th>
+          <th class="num" style="width:32px;">ลิตร</th><th class="num" style="width:66px;">น้ำมัน฿</th><th class="num" style="width:72px;">ค่าเที่ยว</th><th class="num" style="width:56px;">พิเศษ/OT</th>
           {%- if is_boss|default(false) %}
           <th class="num">ค่าขนส่งจริง</th><th class="num">ราคากลาง</th><th class="num">KB</th>
           {%- endif %}
@@ -143,7 +144,8 @@
             <td class="num">{% for l in _fuel %}<div class="fline"><span class="fnum">{{ '{:.0f}'.format(l.liter) if l.liter else '' }}</span></div>{% endfor %}</td>
             <td class="num">{% for l in _fuel %}<div class="fline">{%- if l.amount %}<span class="fnum">{{ '{:,.0f}'.format(l.amount) }}</span><span class="tag-grade">{{ l.grade or '' }}</span>{%- endif %}</div>{% if l.excluded %}<div class="fline"><span class="tag-free">ไม่หัก</span></div>{% endif %}{% endfor %}</td>
             {%- endif %}
-            <td class="num c-trip">{% if r.trip_fee_driver %}<div class="tripv">{{ '{:,.0f}'.format(trip_fee_show(r)) }}</div>{% endif %}{{ feelines(r.id) }}</td>
+            <td class="num c-trip">{% if r.trip_fee_driver %}<div class="tripv">{{ '{:,.0f}'.format(trip_fee_show(r)) }}</div>{% endif %}</td>
+            <td class="num c-extra">{{ feecol(r.id) }}</td>
             {%- if is_boss|default(false) %}
             <td class="num">{% if r.revenue_customer %}{{ '{:,.0f}'.format(r.revenue_customer) }}{% endif %}</td>
             <td class="num">{% if r.price_override or r.revenue_customer %}{{ '{:,.0f}'.format(r.price_override or r.revenue_customer) }}{% endif %}</td>
@@ -158,7 +160,7 @@
             <td>🛢 วัดถัง ({% if _credit %}<span class="tag-credit">คืนน้ำมัน</span>{% else %}น้ำมันในถังที่หัก{% endif %}){% if t.note and t.note != 'วัดถัง' %} · {{ t.note }}{% endif %}</td>
             <td class="num">{{ '{:.0f}'.format(t.liter) if t.liter else '' }}</td>
             <td class="num {{ 'c-credit' if _credit else 'c-cut' }}">{% if _credit %}คืน {{ '{:,.0f}'.format(-t.amount) }}{% else %}{{ '{:,.0f}'.format(t.amount) }}{% endif %}</td>
-            <td></td>
+            <td></td><td></td>
             {%- if is_boss|default(false) %}<td></td><td></td><td></td>{% endif %}
           </tr>
         {% endfor %}
@@ -166,7 +168,7 @@
         <tfoot>
           <tr><td colspan="2" style="text-align:right;">รวมน้ำมันในตาราง</td>
             <td class="num">{{ '{:,.0f}'.format(daily_jobs | sum(attribute='fuel_liter')) }}</td>
-            <td class="num">{{ '{:,.0f}'.format(daily_jobs | sum(attribute='fuel_amount')) }}</td><td></td>
+            <td class="num">{{ '{:,.0f}'.format(daily_jobs | sum(attribute='fuel_amount')) }}</td><td></td><td></td>
             {%- if is_boss|default(false) %}
             <td class="num">{{ '{:,.0f}'.format(daily_jobs | sum(attribute='revenue_customer')) }}</td><td></td><td></td>
             {%- endif %}</tr>
@@ -174,7 +176,7 @@
           <tr class="ft-cut"><td colspan="2" style="text-align:right;">น้ำมันที่หักจริง</td>
             <td class="num">{{ '{:,.0f}'.format(fuel_deducted_liter) if fuel_deducted_liter else '' }}</td>
             <td class="num">{{ '{:,.0f}'.format(item.fuel_cost_self) }}</td>
-            <td class="ft-free">{% if fuel_excluded_amt %}ไม่หัก {{ '{:,.0f}'.format(fuel_excluded_amt) }}{% endif %}</td>
+            <td class="ft-free">{% if fuel_excluded_amt %}ไม่หัก {{ '{:,.0f}'.format(fuel_excluded_amt) }}{% endif %}</td><td></td>
             {%- if is_boss|default(false) %}<td></td><td></td><td></td>{% endif %}</tr>
           {% endif %}
         </tfoot>

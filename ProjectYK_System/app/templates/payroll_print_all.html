@@ -56,10 +56,12 @@ table.daily td.num{text-align:right;font-family:"IBM Plex Mono";font-variant-num
 /* route บรรทัดเดียวเสมอ (ทุกแถวสูงเท่ากัน) — ถ้ายาวเกิน JS fitRouteCells ย่อ font เฉพาะช่อง */
 .c-route{line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .c-trip{font-weight:600;white-space:nowrap;}
-/* ค่าเที่ยว: เลขหลัก .tripv ใหญ่กว่านิด ; พิเศษ/OT = .fline.sub เล็ก ซ้อนลงมา */
+/* ค่าเที่ยว: เลขหลัก .tripv ; พิเศษ/OT แยกเป็นคอลัมน์ .c-extra (ไม่ซ้อนใต้ค่าเที่ยวแล้ว) */
 .c-trip .tripv{font-size:11px;line-height:1.15;}
-.c-trip .fline.sub{font-size:8px;line-height:1.05;color:var(--wb-soft);}
-.c-trip .fline.sub .fk{color:var(--wb-muted);margin-right:2px;}
+.c-extra{white-space:nowrap;}
+.c-extra .fline.sub{font-size:9px;line-height:1.2;color:var(--wb-soft);justify-content:flex-end;gap:3px;}
+.c-extra .fline.sub .fnum{min-width:0;font-weight:600;}
+.c-extra .fline.sub .fk{color:var(--wb-muted);font-size:8px;}
 .c-cut{color:var(--wb-neg);}
 .c-credit{color:var(--wb-pos);font-weight:600;}
 .tag-credit{display:inline-block;font-size:8px;background:#e7f1ea;color:var(--wb-pos);padding:0 4px;border-radius:2px;font-weight:600;}
@@ -311,6 +313,7 @@ table.run tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding
   {% with daily_jobs=r.ctx.daily_jobs, item=r.ctx.item, employee=r.ctx.employee, run=r.ctx.run,
           mixed=r.ctx.mixed, route_text=r.ctx.route_text, route_cell=r.ctx.route_cell,
           route_remark=r.ctx.route_remark, day_kind=r.ctx.day_kind, trip_fee_show=r.ctx.trip_fee_show,
+          fuel_only_info=r.ctx.fuel_only_info,
           fuel_deduct_dates=r.ctx.fuel_deduct_dates, excluded_job_ids=r.ctx.excluded_job_ids,
           tank_measure_rows=r.ctx.tank_measure_rows, fuel_excluded_amt=r.ctx.fuel_excluded_amt,
           fuel_deducted_amt=r.ctx.fuel_deducted_amt, fuel_deducted_liter=r.ctx.fuel_deducted_liter,
