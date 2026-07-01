@@ -59,10 +59,10 @@
         {% for r in daily_jobs %}
           {% set k = day_kind(r) %}
           <tr{% if r.id in _fuelonly %} class="row-fuelonly"{% endif %}>
-            <td class="c-date">{% if loop.first or loop.previtem.work_date != r.work_date %}{{ r.work_date | dmy }}{% else %}<span class="wb-muted">↳</span>{% endif %}</td>
+            <td class="c-date">{% if loop.first or loop.previtem.work_date != r.work_date %}{{ r.work_date | dmy }}{% endif %}</td>
             <td>{% if r.id in _fuelonly %}<span class="wb-muted">เติมน้ำมัน</span>{% elif k.kind == 'mao' %}เหมา{% elif k.kind == 'trip' %}เที่ยว{% else %}{{ k.label }}{% endif %}</td>
             {%- if r.id in _fuelonly %}
-            <td class="c-route"><span class="tag-fuel">🛢 เติมน้ำมัน</span> <span class="wb-muted">วันไม่มีงาน{% if _fuelonly[r.id].for_date %} · สำหรับงานวันที่ {{ _fuelonly[r.id].for_date | dmy }}{% endif %}</span></td>
+            <td class="c-route"><span class="wb-muted">🛢 เติมน้ำมัน{% if _fuelonly[r.id].fill_date %} {{ _fuelonly[r.id].fill_date | dmy }}{% elif _fuelonly[r.id].for_date %} · สำหรับงาน {{ _fuelonly[r.id].for_date | dmy }}{% endif %}</span></td>
             {%- else %}
             <td class="c-route">{{ route_text(r) or '—' }}{% if r.customer_name_raw %} <span class="wb-muted">· {{ r.customer_name_raw }}</span>{% endif %}</td>
             {%- endif %}
@@ -122,13 +122,16 @@
         </tr></thead>
         <tbody>
         {% for r in daily_jobs %}
-          {%- if not (_bigc and r.id in _fuelonly) %}{# BigC: ข้ามแถวเติมน้ำมันล้วน (บริษัทออก) #}
+          {%- if not (_bigc and r.id in _fuelonly) %}{# BigC: ข้ามแถวเติมน้ำมันล้วน (บริษัทออก) ; LCB เก็บไว้ (น้ำมันหักจริง) #}
           <tr{% if r.id in _fuelonly %} class="row-fuelonly"{% endif %}>
-            <td class="c-date">{% if loop.first or loop.previtem.work_date != r.work_date %}{{ r.work_date | dmy }}{% elif not _bigc %}<span class="wb-muted">↳</span>{% endif %}</td>
+            {# ไม่โชว้ ↳ วันซ้ำ (ทุกไซต์ โอ 1ก.ค.) — เว้นว่างแทน #}
+            <td class="c-date">{% if loop.first or loop.previtem.work_date != r.work_date %}{{ r.work_date | dmy }}{% endif %}</td>
             {%- if r.id in _fuelonly %}{% set fo = _fuelonly[r.id] %}
-            <td class="c-route"><span class="tag-fuel">🛢 เติมน้ำมัน</span> <span class="wb-muted">{% if fo.fill_date %}เติมวันที่ {{ fo.fill_date | dmy }}{% else %}วันไม่มีงาน{% endif %}{% if fo.for_date %} · สำหรับงานวันที่ {{ fo.for_date | dmy }}{% endif %}</span></td>
+            {# แถวเติมน้ำมัน: ข้อความเรียบๆ ไม่ใช้ป้ายน้ำตาล (โอ 1ก.ค.) #}
+            <td class="c-route"><span class="wb-muted">🛢 เติมน้ำมัน{% if fo.fill_date %} {{ fo.fill_date | dmy }}{% endif %}{% if fo.for_date %} · สำหรับงาน {{ fo.for_date | dmy }}{% endif %}</span></td>
             {%- else %}
-            <td class="c-route">{% set _cell = route_cell(r) %}{% if _cell %}{{ _cell }}{% else %}<span class="wb-muted">—</span>{% endif %}{% if not _bigc %}{% if r.doc_no %} <span class="wb-muted">· {{ r.doc_no }}</span>{% elif route_remark(r) %} <span class="wb-muted">· {{ route_remark(r) }}</span>{% endif %}{% endif %}</td>
+            {# ไม่โชว้เลขเอกสาร (doc_no) เทาๆ ต่อจากส่งสินค้า (โอ 1ก.ค. = เลขรก) ; หมายเหตุจริงยังโชว้ #}
+            <td class="c-route">{% set _cell = route_cell(r) %}{% if _cell %}{{ _cell }}{% else %}<span class="wb-muted">—</span>{% endif %}{% if route_remark(r) %} <span class="wb-muted">· {{ route_remark(r) }}</span>{% endif %}</td>
             {%- endif %}
             {# น้ำมัน: ทุกแถวใช้โครง .fline เหมือนกัน (เดี่ยว=1 บรรทัด, หลายบิล=หลายบรรทัด)
                → ลิตร/บาท/เกรด เรียงตรงเป็นแถวเดียวกันทุกวัน. _fuel = list ของ {liter,amount,grade,excluded} #}
