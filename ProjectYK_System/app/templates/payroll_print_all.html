@@ -55,9 +55,11 @@ table.daily td.num{text-align:right;font-family:"IBM Plex Mono";font-variant-num
 .c-date{white-space:nowrap;color:var(--wb-soft);font-family:"IBM Plex Mono";font-size:10px;}
 /* route บรรทัดเดียวเสมอ (ทุกแถวสูงเท่ากัน) — ถ้ายาวเกิน JS fitRouteCells ย่อ font เฉพาะช่อง */
 .c-route{line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.c-trip{font-weight:600;white-space:normal;}
-/* tag พิเศษ/OT ในช่องค่าเที่ยว */
-.c-trip .tag-fee{display:inline-block;margin-left:3px;vertical-align:middle;}
+.c-trip{font-weight:600;white-space:nowrap;}
+/* ค่าเที่ยว: เลขหลัก .tripv ใหญ่กว่านิด ; พิเศษ/OT = .fline.sub เล็ก ซ้อนลงมา */
+.c-trip .tripv{font-size:11px;line-height:1.15;}
+.c-trip .fline.sub{font-size:8px;line-height:1.05;color:var(--wb-soft);}
+.c-trip .fline.sub .fk{color:var(--wb-muted);margin-right:2px;}
 .c-cut{color:var(--wb-neg);}
 .c-credit{color:var(--wb-pos);font-weight:600;}
 .tag-credit{display:inline-block;font-size:8px;background:#e7f1ea;color:var(--wb-pos);padding:0 4px;border-radius:2px;font-weight:600;}
@@ -70,16 +72,15 @@ table.daily td.num{text-align:right;font-family:"IBM Plex Mono";font-variant-num
 .tag-fuel{display:inline-block;font-size:9px;font-weight:600;background:#fdf1dd;color:#9a6a1a;padding:0 5px;border-radius:2px;border:1px solid #ecd3a3;}
 /* ค่าพิเศษ/OT/รับตู้คืนตู้ ต่อแถว (โชว้มาจากเที่ยวไหน) */
 .tag-fee{display:inline-block;font-size:8px;font-weight:600;background:#eef4ff;color:#2c5aa0;padding:0 4px;border-radius:2px;border:1px solid #cdddf5;}
-/* น้ำมัน: ทุกแถวใช้ .fline เหมือนกัน → ลิตร/บาท/เกรด เรียงตรงเป็นคอลัมน์ ทุกวันสูงเท่ากัน */
-.daily td .fline{font-size:10px;line-height:1.35;white-space:nowrap;color:var(--wb-ink);display:flex;justify-content:flex-end;align-items:center;gap:4px;}
-.daily td.num:has(.fline + .fline) .fline{font-size:8px;line-height:1.05;}
+/* น้ำมัน/พิเศษ: ทุกแถวใช้ .fline เหมือนกัน ตัวเล็กเท่ากันหมด อยู่กลาง เรียงตรงคอลัมน์ */
+.daily td .fline{font-size:8px;line-height:1.15;white-space:nowrap;color:var(--wb-ink);display:flex;justify-content:flex-end;align-items:center;gap:3px;}
 .daily td .fline + .fline{margin-top:0;}
-.slip.dense .daily td .fline{font-size:9px;line-height:1.2;}
-.slip.dense .daily td.num:has(.fline + .fline) .fline,.slip.ultra .daily td .fline{font-size:7px;line-height:1.0;}
-/* เลขน้ำมัน + เกรด ความกว้างคงที่ → ตรงเป็นคอลัมน์ ไม่ขยับซ้ายขวา */
-.daily td.num .fnum{display:inline-block;min-width:34px;text-align:right;}
-.daily td.num .tag-grade{min-width:22px;text-align:center;box-sizing:border-box;}
+.slip.dense .daily td .fline,.slip.ultra .daily td .fline{font-size:7px;line-height:1.05;}
+/* เลขน้ำมัน + เกรด ความกว้างคงที่ ; ป้าย "ไม่หัก" เล็กท้ายสุด */
+.daily td.num .fnum{display:inline-block;min-width:32px;text-align:right;}
+.daily td.num .tag-grade{width:20px;text-align:center;box-sizing:border-box;flex:none;font-size:7px;padding:0 2px;}
 .daily td.num .tag-grade:empty{background:none;border:none;}
+.daily td.num .tag-free{font-size:6.5px;padding:0 2px;flex:none;line-height:1.2;}
 .row-fuelonly{background:#fcfaf4;}
 .row-fuelonly .c-date{color:var(--wb-muted);}
 table.daily tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding-top:5px;font-weight:600;}
