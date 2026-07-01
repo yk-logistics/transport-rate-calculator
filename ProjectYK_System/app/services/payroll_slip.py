@@ -195,6 +195,26 @@ def slip_route_remark(r) -> str:
 _MAO_RATIO, _MAO_TOL, _TRIP_MAX = 0.60, 0.05, 0.15
 
 
+def slip_trip_fee_display(r, share_rate: float = _MAO_RATIO) -> float:
+    """ค่าเที่ยวต่อบรรทัดที่ "โชว์บนสลิป" (≠ ค่าที่เก็บใน DailyJob.trip_fee_driver).
+
+    ปัญหา: importer ลง trip_fee_driver ของแถวเหมา = ค่าขนส่ง 'เต็ม'×60% (ยังไม่หัก KB)
+    แต่ engine จ่ายจริง = 60% ของ (ค่าขนส่ง−KB) [หัก KB×0.6 ที่ยอดรวม]. สลิปเดิมโชว์
+    ค่าดิบต่อบรรทัด → บวกมือได้มากกว่ายอดรวม (ต่าง = KB×0.6). แก้ที่ "การแสดงผล":
+    แถวเหมา (60%) → โชว์ driver_calc_price(r)×share = (ค่าขนส่ง−KB)×0.6.
+
+    แถวค่าเที่ยว 'เหมาจ่าย' แบบ flat (lcb_trip เช่น 200฿, ratio ไม่ใช่ ~60%) คงค่าเดิม —
+    KB ไม่ลดค่าเหมาจ่าย (โอ 1ก.ค.). ไม่แตะเงินที่จ่าย/หน้าเดลี่.
+    """
+    rev = r.revenue_customer or 0.0
+    tfd = r.trip_fee_driver or 0.0
+    if rev > 0 and abs((tfd / rev) - _MAO_RATIO) <= _MAO_TOL:
+        from services.payroll import driver_calc_price
+
+        return round(driver_calc_price(r) * share_rate, 2)
+    return tfd
+
+
 def mixed_day_kind(r) -> dict:
     """ชนิดของ DailyJob แถวเดียวสำหรับ lcb_mixed (ใช้แสดงป้ายในตารางเรียงวันที่).
 
@@ -543,6 +563,7 @@ def build_payroll_slip_context(
         "route_text": delivery_route_text,
         "route_cell": slip_route_cell,      # ช่องส่งสินค้า: route หรือ status (ไม่มี remark)
         "route_remark": slip_route_remark,  # remark ที่ปลอดภัยจะโชว์ (ตัดโน้ตภายใน [...])
+        "trip_fee_show": slip_trip_fee_display,  # ค่าเที่ยวต่อบรรทัด (แถวเหมาหัก KB แล้ว)
         "day_kind": mixed_day_kind,
         "fuel_deduct_dates": fuel_deduct_dates,
         "fuel_excluded_amt": fuel_excluded_amt,

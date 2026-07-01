@@ -143,7 +143,7 @@
             <td class="num">{% for l in _fuel %}<div class="fline"><span class="fnum">{{ '{:.0f}'.format(l.liter) if l.liter else '' }}</span></div>{% endfor %}</td>
             <td class="num">{% for l in _fuel %}<div class="fline">{%- if l.amount %}<span class="fnum">{{ '{:,.0f}'.format(l.amount) }}</span><span class="tag-grade">{{ l.grade or '' }}</span>{%- endif %}</div>{% if l.excluded %}<div class="fline"><span class="tag-free">ไม่หัก</span></div>{% endif %}{% endfor %}</td>
             {%- endif %}
-            <td class="num c-trip">{% if r.trip_fee_driver %}<div class="tripv">{{ '{:,.0f}'.format(r.trip_fee_driver) }}</div>{% endif %}{{ feelines(r.id) }}</td>
+            <td class="num c-trip">{% if r.trip_fee_driver %}<div class="tripv">{{ '{:,.0f}'.format(trip_fee_show(r)) }}</div>{% endif %}{{ feelines(r.id) }}</td>
             {%- if is_boss|default(false) %}
             <td class="num">{% if r.revenue_customer %}{{ '{:,.0f}'.format(r.revenue_customer) }}{% endif %}</td>
             <td class="num">{% if r.price_override or r.revenue_customer %}{{ '{:,.0f}'.format(r.price_override or r.revenue_customer) }}{% endif %}</td>

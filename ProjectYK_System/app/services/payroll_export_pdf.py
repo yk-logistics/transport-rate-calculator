@@ -20,6 +20,7 @@ from services.payroll_slip import (
     export_driver_folder,
     merged_bank_terms,
     salary_folder_month_tag,
+    slip_trip_fee_display,
 )
 
 
@@ -329,7 +330,7 @@ def render_driver_slip_page(pdf: _Pdf, ctx: dict[str, Any]) -> None:
         pdf.cell(cw[2], row_h, dest, border=1, fill=True)
         pdf.cell(cw[3], row_h, (r.doc_no or r.job_ref or "")[:14], border=1, fill=True)
         pdf.cell(cw[4], row_h, (f"{r.fuel_liter:.0f}" if r.fuel_liter else ""), border=1, fill=True)
-        pdf.cell(cw[5], row_h, (_fmt_money_simple(r.trip_fee_driver) if r.trip_fee_driver else ""), border=1, fill=True)
+        pdf.cell(cw[5], row_h, (_fmt_money_simple(slip_trip_fee_display(r)) if r.trip_fee_driver else ""), border=1, fill=True)
         pdf.cell(cw[6], row_h, (f"{r.fuel_rate_km_per_l:.2f}" if r.fuel_rate_km_per_l else ""), border=1, fill=True)
         pdf.ln()
 
