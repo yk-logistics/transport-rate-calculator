@@ -4017,7 +4017,10 @@ def payroll_employee_slip(run_id: int, emp_id: int, request: Request):
         slip_ctx = build_payroll_slip_context(s, pr, emp, item)
 
     ctx.update(slip_ctx)
-    return templates.TemplateResponse("payroll_slip.html", ctx)
+    resp = templates.TemplateResponse("payroll_slip.html", ctx)
+    # กัน browser cache สลิปเก่าไว้หลัง deploy (โอเจอ "ยังเป็นแบบเก่า" = เบราว์เซอร์ cache)
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return resp
 
 
 @app.post("/payroll/{run_id}/export-pdfs", response_class=HTMLResponse)
@@ -4430,7 +4433,9 @@ def payroll_print_all(run_id: int, request: Request):
             totals["boss"] = tb
     ctx = base_context(request)
     ctx.update({"run": pr, "rows": rows, "totals": totals, "is_boss": is_boss})
-    return templates.TemplateResponse("payroll_print_all.html", ctx)
+    resp = templates.TemplateResponse("payroll_print_all.html", ctx)
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return resp
 
 
 @app.post("/payroll/{run_id}/employee/{emp_id}/transfer-note")
