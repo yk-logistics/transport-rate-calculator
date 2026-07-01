@@ -322,11 +322,12 @@
     ["customer_name","ลูกค้า",false], ["customer_name_raw","ลูกค้า(raw)",true],
     ["trip_group_id","trip_group_id",true],
     ["status_code","ลูกค้า / Status",true], ["leave_status","leave_status",true],
-    ["trip_type_code","STARTING / รับตู้ (H)",true],
-    ["origin","Loading / บรรจุ (I)",true],
+    ["trip_type_code","Type (G)",true],
+    ["origin","STARTING / รับตู้ (H)",true],
+    ["pickup_location","Loading / บรรจุ (I)",true],
     ["destination","ปลายทาง (J)",true],
     ["doc_no","Job No. (K)",true],
-    ["pickup_location","pickup_location",true], ["store_code","store_code",true], ["truck_type_raw","ประเภทรถ",true],
+    ["store_code","store_code",true], ["truck_type_raw","ประเภทรถ",true],
     ["job_ref","BL / Booking (L)",true], ["container_no","เบอร์ตู้ (M)",true], ["container_size","ขนาดตู้",true],
     ["revenue_customer","ค่าขนส่ง (U)",true], ["trip_fee_driver","ค่าเที่ยว (AD)",true],
     ["fee_special","พิเศษ",false], ["fee_ot","OT",false], ["fee_pickup_return","รับตู้คืนตู้",false],
@@ -346,10 +347,10 @@
   ];
 
   const PRESETS = {
-    basic:     ["work_date","site_code","driver_name","plate_no","status_code","leave_status","trip_type_code","origin","destination"],
-    money:     ["work_date","site_code","driver_name","plate_no","status_code","leave_status","trip_type_code","origin","destination","revenue_customer","kb_amount","price_override","driver_calc_price","trip_fee_driver","fee_special","fee_ot","fee_pickup_return","remark"],
+    basic:     ["work_date","site_code","driver_name","plate_no","status_code","leave_status","trip_type_code","origin","pickup_location","destination"],
+    money:     ["work_date","site_code","driver_name","plate_no","status_code","leave_status","trip_type_code","origin","pickup_location","destination","revenue_customer","kb_amount","price_override","driver_calc_price","trip_fee_driver","fee_special","fee_ot","fee_pickup_return","remark"],
     fuel:      ["work_date","site_code","driver_name","plate_no","fuel_liter","fuel_amount","fuel_station","fuel_rate_km_per_l","mile_snapshot"],
-    container: ["work_date","site_code","driver_name","plate_no","status_code","trip_type_code","origin","destination","doc_no","job_ref","container_no","container_size"],
+    container: ["work_date","site_code","driver_name","plate_no","status_code","trip_type_code","origin","pickup_location","destination","doc_no","job_ref","container_no","container_size"],
     all:       null,
   };
 
