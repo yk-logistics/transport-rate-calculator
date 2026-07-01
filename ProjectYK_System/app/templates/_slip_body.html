@@ -243,15 +243,10 @@
 
       {# ----- การใช้รถ ----- #}
       <div class="wb-sub">การใช้รถ / น้ำมัน</div>
-      {# BigC: เพิ่ม "น้ำมันที่ได้" (ลิตร) = เรทน้ำมันที่ทำได้ = fuel_rate_income/16; ติดลบ=หักคนขับ #}
-      {% set _bigc_litget = (item.fuel_rate_income / 16) if (_bigc and item.fuel_rate_income) else None %}
-      <div class="wb-gauge"{% if _bigc_litget is not none %} style="grid-template-columns:repeat(4,1fr);"{% endif %}>
+      <div class="wb-gauge">
         <div class="cell"><div class="wb-k">กม.ที่วิ่ง</div><div class="g-v">{% if km_run %}{{ '{:,.0f}'.format(km_run) }}{% else %}—{% endif %}</div></div>
         <div class="cell"><div class="wb-k">น้ำมันใช้</div><div class="g-v">{% if fuel_used_l %}{{ '{:,.0f}'.format(fuel_used_l) }}<span style="font-size:9px;"> L</span>{% else %}—{% endif %}</div></div>
         <div class="cell"><div class="wb-k">เรทเฉลี่ย</div><div class="g-v">{% if avg_km_per_l %}{{ '{:.2f}'.format(avg_km_per_l) }}<span style="font-size:9px;"> km/L</span>{% else %}—{% endif %}</div></div>
-        {%- if _bigc_litget is not none %}
-        <div class="cell"><div class="wb-k">น้ำมันที่ได้</div><div class="g-v{% if _bigc_litget < 0 %} neg" style="color:var(--wb-neg)"{% else %}"{% endif %}>{{ '{:,.1f}'.format(_bigc_litget) }}<span style="font-size:9px;"> L{% if _bigc_litget < 0 %} (หัก){% endif %}</span></div></div>
-        {%- endif %}
       </div>
     </div>
   </div>
