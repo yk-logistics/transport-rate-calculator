@@ -10,7 +10,8 @@
 {% set _flines = fuel_lines_by_job|default({}) %}
 {# ค่าพิเศษ/OT/รับตู้คืนตู้ ต่อแถว — โชว้ว่ามาจากเที่ยวไหน (มาโคร render เป็น tag เล็ก) #}
 {% set _dfees = driver_fees_by_job|default({}) %}
-{% macro feetags(jid) %}{% set f = _dfees.get(jid) %}{% if f %}{% if f.special %} <span class="tag-fee">พิเศษ {{ '{:,.0f}'.format(f.special) }}</span>{% endif %}{% if f.ot %} <span class="tag-fee">OT {{ '{:,.0f}'.format(f.ot) }}</span>{% endif %}{% if f.pickup_return %} <span class="tag-fee">รับตู้ {{ '{:,.0f}'.format(f.pickup_return) }}</span>{% endif %}{% endif %}{% endmacro %}
+{# พิเศษ/OT/รับตู้ = บรรทัดย่อยตัวเล็กซ้อนใต้ค่าเที่ยว (แบบเดียวกับ B7/B20) #}
+{% macro feelines(jid) %}{% set f = _dfees.get(jid) %}{% if f %}{% if f.special %}<div class="fline sub"><span class="fk">พิเศษ</span><span class="fnum">{{ '{:,.0f}'.format(f.special) }}</span></div>{% endif %}{% if f.ot %}<div class="fline sub"><span class="fk">OT</span><span class="fnum">{{ '{:,.0f}'.format(f.ot) }}</span></div>{% endif %}{% if f.pickup_return %}<div class="fline sub"><span class="fk">รับตู้</span><span class="fnum">{{ '{:,.0f}'.format(f.pickup_return) }}</span></div>{% endif %}{% endif %}{% endmacro %}
 <div class="slip{% if daily_jobs|length > 52 %} ultra{% elif daily_jobs|length > 38 %} dense{% endif %}"{% if employee %} data-driver="{{ employee.full_name }}" data-emp="{{ employee.id }}"{% endif %}>
 
   {# ===== masthead ===== #}
@@ -66,9 +67,9 @@
             <td class="c-route">{{ route_text(r) or '—' }}{% if r.customer_name_raw %} <span class="wb-muted">· {{ r.customer_name_raw }}</span>{% endif %}</td>
             {%- endif %}
             <td class="num c-trip">
-              {%- if k.kind == 'mao' %}{{ '{:,.0f}'.format((r.revenue_customer or 0) * 0.60) }}
+              <div class="tripv">{%- if k.kind == 'mao' %}{{ '{:,.0f}'.format((r.revenue_customer or 0) * 0.60) }}
               {%- elif k.kind == 'trip' %}{{ '{:,.0f}'.format(r.trip_fee_driver) if r.trip_fee_driver else '0' }}
-              {%- else %}—{% endif %}{{ feetags(r.id) }}
+              {%- else %}—{% endif %}</div>{{ feelines(r.id) }}
             </td>
             {% set _lines = _flines.get(r.id) %}
             {%- if _lines == [] %}
@@ -114,7 +115,7 @@
         <thead><tr>
           <th style="width:64px;">วันที่</th>
           <th>ส่งสินค้า <span class="th-sub">(ต้นทาง→โหลด→ปลายทาง)</span></th>
-          <th class="num" style="width:34px;">ลิตร</th><th class="num" style="width:62px;">น้ำมัน฿</th><th class="num" style="width:70px;">ค่าเที่ยว</th>
+          <th class="num" style="width:32px;">ลิตร</th><th class="num" style="width:66px;">น้ำมัน฿</th><th class="num" style="width:72px;">ค่าเที่ยว</th>
           {%- if is_boss|default(false) %}
           <th class="num">ค่าขนส่งจริง</th><th class="num">ราคากลาง</th><th class="num">KB</th>
           {%- endif %}
@@ -139,7 +140,7 @@
             <td class="num">{% for l in _fuel %}<div class="fline"><span class="fnum">{{ '{:.0f}'.format(l.liter) if l.liter else '' }}</span></div>{% endfor %}</td>
             <td class="num">{% for l in _fuel %}<div class="fline">{%- if l.amount %}<span class="fnum">{{ '{:,.0f}'.format(l.amount) }}</span><span class="tag-grade">{{ l.grade or '' }}</span>{% if l.excluded %}<span class="tag-free">ไม่หัก</span>{% endif %}{%- endif %}</div>{% endfor %}</td>
             {%- endif %}
-            <td class="num c-trip">{% if r.trip_fee_driver %}{{ '{:,.0f}'.format(r.trip_fee_driver) }}{% endif %}{{ feetags(r.id) }}</td>
+            <td class="num c-trip">{% if r.trip_fee_driver %}<div class="tripv">{{ '{:,.0f}'.format(r.trip_fee_driver) }}</div>{% endif %}{{ feelines(r.id) }}</td>
             {%- if is_boss|default(false) %}
             <td class="num">{% if r.revenue_customer %}{{ '{:,.0f}'.format(r.revenue_customer) }}{% endif %}</td>
             <td class="num">{% if r.price_override or r.revenue_customer %}{{ '{:,.0f}'.format(r.price_override or r.revenue_customer) }}{% endif %}</td>

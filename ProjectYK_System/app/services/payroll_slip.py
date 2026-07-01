@@ -349,33 +349,51 @@ def build_payroll_slip_context(
     # anchor ถือ list บรรทัดย่อย [{liter, amount, grade, excluded}] (โชว์ซ้อนในเซลล์เดียว),
     # job อื่นในกลุ่ม → [] (เว้นช่อง). ผลรวมคอลัมน์น้ำมัน + fuel_cost_self ไม่เปลี่ยน.
     _dj_order = {r.id: i for i, r in enumerate(daily_jobs)}
+    _job_wd = {r.id: r.work_date for r in daily_jobs}       # job → work_date
     _work_date_to_job = {}   # work_date → job id (แรกสุดตามลำดับแสดงผล)
     for r in daily_jobs:
         _work_date_to_job.setdefault(r.work_date, r.id)
+
+    def _mk_line(t):
+        return {"liter": t.liter or 0.0, "amount": t.amount or 0.0,
+                "grade": t.fuel_grade or "", "excluded": bool(t.exclude_from_driver)}
+
+    # จัดบิลตามวันเติมจริง (txn_date):
+    #  - บิลที่ "ผูกถูกวัน" (job.work_date == txn_date) → คงไว้ที่แถว job ตัวเอง (ไม่ยุบ)
+    #    → วันเดียววิ่งหลายเที่ยว (เช่น ปกรณ์) น้ำมันกระจายตามแถวเที่ยว ไม่กระจุกแถวเดียว.
+    #  - บิลที่ "ผูกผิดวัน" (job.work_date != txn_date, คนคีย์ผูกวันถัดไป) → ย้ายไปแถว
+    #    งานวันเติมจริง (anchor) ; แถว job เดิม = [] (เว้นช่อง).
     _fill_groups: dict[Any, list] = {}
     for f in fuel_rows:
         if f.daily_job_id and f.daily_job_id in _dj_order:
             _fill_groups.setdefault(f.txn_date, []).append(f)
     fuel_lines_by_job: dict[int, list] = {}
     for _fill_date, _txns in _fill_groups.items():
-        _job_ids = list(dict.fromkeys(t.daily_job_id for t in _txns))  # ลำดับ + ไม่ซ้ำ
-        # anchor = แถวงานวันเติมจริง ถ้ามีในตาราง, ไม่งั้นแถวบนสุดของกลุ่ม
+        _ondate = [t for t in _txns if _job_wd.get(t.daily_job_id) == _fill_date]
+        _misdated = [t for t in _txns if _job_wd.get(t.daily_job_id) != _fill_date]
+        # anchor = แถวงานวันเติมจริง (ถ้ามี) ; ไม่มี → แถวบนสุดของกลุ่ม
         if _fill_date in _work_date_to_job:
             anchor = _work_date_to_job[_fill_date]
+        elif _misdated or _ondate:
+            anchor = min({t.daily_job_id for t in _txns}, key=lambda j: _dj_order[j])
         else:
-            anchor = min(_job_ids, key=lambda j: _dj_order[j])
-        # ต้องจัดกลุ่มเมื่อ: หลายบิล (B7+B20) หรือ บิลผูกผิดวัน (anchor ≠ job ที่บิลผูก)
-        if len(_job_ids) < 2 and _job_ids[0] == anchor:
-            continue  # เติมจุดเดียว ตรงวัน → โชว์ปกติ (fallback r.fuel_*)
-        _txns_sorted = sorted(_txns, key=lambda t: (t.txn_date, t.id or 0))
-        fuel_lines_by_job[anchor] = [
-            {"liter": t.liter or 0.0, "amount": t.amount or 0.0,
-             "grade": t.fuel_grade or "", "excluded": bool(t.exclude_from_driver)}
-            for t in _txns_sorted
-        ]
-        for j in _job_ids:
-            if j != anchor:
-                fuel_lines_by_job[j] = []   # merged: เว้นช่อง
+            continue
+        # แต่ละ job ที่ผูกถูกวัน + มีหลายบิล หรือมี misdated ย้ายเข้ามา → สร้าง lines
+        # จัดกลุ่มบิล ondate ตาม job
+        _by_job: dict[int, list] = {}
+        for t in _ondate:
+            _by_job.setdefault(t.daily_job_id, []).append(t)
+        # anchor รับบิลผิดวันเพิ่ม
+        if _misdated:
+            _by_job.setdefault(anchor, [])
+            _by_job[anchor] = _misdated + _by_job.get(anchor, [])
+            for t in _misdated:
+                fuel_lines_by_job.setdefault(t.daily_job_id, [])  # แถวเดิม = เว้นช่อง
+        for jid, ts in _by_job.items():
+            # โชว์เป็น fline เฉพาะเมื่อ >1 บิลต่อ job หรือ job นี้เป็น anchor ที่รับ misdated
+            if len(ts) > 1 or (jid == anchor and _misdated):
+                fuel_lines_by_job[jid] = [_mk_line(t) for t in sorted(ts, key=lambda t:(t.txn_date, t.id or 0))]
+            # len==1 ตรงวัน job เดียว → ปล่อย fallback r.fuel_* (ไม่ต้องใส่ map)
 
     plates = sorted({r.plate_no_raw for r in daily_jobs if r.plate_no_raw})
     plates_used = ", ".join(plates) if plates else ""
