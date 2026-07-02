@@ -1460,3 +1460,17 @@ TRIP_TYPE_CODES_BY_SITE: dict[str, tuple[tuple[str, str], ...]] = {
         ("Domestic", "Domestic"),
     ),
 }
+
+
+class KbSettle(SQLModel, table=True):
+    """อินวอยที่ 'รับ KB / ลูกค้าโอนแล้ว' บนหน้า /kb-payout (โอ 2ก.ค.).
+
+    ติ๊กแล้ว = ตัดออกจากการจับคู่ยอดโอนและยอด KB ค้างรับ. ลบแถว = ยกเลิกติ๊ก.
+    ไม่เกี่ยวกับ payroll/DailyJob — เป็นสมุดกันลืมของงาน KB เท่านั้น.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    inv_no: str = Field(index=True, unique=True)     # เช่น CYIV2606-023
+    settled_on: date = Field(default_factory=date.today)
+    kb_amount: float = 0.0          # KB ของใบนี้ตอนติ๊ก (กันสูตร/ไฟล์เปลี่ยนทีหลัง)
+    transfer_amount: float = 0.0    # ยอดโอนของก้อนที่ใบนี้ถูกจ่ายมาด้วย (0 = ติ๊กเดี่ยว)
+    note: str = ""

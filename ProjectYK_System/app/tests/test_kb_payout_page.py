@@ -79,6 +79,35 @@ def test_page_no_amount_lists_invoices(client):
     assert "716" in b
 
 
+def test_settle_excludes_from_match_and_undo(client):
+    """ติ๊กใบรับแล้ว → หายจากการจับคู่; ยกเลิกติ๊ก → กลับมาจับคู่ได้."""
+    # ติ๊ก 023 → ยอด 19,027.98 ต้องจับคู่ไม่เจอแล้ว
+    client.post("/kb-payout/settle", data={"inv_no": "CYIV2606-023", "kb_amount": "1142"})
+    b = client.get("/kb-payout?amount=19027.98", follow_redirects=True).text
+    assert "ไม่เจอชุดอินวอย" in b
+    assert "ติ๊กรับแล้ว" in b          # ใบอื่นยังมีปุ่มติ๊ก
+    # ยกเลิกติ๊ก → จับคู่เจอเหมือนเดิม
+    client.post("/kb-payout/settle", data={"inv_no": "CYIV2606-023", "undo": "1"})
+    b = client.get("/kb-payout?amount=19027.98", follow_redirects=True).text
+    assert "1,541.70" in b
+
+
+def test_batch_settle_after_match(client):
+    """ปุ่ม 'บันทึกรับแล้วทั้งชุด' ส่งหลายใบคั่น , — ทุกใบถูกติ๊ก + ยอดค้างรับลด."""
+    from models import KbSettle
+    client.post("/kb-payout/settle", data={
+        "inv_no": "CYIV2606-023,CYIV2606-026",
+        "kb_amount": "1142,571", "transfer_amount": "19027.98"})
+    with Session(engine) as s:
+        rows = s.exec(select(KbSettle)).all()
+        assert {r.inv_no for r in rows} == {"CYIV2606-023", "CYIV2606-026"}
+        assert all(r.transfer_amount == 19027.98 for r in rows)
+    b = client.get("/kb-payout", follow_redirects=True).text
+    assert "ค้างรับ 1 ใบ" in b        # เหลือ 001 ใบเดียว
+    # cleanup — ตารางแชร์กับเทสต์อื่นใน module
+    client.post("/kb-payout/settle", data={"inv_no": "CYIV2606-023,CYIV2606-026", "undo": "1"})
+
+
 def test_kb_menu_admin_only():
     """permissions: /kb-payout เห็นเฉพาะ admin — office/accountant/viewer โดน deny."""
     import permissions

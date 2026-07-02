@@ -55,6 +55,7 @@ from models import (
     InboxEmail,
     InboxSyncRun,
     KbRule,
+    KbSettle,
     LeaveRecord,
     Loan,
     LoanPayment,
@@ -88,7 +89,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 31  # v31: FuelTxn.fuel_grade (B7/B20 ป้ายเกรด — ไม่เข้าสูตรเงิน)
+SCHEMA_VERSION = 32  # v32: KbSettle (ติ๊กใบรับ KB แล้ว หน้า /kb-payout — create_all, ไม่ต้อง ALTER)
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -8094,8 +8095,9 @@ def finance_pnl_detail(request: Request, year: int = 0, site: str = ""):
 def kb_payout_page(request: Request, amount: str = ""):
     """KB จ่ายคืนเจ้าของงาน (CY) — โอกรอกยอดโอนจากสลิปธนาคาร → จับคู่อินวอย + KB.
 
-    อ่านอินวอยสดจาก Google Drive (read-only) ไม่แตะ DB/payroll. เฉพาะ admin
+    อ่านอินวอยสดจาก Google Drive (read-only) ไม่แตะ payroll. เฉพาะ admin
     (permissions.py menu "kb"). ตรรกะอยู่ services/kb_payout.py (CLI ใช้ตัวเดียวกัน).
+    ใบที่ติ๊ก "รับแล้ว" (KbSettle) ถูกตัดออกจากการจับคู่ — เหลือเฉพาะใบค้างรับ.
     """
     from services import kb_payout as kbp
 
@@ -8108,20 +8110,53 @@ def kb_payout_page(request: Request, amount: str = ""):
         rows = kbp.load_all()
     except Exception as e:  # Drive ล่ม/key หาย — โชว์ข้อความแทน 500
         error = f"อ่านอินวอยจาก Google Drive ไม่สำเร็จ: {e}"
+    with Session(engine) as s:
+        settled = {k.inv_no: k for k in s.exec(select(KbSettle)).all()}
+    for r in rows:
+        r["settled"] = settled.get(r["inv"])
+    open_rows = [r for r in rows if r["inv"] not in settled]
     amount_raw = (amount or "").strip()
     if amount_raw and not error:
         try:
             amt = float(amount_raw.replace(",", ""))
-            match = kbp.match_amount(rows, amt)
+            match = kbp.match_amount(open_rows, amt)  # จับคู่เฉพาะใบที่ยังไม่รับ
         except ValueError:
             error = "ยอดโอนต้องเป็นตัวเลข เช่น 19027.98"
     ctx.update({
         "rows": rows,
-        "kb_sum": round(sum(r["kb"] for r in rows), 2),
+        "kb_open_sum": round(sum(r["kb"] for r in open_rows), 2),
+        "kb_settled_sum": round(sum(r["kb"] for r in rows if r["settled"]), 2),
+        "n_open": len(open_rows),
         "match": match, "amount": amt, "amount_raw": amount_raw,
         "owner": kbp.KB_OWNERS["CY"], "error": error,
     })
     return templates.TemplateResponse("kb_payout.html", ctx)
+
+
+@app.post("/kb-payout/settle")
+def kb_payout_settle(inv_no: str = Form(...), kb_amount: str = Form("0"),
+                     transfer_amount: str = Form("0"), undo: str = Form("")):
+    """ติ๊ก/ยกเลิกติ๊ก 'รับ KB แล้ว' รายใบ. inv_no รับหลายใบคั่น , (จากปุ่มบันทึกทั้งชุด)."""
+    invs = [v.strip() for v in inv_no.split(",") if v.strip()]
+    kbs = [v.strip() for v in (kb_amount or "0").split(",")]
+
+    def _f(x: str) -> float:
+        try:
+            return float(x.replace(",", ""))
+        except ValueError:
+            return 0.0
+
+    with Session(engine) as s:
+        for i, inv in enumerate(invs):
+            existing = s.exec(select(KbSettle).where(KbSettle.inv_no == inv)).first()
+            if undo == "1":
+                if existing:
+                    s.delete(existing)
+            elif not existing:
+                s.add(KbSettle(inv_no=inv, kb_amount=_f(kbs[i] if i < len(kbs) else "0"),
+                               transfer_amount=_f(transfer_amount)))
+        s.commit()
+    return RedirectResponse("/kb-payout", status_code=303)
 
 
 @app.get("/finance/vehicles", response_class=HTMLResponse)

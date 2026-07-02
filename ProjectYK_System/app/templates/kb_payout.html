@@ -40,11 +40,18 @@
         {% endfor %}
         </tbody>
       </table>
-      <div class="mt-3 flex gap-6 text-sm flex-wrap">
+      <div class="mt-3 flex gap-6 text-sm flex-wrap items-center">
         <div>KB รวม <b class="font-mono">{{ "{:,.2f}".format(c.kb_total) }}</b></div>
         <div class="text-emerald-700">โอนคืน {{ owner.owner }} ({{ owner.bank }}) 90% =
           <b class="font-mono text-base">{{ "{:,.2f}".format(c.payout) }}</b></div>
         <div class="text-slate-500">ใบหัก ณ ที่จ่าย 3% ของ KB เต็ม = <b class="font-mono">{{ "{:,.2f}".format(c.wht_cert) }}</b> (เอกสารอย่างเดียว ไม่ลบยอดโอน)</div>
+        <form method="post" action="/kb-payout/settle" class="ml-auto"
+              onsubmit="return confirm('บันทึกว่ารับ KB ชุดนี้แล้ว {{ c.invoices|length }} ใบ?');">
+          <input type="hidden" name="inv_no" value="{{ c.invoices|map(attribute='inv')|join(',') }}">
+          <input type="hidden" name="kb_amount" value="{{ c.invoices|map(attribute='kb')|join(',') }}">
+          <input type="hidden" name="transfer_amount" value="{{ amount }}">
+          <button class="bg-slate-900 text-white px-4 py-1.5 rounded">✅ บันทึกรับแล้วทั้งชุด</button>
+        </form>
       </div>
     </div>
     {% endfor %}
@@ -58,17 +65,18 @@
 {% endif %}
 
 <div class="bg-white rounded-xl shadow overflow-x-auto">
-  <div class="px-4 pt-3 text-sm text-slate-500">อินวอย CY ทั้งหมดใน Drive ({{ rows|length }} ใบ) · KB ต่อใบ = ค่าขนส่ง − ราคาเสนอ×ตู้ − OT</div>
+  <div class="px-4 pt-3 text-sm text-slate-500">อินวอย CY ทั้งหมดใน Drive ({{ rows|length }} ใบ · ค้างรับ {{ n_open }} ใบ) · KB ต่อใบ = ค่าขนส่ง − ราคาเสนอ×ตู้ − OT · จับคู่ยอดโอนเฉพาะใบค้างรับ</div>
   <table class="w-full text-sm">
     <thead><tr class="text-left text-slate-500 border-b">
       <th class="px-4 py-2">เดือน</th><th>อินวอย</th><th>ลูกค้า</th>
       <th class="text-right">ตู้</th><th class="text-right">ค่าขนส่ง</th>
       <th class="text-right">ราคาเสนอ</th><th class="text-right">OT</th>
-      <th class="text-right">ยอดวางบิล</th><th class="text-right pr-4">KB</th>
+      <th class="text-right">ยอดวางบิล</th><th class="text-right">KB</th>
+      <th class="text-center pr-4">รับ KB แล้ว?</th>
     </tr></thead>
     <tbody class="divide-y font-mono">
     {% for r in rows %}
-      <tr class="hover:bg-slate-50">
+      <tr class="hover:bg-slate-50 {% if r.settled %}bg-slate-50 text-slate-400{% endif %}">
         <td class="px-4 py-1 font-sans">{{ r.month_folder }}</td>
         <td>{{ r.inv }}</td><td class="font-sans">{{ r.customer }}</td>
         <td class="text-right">{{ r.qty }}</td>
@@ -76,14 +84,38 @@
         <td class="text-right">{{ "{:,.0f}".format(r.quote) }}</td>
         <td class="text-right">{{ "{:,.0f}".format(r.ot) }}</td>
         <td class="text-right">{{ "{:,.2f}".format(r.grand_total) }}</td>
-        <td class="text-right pr-4 font-semibold {% if r.kb < 0 %}text-rose-600{% endif %}">{{ "{:,.2f}".format(r.kb) }}</td>
+        <td class="text-right font-semibold {% if r.kb < 0 %}text-rose-600{% endif %}">{{ "{:,.2f}".format(r.kb) }}</td>
+        <td class="text-center pr-4 font-sans">
+          {% if r.settled %}
+          <form method="post" action="/kb-payout/settle" class="inline"
+                onsubmit="return confirm('ยกเลิกติ๊ก {{ r.inv }}?');">
+            <input type="hidden" name="inv_no" value="{{ r.inv }}"><input type="hidden" name="undo" value="1">
+            <span class="text-emerald-600">✓ {{ r.settled.settled_on | dmy }}</span>
+            <button class="text-xs text-slate-400 underline ml-1" title="ยกเลิกติ๊ก">ยกเลิก</button>
+          </form>
+          {% else %}
+          <form method="post" action="/kb-payout/settle" class="inline">
+            <input type="hidden" name="inv_no" value="{{ r.inv }}">
+            <input type="hidden" name="kb_amount" value="{{ r.kb }}">
+            <button class="text-xs border rounded px-2 py-0.5 hover:bg-emerald-50 hover:border-emerald-400">ติ๊กรับแล้ว</button>
+          </form>
+          {% endif %}
+        </td>
       </tr>
     {% endfor %}
     </tbody>
-    <tfoot><tr class="bg-slate-900 text-white font-bold">
-      <td class="px-4 py-2" colspan="8">รวม KB ทั้งหมด · โอนคืน 90% = {{ "{:,.2f}".format(kb_sum * 0.9) }} · ใบ ณ ที่จ่าย 3% = {{ "{:,.2f}".format(kb_sum * 0.03) }}</td>
-      <td class="text-right pr-4 font-mono">{{ "{:,.2f}".format(kb_sum) }}</td>
-    </tr></tfoot>
+    <tfoot>
+      <tr class="bg-slate-900 text-white font-bold">
+        <td class="px-4 py-2" colspan="8">KB ค้างรับ ({{ n_open }} ใบ) · โอนคืน 90% = {{ "{:,.2f}".format(kb_open_sum * 0.9) }} · ใบ ณ ที่จ่าย 3% = {{ "{:,.2f}".format(kb_open_sum * 0.03) }}</td>
+        <td class="text-right font-mono">{{ "{:,.2f}".format(kb_open_sum) }}</td><td></td>
+      </tr>
+      {% if kb_settled_sum %}
+      <tr class="bg-slate-100 text-slate-500">
+        <td class="px-4 py-1" colspan="8">รับแล้ว {{ rows|length - n_open }} ใบ</td>
+        <td class="text-right font-mono">{{ "{:,.2f}".format(kb_settled_sum) }}</td><td></td>
+      </tr>
+      {% endif %}
+    </tfoot>
   </table>
 </div>
 <p class="text-xs text-slate-400 mt-3">
