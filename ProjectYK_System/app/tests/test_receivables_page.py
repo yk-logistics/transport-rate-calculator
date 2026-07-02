@@ -28,8 +28,12 @@ YELLOW = PatternFill(fill_type="solid", fgColor="FFC000")
 
 def _make_register(path: Path):
     wb = Workbook()
-    ws = wb.active
-    ws.title = "Jun 26"
+    # แท็บปีเก่า (2025) ต้องถูกข้าม — ไฮไลท์อาจไม่อัปเดต (โอ 2ก.ค.)
+    old = wb.active
+    old.title = "Dec 25"
+    old.append(["วันที่", "เลขที่ INV", "ชื่อบริษัท", "จำนวนเงิน"])
+    old.append([datetime(2025, 12, 1), "2512-999", "ลูกค้าปีเก่า", 99999])
+    ws = wb.create_sheet("Jun 26")
     ws.append(["รายการวางบิล (รอเก็บเงินลูกค้า)"])
     ws.append(["งวดประจำเดือน มิถุนายน 2569"])
     ws.append(["วันที่", "เลขที่ INV", "ชื่อบริษัท", "จำนวนเงิน", "VAT",
@@ -66,6 +70,7 @@ def reg(tmp_path):
 def test_parse_register_fills_and_skips(reg):
     rows = ar.parse_register(reg, "AYU")
     assert len(rows) == 4                      # ข้ามแถวรวม + แถวไม่มียอด
+    assert not any(r["inv"] == "2512-999" for r in rows)  # แท็บปี 2025 ถูกข้าม
     by = {r["inv"]: r for r in rows}
     assert by["2606-001"]["received"] and by["2606-001"]["fill"] == "green"
     assert by["2606-002"]["received"] and by["2606-002"]["fill"] == "yellow"

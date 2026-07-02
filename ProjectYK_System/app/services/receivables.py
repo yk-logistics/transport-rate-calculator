@@ -28,6 +28,10 @@ _KEY_NAME = "noble-history-446303-e4-c36409a0122c.json"
 # หาไฟล์ใน Drive ด้วยชื่อ (ไม่ hardcode id) — โอแชร์ไฟล์ปุ๊บ ระบบเห็นเอง
 REGISTER_QUERIES = {"AYU": "รายการรับเช็ค AYU", "LCB": "รายการรับเช็ค LCB"}
 
+# อ่านเฉพาะแท็บปีนี้เป็นต้นไป — แท็บปีเก่าอาจยังไม่ได้ไฮไลท์อัปเดต จะกลายเป็น
+# ค้างรับปลอม (โอสั่ง 2ก.ค.: เอาแค่ปี 2026 พอ)
+MIN_YEAR = 2026
+
 _GREEN, _YELLOW = "FF92D050", "FFFFC000"
 
 _MONTH_TAB_RE = re.compile(r"^([A-Za-z]{3,4})\s*(\d{2})\s*$")
@@ -148,7 +152,7 @@ def parse_register(path: Path, site: str) -> list[dict]:
     seq = 0
     for tab in wb.sheetnames:
         ym = _tab_ym(tab)
-        if not ym:
+        if not ym or ym[0] < MIN_YEAR:
             continue
         ws = wb[tab]
         for row in ws.iter_rows(min_row=4):
