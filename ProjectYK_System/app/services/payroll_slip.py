@@ -199,9 +199,13 @@ def slip_trip_fee_display(r, share_rate: float = _MAO_RATIO) -> float:
     """ค่าเที่ยวต่อบรรทัดที่ "โชว์บนสลิป" (≠ ค่าที่เก็บใน DailyJob.trip_fee_driver).
 
     ปัญหา: importer ลง trip_fee_driver ของแถวเหมา = ค่าขนส่ง 'เต็ม'×60% (ยังไม่หัก KB)
-    แต่ engine จ่ายจริง = 60% ของ (ค่าขนส่ง−KB) [หัก KB×0.6 ที่ยอดรวม]. สลิปเดิมโชว์
+    แต่ engine จ่ายจริง = Σtfd − Σ(KB×share) [หัก KB×0.6 ที่ยอดรวม]. สลิปเดิมโชว์
     ค่าดิบต่อบรรทัด → บวกมือได้มากกว่ายอดรวม (ต่าง = KB×0.6). แก้ที่ "การแสดงผล":
-    แถวเหมา (60%) → โชว์ driver_calc_price(r)×share = (ค่าขนส่ง−KB)×0.6.
+    แถวเหมา → โชว์ tfd − KB×share (สูตรเดียวกับ engine ต่อแถว).
+
+    ห้ามคำนวณใหม่จากค่าขนส่ง×60% — ค่าเที่ยวที่โอแก้มือต่อเที่ยว (เช่น เหมา 55%:
+    ธัชชนพล/เสรี 3753→2064.15, ratio 0.55 ยังชนขอบ tol) ต้องโชว์ตามที่บันทึก
+    ไม่งั้นสลิปโชว์เกินที่จ่ายจริง (โอ 2ก.ค.).
 
     แถวค่าเที่ยว 'เหมาจ่าย' แบบ flat (lcb_trip เช่น 200฿, ratio ไม่ใช่ ~60%) คงค่าเดิม —
     KB ไม่ลดค่าเหมาจ่าย (โอ 1ก.ค.). ไม่แตะเงินที่จ่าย/หน้าเดลี่.
@@ -209,9 +213,8 @@ def slip_trip_fee_display(r, share_rate: float = _MAO_RATIO) -> float:
     rev = r.revenue_customer or 0.0
     tfd = r.trip_fee_driver or 0.0
     if rev > 0 and abs((tfd / rev) - _MAO_RATIO) <= _MAO_TOL:
-        from services.payroll import driver_calc_price
-
-        return round(driver_calc_price(r) * share_rate, 2)
+        kb = getattr(r, "kb_amount", 0.0) or 0.0
+        return round(tfd - kb * share_rate, 2)
     return tfd
 
 

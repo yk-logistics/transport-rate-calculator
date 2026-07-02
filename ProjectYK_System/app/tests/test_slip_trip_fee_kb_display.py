@@ -43,6 +43,10 @@ def client():
                        status_code="NHL", revenue_customer=2410, kb_amount=110, trip_fee_driver=1446))
         s.add(DailyJob(site_code="LCB", driver_id=60, work_date=date(2026, 6, 2),
                        status_code="KLND", revenue_customer=5000, kb_amount=0, trip_fee_driver=3000))
+        # แถวเหมา 55% แก้มือ (แบบ ธัชชนพล/เสรี: 3753×55%=2064.15, ratio 0.55 ชนขอบ tol)
+        # engine จ่ายตาม tfd ที่บันทึก → สลิปห้ามคำนวณใหม่เป็น 60% (2,252)
+        s.add(DailyJob(site_code="LCB", driver_id=60, work_date=date(2026, 6, 3),
+                       status_code="KLND", revenue_customer=3753, kb_amount=0, trip_fee_driver=2064.15))
         # สุวิทย์: NHL มี KB แต่ค่าเที่ยว flat 200 (ไม่ใช่ 60%) → ต้องคงเดิม
         s.add(DailyJob(site_code="LCB", driver_id=61, work_date=date(2026, 6, 1),
                        status_code="NHL", revenue_customer=2410, kb_amount=110, trip_fee_driver=200))
@@ -71,6 +75,11 @@ def test_helper_kb_adjusts_mao_row_not_flat_trip():
     assert slip_trip_fee_display(Row(2410, 110, 200)) == 200.0
     # แถวว่าง (รถจอด tfd=0) → 0
     assert slip_trip_fee_display(Row(0, 0, 0)) == 0.0
+    # เหมา 55% แก้มือ (ธัชชนพล/เสรี: ratio 0.55 ชนขอบ tol, ไม่มี KB) → คงค่าที่บันทึก
+    # ห้ามคำนวณใหม่เป็น 3753×0.6=2251.8 (engine จ่าย 2064.15)
+    assert slip_trip_fee_display(Row(3753, 0, 2064.15)) == 2064.15
+    # เหมาแก้มือใน tol + มี KB → ค่าที่บันทึก − KB×0.6 (ตรง engine: Σtfd − Σkb×share)
+    assert slip_trip_fee_display(Row(2410, 110, 1500)) == 1434.0
 
 
 def test_slip_shows_kb_adjusted_trip_fee(client):
@@ -79,6 +88,8 @@ def test_slip_shows_kb_adjusted_trip_fee(client):
     assert "1,380" in b       # (2410−110)×60%
     assert "1,446" not in b    # ค่าขนส่งเต็ม×60% ต้องไม่โผล่แล้ว
     assert "3,000" in b        # แถวไม่มี KB ไม่เปลี่ยน
+    assert "2,064" in b        # เหมา 55% แก้มือ → โชว์ตามที่บันทึก
+    assert "2,252" not in b    # ห้ามคำนวณใหม่เป็น 60%
 
 
 def test_slip_line_sum_matches_paid_total(client):
@@ -86,8 +97,9 @@ def test_slip_line_sum_matches_paid_total(client):
     with Session(engine) as s:
         it = s.exec(select(PayRunItem).where(
             PayRunItem.pay_run_id == 1, PayRunItem.employee_id == 60)).first()
-        # ปกรณ์: 1380 (NHL−KB) + 3000 (KLND) = 4380 ; engine หัก KB×0.6=66 → 4446−66=4380
-        assert round(it.fuel_share_income, 2) == 4380.0
+        # ปกรณ์: 1380 (NHL−KB) + 3000 + 2064.15 (55%) = 6444.15
+        # engine: Σtfd 6510.15 − KB×0.6 (66) = 6444.15
+        assert round(it.fuel_share_income, 2) == 6444.15
 
 
 def test_flat_trip_fee_untouched_on_slip(client):
