@@ -8119,6 +8119,58 @@ def finance_receivables(request: Request):
 
 
 # =========================================================================
+# เครื่องคิดราคาขนส่ง (/quote) + รายงาน Oatside (/oatside/report) — โอสั่ง 3ก.ค. 03:00
+# "ย้ายเข้าระบบเลย" — เสิร์ฟไฟล์เดิมตรงๆ (ไม่ผ่าน Jinja) = เลขตรง GitHub Pages 100%
+# ที่มา: TransportRateCalculator/transport_rate_calculator.html +
+#        transport-rate-calculator-repo/reports/oatside-pg-2026/ (สำเนา vendored ใน app)
+# =========================================================================
+
+_APP_DIR_SELF = Path(__file__).resolve().parent
+
+
+def _first_existing(*paths: Path) -> Optional[Path]:
+    for p in paths:
+        if p.exists():
+            return p
+    return None
+
+
+@app.get("/quote", response_class=HTMLResponse)
+def quote_calculator():
+    """เครื่องคิดค่าขนส่งตามราคาน้ำมัน — ไฟล์เดี่ยวตัวเดียวกับ GitHub Pages."""
+    p = _first_existing(
+        _APP_DIR_SELF / "quote_calc.html",  # server (vendored)
+        _APP_DIR_SELF.parent / "TransportRateCalculator" / "transport_rate_calculator.html",  # dev
+    )
+    if p is None:
+        raise HTTPException(404, "ยังไม่ได้วางไฟล์เครื่องคิดราคาบนเครื่องนี้")
+    return HTMLResponse(p.read_text(encoding="utf-8"))
+
+
+_OATSIDE_REPORT_DIRS = (
+    _APP_DIR_SELF / "oatside_report",  # server (vendored)
+    _APP_DIR_SELF.parents[1] / "transport-rate-calculator-repo" / "reports" / "oatside-pg-2026",  # dev (ราก repo)
+)
+
+
+@app.get("/oatside/report")
+def oatside_report_index():
+    return RedirectResponse("/oatside/report/index.html", status_code=303)
+
+
+@app.get("/oatside/report/{rel:path}")
+def oatside_report_file(rel: str):
+    """เสิร์ฟรายงาน Oatside ที่ generate แล้ว (index.html / trips.html / plates/... / exports)."""
+    base = _first_existing(*_OATSIDE_REPORT_DIRS)
+    if base is None:
+        raise HTTPException(404, "ยังไม่มีรายงาน Oatside บนเครื่องนี้")
+    p = (base / rel).resolve()
+    if not str(p).startswith(str(base.resolve())) or not p.is_file():
+        raise HTTPException(404)
+    return FileResponse(p)
+
+
+# =========================================================================
 # สมุดโน้ต / สิ่งที่ต้องทำ (/todo) — โอสั่ง 3ก.ค.: แทนสมุดจด+ห้องโยนมาก่อน
 # จดเร็วแบบพิมพ์แชท (มือถือใช้ไมค์คีย์บอร์ดพูดแทนพิมพ์ได้) ค้นได้ แนบรูปได้
 # ของใครของมัน (แยกตาม username) — รายละเอียด (หมวด/ด่วน/กำหนด) ค่อยเติมทีหลังได้

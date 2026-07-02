@@ -59,7 +59,9 @@ Start-Sleep 1; Start-ScheduledTask -TaskName YK_MVP_APP; Start-Sleep 6
 
 ## เฟส B — รับงาน: ราคา + ปฏิทินรถ
 
-### B1 ย้ายเครื่องคิดเรทเข้า /quote — โมเดล: Sonnet ทำได้ (สเปคชัด) + ใหญ่ตรวจเลข (~1 วัน)
+### B1 ✅ เสร็จ 3ก.ค. 03:20 (วิธีเปลี่ยน — ดีกว่าแผนเดิม): /quote เสิร์ฟไฟล์เดิมตรงๆ ไม่ผ่าน Jinja/ไม่ครอบ base → เลขตรง GitHub Pages 100% โดยนิยาม; สำเนา vendored ที่ app/quote_calc.html (server) — **ต่อไปแก้เครื่องคิดที่ไฟล์ต้นทาง TransportRateCalculator/transport_rate_calculator.html แล้ว scp ทับ quote_calc.html**; /oatside/report เสิร์ฟรายงานที่ generate แล้วแบบเดียวกัน (สำเนา app/oatside_report/)
+
+### B1.1 (งานเดิมของ B1 ที่เหลือ) ปรับ /quote ให้กลมกลืนระบบ + ปุ่มเซฟ (ไป B2) — Sonnet (~ครึ่งวัน)
 **เป้า:** หน้า /quote ในระบบ คิดราคาขายเหมือน `TransportRateCalculator/transport_rate_calculator.html` (168KB single-file JS — โอยืนยันเป็นตัวจริง) ครบทุกช่อง
 **วิธี:** **อย่า rewrite สูตร** — แตก HTML เดิม: เอา `<script>` + `<style>` มาวางใน template ใหม่ `templates/quote.html` ครอบด้วย base.html (เมนู "เงิน→📋 ใบเสนอราคา"); ตัดส่วนที่ชนกับ Tailwind ของ base ออกให้แสดงผลถูก; **เลขทุกตัวต้องเท่าหน้าเดิม** — เกณฑ์ผ่าน: กรอกอินพุตเดียวกัน 3 เคส (สั้น/กลาง/ไกล+ทางด่วน) ผลตรงหน้า GitHub Pages เป๊ะทุกบาท (screenshot เทียบ)
 **สิทธิ์:** menu "quote" admin=edit, office=view? → เริ่ม admin เท่านั้น รอโอสั่งขยาย

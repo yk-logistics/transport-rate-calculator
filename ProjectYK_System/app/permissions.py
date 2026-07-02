@@ -33,6 +33,8 @@ MENUS = {
     "kb": ["/kb-payout"],
     # สมุดโน้ตส่วนตัว (ของใครของมัน แยกด้วย username) — ทุก role ใช้ได้
     "todo": ["/todo"],
+    # เครื่องคิดราคา + รายงาน Oatside (มีต้นทุน/เรทภายใน) — admin ก่อน รอโอสั่งขยาย
+    "quote": ["/quote", "/oatside"],
 }
 
 # menu -> role -> "edit" | "view" | "deny"
@@ -53,6 +55,7 @@ MATRIX = {
     "admin":     {"admin": "edit", "office": "deny", "accountant": "deny", "viewer": "deny"},
     "kb":        {"admin": "edit", "office": "deny", "accountant": "deny", "viewer": "deny"},
     "todo":      {"admin": "edit", "office": "edit", "accountant": "edit", "viewer": "edit"},
+    "quote":     {"admin": "edit", "office": "deny", "accountant": "deny", "viewer": "deny"},
 }
 
 

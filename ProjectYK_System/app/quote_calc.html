@@ -1,0 +1,3243 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>คำนวณค่าขนส่งตามราคาน้ำมัน</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --primary:#1e3a5f;--primary-light:#2c5282;--primary-lighter:#e8f0fe;
+  --accent:#f59e0b;--accent-light:#fbbf24;
+  --bg:#f0f4f8;--card:#fff;--text:#1a202c;--text-light:#64748b;
+  --border:#e2e8f0;--success:#10b981;--danger:#ef4444;
+  --shadow:0 4px 24px rgba(30,58,95,.08);
+  --radius:14px;
+}
+body{font-family:'IBM Plex Sans Thai','Segoe UI',sans-serif;background:radial-gradient(circle at 18% -5%,rgba(30,58,95,.07),transparent 55%),radial-gradient(circle at 85% 105%,rgba(245,158,11,.045),transparent 55%),var(--bg);background-attachment:fixed;color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px;font-feature-settings:'kern' 1}
+h1{font-size:2rem;font-weight:700;letter-spacing:-.02em;line-height:1.15;background:linear-gradient(135deg,var(--primary) 0%,#2c5282 55%,#f59e0b 150%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:var(--primary)}
+.summary-card .sc-value,.kpi .k-value,tbody td,thead th,input[type=number],.example-calc table td{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
+.app-header{text-align:center;margin-bottom:24px}
+.app-header p{color:var(--text-light);font-size:.9rem;margin-top:4px}
+
+.progress-bar{display:flex;align-items:center;gap:0;width:100%;max-width:700px;margin-bottom:32px;position:relative}
+.progress-step{flex:1;display:flex;flex-direction:column;align-items:center;position:relative;z-index:1}
+.progress-step .circle{width:36px;height:36px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:.85rem;color:var(--text-light);transition:all .3s}
+.progress-step.active .circle{background:var(--primary);color:#fff;box-shadow:0 0 0 4px rgba(30,58,95,.15)}
+.progress-step.done .circle{background:var(--success);color:#fff}
+.progress-step .label{font-size:.7rem;color:var(--text-light);margin-top:6px;text-align:center;white-space:nowrap}
+.progress-step.active .label{color:var(--primary);font-weight:600}
+.progress-line{position:absolute;top:18px;left:0;right:0;height:3px;background:var(--border);z-index:0}
+.progress-line-fill{height:3px;background:var(--primary);transition:width .4s;position:absolute;top:18px;left:0;z-index:0}
+
+.wizard-container{width:100%;max-width:700px}
+.step-card{background:var(--card);border:1px solid rgba(30,58,95,.07);border-radius:var(--radius);box-shadow:0 1px 2px rgba(30,58,95,.04),0 12px 32px -8px rgba(30,58,95,.10);padding:32px;display:none;animation:fadeIn .35s ease}
+.step-card.visible{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.step-title{font-size:1.15rem;font-weight:600;color:var(--primary);margin-bottom:6px}
+.step-desc{font-size:.88rem;color:var(--text-light);margin-bottom:20px}
+
+label.field-label{display:block;font-size:.85rem;font-weight:500;margin-bottom:6px;color:var(--text)}
+input[type=number],input[type=text],select{width:100%;padding:10px 14px;background:#fff;border:1.5px solid #cbd5e1;border-radius:10px;font-size:1rem;font-family:inherit;outline:none;box-shadow:inset 0 1px 2px rgba(15,23,42,.025);transition:border .15s,box-shadow .15s}
+input:hover,select:hover{border-color:var(--primary-light)}
+input:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(30,58,95,.12)}
+input::placeholder{color:#94a3b8;font-weight:300}
+.input-group{margin-bottom:16px}
+.input-row{display:flex;gap:12px}
+.input-row .input-group{flex:1}
+.input-suffix{display:flex;align-items:center;gap:8px}
+.input-suffix span{font-size:.88rem;color:var(--text-light);white-space:nowrap}
+.input-suffix input{flex:1}
+
+.radio-group{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.radio-card{flex:1;min-width:180px;border:2px solid var(--border);border-radius:12px;padding:16px 38px 16px 16px;cursor:pointer;transition:all .2s;position:relative;background:#fff}
+.radio-card:hover{border-color:var(--primary-light);background:var(--primary-lighter)}
+.radio-card.selected,.radio-card:has(input:checked){border-color:var(--primary);background:var(--primary-lighter);box-shadow:0 4px 14px -6px rgba(30,58,95,.18)}
+.radio-card.selected::after,.radio-card:has(input:checked)::after{content:'';position:absolute;top:12px;right:12px;width:20px;height:20px;border-radius:50%;background:var(--primary) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='white'%3E%3Cpath d='M13.5 4.5L6 12l-3.5-3.5 1-1L6 10l6.5-6.5z'/%3E%3C/svg%3E") center/13px no-repeat}
+.radio-card input{display:none}
+.radio-card .rc-title{font-weight:600;font-size:.95rem;margin-bottom:4px}
+.radio-card .rc-desc{font-size:.8rem;color:var(--text-light)}
+
+.btn-row{display:flex;justify-content:space-between;margin-top:24px;gap:12px}
+.btn{padding:10px 28px;border:none;border-radius:10px;font-size:.95rem;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 1px 0 rgba(0,0,0,.04),0 2px 4px rgba(30,58,95,.08);transition:transform .12s ease,box-shadow .15s ease,background .2s,filter .2s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(30,58,95,.16),0 1px 0 rgba(0,0,0,.04)}
+.btn:active{transform:translateY(0);box-shadow:0 1px 2px rgba(30,58,95,.10)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn-primary{background:linear-gradient(180deg,var(--primary-light),var(--primary));color:#fff}
+.btn-primary:hover{filter:brightness(1.08)}
+.btn-secondary{background:var(--border);color:var(--text)}
+.btn-secondary:hover{background:#cbd5e1}
+.btn-accent{background:var(--accent);color:#fff}
+.btn-accent:hover{background:var(--accent-light)}
+.btn-sm{padding:7px 16px;font-size:.82rem}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover{background:#dc2626}
+
+.preview-box{background:var(--primary-lighter);border-radius:10px;padding:14px;margin-top:12px;max-height:200px;overflow-y:auto}
+.preview-box .tag{display:inline-block;background:var(--primary);color:#fff;padding:4px 12px;border-radius:20px;font-size:.8rem;margin:3px 4px}
+
+.uniform-hint{font-size:.78rem;color:var(--text-light);margin:0 0 14px;line-height:1.5;max-width:100%}
+
+.custom-ranges{margin-top:12px}
+.custom-range-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.custom-range-row input{width:100px}
+.custom-range-row span{font-size:.9rem;color:var(--text-light)}
+
+.example-calc{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px;margin-top:14px;font-size:.85rem;line-height:1.7;max-height:260px;overflow-y:auto;overflow-x:hidden}
+.example-calc table{width:100%;table-layout:fixed;min-width:0}
+.example-calc thead th{white-space:normal;padding:8px 6px;font-size:.78rem}
+.example-calc tbody td{padding:7px 6px;font-size:.78rem}
+.example-calc strong{color:var(--primary)}
+
+.result-section{background:var(--card);border:1px solid rgba(30,58,95,.07);border-radius:var(--radius);box-shadow:0 1px 2px rgba(30,58,95,.04),0 12px 32px -8px rgba(30,58,95,.10);padding:32px;display:none;animation:fadeIn .35s ease;margin-top:0;width:100%;max-width:900px}
+.result-section.visible{display:block}
+.result-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+.result-header h2{font-size:1.2rem;color:var(--primary)}
+.export-btns{display:flex;gap:8px;flex-wrap:wrap}
+
+.summary-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.summary-card{background:linear-gradient(180deg,#fff 0%,var(--primary-lighter) 160%);border:1px solid rgba(30,58,95,.08);border-top:3px solid var(--primary);border-radius:10px;padding:14px;text-align:center;box-shadow:0 1px 2px rgba(30,58,95,.04)}
+.summary-card .sc-label{font-size:.75rem;color:var(--text-light);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+.summary-card .sc-value{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:1.15rem;font-weight:600;color:var(--primary);letter-spacing:-.01em}
+
+#resultTableWrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+thead th,.rate-th-head{background-color:#1e3a5f;color:#fff;-webkit-text-fill-color:#fff;padding:10px 14px;text-align:center;font-weight:600;white-space:nowrap;position:sticky;top:0;z-index:2;box-shadow:0 1px 0 rgba(0,0,0,.06)}
+tbody td{padding:9px 14px;border-bottom:1px solid var(--border);text-align:center}
+tbody tr:nth-child(even){background:#fafbfc}
+tbody tr:hover{background:#eef2f7}
+tr.highlight-current{background:#fef3c7 !important;font-weight:600;box-shadow:inset 4px 0 0 var(--accent)}
+tr.highlight-base{background:var(--primary-lighter) !important}
+tr.highlight-current.highlight-base{background:#d1fae5 !important}
+.badge{display:inline-block;padding:2px 8px;border-radius:8px;font-size:.72rem;font-weight:600;margin-left:4px}
+.badge-base{background:var(--primary);color:#fff}
+.badge-current{background:var(--accent);color:#fff}
+.positive{color:var(--success)}
+.negative{color:var(--danger)}
+
+.back-to-wizard{margin-top:20px;text-align:center}
+.watermark{text-align:center;margin-top:24px;font-size:.75rem;color:var(--text-light)}
+
+.quote-panel{border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px;background:#fff}
+.quote-panel h3{font-size:1rem;color:var(--primary);margin:0 0 10px}
+.quote-panel-desc{font-size:.82rem;color:var(--text-light);margin:0 0 12px;line-height:1.5}
+.quote-line-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(90px,.8fr) minmax(0,1fr) auto;gap:8px;align-items:end;margin-bottom:8px}
+.quote-line-row label{font-size:.75rem;color:var(--text-light);display:block;margin-bottom:4px}
+.quote-line-row input{width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.9rem}
+.quote-line-actions{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.quote-print-block{background:var(--primary-lighter);border:1px solid #bfdbfe;border-radius:10px;padding:14px;margin-bottom:16px}
+.quote-print-block .qp-title{font-size:1.05rem;font-weight:700;color:var(--primary);margin:0 0 6px}
+.quote-print-block .qp-meta{font-size:.82rem;color:var(--text-light);margin-bottom:10px}
+.quote-print-table{width:100%;border-collapse:collapse;font-size:.9rem;margin-top:8px}
+.quote-print-table thead th,.factory-result-table thead th{background-color:#1e3a5f!important;color:#fff!important;-webkit-text-fill-color:#fff!important;padding:8px 10px;text-align:left;font-weight:600}
+.quote-print-table thead th{text-align:left}
+.factory-result-table thead th{text-align:center}
+.quote-print-table td{padding:8px 10px;border-bottom:1px solid var(--border);background:#fff;text-align:left}
+.quote-print-table td.price{text-align:right;font-weight:600;white-space:nowrap}
+.quote-print-empty{font-size:.85rem;color:var(--text-light);font-style:italic}
+@media (max-width:640px){
+  .quote-line-row{grid-template-columns:1fr 1fr;grid-template-rows:auto auto}
+  .quote-line-row .ql-remove{grid-column:1/-1}
+}
+.factory-block-card{border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;background:#f8fafc}
+.factory-block-card h4{margin:0 0 10px;font-size:.92rem;color:var(--primary)}
+.factory-block-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:8px}
+.factory-block-grid label{font-size:.75rem;color:var(--text-light);display:block;margin-bottom:4px}
+.factory-block-grid input,.factory-block-grid select{width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.88rem}
+.factory-block-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.factory-table-block{margin-bottom:24px;padding-top:8px;border-top:2px solid var(--border)}
+.factory-table-block:first-of-type{border-top:none;padding-top:0}
+.factory-table-title{font-size:1.05rem;color:var(--primary);margin:0 0 6px}
+.factory-table-meta{font-size:.8rem;color:var(--text-light);margin-bottom:10px;line-height:1.5}
+
+.ref-link-min{text-align:center;margin:0 0 14px;font-size:.8rem}
+.ref-link-min a{color:var(--primary-light);text-decoration:underline;text-underline-offset:2px}
+.ref-link-min a:hover{color:var(--primary)}
+
+.bangchak-embed{margin-bottom:10px}
+.bangchak-iframe-wrap{width:100%;max-width:320px;margin:0 auto;border-radius:8px;overflow:hidden;background:#fff;border:1px solid var(--border)}
+/* ย่อความสูง — โฟกัสส่วนบน (ไฮดีเซล); เลื่อนดูต่อในกรอบ iframe */
+.bangchak-iframe-wrap iframe{display:block;margin:0 auto;width:320px;max-width:100%;height:280px;border:0;vertical-align:middle}
+.bangchak-scroll-hint{text-align:center;font-size:.72rem;color:var(--text-light);margin:0 0 12px;line-height:1.4}
+.history-panel{margin-top:12px;border:1px solid var(--border);border-radius:10px;padding:12px;background:#fff}
+.history-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+.history-controls .input-group{margin-bottom:0;min-width:130px;flex:1}
+.history-date-range{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+.history-date-range .input-group{margin-bottom:0;min-width:220px;flex:1}
+.history-status{margin-top:8px;font-size:.8rem;color:var(--text-light)}
+.history-range-trigger{width:100%;border:1.5px solid var(--border);background:#fff;color:var(--text);border-radius:8px;padding:10px 12px;text-align:left;cursor:pointer;font-weight:500}
+.history-range-trigger:hover{border-color:var(--primary-light);background:#f8fafc}
+.history-range-help{margin-top:5px;font-size:.74rem;color:var(--text-light)}
+.history-calendar{width:100%;border:1px solid var(--border);border-radius:10px;padding:10px;background:#f8fafc}
+.history-calendar-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.history-calendar-title{font-weight:700;color:var(--primary);font-size:.9rem;text-align:center;flex:1}
+.history-calendar-nav{border:1px solid var(--border);background:#fff;border-radius:8px;padding:6px 9px;cursor:pointer}
+.history-calendar-nav:disabled{opacity:.4;cursor:not-allowed}
+.history-calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.history-calendar-dow{font-size:.72rem;color:var(--text-light);text-align:center;padding:4px 0}
+.history-calendar-day{border:1px solid transparent;background:#fff;border-radius:8px;padding:7px 0;font-size:.78rem;cursor:pointer;text-align:center}
+.history-calendar-day:hover{border-color:var(--primary-light);background:#eef6ff}
+.history-calendar-day.outside{opacity:.35}
+.history-calendar-day.disabled{color:#cbd5e1;background:#f1f5f9;cursor:not-allowed}
+.history-calendar-day.range{background:#dbeafe}
+.history-calendar-day.range-start,.history-calendar-day.range-end{background:var(--primary);color:#fff;font-weight:700}
+.history-wrap{margin-top:10px;height:240px;min-height:150px;max-height:520px;overflow:auto;resize:vertical;border:1px solid var(--border);border-radius:8px}
+.history-resize-hint{margin-top:4px;font-size:.72rem;color:var(--text-light);text-align:right}
+.history-fallback{margin-top:10px;border-top:1px dashed var(--border);padding-top:10px}
+.history-fallback textarea{width:100%;min-height:90px;padding:9px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:.8rem;resize:vertical}
+.history-table{width:100%;border-collapse:collapse;font-size:.82rem}
+.history-table thead th{position:sticky;top:0;background:var(--primary);color:#fff;padding:8px 10px;text-align:center;z-index:1}
+.history-table tbody td{padding:7px 10px;border-bottom:1px solid #eef2f7}
+.history-table tbody tr{cursor:pointer;user-select:none}
+.history-table tbody tr:hover{background:#f8fafc}
+.history-table tbody tr.selected{background:#dbeafe}
+.history-table tbody tr.dragging{outline:1px dashed var(--primary)}
+.avg-box{margin-top:10px;background:#ecfeff;border:1px solid #a5f3fc;border-radius:8px;padding:10px;font-size:.82rem}
+.avg-box strong{color:var(--primary)}
+
+.cost-section{background:var(--card);border:1px solid rgba(30,58,95,.07);border-radius:var(--radius);box-shadow:0 1px 2px rgba(30,58,95,.04),0 12px 32px -8px rgba(30,58,95,.10);padding:28px;width:100%;max-width:900px;margin-top:20px}
+.cost-section h2{font-size:1.2rem;color:var(--primary);margin-bottom:6px}
+.cost-desc{font-size:.85rem;color:var(--text-light);margin-bottom:18px}
+.cost-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.cost-block{border:1px solid var(--border);border-radius:10px;padding:14px;background:#fff}
+.cost-block h3{font-size:.95rem;color:var(--primary);margin-bottom:10px}
+.mini-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.route-list{max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px}
+.route-item{display:grid;grid-template-columns:auto 1fr 100px auto;gap:8px;align-items:center;padding:5px 0;border-bottom:1px dashed #e5e7eb}
+.route-item:last-child{border-bottom:none}
+.route-item label{font-size:.82rem}
+.route-item input[type=number]{padding:6px 8px;font-size:.82rem}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:12px}
+.kpi{background:linear-gradient(180deg,#fff 0%,var(--primary-lighter) 160%);border:1px solid rgba(30,58,95,.08);border-top:3px solid var(--primary);border-radius:10px;padding:12px;box-shadow:0 1px 2px rgba(30,58,95,.04)}
+.kpi .k-label{font-size:.72rem;color:var(--text-light);text-transform:uppercase;letter-spacing:.04em}
+.kpi .k-value{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:1.05rem;font-weight:600;color:var(--primary);letter-spacing:-.01em;margin-top:2px}
+.cost-warning{margin-top:10px;font-size:.82rem;padding:8px 10px;border-radius:8px;border:1px solid transparent}
+.cost-warning.warn{background:#fffbeb;border-color:#fde68a;color:#92400e}
+.cost-warning.bad{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+.saved-list{margin-top:10px;border:1px solid var(--border);border-radius:10px;max-height:250px;overflow:auto}
+.saved-item{padding:10px;border-bottom:1px dashed #e5e7eb}
+.saved-item:last-child{border-bottom:none}
+.saved-meta{font-size:.78rem;color:var(--text-light);margin-top:4px}
+.saved-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.inline-note{font-size:.78rem;color:var(--text-light)}
+.hint-box{width:100%;min-height:44px;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;background:#f8fafc;font-size:.9rem;line-height:1.4;word-break:break-word}
+
+@media(max-width:600px){
+  .input-row{flex-direction:column;gap:8px}
+  .radio-group{flex-direction:column}
+  .btn-row{flex-direction:column}
+  .btn{width:100%;text-align:center}
+  .result-header{flex-direction:column;align-items:flex-start}
+  .summary-cards{grid-template-columns:1fr 1fr}
+  .cost-grid{grid-template-columns:1fr}
+  .route-item{grid-template-columns:auto 1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <h1>คำนวณค่าขนส่งตามราคาน้ำมัน</h1>
+  <p>กรอกข้อมูลตามขั้นตอน เพื่อสร้างตารางค่าขนส่งตามช่วงราคาน้ำมัน</p>
+</div>
+
+<div class="progress-bar" id="progressBar">
+  <div class="progress-line"></div>
+  <div class="progress-line-fill" id="progressFill"></div>
+  <div class="progress-step active" data-step="1"><div class="circle">1</div><div class="label">น้ำมัน</div></div>
+  <div class="progress-step" data-step="2"><div class="circle">2</div><div class="label">ช่วงราคา</div></div>
+  <div class="progress-step" data-step="3"><div class="circle">3</div><div class="label">Base Rate</div></div>
+  <div class="progress-step" data-step="4"><div class="circle">4</div><div class="label">วิธีปรับ</div></div>
+</div>
+
+<div class="wizard-container" id="wizardContainer">
+
+  <!-- Step 1 -->
+  <div class="step-card visible" id="step1">
+    <div class="step-title">ราคาน้ำมันปัจจุบัน</div>
+    <div class="step-desc">ดูราคาไฮดีเซลจากตาราง แล้วกรอกช่องด้านล่าง (บาท/ลิตร) หรือดึงย้อนหลังแล้วหาเฉลี่ยแบบคลุมช่วง</div>
+    <div class="bangchak-embed">
+      <div class="bangchak-iframe-wrap">
+        <iframe title="ราคาน้ำมันปัจจุบัน Bangchak" width="320" height="280" src="https://oil-price.bangchak.co.th/BcpOilPrice1/th" loading="lazy"></iframe>
+      </div>
+    </div>
+    <p class="bangchak-scroll-hint">เลื่อนในตารางได้ถ้าต้องการดูชนิดอื่น</p>
+    <p class="ref-link-min"><a href="https://www.bangchak.co.th/th/oilprice/historical" target="_blank" rel="noopener noreferrer">ราคาน้ำมันย้อนหลัง</a></p>
+    <div class="history-panel">
+      <div class="history-controls">
+        <div class="input-group">
+          <label class="field-label">ปี (ค.ศ.)</label>
+          <input type="number" id="historyYear" min="2017" step="1" value="2026">
+        </div>
+        <div class="input-group">
+          <label class="field-label">ชนิดน้ำมัน</label>
+          <select id="historyFuelType">
+            <option value="diesel_s" selected>ไฮดีเซล S</option>
+            <option value="premium_diesel">ไฮพรีเมียมดีเซล S</option>
+          </select>
+        </div>
+        <div class="input-group" style="flex:0 0 auto;min-width:unset">
+          <button class="btn btn-sm btn-accent" onclick="loadHistoricalOilPrices()">ดึงข้อมูลย้อนหลัง</button>
+        </div>
+      </div>
+      <div class="history-status" id="historyStatus">กด "ดึงข้อมูลย้อนหลัง" เพื่อโหลดข้อมูลรายวันจากเว็บ</div>
+      <div class="history-date-range">
+        <div class="input-group">
+          <label class="field-label">ช่วงวันที่ (ค.ศ.)</label>
+          <button type="button" class="history-range-trigger" id="historyRangeTrigger" onclick="toggleHistoryCalendar()">เลือกวันเริ่ม แล้วเลือกวันถึง</button>
+          <div class="history-range-help" id="historyRangeHelp">โหลดข้อมูลก่อน แล้วคลิกวันที่เริ่มและวันที่ถึงในปฏิทินเดียว</div>
+        </div>
+        <div class="history-calendar" id="historyCalendar" style="display:none">
+          <div class="history-calendar-head">
+            <button type="button" class="history-calendar-nav" id="historyCalendarPrev" onclick="moveHistoryCalendarMonth(-1)">ก่อนหน้า</button>
+            <div class="history-calendar-title" id="historyCalendarTitle">-</div>
+            <button type="button" class="history-calendar-nav" id="historyCalendarNext" onclick="moveHistoryCalendarMonth(1)">ถัดไป</button>
+          </div>
+          <div class="history-calendar-grid" id="historyCalendarGrid"></div>
+        </div>
+      </div>
+      <div class="history-wrap" id="historyWrap" style="display:none">
+        <table class="history-table" id="historyTable">
+          <thead><tr><th>วันที่</th><th id="historyValueHeader">ไฮดีเซล S (บาท/ลิตร)</th></tr></thead>
+          <tbody id="historyTableBody"></tbody>
+        </table>
+      </div>
+      <div class="history-resize-hint" id="historyResizeHint" style="display:none">ลากมุมล่างขวาของตารางเพื่อปรับความสูง</div>
+      <div class="avg-box" id="historyAvgBox" style="display:none"></div>
+      <div class="mini-actions" style="margin-top:8px">
+        <button class="btn btn-sm btn-secondary" onclick="useHistoricalAverage()" id="useHistoryAverageBtn" disabled>ใช้ค่าเฉลี่ยที่คลุม</button>
+        <button class="btn btn-sm btn-secondary" onclick="clearHistorySelection()" id="clearHistorySelectionBtn" disabled>ล้างการคลุม</button>
+        <button class="btn btn-sm btn-accent" onclick="exportHistoricalCsv()" id="exportHistoryCsvBtn" disabled>Export CSV ตารางย้อนหลัง</button>
+      </div>
+      <div class="history-fallback">
+        <label class="field-label">ทางสำรอง: วางข้อมูลที่คัดลอกจากหน้าเว็บ</label>
+        <textarea id="historyPasteInput" placeholder="วางข้อความจากตารางราคาน้ำมันย้อนหลัง เช่น 24/04/2569 40.20 หรือบรรทัดรูปแบบ | วันที่ | ... |"></textarea>
+        <div class="mini-actions" style="margin-top:8px">
+          <button class="btn btn-sm btn-secondary" onclick="parseHistoricalFromPaste()">แปลงข้อมูลที่วาง</button>
+        </div>
+      </div>
+    </div>
+    <div class="input-group">
+      <label class="field-label">ราคาน้ำมัน</label>
+      <div class="input-suffix">
+        <input type="number" id="fuelPrice" step="0.01" min="0" placeholder="เช่น 32.50">
+        <span>บาท/ลิตร</span>
+      </div>
+    </div>
+    <div class="btn-row"><div></div><button class="btn btn-primary" onclick="goStep(2)">ถัดไป &rarr;</button></div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="step-card" id="step2">
+    <div class="step-title">กำหนดช่วงราคาน้ำมัน</div>
+    <div class="step-desc">เลือกรูปแบบการแบ่งช่วงราคาน้ำมันสำหรับตาราง</div>
+    <div class="radio-group">
+      <label class="radio-card selected" onclick="selectRangeType('uniform')">
+        <input type="radio" name="rangeType" value="uniform" checked>
+        <div class="rc-title">ช่วงละเท่าๆ กัน</div>
+        <div class="rc-desc">เช่น เริ่ม 29.00 และระยะห่างจุดเริ่ม 3 → 29.00–31.99, 32.00–34.99</div>
+      </label>
+      <label class="radio-card" onclick="selectRangeType('custom')">
+        <input type="radio" name="rangeType" value="custom">
+        <div class="rc-title">กำหนดช่วงเอง</div>
+        <div class="rc-desc">เช่น 25-28, 28-30, 30-35, ...</div>
+      </label>
+    </div>
+    <div id="uniformInputs">
+      <p class="uniform-hint">
+        ช่วงแบบเท่าๆ กันจะทำให้<strong>จุดเริ่มถัดไปห่างกันตาม `ระยะห่างจุดเริ่ม`</strong> และแต่ละช่วงจะต่อกันแบบไม่ทับ/ไม่เว้นวรรค:
+        <br><strong>ช่วงที่ i:</strong> จาก `จาก` ถึง `จาก + ระยะห่าง - 0.01`
+        <br>ตัวอย่าง: ถ้าเริ่ม `29.00` และตั้งระยะห่างจุดเริ่ม `3` จะได้
+        <strong>29.00–31.99</strong>, <strong>32.00–34.99</strong>, <strong>35.00–37.99</strong> เป็นต้น
+        <br>(ถ้าใส่ต่ำกว่า 1 ระบบใช้ 1 เพื่อไม่ให้ช่วงทับซ้อน)
+      </p>
+      <div class="input-row">
+        <div class="input-group"><label class="field-label">ราคาเริ่มต้น (บาท)</label><input type="number" id="rangeStart" step="0.01" value="29.00" min="0"></div>
+        <div class="input-group"><label class="field-label">ราคาสิ้นสุด (บาท)</label><input type="number" id="rangeEnd" step="0.01" value="59.99" min="0"></div>
+        <div class="input-group"><label class="field-label">ระยะห่างจุดเริ่ม (บาท)</label><input type="number" id="rangeStep" step="1" value="1" min="1"></div>
+      </div>
+      <button class="btn btn-sm btn-accent" onclick="previewUniform()">ดูตัวอย่างช่วง</button>
+    </div>
+    <div id="customInputs" style="display:none">
+      <div class="custom-ranges" id="customRangesList">
+        <div class="custom-range-row">
+          <input type="number" class="cr-from" step="0.01" value="29" min="0">
+          <span>ถึง</span>
+          <input type="number" class="cr-to" step="0.01" value="29.99" min="0">
+          <span>บาท</span>
+          <button class="btn btn-sm btn-danger" onclick="removeRange(this)" title="ลบ">&times;</button>
+        </div>
+      </div>
+      <button class="btn btn-sm btn-accent" onclick="addCustomRange()" style="margin-top:4px">+ เพิ่มช่วง</button>
+    </div>
+    <div class="preview-box" id="rangePreview" style="display:none"></div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goStep(1)">&larr; ย้อนกลับ</button>
+      <button class="btn btn-primary" onclick="goStep(3)">ถัดไป &rarr;</button>
+    </div>
+  </div>
+
+  <!-- Step 3 -->
+  <div class="step-card" id="step3">
+    <div class="step-title">ค่าขนส่งฐาน (Base Rate)</div>
+    <div class="step-desc">กรอกค่าขนส่งฐาน และเลือกว่าค่าขนส่งนี้ใช้ที่ช่วงน้ำมันไหน</div>
+    <div class="input-group">
+      <label class="field-label">ค่าขนส่งฐาน</label>
+      <div class="input-suffix">
+        <input type="number" id="baseRate" step="1" min="0" placeholder="เช่น 15000">
+        <span>บาท</span>
+      </div>
+    </div>
+    <div class="input-group">
+      <label class="field-label">Base Rate อยู่ที่ช่วงน้ำมัน</label>
+      <select id="baseRangeSelect"></select>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goStep(2)">&larr; ย้อนกลับ</button>
+      <button class="btn btn-primary" onclick="goStep(4)">ถัดไป &rarr;</button>
+    </div>
+  </div>
+
+  <!-- Step 4 -->
+  <div class="step-card" id="step4">
+    <div class="step-title">วิธีการปรับราคา</div>
+    <div class="step-desc">เลือกชนิดการปรับราคา เมื่อน้ำมันเปลี่ยนช่วง</div>
+    <div class="radio-group" id="calcMethodGroup" role="radiogroup" aria-label="วิธีการปรับราคา ใช้ลูกศรซ้ายขวาเลือก" tabindex="0">
+      <label class="radio-card selected" onclick="selectMethod('compound')">
+        <input type="radio" name="calcMethod" value="compound" checked>
+        <div class="rc-title">ขั้นบันได (Compound)</div>
+        <div class="rc-desc">แต่ละขั้นคิด % จากขั้นก่อนหน้า เช่น ฐาน 10,000 ปรับ 3% → ขั้น 1 = 10,300, ขั้น 2 = 10,609</div>
+      </label>
+      <label class="radio-card" onclick="selectMethod('base')">
+        <input type="radio" name="calcMethod" value="base">
+        <div class="rc-title">จาก Base Rate</div>
+        <div class="rc-desc">ทุกขั้นคิด % จากราคาฐานเดิม เช่น ฐาน 10,000 ปรับ 3% ต่อขั้น → ขั้น 1 = +300, ขั้น 2 = +600</div>
+      </label>
+    </div>
+
+    <div class="radio-group" id="adjustModeGroup" role="radiogroup" aria-label="ชนิดการปรับราคา" tabindex="0">
+      <label class="radio-card adjust-mode-card selected" onclick="selectAdjustMode('percent')">
+        <input type="radio" name="adjustMode" value="percent" checked>
+        <div class="rc-title">ปรับแบบเปอร์เซ็นต์ (%)</div>
+        <div class="rc-desc">ใช้ได้ทั้งแบบ Compound และจาก Base Rate</div>
+      </label>
+      <label class="radio-card adjust-mode-card" onclick="selectAdjustMode('baht_per_step')">
+        <input type="radio" name="adjustMode" value="baht_per_step">
+        <div class="rc-title">ปรับแบบจำนวนเงิน (บาท/ช่วง)</div>
+        <div class="rc-desc">แต่ละช่วงห่างจากฐาน 1 ขั้น จะบวก/ลบเป็นเงินบาทคงที่</div>
+      </label>
+    </div>
+
+    <div class="input-group" style="margin-top:14px">
+      <label class="field-label" id="adjustValueLabel">% ปรับต่อ <span id="pctUnitText">1 บาท</span></label>
+      <div class="input-suffix">
+        <input type="number" id="adjustPercent" step="0.1" min="0" value="2" placeholder="เช่น 2">
+        <span id="adjustValueSuffix">%</span>
+      </div>
+    </div>
+
+    <div class="radio-group" id="pctModeGroup" role="radiogroup" aria-label="วิธีคิดเปอร์เซ็นต์ต่อหน่วย" tabindex="0">
+      <label class="radio-card pct-mode-card selected" onclick="selectPctMode('per_baht')">
+        <input type="radio" name="pctMode" value="per_baht" checked>
+        <div class="rc-title">% ต่อ 1 บาท</div>
+        <div class="rc-desc">ถ้าน้ำมันเพิ่มขึ้น 1 บาท → ค่าขนส่งเพิ่ม/ลดตามเปอร์เซ็นต์นี้</div>
+      </label>
+      <label class="radio-card pct-mode-card" onclick="selectPctMode('per_step')">
+        <input type="radio" name="pctMode" value="per_step">
+        <div class="rc-title">% ต่อ 1 ช่วง</div>
+        <div class="rc-desc">ใช้โหมดเดิม: เปอร์เซ็นต์คิด “ต่อจำนวนช่วง” ไม่สนความกว้างของช่วง</div>
+      </label>
+    </div>
+
+    <div class="input-row" style="margin-top:14px">
+      <div class="input-group">
+        <label class="field-label">ปัดเศษค่าขนส่ง / ราคาเป้า</label>
+        <select id="priceRoundingMode">
+          <option value="none">ไม่ปัด (ตามสูตร)</option>
+          <option value="decimal">ปัดทศนิยม</option>
+          <option value="unit">หลักหน่วย (เต็มบาท)</option>
+          <option value="five">หลักหน่วย 5 หรือ 0</option>
+          <option value="ten">หลักสิบ</option>
+        </select>
+      </div>
+      <div class="input-group" id="priceRoundingDecimalsWrap" style="display:none">
+        <label class="field-label">ทศนิยม (ตำแหน่ง)</label>
+        <select id="priceRoundingDecimals">
+          <option value="0">0 — เต็มบาท</option>
+          <option value="1">1 ตำแหน่ง</option>
+          <option value="2" selected>2 ตำแหน่ง</option>
+        </select>
+      </div>
+    </div>
+    <p class="uniform-hint" id="priceRoundingHint" style="margin-top:6px">ตัวอย่างหลักสิบ: 15,347 → 15,350 | หน่วย 5/0: 15,347 → 15,345 | หลักหน่วย: 15,347 → 15,347</p>
+
+    <div class="example-calc" id="exampleCalc"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goStep(3)">&larr; ย้อนกลับ</button>
+      <button class="btn btn-primary" onclick="generateResult()">สร้างตาราง &rarr;</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="result-section" id="resultSection">
+  <div class="result-header">
+    <h2>ตารางค่าขนส่งตามช่วงราคาน้ำมัน</h2>
+    <div class="export-btns">
+      <button class="btn btn-sm btn-accent" onclick="exportExcel()">Export Excel</button>
+      <button class="btn btn-sm btn-primary" onclick="exportPDF()">Export PDF</button>
+      <button class="btn btn-sm btn-secondary" onclick="exportImage()">Export รูปภาพ</button>
+    </div>
+  </div>
+
+  <div class="quote-print-block" id="quotePrintBlock"></div>
+
+  <div class="quote-panel quote-editor-panel" id="quoteEditorPanel">
+    <h3>โหมดหลายโรงงาน — โรงงานละ 1 ตาราง</h3>
+    <p class="quote-panel-desc">ช่วงน้ำมันและวิธีปรับ (%) ใช้ร่วมจากวิซาร์ด — แต่ละโรงตั้ง <strong>Base Rate</strong> และช่วงฐานเองได้ ค่าเริ่มต้น 1 โรง</p>
+    <div class="input-group" style="margin-bottom:12px">
+      <label class="field-label">ชื่อลูกค้า</label>
+      <input type="text" id="resultCustomerName" placeholder="เช่น ลูกค้า A / ชื่อบริษัท" oninput="onFactoryBlocksLightChange()">
+    </div>
+    <div id="factoryBlocksEditor"></div>
+    <div class="quote-line-actions">
+      <button type="button" class="btn btn-sm btn-accent" onclick="addFactoryBlock()">+ เพิ่มโรงงาน (ตารางใหม่)</button>
+      <button type="button" class="btn btn-sm btn-secondary" onclick="recalculateAllFactoryBlocksFromEditor()">คำนวณตารางใหม่ทั้งหมด</button>
+    </div>
+  </div>
+
+  <div class="summary-cards" id="summaryCards"></div>
+  <div id="resultTableWrap"></div>
+  <div class="back-to-wizard">
+    <button class="btn btn-secondary" onclick="backToWizard()">&#8634; แก้ไขข้อมูล / คำนวณใหม่</button>
+  </div>
+</div>
+
+<div class="cost-section" id="costSection">
+  <h2>คำนวณต้นทุน (รอบแรกแบบครบหมวด)</h2>
+  <p class="cost-desc">คำนวณจากระยะทาง + น้ำมัน + ต้นทุนคงที่ + ค่าเที่ยว/ทางด่วน เพื่อดูต้นทุนรวมและความคุ้มของราคาขาย</p>
+
+  <div class="cost-grid">
+    <div class="cost-block">
+      <h3>1) ระยะทางเส้นทางงาน</h3>
+      <div class="mini-actions">
+        <button class="btn btn-sm btn-accent" onclick="loadRoutePreset('import')">Preset Import LCB</button>
+        <button class="btn btn-sm btn-accent" onclick="loadRoutePreset('export')">Preset Export LCB</button>
+        <button class="btn btn-sm btn-secondary" onclick="resetRouteSegments()">รีเซ็ตเส้นทาง</button>
+      </div>
+      <div class="route-list" id="routeList"></div>
+      <div class="input-row" style="margin-top:10px">
+        <div class="input-group"><label class="field-label">เพิ่มเส้นทางใหม่ (ไม่ใส่ชื่อได้)</label><input type="text" id="newRouteName" placeholder="เช่น YK LCB - ลูกค้า A (เว้นว่างได้)"></div>
+        <div class="input-group"><label class="field-label">ระยะทาง (กม.)</label><input type="text" id="newRouteDistance" placeholder="เช่น 86 หรือ +43*2 หรือ =43*2"></div>
+      </div>
+      <div class="input-group">
+        <label class="field-label">
+          <input type="checkbox" id="newRouteRoundTrip" style="width:auto"> ไป-กลับ (คูณ 2 ให้อัตโนมัติ)
+        </label>
+      </div>
+      <div class="input-row">
+        <div class="input-group">
+          <label class="field-label">ต้นทางสำหรับเปิด Google Maps</label>
+          <select id="mapsOriginPreset">
+            <option value="13.065831297727314,100.88241036968732">ท่าเรือแหลมฉบัง (Default)</option>
+            <option value="13.083619219403579,100.97887836175586">ลานจอด YK LCB</option>
+            <option value="custom">กำหนดต้นทางเอง</option>
+          </select>
+        </div>
+        <div class="input-group"><label class="field-label">ต้นทางเอง (พิมพ์ที่อยู่/พิกัด)</label><input type="text" id="mapsOriginCustom" placeholder="เช่น 13.0800,100.8800 หรือ ที่อยู่ต้นทาง"></div>
+      </div>
+      <div class="input-group">
+        <label class="field-label">ลิงก์ปลายทางจาก Google Maps (Share Link)</label>
+        <input type="text" id="mapsDestinationLink" placeholder="วางลิงก์แชร์จาก Google Maps">
+      </div>
+      <div class="input-group">
+        <label class="field-label">พิกัดปลายทาง (lat,long) - แนะนำเมื่อเป็น short link</label>
+        <input type="text" id="mapsDestinationLatLng" placeholder="เช่น 13.059834649255095,101.19175339667432">
+      </div>
+      <div class="mini-actions">
+        <button class="btn btn-sm btn-secondary" onclick="openRouteInGoogleMaps()">เปิดเส้นทางใน Google Maps</button>
+        <button class="btn btn-sm btn-secondary" onclick="openRouteFromLatLng()">เปิดเส้นทางจากพิกัดปลายทาง</button>
+        <button class="btn btn-sm btn-secondary" onclick="copyRouteLink()">คัดลอกลิงก์เส้นทาง</button>
+      </div>
+      <button class="btn btn-sm btn-primary" onclick="addRouteSegment()">+ เพิ่มเข้าเส้นทาง</button>
+      <div class="input-group" style="margin-top:10px">
+        <label class="field-label">ระยะทางรวมที่เลือก</label>
+        <div class="input-suffix"><input type="number" id="totalDistance" readonly><span>กม.</span></div>
+      </div>
+    </div>
+
+    <div class="cost-block">
+      <h3>2) ตัวแปรน้ำมัน</h3>
+      <div class="mini-actions">
+        <button class="btn btn-sm btn-secondary" onclick="syncFuelPriceFromMain()">ใช้ราคาน้ำมันจากด้านบน</button>
+      </div>
+      <div class="input-row">
+        <div class="input-group"><label class="field-label">เรทน้ำมัน (กม./ลิตร)</label><input type="number" id="fuelEfficiency" min="0" step="0.01" value="3"></div>
+        <div class="input-group"><label class="field-label">ราคาน้ำมัน (บาท/ลิตร)</label><input type="number" id="costFuelPrice" min="0" step="0.01"></div>
+      </div>
+      <div class="input-row">
+        <div class="input-group"><label class="field-label">จำนวนลิตร</label><input type="number" id="fuelLiters" readonly></div>
+        <div class="input-group"><label class="field-label">ค่าน้ำมัน (บาท)</label><input type="number" id="fuelCost" readonly></div>
+      </div>
+    </div>
+
+    <div class="cost-block">
+      <h3>3) ต้นทุนรายวัน/คงที่</h3>
+      <div class="input-row">
+        <div class="input-group"><label class="field-label">วันทำงานของงาน</label><input type="number" id="workingDays" min="0" step="0.1" value="1"></div>
+        <div class="input-group"><label class="field-label">Back Office/อื่นๆ (%)</label><input type="number" id="backOfficePercent" min="0" step="0.1" value="15"></div>
+      </div>
+      <div class="input-row">
+        <div class="input-group"><label class="field-label">เงินเดือน/เดือน</label><input type="number" id="monthlySalary" min="0" step="1" value="9240"></div>
+        <div class="input-group"><label class="field-label">ค่าดูแลรถ/เดือน</label><input type="number" id="monthlyCare" min="0" step="1" value="3000"></div>
+      </div>
+      <div class="input-row">
+        <div class="input-group"><label class="field-label">ประกันรถ/ปี</label><input type="number" id="annualVehicleInsurance" min="0" step="1" value="42000"></div>
+        <div class="input-group"><label class="field-label">ประกันสินค้า/ปี</label><input type="number" id="annualCargoInsurance" min="0" step="1" value="13500"></div>
+      </div>
+      <div class="input-group">
+        <label class="field-label">ฐานวันทำงานสำหรับคิดประกัน (วัน/เดือน)</label>
+        <input type="number" id="insuranceWorkDaysPerMonth" min="1" step="1" value="24">
+      </div>
+      <div class="input-row">
+        <div class="input-group"><label class="field-label">มูลค่ารถ+หาง (บาท)</label><input type="number" id="assetValue" min="0" step="1" value="2000000"></div>
+        <div class="input-group"><label class="field-label">อายุคิดสึกหรอ (ปี)</label><input type="number" id="depreciationYears" min="1" step="1" value="8"></div>
+      </div>
+    </div>
+
+    <div class="cost-block">
+      <h3>4) ต้นทุนรายเที่ยว + ราคาขาย</h3>
+      <div class="input-row">
+        <div class="input-group"><label class="field-label">ค่าเที่ยว (บาท)</label><input type="number" id="tripAllowance" min="0" step="1" value="0"></div>
+        <div class="input-group"><label class="field-label">ค่าทางด่วน (บาท)</label><input type="number" id="tollCost" min="0" step="1" value="0"></div>
+      </div>
+      <div class="input-row">
+        <div class="input-group">
+          <label class="field-label">วิธีคิดค่าซ่อมบำรุง</label>
+          <select id="maintenanceMode">
+            <option value="per_km" selected>บาท/กม.</option>
+            <option value="pct_fuel">% ของค่าน้ำมัน</option>
+          </select>
+        </div>
+        <div class="input-group"><label class="field-label">ค่าซ่อมบำรุง (บาท/กม. หรือ %)</label><input type="number" id="maintenanceRate" min="0" step="0.1" value="1.5"></div>
+      </div>
+      <div class="input-row">
+        <div class="input-group">
+          <label class="field-label">ค่าทำชอร์</label>
+          <div class="input-suffix">
+            <input type="checkbox" id="includeShoreCost" style="width:auto">
+            <span>คิดค่าทำชอร์</span>
+          </div>
+        </div>
+        <div class="input-group"><label class="field-label">ค่าทำชอร์ (บาท/เที่ยว)</label><input type="number" id="shoreCost" min="0" step="1" value="100"></div>
+      </div>
+      <div class="input-row">
+        <div class="input-group"><label class="field-label">ราคาขายลูกค้า (บาท)</label><input type="number" id="customerPrice" min="0" step="1" value="0"></div>
+        <div class="input-group"><label class="field-label">ราคาขายขั้นต่ำ 15% / สวย 30%</label><div id="priceHints" class="hint-box"></div></div>
+      </div>
+      <div class="input-row">
+        <div class="input-group"><label class="field-label">% กำไรขั้นต่ำ (เป้า 1)</label><input type="number" id="targetMarginMin" min="0" step="0.1" value="15"></div>
+        <div class="input-group"><label class="field-label">% กำไรสวย (เป้า 2)</label><input type="number" id="targetMarginNice" min="0" step="0.1" value="30"></div>
+      </div>
+      <div class="input-row">
+        <div class="input-group"><label class="field-label">ต้นทุนเงินต่อปี (%)</label><input type="number" id="financeAnnualRate" min="0" step="0.1" value="12"></div>
+        <div class="input-group"><label class="field-label">เครดิตลูกค้า (วัน)</label><input type="number" id="customerCreditDays" min="0" step="1" value="45"></div>
+      </div>
+      <div class="input-group">
+        <label class="field-label">สัดส่วนต้นทุนที่ต้องสำรองเงินสดเอง (%)</label>
+        <input type="number" id="cashBurdenPercent" min="0" max="100" step="1" value="100">
+      </div>
+      <div class="mini-actions">
+        <button class="btn btn-sm btn-secondary" onclick="applySuggestedPrice('min')">ใช้ราคาเป้า 1</button>
+        <button class="btn btn-sm btn-secondary" onclick="applySuggestedPrice('nice')">ใช้ราคาเป้า 2</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="kpi-grid" id="costKpiCards"></div>
+  <div id="costBreakdownWrap" style="margin-top:12px"></div>
+  <div id="costWarningBox"></div>
+
+  <div class="cost-block" style="margin-top:14px">
+    <h3>5) บันทึกงาน + ซิงก์ Google Drive</h3>
+    <div class="input-row">
+      <div class="input-group"><label class="field-label">ชื่อลูกค้า</label><input type="text" id="saveCustomerName" placeholder="เช่น ลูกค้า A"></div>
+      <div class="input-group"><label class="field-label">ชื่องาน/ลูกค้า</label><input type="text" id="saveJobName" placeholder="เช่น ลูกค้า A - โรงงาน B"></div>
+      <div class="input-group"><label class="field-label">แท็ก</label><input type="text" id="saveJobTags" placeholder="เช่น LCB, import, ใกล้เคียง"></div>
+    </div>
+    <div class="input-group">
+      <label class="field-label">หมายเหตุ</label>
+      <input type="text" id="saveJobNote" placeholder="เช่น ลูกค้าขอเครดิต 60 วัน">
+    </div>
+    <div class="mini-actions">
+      <button class="btn btn-sm btn-secondary" onclick="suggestJobName()">ตั้งชื่ออัตโนมัติ</button>
+      <button class="btn btn-sm btn-primary" onclick="saveCurrentScenario()">บันทึกงานนี้</button>
+      <button class="btn btn-sm btn-secondary" onclick="exportSavedJobsJson()">Export JSON</button>
+      <button class="btn btn-sm btn-secondary" onclick="triggerImportSavedJobs()">Import JSON</button>
+      <button class="btn btn-sm btn-danger" onclick="clearAllSavedJobs()">ล้างประวัติทั้งหมด</button>
+    </div>
+    <div class="input-row">
+      <div class="input-group">
+        <label class="field-label">
+          <input type="checkbox" id="autoNameOnSave" checked style="width:auto"> ตั้งชื่ออัตโนมัติหากยังไม่กรอกชื่องาน
+        </label>
+      </div>
+      <div class="input-group">
+        <label class="field-label">
+          <input type="checkbox" id="autoSyncAfterSave" style="width:auto"> Auto sync after save
+        </label>
+      </div>
+      <div class="input-group">
+        <label class="field-label">
+          <input type="checkbox" id="autoLoadOnOpen" style="width:auto"> Auto load from Drive ตอนเปิดหน้า
+        </label>
+      </div>
+    </div>
+    <div class="inline-note">เฟส 1: ข้อมูลเก็บในเครื่องนี้ (LocalStorage) และย้ายข้ามเครื่องด้วย JSON</div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
+    <div class="input-row">
+      <div class="input-group"><label class="field-label">Apps Script Web App URL (เฟส 2)</label><input type="text" id="driveScriptUrl" placeholder="https://script.google.com/macros/s/.../exec"></div>
+      <div class="input-group"><label class="field-label">Secret (ถ้ามี)</label><input type="text" id="driveSyncSecret" placeholder="optional"></div>
+    </div>
+    <div class="mini-actions">
+      <button class="btn btn-sm btn-accent" onclick="syncToDrive()">Sync to Drive</button>
+      <button class="btn btn-sm btn-accent" onclick="loadFromDrive()">Load from Drive</button>
+      <button class="btn btn-sm btn-secondary" onclick="saveDriveSettings()">จำค่า URL/Secret ในเครื่อง</button>
+    </div>
+    <div class="inline-note">เฟส 2: กดซิงก์เพื่อแชร์ข้อมูลเดียวกันระหว่าง PC และ iPhone</div>
+    <div class="saved-list" id="savedJobsList"></div>
+  </div>
+</div>
+
+<input type="file" id="savedJobsFileInput" accept=".json,application/json" style="display:none">
+
+<div class="watermark">&copy; Transport Rate Calculator</div>
+
+<script>
+let currentStep = 1;
+const totalSteps = 4;
+let ranges = [];
+let calcMethod = 'compound';
+let rangeType = 'uniform';
+let adjustMode = 'percent'; // percent | baht_per_step
+let pctMode = 'per_baht'; // per_baht: คิด % ต่อราคาน้ำมันเพิ่ม 1 บาท, per_step: คิด % ต่อจำนวนช่วง
+let resultData = [];
+let factoryBlocks = [];
+let factoryBlockSeq = 1;
+let baseSelectHasInitialized = false; // ตั้งค่าเริ่มต้น Base Rate ให้ตรงกับ “ราคาน้ำมันปัจจุบัน” ครั้งแรกที่เข้าขั้น
+let routeSegments = [];
+let routeIdSeq = 1;
+const SAVED_JOBS_KEY = 'yk_saved_jobs_v1';
+const DRIVE_SETTINGS_KEY = 'yk_drive_sync_settings_v1';
+const PRICE_ROUNDING_KEY = 'yk_price_rounding_v1';
+let savedJobs = [];
+let historicalRows = [];
+let historicalSelection = new Set();
+let historyDragStart = null;
+let historyDragging = false;
+let historyRangeStartIso = '';
+let historyRangeEndIso = '';
+let historyCalendarMonth = null;
+
+const OIL_SOURCES = [
+  function(yearBe) {
+    return 'https://r.jina.ai/http://www.bangchak.co.th/th/oilprice/historical?year=' + encodeURIComponent(yearBe);
+  },
+  function(yearBe) {
+    return 'https://r.jina.ai/http://www.bangchak.co.th/th/oilprice/historical';
+  }
+];
+
+function goStep(step) {
+  if (!validateStep(currentStep, step)) return;
+  if (step === 3) populateBaseRangeSelect();
+  if (step === 4) updateExampleCalc();
+
+  document.getElementById('step' + currentStep).classList.remove('visible');
+  document.getElementById('step' + step).classList.add('visible');
+  currentStep = step;
+  updateProgress();
+}
+
+function validateStep(from, to) {
+  if (to <= from) return true;
+  if (from === 1) {
+    const v = parseFloat(document.getElementById('fuelPrice').value);
+    if (isNaN(v) || v <= 0) { alert('กรุณากรอกราคาน้ำมันที่ถูกต้อง'); return false; }
+  }
+  if (from === 2) {
+    buildRanges();
+    if (ranges.length === 0) { alert('กรุณากำหนดช่วงราคาน้ำมันอย่างน้อย 1 ช่วง'); return false; }
+  }
+  if (from === 3) {
+    const v = parseFloat(document.getElementById('baseRate').value);
+    if (isNaN(v) || v <= 0) { alert('กรุณากรอกค่าขนส่งฐานที่ถูกต้อง'); return false; }
+  }
+  if (from === 4) {
+    const v = parseFloat(document.getElementById('adjustPercent').value);
+    if (isNaN(v) || v <= 0) { alert('กรุณากรอกค่าการปรับที่ถูกต้อง'); return false; }
+  }
+  return true;
+}
+
+function updateProgress() {
+  const steps = document.querySelectorAll('.progress-step');
+  steps.forEach((el, i) => {
+    el.classList.remove('active', 'done');
+    if (i + 1 < currentStep) el.classList.add('done');
+    else if (i + 1 === currentStep) el.classList.add('active');
+  });
+  const pct = ((currentStep - 1) / (totalSteps - 1)) * 100;
+  document.getElementById('progressFill').style.width = pct + '%';
+}
+
+function selectRangeType(type) {
+  rangeType = type;
+  document.querySelectorAll('#step2 .radio-card').forEach(c => c.classList.remove('selected'));
+  const cards = document.querySelectorAll('#step2 .radio-card');
+  if (type === 'uniform') { cards[0].classList.add('selected'); }
+  else { cards[1].classList.add('selected'); }
+  document.getElementById('uniformInputs').style.display = type === 'uniform' ? '' : 'none';
+  document.getElementById('customInputs').style.display = type === 'custom' ? '' : 'none';
+  document.getElementById('rangePreview').style.display = 'none';
+}
+
+function previewUniform() {
+  buildRanges();
+  showPreview();
+}
+
+function buildRanges() {
+  ranges = [];
+  if (rangeType === 'uniform') {
+    const s = roundN(parseFloat(document.getElementById('rangeStart').value));
+    const e = roundN(parseFloat(document.getElementById('rangeEnd').value));
+    const st = roundN(parseFloat(document.getElementById('rangeStep').value));
+    if (isNaN(s) || isNaN(e) || isNaN(st) || st <= 0 || e < s) return;
+    let stepGap = roundN(st);
+    if (stepGap < 1) stepGap = 1;
+    let from = s;
+    while (from <= e + 1e-9 && ranges.length <= 200) {
+      // ช่วงจะต่อกัน: to = nextFrom - 0.01
+      // โดย nextFrom = from + stepGap
+      let to = roundN(from + stepGap - 0.01);
+      if (to > e) to = e;
+      if (from <= e) ranges.push({ from: roundN(from), to: roundN(to) });
+      from = roundN(from + stepGap);
+      if (from > e) break;
+    }
+  } else {
+    const rows = document.querySelectorAll('.custom-range-row');
+    rows.forEach(row => {
+      const f = roundN(parseFloat(row.querySelector('.cr-from').value));
+      const t = roundN(parseFloat(row.querySelector('.cr-to').value));
+      if (!isNaN(f) && !isNaN(t) && t >= f) ranges.push({ from: f, to: t });
+    });
+    ranges.sort((a, b) => a.from - b.from);
+  }
+}
+
+function roundN(n) { return Math.round(n * 100) / 100; }
+
+function getPriceRoundingSettings() {
+  const modeEl = document.getElementById('priceRoundingMode');
+  const decEl = document.getElementById('priceRoundingDecimals');
+  const mode = modeEl ? modeEl.value : 'none';
+  let decimals = decEl ? parseInt(decEl.value, 10) : 2;
+  if (!Number.isFinite(decimals) || decimals < 0) decimals = 2;
+  return { mode: mode, decimals: decimals };
+}
+
+function roundTransportPrice(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 0;
+  const s = getPriceRoundingSettings();
+  switch (s.mode) {
+    case 'decimal': {
+      const f = Math.pow(10, s.decimals);
+      return Math.round(n * f) / f;
+    }
+    case 'unit':
+      return Math.round(n);
+    case 'five':
+      return Math.round(n / 5) * 5;
+    case 'ten':
+      return Math.round(n / 10) * 10;
+    case 'none':
+    default:
+      return n;
+  }
+}
+
+function getRoundingModeLabel() {
+  const s = getPriceRoundingSettings();
+  if (s.mode === 'decimal') return 'ปัดทศนิยม ' + s.decimals + ' ตำแหน่ง';
+  if (s.mode === 'unit') return 'หลักหน่วย (เต็มบาท)';
+  if (s.mode === 'five') return 'หลักหน่วย 5 หรือ 0';
+  if (s.mode === 'ten') return 'หลักสิบ';
+  return 'ไม่ปัด (ตามสูตร)';
+}
+
+function fmtPrice(n) {
+  const s = getPriceRoundingSettings();
+  if (s.mode === 'unit' || s.mode === 'five' || s.mode === 'ten') {
+    return Number(n).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  }
+  if (s.mode === 'decimal') {
+    return Number(n).toLocaleString('th-TH', { minimumFractionDigits: s.decimals, maximumFractionDigits: s.decimals });
+  }
+  return fmt(n);
+}
+
+function onPriceRoundingChange() {
+  const wrap = document.getElementById('priceRoundingDecimalsWrap');
+  const mode = document.getElementById('priceRoundingMode');
+  if (wrap && mode) wrap.style.display = mode.value === 'decimal' ? '' : 'none';
+  savePriceRoundingSettings();
+  updateExampleCalc();
+  if (isResultVisible()) generateResult();
+  renderCostResult();
+}
+
+function savePriceRoundingSettings() {
+  try {
+    localStorage.setItem(PRICE_ROUNDING_KEY, JSON.stringify(getPriceRoundingSettings()));
+  } catch (e) {}
+}
+
+function loadPriceRoundingSettings() {
+  try {
+    const raw = localStorage.getItem(PRICE_ROUNDING_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    const modeEl = document.getElementById('priceRoundingMode');
+    const decEl = document.getElementById('priceRoundingDecimals');
+    if (modeEl && data.mode) modeEl.value = data.mode;
+    if (decEl && data.decimals !== undefined) decEl.value = String(data.decimals);
+  } catch (e) {}
+  onPriceRoundingChange();
+}
+
+function setupPriceRoundingInputs() {
+  const modeEl = document.getElementById('priceRoundingMode');
+  if (!modeEl) return;
+  modeEl.addEventListener('change', onPriceRoundingChange);
+  const decEl = document.getElementById('priceRoundingDecimals');
+  if (decEl) decEl.addEventListener('change', onPriceRoundingChange);
+}
+
+function fmt(n) { return n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+function fmtRange(a, b) { return fmt(a) + ' - ' + fmt(b); }
+
+function fuelInRange(p, r) {
+  const pi = Math.round(p * 100);
+  const fi = Math.round(r.from * 100);
+  const ti = Math.round(r.to * 100);
+  return pi >= fi && pi <= ti;
+}
+
+function isResultVisible() {
+  const sec = document.getElementById('resultSection');
+  return !!(sec && sec.classList.contains('visible'));
+}
+
+function getCurrentFuelRangeIndex() {
+  const fpEl = document.getElementById('fuelPrice');
+  const fp = fpEl ? parseFloat(fpEl.value) : NaN;
+  if (isNaN(fp) || fp <= 0 || !ranges || ranges.length === 0) return -1;
+  for (let i = 0; i < ranges.length; i++) {
+    if (fuelInRange(fp, ranges[i])) return i;
+  }
+  return -1;
+}
+
+function showPreview() {
+  if (ranges.length === 0) return;
+  const box = document.getElementById('rangePreview');
+  box.style.display = '';
+  box.innerHTML = '<div style="font-size:.8rem;font-weight:600;margin-bottom:6px;color:var(--primary)">ช่วงราคาน้ำมันทั้งหมด (' + ranges.length + ' ช่วง)</div>' +
+    ranges.map(r => '<span class="tag">' + fmtRange(r.from, r.to) + '</span>').join('');
+}
+
+function addCustomRange() {
+  const list = document.getElementById('customRangesList');
+  const lastRow = list.querySelector('.custom-range-row:last-child');
+  let nextFrom = 28;
+  if (lastRow) { nextFrom = parseFloat(lastRow.querySelector('.cr-to').value) || nextFrom; }
+  const div = document.createElement('div');
+  div.className = 'custom-range-row';
+  div.innerHTML = '<input type="number" class="cr-from" step="0.01" value="' + nextFrom + '" min="0">' +
+    '<span>ถึง</span><input type="number" class="cr-to" step="0.01" value="' + roundN(nextFrom + 0.99) + '" min="0"><span>บาท</span>' +
+    '<button class="btn btn-sm btn-danger" onclick="removeRange(this)" title="ลบ">&times;</button>';
+  list.appendChild(div);
+}
+
+function removeRange(btn) {
+  const list = document.getElementById('customRangesList');
+  if (list.children.length <= 1) { alert('ต้องมีอย่างน้อย 1 ช่วง'); return; }
+  btn.closest('.custom-range-row').remove();
+}
+
+function selectMethod(m) {
+  calcMethod = m;
+  // เลือกเฉพาะการ์ดของวิธีปรับราคา ไม่ไปรบกวนปุ่มของโหมด % ต่อหน่วย
+  document.querySelectorAll('#calcMethodGroup .radio-card').forEach(c => c.classList.remove('selected'));
+  const cards = document.querySelectorAll('#calcMethodGroup .radio-card');
+  if (m === 'compound') {
+    cards[0].classList.add('selected');
+    cards[0].querySelector('input').checked = true;
+    cards[1].querySelector('input').checked = false;
+  } else {
+    cards[1].classList.add('selected');
+    cards[1].querySelector('input').checked = true;
+    cards[0].querySelector('input').checked = false;
+  }
+
+  updateExampleCalc();
+  if (isResultVisible()) generateResult();
+}
+
+function selectPctMode(m) {
+  pctMode = m;
+  document.querySelectorAll('#step4 .pct-mode-card').forEach(c => c.classList.remove('selected'));
+  const cards = document.querySelectorAll('#step4 .pct-mode-card');
+  if (m === 'per_baht') {
+    cards[0].classList.add('selected');
+    cards[0].querySelector('input').checked = true;
+    cards[1].querySelector('input').checked = false;
+  } else {
+    cards[1].classList.add('selected');
+    cards[1].querySelector('input').checked = true;
+    cards[0].querySelector('input').checked = false;
+  }
+  const unitText = m === 'per_baht' ? '1 บาท' : 'ขั้น';
+  const el = document.getElementById('pctUnitText');
+  if (el) el.textContent = unitText;
+  updateExampleCalc();
+  if (isResultVisible()) generateResult();
+}
+
+function selectAdjustMode(m) {
+  adjustMode = m;
+  document.querySelectorAll('#step4 .adjust-mode-card').forEach(c => c.classList.remove('selected'));
+  const cards = document.querySelectorAll('#step4 .adjust-mode-card');
+  const pctGroup = document.getElementById('pctModeGroup');
+  const label = document.getElementById('adjustValueLabel');
+  const suffix = document.getElementById('adjustValueSuffix');
+  const input = document.getElementById('adjustPercent');
+
+  if (m === 'percent') {
+    cards[0].classList.add('selected');
+    cards[0].querySelector('input').checked = true;
+    cards[1].querySelector('input').checked = false;
+    if (pctGroup) pctGroup.style.display = '';
+    if (label) label.innerHTML = '% ปรับต่อ <span id="pctUnitText">' + getPctUnitText() + '</span>';
+    if (suffix) suffix.textContent = '%';
+    if (input) input.placeholder = 'เช่น 2';
+  } else {
+    cards[1].classList.add('selected');
+    cards[1].querySelector('input').checked = true;
+    cards[0].querySelector('input').checked = false;
+    if (pctGroup) pctGroup.style.display = 'none';
+    if (label) label.textContent = 'ปรับราคา ต่อ 1 ช่วง';
+    if (suffix) suffix.textContent = 'บาท';
+    if (input) input.placeholder = 'เช่น 80';
+  }
+
+  updateExampleCalc();
+  if (isResultVisible()) generateResult();
+}
+
+function getPctUnitText() {
+  return pctMode === 'per_baht' ? '1 บาท' : 'ขั้น';
+}
+
+function getStepDeltaFromBase(i, baseIdx) {
+  return i - baseIdx;
+}
+
+function getDeltaFromBase(i, baseIdx) {
+  if (pctMode === 'per_step') return i - baseIdx;
+  // per_baht: คิดจากความต่างของ “จุดเริ่มช่วง”
+  return roundN(ranges[i].from - ranges[baseIdx].from);
+}
+
+function fmtDelta(val) {
+  const n = Math.round(val * 100) / 100;
+  if (adjustMode !== 'baht_per_step' && pctMode === 'per_baht') return n.toFixed(2);
+  return String(n);
+}
+
+function updateExampleCalc() {
+  const box = document.getElementById('exampleCalc');
+  if (!box) return;
+
+  const adjustVal = parseFloat(document.getElementById('adjustPercent').value);
+  const baseRate = parseFloat(document.getElementById('baseRate').value);
+  const baseIdx = parseInt(document.getElementById('baseRangeSelect').value);
+  const fuelPrice = parseFloat(document.getElementById('fuelPrice').value);
+
+  if (isNaN(adjustVal) || adjustVal <= 0) {
+    box.innerHTML = '';
+    return;
+  }
+  if (!ranges || ranges.length === 0) buildRanges();
+
+  if (isNaN(baseRate) || baseRate <= 0 || isNaN(baseIdx) || baseIdx < 0 || baseIdx >= ranges.length) {
+    box.innerHTML = '<div style="color:var(--text-light)">ตัวอย่าง: กรุณากรอก <strong>Base Rate</strong> และเลือกช่วงฐานก่อน</div>';
+    return;
+  }
+
+  const deltaHeader = adjustMode === 'baht_per_step'
+    ? 'ขั้นห่างจากฐาน'
+    : (pctMode === 'per_baht' ? 'ห่างจากฐาน' : 'ขั้นห่างจากฐาน');
+  const methodLabel = adjustMode === 'baht_per_step'
+    ? 'บวก/ลบ แบบจำนวนบาทต่อช่วง'
+    : (calcMethod === 'base' ? 'จาก Base Rate' : 'ขั้นบันได (Compound)');
+
+  let html =
+    '<div style="font-size:.78rem;color:var(--text-light);margin-bottom:10px">ตัวอย่างอัตราค่าขนส่ง (ทุกช่วง) - ' + methodLabel + '</div>' +
+    '<table><thead><tr>' +
+    '<th>ช่วงราคาน้ำมัน</th>' +
+    '<th>' + deltaHeader + '</th>' +
+    '<th>% จากฐาน</th>' +
+    '<th>ค่าขนส่ง</th>' +
+    '<th>ส่วนต่างจากก่อนหน้า</th>' +
+    '</tr></thead><tbody>';
+
+  let prevRate = null;
+  for (let i = 0; i < ranges.length; i++) {
+    const diff = adjustMode === 'baht_per_step' ? getStepDeltaFromBase(i, baseIdx) : getDeltaFromBase(i, baseIdx);
+    let rate, pctFromBase;
+
+    if (adjustMode === 'baht_per_step') {
+      rate = baseRate + (diff * adjustVal);
+      pctFromBase = baseRate > 0 ? ((rate / baseRate) - 1) * 100 : 0;
+    } else {
+      if (calcMethod === 'base') {
+        pctFromBase = diff * adjustVal;
+        rate = baseRate * (1 + pctFromBase / 100);
+      } else {
+        if (diff === 0) {
+          rate = baseRate;
+          pctFromBase = 0;
+        } else if (diff > 0) {
+          rate = baseRate * Math.pow(1 + adjustVal / 100, diff);
+          pctFromBase = ((rate / baseRate) - 1) * 100;
+        } else {
+          rate = baseRate * Math.pow(1 - adjustVal / 100, Math.abs(diff));
+          pctFromBase = ((rate / baseRate) - 1) * 100;
+        }
+      }
+    }
+
+    const isBase = i === baseIdx;
+    rate = isBase ? baseRate : roundTransportPrice(rate);
+    if (isBase) pctFromBase = 0;
+    else pctFromBase = baseRate > 0 ? ((rate / baseRate) - 1) * 100 : 0;
+
+    const isCurrent = !isNaN(fuelPrice) && fuelInRange(fuelPrice, ranges[i]);
+    let cls = '';
+    if (isBase && isCurrent) cls = 'highlight-current highlight-base';
+    else if (isCurrent) cls = 'highlight-current';
+    else if (isBase) cls = 'highlight-base';
+
+    const deltaCell = diff > 0 ? '+' + fmtDelta(diff) : diff === 0 ? '0' : fmtDelta(diff);
+    const pctCell = isBase ? '0.00%' : (pctFromBase > 0 ? '+' : '') + pctFromBase.toFixed(2) + '%';
+    const adjDiff = prevRate === null ? 0 : rate - prevRate;
+    prevRate = rate;
+    const adjDiffCell = i === 0 ? '-' : (adjDiff > 0 ? '+' : '') + fmtPrice(adjDiff);
+
+    html +=
+      '<tr class="' + cls + '">' +
+      '<td>' + fmtRange(ranges[i].from, ranges[i].to) + '</td>' +
+      '<td>' + deltaCell + '</td>' +
+      '<td>' + pctCell + '</td>' +
+      '<td>' + fmtPrice(rate) + '</td>' +
+      '<td>' + adjDiffCell + '</td>' +
+      '</tr>';
+  }
+
+  html += '</tbody></table>';
+  box.innerHTML = html;
+}
+
+function populateBaseRangeSelect() {
+  buildRanges();
+  const sel = document.getElementById('baseRangeSelect');
+  const prev = sel.value;
+  sel.innerHTML = '';
+  ranges.forEach((r, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = fmtRange(r.from, r.to) + ' บาท';
+    sel.appendChild(opt);
+  });
+  const prevNum = prev === '' || prev === null ? NaN : parseInt(prev, 10);
+  const keepPrev = !isNaN(prevNum) && prevNum >= 0 && prevNum < ranges.length;
+  // Default ใน Step 3 (Base Rate) ให้เป็น “ช่วงแรกสุด”
+  if (!baseSelectHasInitialized) {
+    sel.value = '0';
+    baseSelectHasInitialized = true;
+  } else {
+    sel.value = keepPrev ? String(prevNum) : '0';
+  }
+}
+
+function populateMaxRangeSelect() {
+  buildRanges();
+  const sel = document.getElementById('maxRangeSelect');
+  sel.innerHTML = '<option value="all">ทั้งหมด (' + ranges.length + ' ช่วง)</option>';
+  ranges.forEach((r, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = fmtRange(r.from, r.to) + ' บาท';
+    sel.appendChild(opt);
+  });
+  sel.value = 'all';
+}
+
+function getWizardSnapshot() {
+  if (!ranges.length) buildRanges();
+  return {
+    fuelPrice: parseFloat(document.getElementById('fuelPrice').value),
+    adjustVal: parseFloat(document.getElementById('adjustPercent').value),
+    baseRate: parseFloat(document.getElementById('baseRate').value),
+    baseIdx: parseInt(document.getElementById('baseRangeSelect').value, 10) || 0
+  };
+}
+
+function computeResultData(baseRate, baseIdx, adjustVal, fuelPrice) {
+  if (!ranges.length) buildRanges();
+  const maxIdx = ranges.length - 1;
+  const rows = [];
+  for (let i = 0; i <= maxIdx; i++) {
+    const diff = adjustMode === 'baht_per_step' ? getStepDeltaFromBase(i, baseIdx) : getDeltaFromBase(i, baseIdx);
+    let rate, pctFromBase;
+    if (adjustMode === 'baht_per_step') {
+      rate = baseRate + (diff * adjustVal);
+      pctFromBase = baseRate > 0 ? ((rate / baseRate) - 1) * 100 : 0;
+    } else if (calcMethod === 'base') {
+      pctFromBase = diff * adjustVal;
+      rate = baseRate * (1 + pctFromBase / 100);
+    } else if (diff === 0) {
+      rate = baseRate;
+      pctFromBase = 0;
+    } else if (diff > 0) {
+      rate = baseRate * Math.pow(1 + adjustVal / 100, diff);
+      pctFromBase = ((rate / baseRate) - 1) * 100;
+    } else {
+      rate = baseRate * Math.pow(1 - adjustVal / 100, Math.abs(diff));
+      pctFromBase = ((rate / baseRate) - 1) * 100;
+    }
+    const isBase = i === baseIdx;
+    rate = isBase ? baseRate : roundTransportPrice(rate);
+    if (!isBase) pctFromBase = baseRate > 0 ? ((rate / baseRate) - 1) * 100 : 0;
+    const isCurrent = !isNaN(fuelPrice) && fuelInRange(fuelPrice, ranges[i]);
+    rows.push({
+      range: ranges[i],
+      steps: diff,
+      pctFromBase: pctFromBase,
+      rate: rate,
+      diffFromBase: rate - baseRate,
+      isBase: isBase,
+      isCurrent: isCurrent
+    });
+  }
+  return rows;
+}
+
+function recalculateFactoryBlock(block, fuelPrice, wizardAdj) {
+  const baseRate = parseFloat(block.baseRate);
+  const baseIdx = parseInt(block.baseIdx, 10);
+  const adj = block.useCustomAdjust
+    ? parseFloat(block.adjustValOverride)
+    : wizardAdj;
+  if (isNaN(baseRate) || baseRate <= 0 || isNaN(adj) || adj <= 0 || isNaN(baseIdx) || baseIdx < 0 || baseIdx >= ranges.length) {
+    block.resultData = [];
+    return;
+  }
+  block.resultData = computeResultData(baseRate, baseIdx, adj, fuelPrice);
+}
+
+function recalculateAllFactoryBlocks(fuelPrice, wizardAdj) {
+  const adj = wizardAdj != null ? wizardAdj : getWizardSnapshot().adjustVal;
+  const fp = fuelPrice != null ? fuelPrice : getWizardSnapshot().fuelPrice;
+  factoryBlocks.forEach(function(b) { recalculateFactoryBlock(b, fp, adj); });
+  resultData = factoryBlocks.length ? (factoryBlocks[0].resultData || []) : [];
+}
+
+function initFactoryBlocksFromWizard() {
+  const w = getWizardSnapshot();
+  factoryBlocks = [{
+    id: factoryBlockSeq++,
+    factory: '',
+    baseRate: w.baseRate,
+    baseIdx: w.baseIdx,
+    useCustomAdjust: false,
+    adjustValOverride: w.adjustVal,
+    offeredPrice: '',
+    note: '',
+    resultData: []
+  }];
+}
+
+function generateResult() {
+  const w = getWizardSnapshot();
+  if (isNaN(w.adjustVal) || w.adjustVal <= 0) { alert('กรุณากรอกค่าการปรับที่ถูกต้อง'); return; }
+  if (isNaN(w.baseRate) || w.baseRate <= 0) { alert('กรุณากรอกค่าขนส่งฐานที่ถูกต้อง'); return; }
+
+  if (factoryBlocks.length) {
+    readFactoryBlocksFromEditor();
+  } else {
+    initFactoryBlocksFromWizard();
+  }
+  recalculateAllFactoryBlocks(w.fuelPrice, w.adjustVal);
+  renderResult(w.fuelPrice);
+}
+
+function getCurrentRateFromBlock(block) {
+  if (!block || !block.resultData || !block.resultData.length) return null;
+  const cur = block.resultData.find(function(d) { return d.isCurrent; });
+  if (cur) return cur.rate;
+  const base = block.resultData.find(function(d) { return d.isBase; });
+  return base ? base.rate : null;
+}
+
+function escapeHtml(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function buildBaseRangeOptions(selectedIdx) {
+  return ranges.map(function(r, i) {
+    const sel = i === selectedIdx ? ' selected' : '';
+    return '<option value="' + i + '"' + sel + '>' + escapeHtml(fmtRange(r.from, r.to)) + '</option>';
+  }).join('');
+}
+
+function readFactoryBlocksFromEditor() {
+  document.querySelectorAll('#factoryBlocksEditor .factory-block-card').forEach(function(card) {
+    const id = parseInt(card.getAttribute('data-id'), 10);
+    const b = factoryBlocks.find(function(x) { return x.id === id; });
+    if (!b) return;
+    const f = card.querySelector('.fb-factory');
+    const br = card.querySelector('.fb-base');
+    const bi = card.querySelector('.fb-base-idx');
+    const ca = card.querySelector('.fb-custom-adj');
+    const av = card.querySelector('.fb-adj');
+    const op = card.querySelector('.fb-offered');
+    const nt = card.querySelector('.fb-note');
+    if (f) b.factory = f.value;
+    if (br) b.baseRate = br.value;
+    if (bi) b.baseIdx = parseInt(bi.value, 10);
+    if (ca) b.useCustomAdjust = !!ca.checked;
+    if (av) b.adjustValOverride = av.value;
+    if (op) b.offeredPrice = op.value;
+    if (nt) b.note = nt.value;
+  });
+}
+
+function getFactoryQuoteMeta() {
+  readFactoryBlocksFromEditor();
+  const customer = (document.getElementById('resultCustomerName') || {}).value;
+  return {
+    customer: (customer || '').trim(),
+    lines: factoryBlocks.map(function(b) {
+      const priceNum = parseFloat(String(b.offeredPrice).replace(/,/g, ''));
+      const tableRate = getCurrentRateFromBlock(b);
+      return {
+        factory: (b.factory || '').trim(),
+        offeredPrice: b.offeredPrice,
+        offeredNum: Number.isFinite(priceNum) ? priceNum : null,
+        tableCurrentRate: tableRate,
+        baseRate: parseFloat(b.baseRate),
+        note: (b.note || '').trim()
+      };
+    })
+  };
+}
+
+function onFactoryBlocksLightChange() {
+  readFactoryBlocksFromEditor();
+  renderQuotePrintBlock();
+}
+
+function onFactoryBlocksChange() {
+  readFactoryBlocksFromEditor();
+  const w = getWizardSnapshot();
+  recalculateAllFactoryBlocks(w.fuelPrice, w.adjustVal);
+  renderFactoryBlocksEditor();
+  renderFactoryTables();
+  renderQuotePrintBlock();
+}
+
+function recalculateAllFactoryBlocksFromEditor() {
+  onFactoryBlocksChange();
+}
+
+function addFactoryBlock() {
+  readFactoryBlocksFromEditor();
+  const w = getWizardSnapshot();
+  const ref = factoryBlocks[0];
+  factoryBlocks.push({
+    id: factoryBlockSeq++,
+    factory: '',
+    baseRate: ref ? ref.baseRate : w.baseRate,
+    baseIdx: ref ? ref.baseIdx : w.baseIdx,
+    useCustomAdjust: false,
+    adjustValOverride: w.adjustVal,
+    offeredPrice: '',
+    note: '',
+    resultData: []
+  });
+  recalculateAllFactoryBlocks(w.fuelPrice, w.adjustVal);
+  renderFactoryBlocksEditor();
+  renderFactoryTables();
+  renderQuotePrintBlock();
+}
+
+function removeFactoryBlock(id) {
+  readFactoryBlocksFromEditor();
+  if (factoryBlocks.length <= 1) {
+    const w = getWizardSnapshot();
+    factoryBlocks = [{
+      id: factoryBlockSeq++,
+      factory: '',
+      baseRate: w.baseRate,
+      baseIdx: w.baseIdx,
+      useCustomAdjust: false,
+      adjustValOverride: w.adjustVal,
+      offeredPrice: '',
+      note: '',
+      resultData: []
+    }];
+  } else {
+    factoryBlocks = factoryBlocks.filter(function(b) { return b.id !== id; });
+  }
+  onFactoryBlocksChange();
+  renderFactoryBlocksEditor();
+}
+
+function copyFactoryBlockFromFirst(id) {
+  readFactoryBlocksFromEditor();
+  if (!factoryBlocks.length) return;
+  const first = factoryBlocks[0];
+  const b = factoryBlocks.find(function(x) { return x.id === id; });
+  if (!b || b.id === first.id) return;
+  b.baseRate = first.baseRate;
+  b.baseIdx = first.baseIdx;
+  b.useCustomAdjust = first.useCustomAdjust;
+  b.adjustValOverride = first.adjustValOverride;
+  onFactoryBlocksChange();
+  renderFactoryBlocksEditor();
+}
+
+function fillFactoryOfferedCurrent(id) {
+  readFactoryBlocksFromEditor();
+  const b = factoryBlocks.find(function(x) { return x.id === id; });
+  if (!b) return;
+  const rate = getCurrentRateFromBlock(b);
+  if (rate == null) {
+    alert('ยังไม่มีแถว「ราคาปัจจุบัน」ในตารางโรงนี้ — กรอกราคาน้ำมันให้ตรงช่วงก่อน');
+    return;
+  }
+  b.offeredPrice = String(Math.round(rate));
+  renderFactoryBlocksEditor();
+  renderQuotePrintBlock();
+}
+
+function renderFactoryBlocksEditor() {
+  const wrap = document.getElementById('factoryBlocksEditor');
+  if (!wrap) return;
+  const w = getWizardSnapshot();
+  wrap.innerHTML = factoryBlocks.map(function(b, idx) {
+    const canRemove = factoryBlocks.length > 1;
+    const adjWrapStyle = b.useCustomAdjust ? '' : 'opacity:.55';
+    return '<div class="factory-block-card" data-id="' + b.id + '">' +
+      '<h4>โรงงาน ' + (idx + 1) + (b.factory ? ': ' + escapeHtml(b.factory) : '') + '</h4>' +
+      '<div class="factory-block-grid">' +
+      '<div><label>ชื่อโรงงาน</label><input type="text" class="fb-factory" value="' + escapeHtml(b.factory) + '" placeholder="Tianhai" oninput="onFactoryBlocksLightChange()"></div>' +
+      '<div><label>Base Rate (บาท)</label><input type="number" class="fb-base" min="0" step="1" value="' + escapeHtml(b.baseRate) + '" onchange="onFactoryBlocksChange()"></div>' +
+      '<div><label>ช่วงน้ำมันฐาน</label><select class="fb-base-idx" onchange="onFactoryBlocksChange()">' + buildBaseRangeOptions(parseInt(b.baseIdx, 10) || 0) + '</select></div>' +
+      '<div><label>ราคาเสนอลูกค้า (บาท)</label><input type="number" class="fb-offered" min="0" step="1" value="' + escapeHtml(b.offeredPrice) + '" placeholder="4800" oninput="onFactoryBlocksLightChange()"></div>' +
+      '<div><label>หมายเหตุ</label><input type="text" class="fb-note" value="' + escapeHtml(b.note) + '" placeholder="ถ้ามี" oninput="onFactoryBlocksLightChange()"></div>' +
+      '</div>' +
+      '<div class="factory-block-grid" style="' + adjWrapStyle + '">' +
+      '<div><label><input type="checkbox" class="fb-custom-adj" style="width:auto"' + (b.useCustomAdjust ? ' checked' : '') + ' onchange="onFactoryBlocksChange()"> % ปรับเฉพาะโรงนี้</label></div>' +
+      '<div><label>ค่าปรับ (% หรือบาท/ช่วง)</label><input type="number" class="fb-adj" min="0" step="0.1" value="' + escapeHtml(b.useCustomAdjust ? b.adjustValOverride : w.adjustVal) + '"' + (b.useCustomAdjust ? '' : ' disabled') + ' onchange="onFactoryBlocksChange()"></div>' +
+      '</div>' +
+      '<div class="factory-block-actions">' +
+      '<button type="button" class="btn btn-sm btn-secondary" onclick="fillFactoryOfferedCurrent(' + b.id + ')">ราคาปัจจุบันจากตาราง</button>' +
+      (idx > 0 ? '<button type="button" class="btn btn-sm btn-secondary" onclick="copyFactoryBlockFromFirst(' + b.id + ')">คัดลอก Base จากโรง 1</button>' : '') +
+      (canRemove ? '<button type="button" class="btn btn-sm btn-danger" onclick="removeFactoryBlock(' + b.id + ')">ลบโรงนี้</button>' : '') +
+      '</div></div>';
+  }).join('');
+}
+
+function renderFactoryTableHtml(block, deltaHeader) {
+  if (!block.resultData || !block.resultData.length) {
+    return '<p class="quote-print-empty">กรอก Base Rate ให้ถูกต้องเพื่อสร้างตาราง</p>';
+  }
+  const w = getWizardSnapshot();
+  const adj = block.useCustomAdjust ? block.adjustValOverride : w.adjustVal;
+  const baseIdx = parseInt(block.baseIdx, 10) || 0;
+  let html = '<table class="factory-result-table"><thead><tr>' +
+    '<th class="rate-th-head">ลำดับ</th><th class="rate-th-head">ช่วงราคาน้ำมัน (บาท)</th><th class="rate-th-head">ค่าขนส่ง (บาท)</th><th class="rate-th-head">' + deltaHeader + '</th><th class="rate-th-head">% ปรับจากฐาน</th><th class="rate-th-head">ผลต่างจากฐาน (บาท)</th>' +
+    '</tr></thead><tbody>';
+  block.resultData.forEach(function(d, i) {
+    let cls = '';
+    if (d.isBase && d.isCurrent) cls = 'highlight-current highlight-base';
+    else if (d.isCurrent) cls = 'highlight-current';
+    else if (d.isBase) cls = 'highlight-base';
+    let badges = '';
+    if (d.isBase) badges += '<span class="badge badge-base">ฐาน</span>';
+    if (d.isCurrent) badges += '<span class="badge badge-current">ปัจจุบัน</span>';
+    const pctSign = d.pctFromBase > 0 ? '+' : '';
+    const diffSign = d.diffFromBase > 0 ? '+' : '';
+    const diffClass = d.diffFromBase > 0 ? 'positive' : d.diffFromBase < 0 ? 'negative' : '';
+    const s = fmtDelta(d.steps);
+    const stepsLabel = d.steps > 0 ? '+' + s : d.steps === 0 ? '-' : s;
+    html += '<tr class="' + cls + '"><td>' + (i + 1) + '</td><td>' + fmtRange(d.range.from, d.range.to) + badges + '</td>' +
+      '<td>' + fmtPrice(d.rate) + '</td><td>' + stepsLabel + '</td>' +
+      '<td>' + (d.isBase ? '0%' : pctSign + d.pctFromBase.toFixed(2) + '%') + '</td>' +
+      '<td class="' + diffClass + '">' + (d.isBase ? '-' : diffSign + fmtPrice(d.diffFromBase)) + '</td></tr>';
+  });
+  html += '</tbody></table>';
+  const cur = getCurrentRateFromBlock(block);
+  html = '<div class="factory-table-meta">ฐาน ' + fmtPrice(block.baseRate) + ' บาท | ช่วงฐาน ' + fmtRange(ranges[baseIdx].from, ranges[baseIdx].to) +
+    ' | ปรับ ' + adj + (adjustMode === 'baht_per_step' ? ' บาท/ช่วง' : '%') +
+    (cur != null ? ' | <strong>ราคาปัจจุบันในตาราง: ' + fmtPrice(cur) + '</strong>' : '') + '</div>' + html;
+  return html;
+}
+
+function renderFactoryTables() {
+  const wrap = document.getElementById('resultTableWrap');
+  if (!wrap) return;
+  const deltaHeader = (adjustMode === 'baht_per_step' || pctMode === 'per_step')
+    ? 'ขั้นห่างจากฐาน'
+    : 'ห่างจากฐาน (บาท)';
+  let html = '';
+  factoryBlocks.forEach(function(b, idx) {
+    const title = (b.factory || '').trim() || ('โรงงาน ' + (idx + 1));
+    html += '<div class="factory-table-block" data-factory-id="' + b.id + '">';
+    html += '<h3 class="factory-table-title">' + escapeHtml(title) + '</h3>';
+    html += renderFactoryTableHtml(b, deltaHeader);
+    html += '</div>';
+  });
+  wrap.innerHTML = html || '<p class="quote-print-empty">ยังไม่มีตาราง</p>';
+}
+
+function renderQuotePrintBlock() {
+  const block = document.getElementById('quotePrintBlock');
+  if (!block) return;
+  const meta = getFactoryQuoteMeta();
+  const stamp = new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+  let html = '<div class="qp-title">ใบสรุปเสนอราคา';
+  if (meta.customer) html += ' — ' + escapeHtml(meta.customer);
+  html += '</div><div class="qp-meta">วันที่พิมพ์/ส่งออก: ' + escapeHtml(stamp) + ' | โหมด: โรงงานละ 1 ตาราง</div>';
+  if (meta.customer) html += '<div style="font-size:.95rem;margin:8px 0"><strong>ลูกค้า:</strong> ' + escapeHtml(meta.customer) + '</div>';
+  html += '<table class="quote-print-table"><thead><tr><th class="rate-th-head">โรงงาน</th><th class="rate-th-head">Base</th><th class="rate-th-head">ราคาเสนอ</th><th class="rate-th-head">ราคาปัจจุบัน (ตาราง)</th><th class="rate-th-head">หมายเหตุ</th></tr></thead><tbody>';
+  meta.lines.forEach(function(l, i) {
+    const name = l.factory || ('โรงงาน ' + (i + 1));
+    html += '<tr><td>' + escapeHtml(name) + '</td><td class="price">' + (Number.isFinite(l.baseRate) ? fmtPrice(l.baseRate) : '-') + '</td>' +
+      '<td class="price">' + (l.offeredNum != null ? fmtPrice(l.offeredNum) : '-') + '</td>' +
+      '<td class="price">' + (l.tableCurrentRate != null ? fmtPrice(l.tableCurrentRate) : '-') + '</td>' +
+      '<td>' + (l.note ? escapeHtml(l.note) : '-') + '</td></tr>';
+  });
+  html += '</tbody></table>';
+  block.innerHTML = html;
+}
+
+function renderFactoryPanel() {
+  renderFactoryBlocksEditor();
+  renderFactoryTables();
+  renderQuotePrintBlock();
+}
+
+function renderResult(fuelPrice) {
+  document.getElementById('wizardContainer').style.display = 'none';
+  document.getElementById('progressBar').style.display = 'none';
+  const sec = document.getElementById('resultSection');
+  sec.classList.add('visible');
+
+  const w = getWizardSnapshot();
+  const fp = !isNaN(fuelPrice) ? fuelPrice : w.fuelPrice;
+  const methodLabel = adjustMode === 'baht_per_step'
+    ? 'บวก/ลบ แบบจำนวนบาทต่อช่วง'
+    : (calcMethod === 'base' ? 'จาก Base Rate' : 'ขั้นบันได (Compound)');
+  const adjustLabel = adjustMode === 'baht_per_step'
+    ? 'ปรับราคา ต่อ 1 ช่วง'
+    : (pctMode === 'per_baht' ? '% ปรับต่อ 1 บาท' : '% ปรับต่อขั้น');
+
+  document.getElementById('summaryCards').innerHTML =
+    '<div class="summary-card"><div class="sc-label">น้ำมันปัจจุบัน</div><div class="sc-value">' + fmt(fp) + ' บ./ล.</div></div>' +
+    '<div class="summary-card"><div class="sc-label">จำนวนโรงงาน</div><div class="sc-value">' + factoryBlocks.length + ' โรง</div></div>' +
+    '<div class="summary-card"><div class="sc-label">วิธีปรับ (ร่วม)</div><div class="sc-value">' + methodLabel + '</div></div>' +
+    '<div class="summary-card"><div class="sc-label">' + adjustLabel + ' (ค่าเริ่ม)</div><div class="sc-value">' + w.adjustVal + (adjustMode === 'baht_per_step' ? ' บาท' : '%') + '</div></div>' +
+    '<div class="summary-card"><div class="sc-label">ปัดเศษ</div><div class="sc-value">' + getRoundingModeLabel() + '</div></div>';
+
+  renderFactoryPanel();
+}
+
+function backToWizard() {
+  document.getElementById('resultSection').classList.remove('visible');
+  document.getElementById('wizardContainer').style.display = '';
+  document.getElementById('progressBar').style.display = '';
+  baseSelectHasInitialized = false; // ให้เริ่มต้น Base Rate เป็นช่วง “ราคาปัจจุบัน” ใหม่ทุกครั้งที่แก้ไข
+  goStep(1);
+}
+
+function exportExcel() {
+  readFactoryBlocksFromEditor();
+  const w = getWizardSnapshot();
+  recalculateAllFactoryBlocks(w.fuelPrice, w.adjustVal);
+  const methodLabel = adjustMode === 'baht_per_step'
+    ? 'บวก/ลบ แบบจำนวนบาทต่อช่วง'
+    : (calcMethod === 'base' ? 'จาก Base Rate' : 'ขั้นบันได (Compound)');
+  const adjustLabel = adjustMode === 'baht_per_step'
+    ? 'ปรับราคา ต่อ 1 ช่วง'
+    : (pctMode === 'per_baht' ? '% ปรับต่อ 1 บาท' : '% ปรับต่อขั้น');
+  const deltaCol = (adjustMode === 'baht_per_step' || pctMode === 'per_step')
+    ? 'ขั้นห่างจากฐาน'
+    : 'ห่างจากฐาน (บาท)';
+
+  const meta = getFactoryQuoteMeta();
+  const summaryRows = meta.lines.map(function(l, i) {
+    return [
+      i + 1,
+      l.factory || ('โรงงาน ' + (i + 1)),
+      Number.isFinite(l.baseRate) ? l.baseRate : '-',
+      l.offeredNum != null ? l.offeredNum : '-',
+      l.tableCurrentRate != null ? Math.round(l.tableCurrentRate * 100) / 100 : '-',
+      l.note || ''
+    ];
+  });
+
+  const aoa = [
+    ['คำนวณค่าขนส่งตามราคาน้ำมัน — โรงงานละ 1 ตาราง'],
+    ['ลูกค้า', meta.customer || '(ยังไม่ระบุ)'],
+    ['น้ำมันปัจจุบัน', w.fuelPrice + ' บาท/ลิตร'],
+    ['วิธีปรับ (ร่วม)', methodLabel],
+    [adjustLabel + ' (ค่าเริ่ม)', w.adjustVal + (adjustMode === 'baht_per_step' ? ' บาท' : '%')],
+    ['ปัดเศษ', getRoundingModeLabel()],
+    [],
+    ['สรุปรายโรงงาน'],
+    ['ลำดับ', 'โรงงาน', 'Base (บาท)', 'ราคาเสนอ', 'ราคาปัจจุบัน (ตาราง)', 'หมายเหตุ'],
+    ...summaryRows
+  ];
+
+  factoryBlocks.forEach(function(b, fi) {
+    const title = (b.factory || '').trim() || ('โรงงาน ' + (fi + 1));
+    const adj = b.useCustomAdjust ? parseFloat(b.adjustValOverride) : w.adjustVal;
+    aoa.push([]);
+    aoa.push(['ตาราง: ' + title]);
+    aoa.push(['Base', parseFloat(b.baseRate), 'ช่วงฐาน', fmtRange(ranges[parseInt(b.baseIdx, 10) || 0].from, ranges[parseInt(b.baseIdx, 10) || 0].to), 'ปรับ', adj]);
+    aoa.push(['ลำดับ', 'ช่วงราคาน้ำมัน (บาท)', 'ค่าขนส่ง (บาท)', deltaCol, '% ปรับจากฐาน', 'ผลต่างจากฐาน (บาท)', 'หมายเหตุ']);
+    (b.resultData || []).forEach(function(d, i) {
+      let note = '';
+      if (d.isBase) note += 'ฐาน';
+      if (d.isCurrent) note += (note ? ', ' : '') + 'ราคาปัจจุบัน';
+      aoa.push([
+        i + 1,
+        fmtRange(d.range.from, d.range.to),
+        Math.round(d.rate * 100) / 100,
+        d.steps,
+        d.pctFromBase.toFixed(2) + '%',
+        Math.round(d.diffFromBase * 100) / 100,
+        note
+      ]);
+    });
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{ wch: 8 }, { wch: 24 }, { wch: 18 }, { wch: 14 }, { wch: 16 }, { wch: 20 }, { wch: 16 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'ค่าขนส่ง');
+  XLSX.writeFile(wb, 'transport_rate_' + todayStr() + '.xlsx');
+}
+
+function getHtml2CanvasResultOpts() {
+  return {
+    scale: 2,
+    useCORS: true,
+    allowTaint: false,
+    backgroundColor: '#ffffff',
+    logging: false,
+    onclone: function(clonedDoc) {
+      var sec = clonedDoc.getElementById('resultSection');
+      if (sec) {
+        sec.style.animation = 'none';
+        sec.style.opacity = '1';
+        sec.style.transform = 'none';
+        sec.style.filter = 'none';
+        sec.style.webkitFilter = 'none';
+      }
+      clonedDoc.querySelectorAll('.factory-result-table').forEach(function(tbl) {
+        tbl.querySelectorAll('tbody td').forEach(function(td) { td.style.color = '#1a202c'; });
+        tbl.querySelectorAll('tbody tr').forEach(function(tr) {
+          tr.style.opacity = '1';
+          tr.style.filter = 'none';
+        });
+      });
+      clonedDoc.querySelectorAll('.quote-print-table thead th, .factory-result-table thead th, .rate-th-head').forEach(function(th) {
+        th.style.backgroundColor = '#1e3a5f';
+        th.style.color = '#ffffff';
+        th.style.webkitTextFillColor = '#ffffff';
+      });
+      clonedDoc.querySelectorAll('.factory-table-title').forEach(function(el) { el.style.color = '#1e3a5f'; });
+      clonedDoc.querySelectorAll('.summary-card .sc-value').forEach(function(el) { el.style.color = '#1e3a5f'; });
+      clonedDoc.querySelectorAll('.summary-card .sc-label').forEach(function(el) { el.style.color = '#64748b'; });
+      clonedDoc.querySelectorAll('.result-header h2').forEach(function(el) { el.style.color = '#1e3a5f'; });
+      var editor = clonedDoc.getElementById('quoteEditorPanel');
+      if (editor) editor.style.display = 'none';
+      var qpb = clonedDoc.getElementById('quotePrintBlock');
+      if (qpb) {
+        qpb.style.display = 'block';
+        qpb.querySelectorAll('.qp-title').forEach(function(el) { el.style.color = '#1e3a5f'; });
+        qpb.querySelectorAll('.quote-print-table td').forEach(function(td) { td.style.color = '#1a202c'; });
+      }
+      clonedDoc.documentElement.style.backgroundColor = '#ffffff';
+      if (clonedDoc.body) clonedDoc.body.style.backgroundColor = '#ffffff';
+    }
+  };
+}
+
+async function exportPDF() {
+  const el = document.getElementById('resultSection');
+  const canvas = await html2canvas(el, getHtml2CanvasResultOpts());
+  const imgData = canvas.toDataURL('image/png');
+  const { jsPDF } = window.jspdf;
+  const ratio = canvas.width / canvas.height;
+  const pdfW = 297;
+  const pdfH = pdfW / ratio;
+  const orientation = ratio > 1 ? 'l' : 'p';
+  const pdf = new jsPDF({ orientation, unit: 'mm', format: [pdfW, pdfH + 20] });
+  pdf.addImage(imgData, 'PNG', 10, 10, pdfW - 20, (pdfW - 20) / ratio);
+  pdf.save('transport_rate_' + todayStr() + '.pdf');
+}
+
+async function exportImage() {
+  const el = document.getElementById('resultSection');
+  const canvas = await html2canvas(el, getHtml2CanvasResultOpts());
+  const link = document.createElement('a');
+  link.download = 'transport_rate_' + todayStr() + '.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2);
+}
+
+function baseRouteSegments() {
+  return [
+    { id: 'r' + (routeIdSeq++), label: 'ลานจอด YK LCB - ท่าเรือ LCB', distance: 16, selected: false, custom: false },
+    { id: 'r' + (routeIdSeq++), label: 'ลานรับตู้เปล่า - ลานจอด YK LCB', distance: 20, selected: false, custom: false },
+    { id: 'r' + (routeIdSeq++), label: 'ลานจอด YK LCB - ลานรับตู้เปล่า', distance: 20, selected: false, custom: false },
+    { id: 'r' + (routeIdSeq++), label: 'ท่าเรือ LCB - ลานจอด YK LCB', distance: 16, selected: false, custom: false }
+  ];
+}
+
+function ensureNum(v, fallback) {
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function setVal(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.value = val;
+}
+
+function getVal(id, fallback) {
+  const el = document.getElementById(id);
+  if (!el) return fallback;
+  return ensureNum(el.value, fallback);
+}
+
+function renderRouteList() {
+  const wrap = document.getElementById('routeList');
+  if (!wrap) return;
+  wrap.innerHTML = routeSegments.map(function(seg) {
+    return '<div class="route-item">' +
+      '<input type="checkbox" ' + (seg.selected ? 'checked' : '') + ' onchange="toggleRouteSegment(\'' + seg.id + '\', this.checked)">' +
+      '<label>' + seg.label + '</label>' +
+      '<input type="number" min="0" step="0.1" value="' + seg.distance + '" onchange="updateRouteDistance(\'' + seg.id + '\', this.value)">' +
+      (seg.custom ? '<button class="btn btn-sm btn-danger" onclick="removeRouteSegment(\'' + seg.id + '\')">ลบ</button>' : '<span></span>') +
+      '</div>';
+  }).join('');
+}
+
+function recalcDistance() {
+  const total = routeSegments.reduce(function(sum, seg) {
+    if (!seg.selected) return sum;
+    return sum + ensureNum(seg.distance, 0);
+  }, 0);
+  setVal('totalDistance', roundN(total));
+  return total;
+}
+
+function toggleRouteSegment(id, checked) {
+  const seg = routeSegments.find(function(x) { return x.id === id; });
+  if (!seg) return;
+  seg.selected = !!checked;
+  renderCostResult();
+}
+
+function updateRouteDistance(id, distance) {
+  const seg = routeSegments.find(function(x) { return x.id === id; });
+  if (!seg) return;
+  seg.distance = Math.max(0, ensureNum(distance, 0));
+  renderCostResult();
+}
+
+function removeRouteSegment(id) {
+  routeSegments = routeSegments.filter(function(x) { return x.id !== id; });
+  renderRouteList();
+  renderCostResult();
+}
+
+function addRouteSegment() {
+  const nameEl = document.getElementById('newRouteName');
+  const disEl = document.getElementById('newRouteDistance');
+  const rtEl = document.getElementById('newRouteRoundTrip');
+  let label = (nameEl.value || '').trim();
+  const parsed = parseDistanceExpression(disEl.value);
+  let distance = ensureNum(parsed, NaN);
+  if (rtEl && rtEl.checked && Number.isFinite(distance)) distance = distance * 2;
+  if (!Number.isFinite(distance) || distance <= 0) { alert('กรุณากรอกระยะทางที่ถูกต้อง'); return; }
+  if (!label) {
+    label = 'เส้นทางใหม่ ' + roundN(distance) + ' กม.';
+  }
+  routeSegments.push({ id: 'r' + (routeIdSeq++), label: label, distance: roundN(distance), selected: true, custom: true });
+  nameEl.value = '';
+  disEl.value = '';
+  renderRouteList();
+  renderCostResult();
+}
+
+function getMapsOriginValue() {
+  const preset = document.getElementById('mapsOriginPreset');
+  const custom = document.getElementById('mapsOriginCustom');
+  if (!preset) return '';
+  if (preset.value === 'custom') return (custom && custom.value ? custom.value.trim() : '');
+  return preset.value;
+}
+
+function normalizeGoogleMapsLink(url) {
+  if (!url) return '';
+  const v = url.trim();
+  if (!v) return '';
+  if (/^https?:\/\//i.test(v)) return v;
+  return 'https://' + v;
+}
+
+function extractDestinationFromGoogleMapsLink(link) {
+  try {
+    const rawLatLng = extractLatLngFromText(link);
+    if (rawLatLng) return rawLatLng;
+    const dataLatLng = extractLatLngFromMapsData(link);
+    if (dataLatLng) return dataLatLng;
+    const u = new URL(link);
+    const q = u.searchParams.get('q');
+    if (q) return q;
+    const dest = u.searchParams.get('destination');
+    if (dest) return dest;
+    const query = u.searchParams.get('query');
+    if (query) return query;
+    const searchQuery = u.searchParams.get('search_query');
+    if (searchQuery) return searchQuery;
+
+    const placePathMatch = decodeURIComponent(u.pathname).match(/\/place\/([^/]+)/i);
+    if (placePathMatch && placePathMatch[1]) return placePathMatch[1].replace(/\+/g, ' ');
+
+    const dirMatch = decodeURIComponent(u.pathname).match(/\/dir\/(?:[^/]*\/)?([^/?#]+)/i);
+    if (dirMatch && dirMatch[1]) return dirMatch[1].replace(/\+/g, ' ');
+    const atMatch = u.pathname.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (atMatch) return atMatch[1] + ',' + atMatch[2];
+    return '';
+  } catch (e) {
+    return '';
+  }
+}
+
+function extractLatLngFromText(text) {
+  if (!text) return '';
+  const m = String(text).match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
+  if (!m) return '';
+  return m[1] + ',' + m[2];
+}
+
+function parseDistanceExpression(raw) {
+  if (raw === undefined || raw === null) return NaN;
+  let s = String(raw).trim();
+  if (!s) return NaN;
+  if (s.startsWith('=')) s = s.slice(1).trim();
+  if (!s) return NaN;
+  // allow numbers and basic math operators only
+  if (!/^[0-9+\-*/().,\s]+$/.test(s)) return NaN;
+  s = s.replace(/,/g, '.');
+  try {
+    // eslint-disable-next-line no-new-func
+    const val = Function('"use strict";return (' + s + ')')();
+    const num = Number(val);
+    if (!Number.isFinite(num)) return NaN;
+    return num;
+  } catch (e) {
+    return NaN;
+  }
+}
+
+function buildRouteFromOriginAndDestination(originRaw, destinationRaw) {
+  return 'https://www.google.com/maps/dir/?api=1&origin=' +
+    encodeURIComponent(originRaw) +
+    '&destination=' + encodeURIComponent(destinationRaw) +
+    '&travelmode=driving';
+}
+
+function extractLatLngFromMapsData(text) {
+  if (!text) return '';
+  const s = String(text);
+  const m1 = s.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
+  if (m1) return m1[1] + ',' + m1[2];
+  const m2 = s.match(/!4d(-?\d+(?:\.\d+)?)!3d(-?\d+(?:\.\d+)?)/);
+  if (m2) return m2[2] + ',' + m2[1];
+  return '';
+}
+
+function buildGoogleMapsRouteUrl() {
+  const originRaw = getMapsOriginValue();
+  const linkRaw = (document.getElementById('mapsDestinationLink').value || '').trim();
+  const directLatLng = extractLatLngFromText(linkRaw);
+  const link = normalizeGoogleMapsLink(linkRaw);
+  if (!originRaw) return { ok: false, message: 'กรุณาเลือกหรือกรอกต้นทางก่อน' };
+  if (!linkRaw) return { ok: false, message: 'กรุณาวางลิงก์ปลายทางจาก Google Maps' };
+  const destination = directLatLng || extractDestinationFromGoogleMapsLink(link);
+  if (!destination) {
+    return { ok: false, fallbackUrl: link, message: 'อ่านปลายทางจากลิงก์ไม่ได้ จะเปิดลิงก์ที่วางโดยตรงแทน' };
+  }
+  const routeUrl = 'https://www.google.com/maps/dir/?api=1&origin=' +
+    encodeURIComponent(originRaw) +
+    '&destination=' + encodeURIComponent(destination) +
+    '&travelmode=driving';
+  return { ok: true, url: routeUrl };
+}
+
+async function resolveMapsShortLinkIfNeeded(link) {
+  if (!/^https?:\/\/maps\.app\.goo\.gl\//i.test(link || '')) return link;
+  const scriptUrl = (document.getElementById('driveScriptUrl').value || '').trim();
+  const secret = (document.getElementById('driveSyncSecret').value || '').trim();
+  if (!scriptUrl) return link;
+  try {
+    const res = await fetch(scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'resolve_map', secret: secret, shortUrl: link })
+    });
+    if (!res.ok) return link;
+    const data = await res.json();
+    if (data && data.ok && data.resolvedUrl) return data.resolvedUrl;
+  } catch (e) {}
+  return link;
+}
+
+async function buildGoogleMapsRouteUrlAsync() {
+  const originRaw = getMapsOriginValue();
+  const linkRaw = (document.getElementById('mapsDestinationLink').value || '').trim();
+  const latLngRaw = (document.getElementById('mapsDestinationLatLng').value || '').trim();
+  const directLatLng = extractLatLngFromText(latLngRaw) || extractLatLngFromText(linkRaw);
+  if (!originRaw) return { ok: false, message: 'กรุณาเลือกหรือกรอกต้นทางก่อน' };
+  if (!linkRaw && !directLatLng) return { ok: false, message: 'กรุณาวางลิงก์ปลายทางหรือกรอกพิกัดปลายทาง' };
+  const normalized = normalizeGoogleMapsLink(linkRaw);
+  const resolved = directLatLng ? normalized : await resolveMapsShortLinkIfNeeded(normalized);
+  const destination = directLatLng || extractDestinationFromGoogleMapsLink(resolved);
+  if (!destination) {
+    const extra = /^https?:\/\/maps\.app\.goo\.gl\//i.test(normalized)
+      ? ' (ลิงก์สั้นบางรายการยังอ่านไม่ได้ แนะนำวางพิกัด lat,long)'
+      : '';
+    return { ok: false, fallbackUrl: resolved, message: 'อ่านปลายทางจากลิงก์ไม่ได้ จะเปิดลิงก์ที่วางโดยตรงแทน' + extra };
+  }
+  const routeUrl = buildRouteFromOriginAndDestination(originRaw, destination);
+  return { ok: true, url: routeUrl };
+}
+
+function openRouteFromLatLng() {
+  const originRaw = getMapsOriginValue();
+  const latLngRaw = (document.getElementById('mapsDestinationLatLng').value || '').trim();
+  const latLng = extractLatLngFromText(latLngRaw);
+  if (!originRaw) { alert('กรุณาเลือกหรือกรอกต้นทางก่อน'); return; }
+  if (!latLng) { alert('กรุณากรอกพิกัดปลายทางแบบ lat,long'); return; }
+  const routeUrl = buildRouteFromOriginAndDestination(originRaw, latLng);
+  window.open(routeUrl, '_blank', 'noopener');
+}
+
+async function openRouteInGoogleMaps() {
+  const r = await buildGoogleMapsRouteUrlAsync();
+  if (r.ok) {
+    window.open(r.url, '_blank', 'noopener');
+    return;
+  }
+  if (r.fallbackUrl) {
+    alert(r.message);
+    window.open(r.fallbackUrl, '_blank', 'noopener');
+    return;
+  }
+  alert(r.message || 'ไม่สามารถเปิด Google Maps ได้');
+}
+
+async function copyRouteLink() {
+  const r = await buildGoogleMapsRouteUrlAsync();
+  const toCopy = r.ok ? r.url : (r.fallbackUrl || '');
+  if (!toCopy) {
+    alert(r.message || 'ไม่มีลิงก์ให้คัดลอก');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(toCopy);
+    alert(r.ok ? 'คัดลอกลิงก์เส้นทางแล้ว' : 'คัดลอกลิงก์ปลายทางแล้ว');
+  } catch (e) {
+    alert('คัดลอกอัตโนมัติไม่สำเร็จ กรุณาคัดลอกด้วยตนเอง');
+  }
+}
+
+function loadRoutePreset(type) {
+  if (routeSegments.length === 0) routeSegments = baseRouteSegments();
+  routeSegments.forEach(function(seg) { seg.selected = false; });
+  if (type === 'import') {
+    const labels = ['ลานจอด YK LCB - ท่าเรือ LCB', 'ลานรับตู้เปล่า - ลานจอด YK LCB'];
+    routeSegments.forEach(function(seg) { if (labels.indexOf(seg.label) >= 0) seg.selected = true; });
+  } else {
+    const labels = ['ลานจอด YK LCB - ลานรับตู้เปล่า', 'ท่าเรือ LCB - ลานจอด YK LCB'];
+    routeSegments.forEach(function(seg) { if (labels.indexOf(seg.label) >= 0) seg.selected = true; });
+  }
+  renderRouteList();
+  renderCostResult();
+}
+
+function resetRouteSegments() {
+  routeSegments = baseRouteSegments();
+  renderRouteList();
+  renderCostResult();
+}
+
+function syncFuelPriceFromMain() {
+  const mainFuel = getVal('fuelPrice', 0);
+  if (mainFuel > 0) setVal('costFuelPrice', mainFuel.toFixed(2));
+  renderCostResult();
+}
+
+function calcCostModel() {
+  const distance = recalcDistance();
+  const fuelEff = getVal('fuelEfficiency', 0);
+  const costFuelPrice = getVal('costFuelPrice', 0);
+  const workingDays = getVal('workingDays', 0);
+  const monthlySalary = getVal('monthlySalary', 0);
+  const monthlyCare = getVal('monthlyCare', 0);
+  const annualVehicleInsurance = getVal('annualVehicleInsurance', 0);
+  const annualCargoInsurance = getVal('annualCargoInsurance', 0);
+  const insuranceWorkDaysPerMonth = Math.max(1, getVal('insuranceWorkDaysPerMonth', 24));
+  const assetValue = getVal('assetValue', 0);
+  const depreciationYears = Math.max(1, getVal('depreciationYears', 1));
+  const backOfficePercent = getVal('backOfficePercent', 0);
+  const tripAllowance = getVal('tripAllowance', 0);
+  const tollCost = getVal('tollCost', 0);
+  const maintenanceMode = document.getElementById('maintenanceMode').value || 'per_km';
+  const maintenanceRate = getVal('maintenanceRate', 0);
+  const includeShoreCost = !!document.getElementById('includeShoreCost').checked;
+  const shoreCost = includeShoreCost ? getVal('shoreCost', 0) : 0;
+  const customerPrice = getVal('customerPrice', 0);
+  const targetMarginMin = Math.max(0, getVal('targetMarginMin', 15));
+  const targetMarginNice = Math.max(0, getVal('targetMarginNice', 30));
+  const financeAnnualRate = getVal('financeAnnualRate', 0);
+  const customerCreditDays = getVal('customerCreditDays', 0);
+  const cashBurdenPercent = Math.min(100, Math.max(0, getVal('cashBurdenPercent', 100)));
+
+  const liters = fuelEff > 0 ? distance / fuelEff : 0;
+  const fuelCost = liters * costFuelPrice;
+  const driverDailyCost = ((monthlySalary + monthlyCare) / 30) * workingDays;
+  // ประกันคิดตามวันทำงานจริง ไม่เฉลี่ย 365 วัน
+  const annualWorkDays = insuranceWorkDaysPerMonth * 12;
+  const vehicleInsuranceCost = (annualVehicleInsurance / annualWorkDays) * workingDays;
+  const cargoInsuranceCost = (annualCargoInsurance / annualWorkDays) * workingDays;
+  const depreciationCost = ((assetValue / depreciationYears) / 365) * workingDays;
+  const maintenanceCost = maintenanceMode === 'pct_fuel'
+    ? fuelCost * (maintenanceRate / 100)
+    : distance * maintenanceRate;
+  const fixedDailyCost = driverDailyCost + vehicleInsuranceCost + cargoInsuranceCost + depreciationCost;
+  const tripCost = tripAllowance + tollCost + shoreCost;
+  const beforeBackOffice = fuelCost + fixedDailyCost + tripCost + maintenanceCost;
+  const backOfficeCost = beforeBackOffice * (backOfficePercent / 100);
+  const totalCost = beforeBackOffice + backOfficeCost;
+  const financedBaseCost = totalCost * (cashBurdenPercent / 100);
+  const financeCost = financedBaseCost * (financeAnnualRate / 100) * (customerCreditDays / 365);
+  const totalCostWithFinance = totalCost + financeCost;
+  const mulMin = 1 + (targetMarginMin / 100);
+  const mulNice = 1 + (targetMarginNice / 100);
+  const suggested15 = totalCost * mulMin;
+  const suggested30 = totalCost * mulNice;
+  const suggested15AfterFinance = totalCostWithFinance * mulMin;
+  const suggested30AfterFinance = totalCostWithFinance * mulNice;
+  const profitAmount = customerPrice - totalCost;
+  const marginPct = customerPrice > 0 ? (profitAmount / customerPrice) * 100 : 0;
+  const profitAfterFinance = customerPrice - totalCostWithFinance;
+  const marginAfterFinancePct = customerPrice > 0 ? (profitAfterFinance / customerPrice) * 100 : 0;
+  const fuelPctOfSale = customerPrice > 0 ? (fuelCost / customerPrice) * 100 : 0;
+  const driverPctOfSale = customerPrice > 0 ? (driverDailyCost / customerPrice) * 100 : 0;
+  const maintenancePctOfSale = customerPrice > 0 ? (maintenanceCost / customerPrice) * 100 : 0;
+
+  return {
+    distance, liters, fuelCost, driverDailyCost, vehicleInsuranceCost, cargoInsuranceCost, depreciationCost,
+    fixedDailyCost, tripCost, maintenanceCost, beforeBackOffice, backOfficeCost, totalCost, financeCost, totalCostWithFinance,
+    suggested15, suggested30, suggested15AfterFinance, suggested30AfterFinance, targetMarginMin, targetMarginNice, customerPrice,
+    profitAmount, marginPct, profitAfterFinance, marginAfterFinancePct, fuelPctOfSale, driverPctOfSale, maintenancePctOfSale, includeShoreCost
+  };
+}
+
+function applySuggestedPrice(level) {
+  const c = calcCostModel();
+  const raw = level === 'min' ? c.suggested15AfterFinance : c.suggested30AfterFinance;
+  setVal('customerPrice', roundTransportPrice(raw));
+  renderCostResult();
+}
+
+function renderCostResult() {
+  const c = calcCostModel();
+  setVal('fuelLiters', c.liters.toFixed(2));
+  setVal('fuelCost', c.fuelCost.toFixed(2));
+  const hints = c.targetMarginMin.toFixed(1) + '%: ' + fmtPrice(roundTransportPrice(c.suggested15AfterFinance)) + ' บาท | ' + c.targetMarginNice.toFixed(1) + '%: ' + fmtPrice(roundTransportPrice(c.suggested30AfterFinance)) + ' บาท';
+  const hintsEl = document.getElementById('priceHints');
+  if (hintsEl) hintsEl.textContent = hints;
+
+  const kpiWrap = document.getElementById('costKpiCards');
+  if (kpiWrap) {
+    kpiWrap.innerHTML =
+      '<div class="kpi"><div class="k-label">ต้นทุนรวม/เที่ยว</div><div class="k-value">' + fmt(c.totalCost) + '</div></div>' +
+      '<div class="kpi"><div class="k-label">ต้นทุนการเงิน/เที่ยว</div><div class="k-value">' + fmt(c.financeCost) + '</div></div>' +
+      '<div class="kpi"><div class="k-label">ราคาขายเป้า 1 (' + c.targetMarginMin.toFixed(1) + '%)</div><div class="k-value">' + fmtPrice(roundTransportPrice(c.suggested15AfterFinance)) + '</div></div>' +
+      '<div class="kpi"><div class="k-label">ราคาขายเป้า 2 (' + c.targetMarginNice.toFixed(1) + '%)</div><div class="k-value">' + fmtPrice(roundTransportPrice(c.suggested30AfterFinance)) + '</div></div>' +
+      '<div class="kpi"><div class="k-label">% น้ำมันต่อราคาขาย</div><div class="k-value">' + c.fuelPctOfSale.toFixed(2) + '%</div></div>' +
+      '<div class="kpi"><div class="k-label">% ซ่อมบำรุงต่อราคาขาย</div><div class="k-value">' + c.maintenancePctOfSale.toFixed(2) + '%</div></div>' +
+      '<div class="kpi"><div class="k-label">% คนขับต่อราคาขาย</div><div class="k-value">' + c.driverPctOfSale.toFixed(2) + '%</div></div>' +
+      '<div class="kpi"><div class="k-label">% กำไรก่อนการเงิน</div><div class="k-value">' + c.marginPct.toFixed(2) + '%</div></div>' +
+      '<div class="kpi"><div class="k-label">% Margin หลังต้นทุนการเงิน</div><div class="k-value">' + c.marginAfterFinancePct.toFixed(2) + '%</div></div>';
+  }
+
+  const bd = document.getElementById('costBreakdownWrap');
+  if (bd) {
+    const pctOfSale = function(amount) {
+      if (c.customerPrice <= 0) return '-';
+      return ((amount / c.customerPrice) * 100).toFixed(2) + '%';
+    };
+    bd.innerHTML = '<table><thead><tr><th>รายการ</th><th>จำนวนเงิน (บาท)</th><th>% ของราคาขายลูกค้า</th></tr></thead><tbody>' +
+      '<tr><td>ค่าน้ำมัน</td><td>' + fmt(c.fuelCost) + '</td><td>' + pctOfSale(c.fuelCost) + '</td></tr>' +
+      '<tr><td>ค่าแรง+ดูแลรถ (ตามวันทำงาน)</td><td>' + fmt(c.driverDailyCost) + '</td><td>' + pctOfSale(c.driverDailyCost) + '</td></tr>' +
+      '<tr><td>ประกันรถ + ประกันสินค้า + สึกหรอ</td><td>' + fmt(c.vehicleInsuranceCost + c.cargoInsuranceCost + c.depreciationCost) + '</td><td>' + pctOfSale(c.vehicleInsuranceCost + c.cargoInsuranceCost + c.depreciationCost) + '</td></tr>' +
+      '<tr><td>ซ่อมบำรุง + ยาง + อะไหล่</td><td>' + fmt(c.maintenanceCost) + '</td><td>' + pctOfSale(c.maintenanceCost) + '</td></tr>' +
+      '<tr><td>ค่าเที่ยว + ทางด่วน + ชอร์</td><td>' + fmt(c.tripCost) + '</td><td>' + pctOfSale(c.tripCost) + '</td></tr>' +
+      '<tr><td>Back Office/อื่นๆ</td><td>' + fmt(c.backOfficeCost) + '</td><td>' + pctOfSale(c.backOfficeCost) + '</td></tr>' +
+      '<tr><td>ต้นทุนการเงิน (เครดิตลูกค้า)</td><td>' + fmt(c.financeCost) + '</td><td>' + pctOfSale(c.financeCost) + '</td></tr>' +
+      '<tr><td><strong>ต้นทุนรวม</strong></td><td><strong>' + fmt(c.totalCost) + '</strong></td><td>' + pctOfSale(c.totalCost) + '</td></tr>' +
+      '<tr><td><strong>ต้นทุนรวมหลังการเงิน</strong></td><td><strong>' + fmt(c.totalCostWithFinance) + '</strong></td><td>' + pctOfSale(c.totalCostWithFinance) + '</td></tr>' +
+      '<tr><td>กำไรก่อนการเงิน</td><td>' + fmt(c.profitAmount) + '</td><td>' + c.marginPct.toFixed(2) + '%</td></tr>' +
+      '<tr><td><strong>กำไรหลังการเงิน</strong></td><td><strong>' + fmt(c.profitAfterFinance) + '</strong></td><td><strong>' + c.marginAfterFinancePct.toFixed(2) + '%</strong></td></tr>' +
+      '</tbody></table>';
+  }
+
+  const warnings = [];
+  if (getVal('fuelEfficiency', 0) <= 0) warnings.push({ cls: 'bad', text: 'เรทน้ำมันต้องมากกว่า 0 กม./ลิตร' });
+  if (c.customerPrice > 0 && c.marginAfterFinancePct < c.targetMarginMin) warnings.push({ cls: 'bad', text: 'กำไรหลังต้นทุนการเงินต่ำกว่าเกณฑ์ขั้นต่ำ ' + c.targetMarginMin.toFixed(1) + '%' });
+  if (c.customerPrice > 0 && c.fuelPctOfSale > 60) warnings.push({ cls: 'bad', text: '%น้ำมันสูงเกิน 60% ของราคาขาย' });
+  else if (c.customerPrice > 0 && c.fuelPctOfSale > 50) warnings.push({ cls: 'warn', text: '%น้ำมันเกิน 50% ของราคาขาย ควรเฝ้าระวัง' });
+  if (c.customerPrice > 0 && c.maintenancePctOfSale > 12) warnings.push({ cls: 'warn', text: '%ซ่อมบำรุงสูงเกิน 12% ของราคาขาย ควรทบทวนเรท/อายุรถ/เส้นทาง' });
+  if (c.customerPrice > 0 && c.driverPctOfSale > 17) warnings.push({ cls: 'warn', text: '%คนขับเกินเป้าสวย 17% (อาจยังรับได้ตามหน้างาน)' });
+  if (c.customerPrice > 0 && c.financeCost > 0 && (c.financeCost / c.customerPrice) * 100 > 3) warnings.push({ cls: 'warn', text: 'ต้นทุนการเงินเกิน 3% ของราคาขาย ควรเจรจาเครดิต/เงื่อนไขชำระ' });
+  if (c.distance <= 0) warnings.push({ cls: 'warn', text: 'ยังไม่ได้เลือกเส้นทาง ระยะทางรวมเป็น 0 กม.' });
+
+  const warnBox = document.getElementById('costWarningBox');
+  if (warnBox) {
+    warnBox.innerHTML = warnings.map(function(w) {
+      return '<div class="cost-warning ' + w.cls + '">' + w.text + '</div>';
+    }).join('');
+  }
+}
+
+function getScenarioInputIds() {
+  return [
+    'fuelEfficiency', 'costFuelPrice', 'workingDays', 'backOfficePercent', 'monthlySalary', 'monthlyCare',
+    'annualVehicleInsurance', 'annualCargoInsurance', 'insuranceWorkDaysPerMonth', 'assetValue', 'depreciationYears',
+    'tripAllowance', 'tollCost', 'maintenanceMode', 'maintenanceRate', 'includeShoreCost', 'shoreCost',
+    'customerPrice', 'targetMarginMin', 'targetMarginNice', 'financeAnnualRate', 'customerCreditDays', 'cashBurdenPercent', 'mapsOriginPreset',
+    'mapsOriginCustom', 'mapsDestinationLink', 'mapsDestinationLatLng'
+  ];
+}
+
+function getElementValueById(id) {
+  const el = document.getElementById(id);
+  if (!el) return null;
+  if (el.type === 'checkbox') return !!el.checked;
+  return el.value;
+}
+
+function setElementValueById(id, val) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (el.type === 'checkbox') el.checked = !!val;
+  else el.value = (val === undefined || val === null) ? '' : val;
+}
+
+function makeSnapshot() {
+  const fieldValues = {};
+  getScenarioInputIds().forEach(function(id) { fieldValues[id] = getElementValueById(id); });
+  const c = calcCostModel();
+  return {
+    fieldValues: fieldValues,
+    routeSegments: JSON.parse(JSON.stringify(routeSegments)),
+    summary: {
+      totalDistance: roundN(c.distance),
+      totalCost: roundN(c.totalCost),
+      totalCostWithFinance: roundN(c.totalCostWithFinance),
+      suggested15AfterFinance: roundN(c.suggested15AfterFinance),
+      marginAfterFinancePct: roundN(c.marginAfterFinancePct)
+    }
+  };
+}
+
+function buildSuggestedJobName() {
+  const customer = (document.getElementById('saveCustomerName').value || '').trim() || 'ลูกค้า';
+  const c = calcCostModel();
+  const km = Math.round(c.distance || 0);
+  const mode = (document.getElementById('mapsOriginPreset').value === '13.065831297727314,100.88241036968732') ? 'LCB' : 'งาน';
+  const d = new Date();
+  const stamp = d.getFullYear() + ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2);
+  return customer + ' - ' + mode + ' - ' + km + 'km - ' + stamp;
+}
+
+function suggestJobName() {
+  document.getElementById('saveJobName').value = buildSuggestedJobName();
+}
+
+function applySnapshot(snapshot) {
+  if (!snapshot || !snapshot.fieldValues) return;
+  Object.keys(snapshot.fieldValues).forEach(function(id) {
+    setElementValueById(id, snapshot.fieldValues[id]);
+  });
+  if (Array.isArray(snapshot.routeSegments)) {
+    routeSegments = JSON.parse(JSON.stringify(snapshot.routeSegments));
+    renderRouteList();
+  }
+  renderCostResult();
+}
+
+function loadSavedJobsFromStorage() {
+  try {
+    const raw = localStorage.getItem(SAVED_JOBS_KEY);
+    if (!raw) { savedJobs = []; return; }
+    const data = JSON.parse(raw);
+    savedJobs = Array.isArray(data) ? data : [];
+  } catch (e) {
+    savedJobs = [];
+  }
+}
+
+function persistSavedJobsToStorage() {
+  localStorage.setItem(SAVED_JOBS_KEY, JSON.stringify(savedJobs));
+}
+
+function fmtSavedDate(iso) {
+  try { return new Date(iso).toLocaleString('th-TH'); }
+  catch (e) { return iso || '-'; }
+}
+
+function renderSavedJobsList() {
+  const wrap = document.getElementById('savedJobsList');
+  if (!wrap) return;
+  if (!savedJobs.length) {
+    wrap.innerHTML = '<div class="saved-item">ยังไม่มีงานที่บันทึก</div>';
+    return;
+  }
+  wrap.innerHTML = savedJobs.map(function(job, idx) {
+    const s = job.snapshot && job.snapshot.summary ? job.snapshot.summary : {};
+    return '<div class="saved-item">' +
+      '<div><strong>' + (job.jobName || 'ไม่ระบุชื่อ') + '</strong></div>' +
+      '<div class="saved-meta">บันทึก: ' + fmtSavedDate(job.savedAt) + ' | แท็ก: ' + (job.tags || '-') + '</div>' +
+      '<div class="saved-meta">ระยะ: ' + (s.totalDistance || 0) + ' กม. | ต้นทุนหลังการเงิน: ' + fmt(s.totalCostWithFinance || 0) + ' | Margin: ' + (s.marginAfterFinancePct || 0).toFixed(2) + '%</div>' +
+      '<div class="saved-meta">หมายเหตุ: ' + (job.note || '-') + '</div>' +
+      '<div class="saved-actions">' +
+      '<button class="btn btn-sm btn-secondary" onclick="loadSavedJobByIndex(' + idx + ')">โหลด</button>' +
+      '<button class="btn btn-sm btn-secondary" onclick="duplicateSavedJobByIndex(' + idx + ')">ทำสำเนา</button>' +
+      '<button class="btn btn-sm btn-danger" onclick="deleteSavedJobByIndex(' + idx + ')">ลบ</button>' +
+      '</div></div>';
+  }).join('');
+}
+
+function saveCurrentScenario() {
+  const autoName = !!document.getElementById('autoNameOnSave').checked;
+  if (autoName && !(document.getElementById('saveJobName').value || '').trim()) {
+    suggestJobName();
+  }
+  const jobName = (document.getElementById('saveJobName').value || '').trim();
+  if (!jobName) { alert('กรุณาใส่ชื่องาน/ลูกค้าก่อนบันทึก'); return; }
+  const customerName = (document.getElementById('saveCustomerName').value || '').trim();
+  const tags = (document.getElementById('saveJobTags').value || '').trim();
+  const note = (document.getElementById('saveJobNote').value || '').trim();
+  const record = {
+    id: 'job_' + Date.now(),
+    customerName: customerName,
+    jobName: jobName,
+    tags: tags,
+    note: note,
+    savedAt: new Date().toISOString(),
+    snapshot: makeSnapshot()
+  };
+  savedJobs.unshift(record);
+  persistSavedJobsToStorage();
+  renderSavedJobsList();
+  const autoSync = !!document.getElementById('autoSyncAfterSave').checked;
+  if (autoSync) {
+    syncToDrive(true);
+  } else {
+    alert('บันทึกงานแล้ว');
+  }
+}
+
+function loadSavedJobByIndex(idx) {
+  const job = savedJobs[idx];
+  if (!job || !job.snapshot) return;
+  applySnapshot(job.snapshot);
+  document.getElementById('saveCustomerName').value = job.customerName || '';
+  document.getElementById('saveJobName').value = job.jobName || '';
+  document.getElementById('saveJobTags').value = job.tags || '';
+  document.getElementById('saveJobNote').value = job.note || '';
+}
+
+function duplicateSavedJobByIndex(idx) {
+  const job = savedJobs[idx];
+  if (!job) return;
+  const copy = JSON.parse(JSON.stringify(job));
+  copy.id = 'job_' + Date.now();
+  copy.jobName = (job.jobName || 'งานเดิม') + ' (copy)';
+  copy.savedAt = new Date().toISOString();
+  savedJobs.unshift(copy);
+  persistSavedJobsToStorage();
+  renderSavedJobsList();
+}
+
+function deleteSavedJobByIndex(idx) {
+  if (!confirm('ต้องการลบงานนี้ใช่ไหม?')) return;
+  savedJobs.splice(idx, 1);
+  persistSavedJobsToStorage();
+  renderSavedJobsList();
+}
+
+function clearAllSavedJobs() {
+  if (!confirm('ต้องการลบประวัติทั้งหมดใช่ไหม?')) return;
+  savedJobs = [];
+  persistSavedJobsToStorage();
+  renderSavedJobsList();
+}
+
+function exportSavedJobsJson() {
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    app: 'TransportRateCalculator',
+    records: savedJobs
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'yk-cost-data-' + todayStr() + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function triggerImportSavedJobs() {
+  const input = document.getElementById('savedJobsFileInput');
+  if (!input) return;
+  input.value = '';
+  input.click();
+}
+
+function importSavedJobsFromText(jsonText) {
+  let data;
+  try {
+    data = JSON.parse(jsonText);
+  } catch (e) {
+    alert('ไฟล์ JSON ไม่ถูกต้อง');
+    return;
+  }
+  const incoming = Array.isArray(data) ? data : (Array.isArray(data.records) ? data.records : null);
+  if (!incoming) {
+    alert('ไม่พบ records ในไฟล์');
+    return;
+  }
+  savedJobs = incoming;
+  persistSavedJobsToStorage();
+  renderSavedJobsList();
+  alert('นำเข้าข้อมูลแล้ว');
+}
+
+function saveDriveSettings() {
+  const payload = {
+    url: (document.getElementById('driveScriptUrl').value || '').trim(),
+    secret: (document.getElementById('driveSyncSecret').value || '').trim(),
+    autoSyncAfterSave: !!document.getElementById('autoSyncAfterSave').checked,
+    autoLoadOnOpen: !!document.getElementById('autoLoadOnOpen').checked,
+    autoNameOnSave: !!document.getElementById('autoNameOnSave').checked
+  };
+  localStorage.setItem(DRIVE_SETTINGS_KEY, JSON.stringify(payload));
+  alert('บันทึก URL/Secret ในเครื่องนี้แล้ว');
+}
+
+function loadDriveSettings() {
+  try {
+    const raw = localStorage.getItem(DRIVE_SETTINGS_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (data.url) document.getElementById('driveScriptUrl').value = data.url;
+    if (data.secret) document.getElementById('driveSyncSecret').value = data.secret;
+    if (typeof data.autoSyncAfterSave === 'boolean') document.getElementById('autoSyncAfterSave').checked = data.autoSyncAfterSave;
+    if (typeof data.autoLoadOnOpen === 'boolean') document.getElementById('autoLoadOnOpen').checked = data.autoLoadOnOpen;
+    if (typeof data.autoNameOnSave === 'boolean') document.getElementById('autoNameOnSave').checked = data.autoNameOnSave;
+  } catch (e) {}
+}
+
+function getDriveSyncPayload() {
+  return {
+    records: savedJobs,
+    updatedAt: new Date().toISOString(),
+    source: 'TransportRateCalculator'
+  };
+}
+
+async function syncToDrive(silent) {
+  const url = (document.getElementById('driveScriptUrl').value || '').trim();
+  const secret = (document.getElementById('driveSyncSecret').value || '').trim();
+  if (!url) { if (!silent) alert('กรุณาใส่ Apps Script URL ก่อน'); return; }
+  const payload = getDriveSyncPayload();
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'save', secret: secret, payload: payload })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    if (!silent) alert('Sync to Drive สำเร็จ');
+  } catch (e) {
+    if (!silent) alert('Sync ไม่สำเร็จ: ' + e.message);
+  }
+}
+
+async function loadFromDrive(silent) {
+  const url = (document.getElementById('driveScriptUrl').value || '').trim();
+  const secret = (document.getElementById('driveSyncSecret').value || '').trim();
+  if (!url) { if (!silent) alert('กรุณาใส่ Apps Script URL ก่อน'); return; }
+  try {
+    const q = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'action=load&secret=' + encodeURIComponent(secret);
+    const res = await fetch(q, { method: 'GET' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const incoming = Array.isArray(data.records) ? data.records : (Array.isArray(data) ? data : null);
+    if (!incoming) throw new Error('รูปแบบข้อมูลจาก Drive ไม่ถูกต้อง');
+    savedJobs = incoming;
+    persistSavedJobsToStorage();
+    renderSavedJobsList();
+    if (!silent) alert('Load from Drive สำเร็จ');
+  } catch (e) {
+    if (!silent) alert('Load ไม่สำเร็จ: ' + e.message);
+  }
+}
+
+function setupCostInputs() {
+  const ids = [
+    'fuelEfficiency', 'costFuelPrice', 'workingDays', 'backOfficePercent', 'monthlySalary', 'monthlyCare',
+    'annualVehicleInsurance', 'annualCargoInsurance', 'insuranceWorkDaysPerMonth', 'assetValue', 'depreciationYears', 'tripAllowance',
+    'tollCost', 'maintenanceMode', 'maintenanceRate', 'shoreCost', 'customerPrice', 'targetMarginMin', 'targetMarginNice', 'financeAnnualRate', 'customerCreditDays', 'cashBurdenPercent', 'includeShoreCost'
+  ];
+  ids.forEach(function(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const eventName = el.type === 'checkbox' ? 'change' : 'input';
+    el.addEventListener(eventName, renderCostResult);
+  });
+  const mainFuel = document.getElementById('fuelPrice');
+  if (mainFuel) {
+    mainFuel.addEventListener('input', function() {
+      const cf = document.getElementById('costFuelPrice');
+      if (cf && (!cf.value || parseFloat(cf.value) <= 0)) {
+        cf.value = mainFuel.value;
+      }
+      renderCostResult();
+    });
+  }
+
+  const newRouteDistance = document.getElementById('newRouteDistance');
+  if (newRouteDistance) {
+    newRouteDistance.addEventListener('keydown', function(e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const v = parseDistanceExpression(newRouteDistance.value);
+      if (!Number.isFinite(v)) {
+        alert('สูตรระยะทางไม่ถูกต้อง (ตัวอย่าง: 43*2 หรือ =43*2)');
+        return;
+      }
+      const rt = document.getElementById('newRouteRoundTrip');
+      const out = (rt && rt.checked) ? v * 2 : v;
+      newRouteDistance.value = roundN(out);
+    });
+  }
+}
+
+function initCostModule() {
+  routeSegments = baseRouteSegments();
+  renderRouteList();
+  syncFuelPriceFromMain();
+  setupPriceRoundingInputs();
+  loadPriceRoundingSettings();
+  setupCostInputs();
+  loadSavedJobsFromStorage();
+  renderSavedJobsList();
+  loadDriveSettings();
+  const fileInput = document.getElementById('savedJobsFileInput');
+  if (fileInput) {
+    fileInput.addEventListener('change', function(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        importSavedJobsFromText(String(evt.target.result || ''));
+      };
+      reader.readAsText(file);
+    });
+  }
+  renderCostResult();
+  if (document.getElementById('autoLoadOnOpen').checked) {
+    loadFromDrive(true);
+  }
+}
+
+function parsePriceCell(raw) {
+  if (raw === undefined || raw === null) return NaN;
+  const cleaned = String(raw).replace(/[^\d.\-]/g, '');
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function fuelTypeConfig() {
+  const type = document.getElementById('historyFuelType').value || 'diesel_s';
+  if (type === 'premium_diesel') {
+    return { key: 'premium_diesel', header: 'ไฮพรีเมียมดีเซล S (บาท/ลิตร)', index: 1 };
+  }
+  return { key: 'diesel_s', header: 'ไฮดีเซล S (บาท/ลิตร)', index: 2 };
+}
+
+function extractRowsFromHistoricalMarkdown(md, cfg, yearBe) {
+  const lines = String(md || '').split(/\r?\n/);
+  const rows = [];
+  const rowRegex = /^\|\s*(\d{2}\/\d{2}\/\d{4})\s*\|(.+)\|$/;
+  lines.forEach(function(line) {
+    const m = line.match(rowRegex);
+    if (!m) return;
+    const dateText = m[1];
+    const parts = m[2].split('|').map(function(x) { return x.trim(); }).filter(Boolean);
+    const dateYearRaw = parseInt(dateText.slice(-4), 10);
+    const dateYearAd = dateYearRaw > 2400 ? dateYearRaw - 543 : dateYearRaw;
+    if (Number.isFinite(yearBe) && dateYearAd !== yearBe) return;
+    const value = parsePriceCell(parts[cfg.index - 1]);
+    if (!Number.isFinite(value)) return;
+    rows.push({ dateText: dateText, value: value, sourceYearAd: dateYearAd });
+  });
+  return rows;
+}
+
+function extractRowsFromPastedText(text, cfg, yearBe) {
+  const lines = String(text || '').split(/\r?\n/);
+  const rows = [];
+  const seen = new Set();
+  lines.forEach(function(line) {
+    const t = line.trim();
+    if (!t) return;
+
+    // แบบ markdown row: | 24/04/2569 | 62.10 | 40.20 | ...
+    const mdRow = t.match(/^\|\s*(\d{2}\/\d{2}\/\d{4})\s*\|(.+)\|$/);
+    if (mdRow) {
+      const dateText = mdRow[1];
+      const dateYearRaw = parseInt(dateText.slice(-4), 10);
+      const dateYearAd = dateYearRaw > 2400 ? dateYearRaw - 543 : dateYearRaw;
+      if (Number.isFinite(yearBe) && dateYearAd !== yearBe) return;
+      const parts = mdRow[2].split('|').map(function(x) { return x.trim(); }).filter(Boolean);
+      const value = parsePriceCell(parts[cfg.index - 1]);
+      if (Number.isFinite(value) && !seen.has(dateText)) {
+        rows.push({ dateText: dateText, value: value, sourceYearAd: dateYearAd });
+        seen.add(dateText);
+      }
+      return;
+    }
+
+    // แบบ tab/space หลายคอลัมน์จากเว็บ (เช่น "24/04/2569\t62.10\t40.20\t...")
+    // ใช้ cfg.index เลือกคอลัมน์น้ำมันให้ตรงกับ dropdown
+    const dateMatch = t.match(/(\d{2}\/\d{2}\/\d{4})/);
+    if (dateMatch) {
+      const dateText = dateMatch[1];
+      const dateYearRaw = parseInt(dateText.slice(-4), 10);
+      const dateYearAd = dateYearRaw > 2400 ? dateYearRaw - 543 : dateYearRaw;
+      if (Number.isFinite(yearBe) && dateYearAd !== yearBe) return;
+      const numberTokens = t
+        .replace(dateText, ' ')
+        .match(/-?\d+(?:\.\d+)?/g);
+      if (numberTokens && numberTokens.length >= cfg.index) {
+        const valueByIndex = parseFloat(numberTokens[cfg.index - 1]);
+        if (Number.isFinite(valueByIndex) && !seen.has(dateText)) {
+          rows.push({ dateText: dateText, value: valueByIndex, sourceYearAd: dateYearAd });
+          seen.add(dateText);
+          return;
+        }
+      }
+
+      // fallback กรณีมีเลขตัวเดียวหลังวันที่
+      const tail = t.slice(t.indexOf(dateText) + dateText.length);
+      const fallbackNums = (tail.match(/-?\d+(?:\.\d+)?/g) || []).map(function(x) { return parseFloat(x); }).filter(Number.isFinite);
+      if (fallbackNums.length && !seen.has(dateText)) {
+        rows.push({ dateText: dateText, value: fallbackNums[0], sourceYearAd: dateYearAd });
+        seen.add(dateText);
+      }
+    }
+  });
+  return rows;
+}
+
+function thDateToIso(dateText) {
+  const p = dateText.split('/');
+  if (p.length !== 3) return dateText;
+  const dd = p[0];
+  const mm = p[1];
+  const yyyy = parseInt(p[2], 10) - 543;
+  if (!Number.isFinite(yyyy)) return dateText;
+  return yyyy + '-' + mm + '-' + dd;
+}
+
+function sortHistoricalRows(rows) {
+  rows.sort(function(a, b) {
+    const aa = thDateToIso(a.dateText);
+    const bb = thDateToIso(b.dateText);
+    return aa < bb ? -1 : aa > bb ? 1 : 0;
+  });
+}
+
+function thDateToDate(dateText) {
+  const p = String(dateText || '').split('/');
+  if (p.length !== 3) return null;
+  const dd = parseInt(p[0], 10);
+  const mm = parseInt(p[1], 10);
+  const yyyyRaw = parseInt(p[2], 10);
+  const yyyyAd = yyyyRaw > 2400 ? yyyyRaw - 543 : yyyyRaw;
+  if (![dd, mm, yyyyRaw, yyyyAd].every(Number.isFinite)) return null;
+  const d = new Date(yyyyAd, mm - 1, dd);
+  if (d.getFullYear() !== yyyyAd || d.getMonth() !== mm - 1 || d.getDate() !== dd) return null;
+  return d;
+}
+
+function dateToIso(d) {
+  if (!(d instanceof Date)) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + day;
+}
+
+function dateToDisplayText(d) {
+  if (!(d instanceof Date)) return '';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyyAd = d.getFullYear();
+  return dd + '/' + mm + '/' + yyyyAd;
+}
+
+function todayAtMidnight() {
+  const n = new Date();
+  return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+}
+
+function fillMissingHistoricalDates(rows) {
+  if (!rows.length) return { rows: [], filledCount: 0, carryForwardCount: 0 };
+  const byIso = new Map();
+  rows.forEach(function(r) {
+    const d = thDateToDate(r.dateText);
+    if (!d) return;
+    byIso.set(dateToIso(d), { date: d, value: r.value, imputed: !!r.imputed });
+  });
+  const dates = Array.from(byIso.values()).map(function(x) { return x.date; }).sort(function(a, b) { return a - b; });
+  if (!dates.length) return { rows: [], filledCount: 0, carryForwardCount: 0 };
+  const minD = new Date(dates[0].getFullYear(), dates[0].getMonth(), dates[0].getDate());
+  const maxD = new Date(dates[dates.length - 1].getFullYear(), dates[dates.length - 1].getMonth(), dates[dates.length - 1].getDate());
+
+  const full = [];
+  let prevValue = NaN;
+  let filledCount = 0;
+  for (let d = new Date(minD); d <= maxD; d.setDate(d.getDate() + 1)) {
+    const iso = dateToIso(d);
+    const exists = byIso.get(iso);
+    if (exists) {
+      prevValue = exists.value;
+      full.push({ dateText: dateToDisplayText(d), value: exists.value, imputed: false, carryForward: false });
+    } else if (Number.isFinite(prevValue)) {
+      full.push({ dateText: dateToDisplayText(d), value: prevValue, imputed: true, carryForward: false });
+      filledCount += 1;
+    }
+  }
+
+  let carryForwardCount = 0;
+  const today = todayAtMidnight();
+  if (Number.isFinite(prevValue) && maxD < today) {
+    for (let d = new Date(maxD.getFullYear(), maxD.getMonth(), maxD.getDate() + 1); d <= today; d.setDate(d.getDate() + 1)) {
+      full.push({ dateText: dateToDisplayText(d), value: prevValue, imputed: true, carryForward: true });
+      filledCount += 1;
+      carryForwardCount += 1;
+    }
+  }
+
+  sortHistoricalRows(full);
+  return { rows: full, filledCount: filledCount, carryForwardCount: carryForwardCount };
+}
+
+function formatHistoricalLoadStatus(rawDayCount, normalized) {
+  let msg = 'โหลดสำเร็จ ' + rawDayCount + ' วัน (ข้อมูลต้นทาง)';
+  const gapFilled = normalized.filledCount - normalized.carryForwardCount;
+  if (gapFilled > 0) msg += ' เติมช่องว่างในช่วง ' + gapFilled + ' วัน';
+  if (normalized.carryForwardCount > 0) {
+    msg += ' ใช้ราคาล่าสุดต่อถึงวันนี้ ' + normalized.carryForwardCount + ' วัน';
+  }
+  msg += ' — คลุมช่วงในตารางหรือเลือกช่วงวันที่ในปฏิทินเพื่อหาเฉลี่ย';
+  return msg;
+}
+
+function resetHistoryDateRangeInputs() {
+  const ds = historicalRows.map(function(r) { return thDateToDate(r.dateText); }).filter(Boolean).sort(function(a, b) { return a - b; });
+  if (!ds.length) return;
+  historyRangeStartIso = '';
+  historyRangeEndIso = '';
+  historyCalendarMonth = new Date(ds[ds.length - 1].getFullYear(), ds[ds.length - 1].getMonth(), 1);
+  updateHistoryRangeLabel();
+  renderHistoryCalendar();
+}
+
+function clearHistorySelection() {
+  historicalSelection = new Set();
+  historyDragStart = null;
+  historyDragging = false;
+  historyRangeStartIso = '';
+  historyRangeEndIso = '';
+  updateHistoryRangeLabel();
+  renderHistoryCalendar();
+  renderHistorySelectionInfo();
+}
+
+function updateHistoryStatus(msg) {
+  const el = document.getElementById('historyStatus');
+  if (el) el.textContent = msg;
+}
+
+function historyAvailableDateBounds() {
+  const dates = historicalRows
+    .map(function(r) { return thDateToDate(r.dateText); })
+    .filter(Boolean)
+    .sort(function(a, b) { return a - b; });
+  if (!dates.length) return null;
+  return { min: dates[0], max: dates[dates.length - 1] };
+}
+
+function historyAvailableIsoSet() {
+  return new Set(historicalRows.map(function(r) {
+    const d = thDateToDate(r.dateText);
+    return d ? dateToIso(d) : '';
+  }).filter(Boolean));
+}
+
+function formatHistoryRangeIso(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return dateToDisplayText(d);
+}
+
+function updateHistoryRangeLabel() {
+  const trigger = document.getElementById('historyRangeTrigger');
+  const help = document.getElementById('historyRangeHelp');
+  if (!trigger || !help) return;
+  if (!historicalRows.length) {
+    trigger.textContent = 'เลือกวันเริ่ม แล้วเลือกวันถึง';
+    help.textContent = 'โหลดข้อมูลก่อน แล้วคลิกวันที่เริ่มและวันที่ถึงในปฏิทินเดียว';
+    return;
+  }
+  const bounds = historyAvailableDateBounds();
+  const boundsText = bounds ? (dateToDisplayText(bounds.min) + ' ถึง ' + dateToDisplayText(bounds.max)) : '';
+  if (historyRangeStartIso && historyRangeEndIso) {
+    trigger.textContent = formatHistoryRangeIso(historyRangeStartIso) + ' ถึง ' + formatHistoryRangeIso(historyRangeEndIso);
+    help.textContent = 'เลือกครบแล้ว ระบบคลุมแถวและคำนวณเฉลี่ยให้ทันที';
+  } else if (historyRangeStartIso) {
+    trigger.textContent = 'เริ่ม ' + formatHistoryRangeIso(historyRangeStartIso) + ' — เลือกวันถึงต่อ';
+    help.textContent = 'ปฏิทินยังเปิดอยู่ คลิกวันที่ปลายทางเพื่อจบช่วง';
+  } else {
+    trigger.textContent = 'เลือกวันเริ่ม แล้วเลือกวันถึง';
+    help.textContent = boundsText
+      ? ('ข้อมูลที่มี: ' + boundsText + ' (วันหลังปรับราคาล่าสุดใช้เรทเดิมจนถึงวันนี้)')
+      : 'คลิกวันที่เริ่มและวันที่ถึงในปฏิทินเดียว';
+  }
+}
+
+function toggleHistoryCalendar() {
+  const cal = document.getElementById('historyCalendar');
+  if (!cal) return;
+  if (!historicalRows.length) {
+    alert('กรุณาดึงข้อมูลย้อนหลัง หรือวางข้อมูลแล้วแปลงก่อน');
+    return;
+  }
+  const willOpen = cal.style.display === 'none';
+  cal.style.display = willOpen ? '' : 'none';
+  if (willOpen) renderHistoryCalendar();
+}
+
+function moveHistoryCalendarMonth(delta) {
+  if (!historyCalendarMonth) {
+    const bounds = historyAvailableDateBounds();
+    if (!bounds) return;
+    historyCalendarMonth = new Date(bounds.max.getFullYear(), bounds.max.getMonth(), 1);
+  }
+  historyCalendarMonth = new Date(historyCalendarMonth.getFullYear(), historyCalendarMonth.getMonth() + delta, 1);
+  renderHistoryCalendar();
+}
+
+function sameIsoMonth(a, b) {
+  return a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+}
+
+function renderHistoryCalendar() {
+  const grid = document.getElementById('historyCalendarGrid');
+  const title = document.getElementById('historyCalendarTitle');
+  const prev = document.getElementById('historyCalendarPrev');
+  const next = document.getElementById('historyCalendarNext');
+  if (!grid || !title) return;
+  const bounds = historyAvailableDateBounds();
+  if (!bounds) {
+    grid.innerHTML = '';
+    title.textContent = '-';
+    return;
+  }
+  if (!historyCalendarMonth) historyCalendarMonth = new Date(bounds.max.getFullYear(), bounds.max.getMonth(), 1);
+  const monthNames = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  const shown = new Date(historyCalendarMonth.getFullYear(), historyCalendarMonth.getMonth(), 1);
+  title.textContent = monthNames[shown.getMonth()] + ' ' + shown.getFullYear();
+  if (prev) prev.disabled = sameIsoMonth(shown, new Date(bounds.min.getFullYear(), bounds.min.getMonth(), 1)) || shown < new Date(bounds.min.getFullYear(), bounds.min.getMonth(), 1);
+  if (next) next.disabled = sameIsoMonth(shown, new Date(bounds.max.getFullYear(), bounds.max.getMonth(), 1)) || shown > new Date(bounds.max.getFullYear(), bounds.max.getMonth(), 1);
+
+  const available = historyAvailableIsoSet();
+  const dow = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+  const cells = dow.map(function(d) { return '<div class="history-calendar-dow">' + d + '</div>'; });
+  const start = new Date(shown);
+  start.setDate(1 - start.getDay());
+  const rangeStart = historyRangeStartIso || '';
+  const rangeEnd = historyRangeEndIso || '';
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+    const iso = dateToIso(d);
+    const outside = d.getMonth() !== shown.getMonth();
+    const disabled = !available.has(iso);
+    const inRange = rangeStart && rangeEnd && iso >= rangeStart && iso <= rangeEnd;
+    let cls = 'history-calendar-day';
+    if (outside) cls += ' outside';
+    if (disabled) cls += ' disabled';
+    if (inRange) cls += ' range';
+    if (iso === rangeStart) cls += ' range-start';
+    if (iso === rangeEnd) cls += ' range-end';
+    const onclick = disabled ? '' : ' onclick="pickHistoryCalendarDate(\'' + iso + '\')"';
+    cells.push('<button type="button" class="' + cls + '"' + onclick + '>' + d.getDate() + '</button>');
+  }
+  grid.innerHTML = cells.join('');
+}
+
+function pickHistoryCalendarDate(iso) {
+  if (!historyRangeStartIso || (historyRangeStartIso && historyRangeEndIso)) {
+    historyRangeStartIso = iso;
+    historyRangeEndIso = '';
+    selectHistoryByDateRange(iso, iso, false);
+    updateHistoryStatus('เลือกวันเริ่มแล้ว: ' + formatHistoryRangeIso(iso) + ' — เลือกวันถึงต่อในปฏิทินเดียว');
+  } else {
+    if (iso < historyRangeStartIso) {
+      historyRangeEndIso = historyRangeStartIso;
+      historyRangeStartIso = iso;
+    } else {
+      historyRangeEndIso = iso;
+    }
+    selectHistoryByDateRange(historyRangeStartIso, historyRangeEndIso, true);
+    const cal = document.getElementById('historyCalendar');
+    if (cal) cal.style.display = 'none';
+  }
+  updateHistoryRangeLabel();
+  renderHistoryCalendar();
+}
+
+function renderHistoryTable() {
+  const body = document.getElementById('historyTableBody');
+  const wrap = document.getElementById('historyWrap');
+  const header = document.getElementById('historyValueHeader');
+  const cfg = fuelTypeConfig();
+  if (header) header.textContent = cfg.header;
+  if (!body || !wrap) return;
+  if (!historicalRows.length) {
+    body.innerHTML = '';
+    wrap.style.display = 'none';
+    const resizeHintEmpty = document.getElementById('historyResizeHint');
+    if (resizeHintEmpty) resizeHintEmpty.style.display = 'none';
+    renderHistorySelectionInfo();
+    return;
+  }
+  body.innerHTML = historicalRows.map(function(r, idx) {
+    const sel = historicalSelection.has(idx) ? 'selected' : '';
+    const imputedTag = r.carryForward
+      ? ' <span class="badge badge-base" style="background:#475569">ราคาล่าสุด</span>'
+      : (r.imputed ? ' <span class="badge badge-base" style="background:#64748b">เติมวันหาย</span>' : '');
+    return '<tr class="' + sel + '" data-idx="' + idx + '">' +
+      '<td>' + r.dateText + imputedTag + '</td>' +
+      '<td>' + fmt(r.value) + '</td>' +
+      '</tr>';
+  }).join('');
+  wrap.style.display = '';
+  const resizeHint = document.getElementById('historyResizeHint');
+  if (resizeHint) resizeHint.style.display = '';
+  bindHistoryTableEvents();
+  renderHistorySelectionInfo();
+}
+
+function bindHistoryTableEvents() {
+  const body = document.getElementById('historyTableBody');
+  if (!body) return;
+  body.querySelectorAll('tr').forEach(function(row) {
+    row.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      const idx = parseInt(row.getAttribute('data-idx'), 10);
+      if (!Number.isFinite(idx)) return;
+      historyDragging = true;
+      historyDragStart = idx;
+      historicalSelection = new Set([idx]);
+      renderHistoryTable();
+      row.classList.add('dragging');
+    });
+    row.addEventListener('mouseover', function() {
+      if (!historyDragging || historyDragStart === null) return;
+      const idx = parseInt(row.getAttribute('data-idx'), 10);
+      if (!Number.isFinite(idx)) return;
+      const minIdx = Math.min(historyDragStart, idx);
+      const maxIdx = Math.max(historyDragStart, idx);
+      historicalSelection = new Set();
+      for (let i = minIdx; i <= maxIdx; i++) historicalSelection.add(i);
+      renderHistoryTable();
+    });
+    row.addEventListener('click', function() {
+      if (historyDragging) return;
+      const idx = parseInt(row.getAttribute('data-idx'), 10);
+      if (!Number.isFinite(idx)) return;
+      if (historicalSelection.has(idx)) historicalSelection.delete(idx);
+      else historicalSelection.add(idx);
+      renderHistoryTable();
+    });
+  });
+}
+
+document.addEventListener('mouseup', function() {
+  if (!historyDragging) return;
+  historyDragging = false;
+  historyDragStart = null;
+  const body = document.getElementById('historyTableBody');
+  if (body) body.querySelectorAll('tr').forEach(function(row) { row.classList.remove('dragging'); });
+});
+
+function renderHistorySelectionInfo() {
+  const box = document.getElementById('historyAvgBox');
+  const btnUse = document.getElementById('useHistoryAverageBtn');
+  const btnClear = document.getElementById('clearHistorySelectionBtn');
+  const btnExport = document.getElementById('exportHistoryCsvBtn');
+  if (!box || !btnUse || !btnClear || !btnExport) return;
+  btnExport.disabled = !historicalRows.length;
+  const selected = Array.from(historicalSelection).sort(function(a, b) { return a - b; });
+  if (!selected.length) {
+    box.style.display = 'none';
+    box.innerHTML = '';
+    btnUse.disabled = true;
+    btnClear.disabled = true;
+    return;
+  }
+  const values = selected.map(function(i) { return historicalRows[i].value; });
+  const sum = values.reduce(function(s, v) { return s + v; }, 0);
+  const avg = sum / values.length;
+  const min = Math.min.apply(null, values);
+  const max = Math.max.apply(null, values);
+  const selectedDates = selected
+    .map(function(i) { return thDateToDate(historicalRows[i].dateText); })
+    .filter(Boolean)
+    .sort(function(a, b) { return a - b; });
+  const firstText = selectedDates.length ? dateToDisplayText(selectedDates[0]) : historicalRows[selected[0]].dateText;
+  const lastText = selectedDates.length ? dateToDisplayText(selectedDates[selectedDates.length - 1]) : historicalRows[selected[selected.length - 1]].dateText;
+  box.style.display = '';
+  box.innerHTML =
+    '<div><strong>สรุปช่วงที่คลุม:</strong> ' + firstText + ' ถึง ' + lastText + ' (' + values.length + ' วัน)</div>' +
+    '<div>ค่าเฉลี่ย: <strong>' + fmt(avg) + '</strong> บ./ล. | ต่ำสุด: ' + fmt(min) + ' | สูงสุด: ' + fmt(max) + '</div>';
+  btnUse.disabled = false;
+  btnClear.disabled = false;
+}
+
+function getSelectedHistoricalAverage() {
+  const selected = Array.from(historicalSelection);
+  if (!selected.length) return NaN;
+  const sum = selected.reduce(function(s, idx) { return s + historicalRows[idx].value; }, 0);
+  return sum / selected.length;
+}
+
+function useHistoricalAverage() {
+  const avg = getSelectedHistoricalAverage();
+  if (!Number.isFinite(avg)) {
+    alert('ยังไม่ได้คลุมช่วงข้อมูล');
+    return;
+  }
+  document.getElementById('fuelPrice').value = avg.toFixed(2);
+  updateHistoryStatus('ใส่ราคาน้ำมันจากค่าเฉลี่ยที่คลุมแล้ว: ' + fmt(avg) + ' บ./ล.');
+}
+
+function csvEscape(value) {
+  const text = String(value == null ? '' : value);
+  if (/[",\n\r]/.test(text)) return '"' + text.replace(/"/g, '""') + '"';
+  return text;
+}
+
+function historyRangeForFilename() {
+  const dates = historicalRows
+    .map(function(r) { return thDateToDate(r.dateText); })
+    .filter(Boolean)
+    .sort(function(a, b) { return a - b; });
+  if (!dates.length) return null;
+  return {
+    from: dateToIso(dates[0]).replace(/-/g, ''),
+    to: dateToIso(dates[dates.length - 1]).replace(/-/g, '')
+  };
+}
+
+function exportHistoricalCsv() {
+  if (!historicalRows.length) {
+    alert('ยังไม่มีข้อมูลย้อนหลังให้ส่งออก');
+    return;
+  }
+  const cfg = fuelTypeConfig();
+  const range = historyRangeForFilename();
+  const selectedSet = new Set(Array.from(historicalSelection));
+  const lines = [
+    ['date', 'fuel_type', 'price_baht_per_liter', 'imputed', 'selected']
+  ];
+  historicalRows.forEach(function(row, idx) {
+    const d = thDateToDate(row.dateText);
+    lines.push([
+      d ? dateToIso(d) : row.dateText,
+      cfg.key,
+      Number.isFinite(row.value) ? row.value.toFixed(2) : '',
+      row.imputed ? '1' : '0',
+      selectedSet.has(idx) ? '1' : '0'
+    ]);
+  });
+  const csv = lines.map(function(cols) {
+    return cols.map(csvEscape).join(',');
+  }).join('\r\n');
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const suffix = range ? ('_' + range.from + '-' + range.to) : '';
+  a.href = url;
+  a.download = 'historical_oil_price_' + cfg.key + suffix + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function selectHistoryByDateRange(fromIso, toIso, showStatus) {
+  if (!fromIso || !toIso) {
+    alert('กรุณาเลือกวันเริ่มและวันถึงก่อน');
+    return;
+  }
+  const fromD = new Date(fromIso + 'T00:00:00');
+  const toD = new Date(toIso + 'T00:00:00');
+  if (fromD > toD) {
+    alert('วันที่เริ่มต้องไม่มากกว่าวันที่สิ้นสุด');
+    return;
+  }
+  historicalSelection = new Set();
+  historicalRows.forEach(function(r, idx) {
+    const d = thDateToDate(r.dateText);
+    if (!d) return;
+    if (d >= fromD && d <= toD) historicalSelection.add(idx);
+  });
+  if (!historicalSelection.size) {
+    alert('ไม่พบข้อมูลในช่วงวันที่ที่เลือก');
+  }
+  renderHistoryTable();
+  if (showStatus && historicalSelection.size) {
+    updateHistoryStatus('เลือกช่วงวันที่แล้ว: ' + formatHistoryRangeIso(fromIso) + ' ถึง ' + formatHistoryRangeIso(toIso) + ' (' + historicalSelection.size + ' วัน)');
+  }
+}
+
+async function loadHistoricalOilPrices() {
+  const cfg = fuelTypeConfig();
+  const yearInput = parseInt(document.getElementById('historyYear').value, 10);
+  const yearBe = Number.isFinite(yearInput) ? yearInput : NaN;
+  updateHistoryStatus('กำลังดึงข้อมูลย้อนหลังจากเว็บ...');
+  historicalRows = [];
+  clearHistorySelection();
+  renderHistoryTable();
+
+  let md = '';
+  for (let i = 0; i < OIL_SOURCES.length; i++) {
+    const url = OIL_SOURCES[i](yearBe);
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) continue;
+      md = await res.text();
+      if (md && md.length > 100) break;
+    } catch (e) {}
+  }
+  if (!md) {
+    updateHistoryStatus('ดึงข้อมูลไม่สำเร็จ (อาจติด CORS/อินเทอร์เน็ต) ให้คัดลอกตารางจากเว็บแล้ววางในช่องทางสำรองด้านล่าง');
+    return;
+  }
+
+  const rows = extractRowsFromHistoricalMarkdown(md, cfg, yearBe);
+  if (!rows.length) {
+    updateHistoryStatus('ไม่พบข้อมูลปีที่เลือก ลองเปลี่ยนปีแล้วดึงใหม่');
+    return;
+  }
+  const normalized = fillMissingHistoricalDates(rows);
+  historicalRows = normalized.rows;
+  renderHistoryTable();
+  resetHistoryDateRangeInputs();
+  updateHistoryStatus(formatHistoricalLoadStatus(rows.length, normalized));
+}
+
+function parseHistoricalFromPaste() {
+  const input = document.getElementById('historyPasteInput');
+  const cfg = fuelTypeConfig();
+  const yearInput = parseInt(document.getElementById('historyYear').value, 10);
+  const yearBe = Number.isFinite(yearInput) ? yearInput : NaN;
+  const txt = input ? input.value : '';
+  const rows = extractRowsFromPastedText(txt, cfg, yearBe);
+  if (!rows.length) {
+    updateHistoryStatus('แปลงไม่สำเร็จ: ไม่พบข้อมูลราคาในข้อความที่วาง');
+    return;
+  }
+  const normalized = fillMissingHistoricalDates(rows);
+  historicalRows = normalized.rows;
+  clearHistorySelection();
+  renderHistoryTable();
+  resetHistoryDateRangeInputs();
+  updateHistoryStatus(formatHistoricalLoadStatus(rows.length, normalized).replace('โหลดสำเร็จ', 'แปลงข้อมูลสำเร็จ'));
+}
+
+document.getElementById('adjustPercent').addEventListener('input', function() {
+  updateExampleCalc();
+  if (isResultVisible()) generateResult();
+});
+
+function isRangePreviewVisible() {
+  const pv = document.getElementById('rangePreview');
+  return pv && pv.style.display !== 'none';
+}
+
+function setupWizardEnterNavigation() {
+  document.getElementById('fuelPrice').addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    goStep(2);
+  });
+
+  document.getElementById('rangeStart').addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    document.getElementById('rangeEnd').focus();
+  });
+  document.getElementById('rangeEnd').addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    document.getElementById('rangeStep').focus();
+  });
+  document.getElementById('rangeStep').addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (!isRangePreviewVisible()) {
+      previewUniform();
+    } else {
+      goStep(3);
+    }
+  });
+
+  document.getElementById('customRangesList').addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return;
+    const inputs = Array.from(document.querySelectorAll('#customRangesList input[type="number"]'));
+    const idx = inputs.indexOf(e.target);
+    if (idx === -1) return;
+    e.preventDefault();
+    if (idx < inputs.length - 1) {
+      inputs[idx + 1].focus();
+    } else {
+      goStep(3);
+    }
+  });
+
+  document.getElementById('step4').addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      if (e.target.tagName === 'BUTTON') return;
+      // ลูกศรซ้าย/ขวาให้ทำงานเฉพาะการเลือก “วิธีปรับราคา” เท่านั้น
+      if (!(e.target.closest && e.target.closest('#calcMethodGroup'))) return;
+      e.preventDefault();
+      selectMethod(e.key === 'ArrowLeft' ? 'compound' : 'base');
+      return;
+    }
+    if (e.key !== 'Enter') return;
+    if (e.target.tagName === 'BUTTON') return;
+    e.preventDefault();
+    document.getElementById('adjustPercent').focus();
+  });
+
+  document.getElementById('adjustPercent').addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    generateResult();
+  });
+
+  document.getElementById('baseRate').addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    document.getElementById('baseRangeSelect').focus();
+  });
+  document.getElementById('baseRangeSelect').addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    goStep(4);
+  });
+
+  document.getElementById('baseRangeSelect').addEventListener('change', function() {
+    updateExampleCalc();
+    if (isResultVisible()) generateResult();
+  });
+
+  // Step 6 ถูกตัดออกแล้ว (maxRangeSelect ไม่มีอยู่)
+}
+
+setupWizardEnterNavigation();
+initCostModule();
+
+</script>
+</body>
+</html>
