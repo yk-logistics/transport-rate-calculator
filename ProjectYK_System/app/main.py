@@ -8091,6 +8091,32 @@ def finance_pnl_detail(request: Request, year: int = 0, site: str = ""):
     return templates.TemplateResponse("finance_pnl.html", ctx)
 
 
+@app.get("/finance/receivables", response_class=HTMLResponse)
+def finance_receivables(request: Request):
+    """รอรับเงินลูกค้า (AR) — อ่านทะเบียน "รายการรับเช็ค AYU/LCB" จาก Drive.
+
+    ทีมบัญชียังกรอก Excel แบบเดิม; ระบบอ่านสีไฮไลท์ (มีสี=รับแล้ว) → ค้างรับ/
+    เลยกำหนด/ครบใน 7 วัน. read-only. สิทธิ์ตามเมนู finance (admin/accountant).
+    """
+    from services import receivables as ar
+
+    ctx = base_context(request)
+    error = None
+    rows: list = []
+    missing: list = []
+    try:
+        rows, missing = ar.load_all()
+    except Exception as e:
+        error = f"อ่านไฟล์จาก Google Drive ไม่สำเร็จ: {e}"
+    ctx.update({
+        "summary": ar.summarize(rows) if rows else None,
+        "missing": missing, "error": error,
+        "sa_email": ar.service_account_email(),
+        "today": date.today(),
+    })
+    return templates.TemplateResponse("finance_receivables.html", ctx)
+
+
 @app.get("/kb-payout", response_class=HTMLResponse)
 def kb_payout_page(request: Request, amount: str = ""):
     """KB จ่ายคืนเจ้าของงาน (CY) — โอกรอกยอดโอนจากสลิปธนาคาร → จับคู่อินวอย + KB.

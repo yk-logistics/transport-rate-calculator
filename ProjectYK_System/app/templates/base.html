@@ -120,6 +120,7 @@
             <a href="/fuel-index" class="block px-4 py-2 hover:bg-slate-100">⛽ Fuel (ราคาน้ำมัน)</a>
             <a href="/billing" class="block px-4 py-2 hover:bg-slate-100">Billing</a>
             {% if can_see(request, "/finance") %}<a href="/finance" class="block px-4 py-2 hover:bg-slate-100">💰 CFO</a>{% endif %}
+            {% if can_see(request, "/finance") %}<a href="/finance/receivables" class="block px-4 py-2 hover:bg-slate-100">💵 รอรับเงินลูกค้า</a>{% endif %}
             {% if can_see(request, "/kb-payout") %}<a href="/kb-payout" class="block px-4 py-2 hover:bg-slate-100">🤝 KB เจ้าของงาน</a>{% endif %}
             <a href="/deposits" class="block px-4 py-2 hover:bg-slate-100">🔒 เงินประกันตน</a>
           </div>
