@@ -239,6 +239,9 @@
         <tbody class="divide-y">
           <tr><td>ค่าขนส่ง ({{ "{:,}".format(pnl.trip_count) }} เที่ยว)</td><td class="text-right font-mono">{{ "{:,.2f}".format(pnl.revenue_transport) }}</td></tr>
           <tr><td>ค่าใช้จ่ายอื่น (lift/yard/…)</td><td class="text-right font-mono">{{ "{:,.2f}".format(pnl.revenue_fees) }}</td></tr>
+          {% if pnl.kb_return %}
+          <tr><td class="text-amber-700">− KB คืนเจ้าของงาน (ไม่ใช่รายได้บริษัท)</td><td class="text-right font-mono text-amber-700">{{ "{:,.2f}".format(pnl.kb_return) }}</td></tr>
+          {% endif %}
           <tr class="bg-emerald-50 font-semibold"><td>= รวมรายรับ</td><td class="text-right font-mono text-emerald-700">{{ "{:,.2f}".format(pnl.revenue_total) }}</td></tr>
           <tr><td class="pl-4 text-slate-600">− ค่าน้ำมัน ({{ "{:,.0f}".format(pnl.cost_fuel_liters) }} L)</td><td class="text-right font-mono">{{ "{:,.2f}".format(pnl.cost_fuel) }}</td></tr>
           <tr><td class="pl-4 text-slate-600">− เงินเดือน/ค่าเที่ยว</td><td class="text-right font-mono">{{ "{:,.2f}".format(pnl.cost_payroll) }}</td></tr>

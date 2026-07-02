@@ -26,6 +26,7 @@
         <th class="px-3 py-2 text-right">เที่ยว</th>
         <th class="px-3 py-2 text-right">ค่าขนส่ง</th>
         <th class="px-3 py-2 text-right">ค่าอื่น</th>
+        <th class="px-3 py-2 text-right">− KB คืน</th>
         <th class="px-3 py-2 text-right bg-emerald-50">รวมรายรับ</th>
         <th class="px-3 py-2 text-right">น้ำมัน</th>
         <th class="px-3 py-2 text-right">เงินเดือน</th>
@@ -44,6 +45,7 @@
         <td class="px-3 py-2 text-right font-sans">{{ "{:,}".format(m.trip_count) }}</td>
         <td class="px-3 py-2 text-right">{{ "{:,.0f}".format(m.revenue_transport) }}</td>
         <td class="px-3 py-2 text-right text-slate-500">{{ "{:,.0f}".format(m.revenue_fees) }}</td>
+        <td class="px-3 py-2 text-right text-amber-700">{{ "{:,.0f}".format(m.kb_return) if m.kb_return else "" }}</td>
         <td class="px-3 py-2 text-right bg-emerald-50 font-semibold">{{ "{:,.0f}".format(m.revenue_total) }}</td>
         <td class="px-3 py-2 text-right text-slate-500">{{ "{:,.0f}".format(m.cost_fuel) }}</td>
         <td class="px-3 py-2 text-right text-slate-500">{{ "{:,.0f}".format(m.cost_payroll) }}</td>
@@ -60,6 +62,7 @@
         <td class="px-3 py-2 text-right">{{ "{:,}".format(totals.trip_count) }}</td>
         <td class="px-3 py-2"></td>
         <td class="px-3 py-2"></td>
+        <td class="px-3 py-2 text-right font-mono">{{ "{:,.0f}".format(totals.kb_return) if totals.kb_return else "" }}</td>
         <td class="px-3 py-2 text-right font-mono">{{ "{:,.0f}".format(totals.revenue_total) }}</td>
         <td class="px-3 py-2 text-right font-mono">{{ "{:,.0f}".format(totals.cost_fuel) }}</td>
         <td class="px-3 py-2 text-right font-mono">{{ "{:,.0f}".format(totals.cost_payroll) }}</td>
@@ -77,6 +80,6 @@
 </div>
 
 <p class="text-xs text-slate-400 mt-3">
-  💡 กำไรสุทธิ = รายรับ - น้ำมัน - เงินเดือน - สดย่อย(สุทธิ) - ซ่อม - ดอกเบี้ย · ยังไม่รวม depreciation รถ/ภาษีนิติฯ
+  💡 รวมรายรับ = ค่าขนส่ง + ค่าอื่น − KB คืนเจ้าของงาน (KB ไม่ใช่รายได้บริษัท) · กำไรสุทธิ = รายรับ - น้ำมัน - เงินเดือน - สดย่อย(สุทธิ) - ซ่อม - ดอกเบี้ย · ยังไม่รวม depreciation รถ/ภาษีนิติฯ
 </p>
 {% endblock %}

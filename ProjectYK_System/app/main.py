@@ -4070,9 +4070,15 @@ def payroll_export_zip(run_id: int, request: Request):
         except (RuntimeError, ValueError) as e:
             return PlainTextResponse(f"สร้าง ZIP ไม่สำเร็จ: {e}", status_code=500)
 
+    # ชื่อ ASCII fallback ก็ต้องมี timestamp — เบราว์เซอร์ที่ไม่อ่าน filename* จะได้
+    # ไม่เซฟชื่อซ้ำ payroll_slips.zip แล้วโอเปิดไฟล์เก่า (เข้าใจว่าสลิปไม่อัปเดต)
+    from datetime import datetime as _dt
+
+    ascii_name = f"payroll_slips_{_dt.now().strftime('%d-%m-%y_%H.%M')}.zip"
     headers = {
-        "Content-Disposition": "attachment; filename=payroll_slips.zip; "
-        f"filename*=UTF-8''{quote(zip_name)}"
+        "Content-Disposition": f"attachment; filename={ascii_name}; "
+        f"filename*=UTF-8''{quote(zip_name)}",
+        "Cache-Control": "no-store",
     }
     return Response(content=zip_bytes, media_type="application/zip", headers=headers)
 
@@ -7768,7 +7774,8 @@ def finance_dashboard(
             cy, cm = today.year, today.month
             month = f"{cy:04d}-{cm:02d}"
 
-        SUM_FIELDS = ["trip_count", "revenue_transport", "revenue_fees", "revenue_total",
+        SUM_FIELDS = ["trip_count", "revenue_transport", "revenue_fees", "kb_return",
+                      "revenue_total",
                       "wht", "cost_fuel", "cost_fuel_liters", "cost_petty_net",
                       "cost_payroll", "cost_maint", "cost_interest", "cost_total"]
         rows = []
@@ -8067,6 +8074,7 @@ def finance_pnl_detail(request: Request, year: int = 0, site: str = ""):
     with Session(engine) as s:
         months = finance_svc.yearly_rollup(s, year, site)
     totals = {
+        "kb_return": sum(m.get("kb_return", 0.0) for m in months),
         "revenue_total": sum(m["revenue_total"] for m in months),
         "cost_fuel": sum(m["cost_fuel"] for m in months),
         "cost_petty_net": sum(m["cost_petty_net"] for m in months),

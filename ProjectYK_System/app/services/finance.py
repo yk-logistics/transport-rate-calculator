@@ -214,13 +214,19 @@ def monthly_pnl(session: Session, year: int, month: int, site: str = "",
     total_wht = sum((j.wht_53 or 0.0) for j in jobs)
     trip_count = len(jobs)
 
+    # KB ใต้โต๊ะ = เงินที่ต้องคืนเจ้าของงาน ไม่ใช่รายได้บริษัท (โอ 2ก.ค.: P&L ต้องเห็น
+    # ทุกขั้นตอน ไม่ซ่อน) → โชว์ค่าขนส่งเต็ม แล้วหัก KB เป็นบรรทัดแยก ก่อนรวมรายรับ.
+    # หมายเหตุ: จ่ายคืนจริงอาจไม่เต็ม 100% (ดู kb-payout 90%/ใบ ณ ที่จ่าย 3%) —
+    # P&L ตัดเต็มไว้ก่อนแบบ conservative จนกว่าโอจะเคาะสูตรแบ่ง.
+    kb_return = sum((j.kb_amount or 0.0) for j in jobs)
+
     # Fees on jobs (lift, yard, etc.)
     revenue_fees = 0.0
     if job_ids:
         fees = session.exec(select(DailyJobFee).where(DailyJobFee.daily_job_id.in_(job_ids))).all()
         revenue_fees = sum((f.amount or 0.0) for f in fees)
 
-    revenue_total = revenue_transport + revenue_fees
+    revenue_total = revenue_transport + revenue_fees - kb_return
 
     # --- Costs ---
     # Fuel
@@ -309,6 +315,7 @@ def monthly_pnl(session: Session, year: int, month: int, site: str = "",
         # Revenue
         "revenue_transport": revenue_transport,
         "revenue_fees": revenue_fees,
+        "kb_return": kb_return,
         "revenue_total": revenue_total,
         "wht": total_wht,
         # Costs

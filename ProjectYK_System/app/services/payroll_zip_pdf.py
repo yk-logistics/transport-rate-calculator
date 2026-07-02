@@ -175,5 +175,10 @@ def export_payroll_slips_zip(
     finally:
         shutil.rmtree(work_root, ignore_errors=True)
 
-    zip_name = _safe_filename(f"สลิปแยกคน_{site}_{cycle}_{mode}") + ".zip"
+    # ประทับวัน-เวลาที่สร้างในชื่อไฟล์ — โอโหลดหลายรอบแล้วชอบเปิดไฟล์เก่า (ชื่อซ้ำ
+    # Windows เติม (1)(2) ให้ไฟล์ใหม่) → ชื่อไม่ซ้ำ + ดูออกทันทีว่าอันไหนล่าสุด
+    from datetime import datetime
+
+    stamp = datetime.now().strftime("%d-%m-%y_%H.%M")
+    zip_name = _safe_filename(f"สลิปแยกคน_{site}_{cycle}_{mode}_สร้าง{stamp}") + ".zip"
     return buf.getvalue(), zip_name
