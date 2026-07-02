@@ -2,8 +2,9 @@
 """CLI ครอบ services/kb_payout.py — ตรรกะจริงอยู่ใน app (หน้า /kb-payout ใช้ตัวเดียวกัน).
 
 ใช้ (จากราก repo, python ของ app venv):
-  python ProjectYK_System/tools/kb_payout.py list             # อินวอยทั้งหมด + KB ต่อใบ
-  python ProjectYK_System/tools/kb_payout.py match 19027.98   # ยอดโอน → ชุดอินวอย + KB
+  python ProjectYK_System/tools/kb_payout.py list                  # ทุกเจ้า + KB ต่อใบ
+  python ProjectYK_System/tools/kb_payout.py match 19027.98        # ยอดโอน CY → ชุดใบ
+  python ProjectYK_System/tools/kb_payout.py match 5881 NHL        # ระบุเจ้าอื่นได้
 runbook สำหรับโมเดลถูก: docs/KB_PAYOUT_RUNBOOK.md
 """
 from __future__ import annotations
@@ -29,8 +30,9 @@ def cmd_list():
           f"· ใบ ณ ที่จ่าย 3% = {tot_kb*KB_WHT:,.2f}")
 
 
-def cmd_match(amount: float):
-    res = match_amount(load_all(), amount)
+def cmd_match(amount: float, cust: str = "CY"):
+    rows = [r for r in load_all() if r["cust"] == cust]
+    res = match_amount(rows, amount)
     if not res["combos"]:
         print(f"ไม่เจอชุดอินวอยที่รวมได้ {amount:,.2f} เป๊ะ (ลองเต็ม/−1%ขนส่ง/−1%/−3%) — "
               "อาจข้ามเดือน/มีส่วนลด/โอนหลายก้อนรวมกัน")
@@ -47,6 +49,7 @@ def cmd_match(amount: float):
 
 if __name__ == "__main__":
     if len(sys.argv) >= 3 and sys.argv[1] == "match":
-        cmd_match(float(sys.argv[2].replace(",", "")))
+        cmd_match(float(sys.argv[2].replace(",", "")),
+                  sys.argv[3] if len(sys.argv) >= 4 else "CY")
     else:
         cmd_list()

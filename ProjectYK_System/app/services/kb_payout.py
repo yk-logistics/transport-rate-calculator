@@ -22,11 +22,26 @@ KB_OUR_CUT = 0.10
 KB_WHT = 0.03
 
 CY_FOLDER = "1aaiw4o9YJIW0sAqJk2-IoNqwmMWxHoCc"
-KB_OWNERS = {  # เจ้าของงานผู้รับ KB (จากดีไซน์ 1ก.ค.)
-    "CY": {"owner": "ชาญณรงค์ มาลีแย้ม", "bank": "กสิกร 844-205-5344"},
+
+# เจ้าของงานทั้ง 4 ราย (โอยืนยัน 1ก.ค.): CY คิดส่วนต่างจากชื่อไฟล์,
+# NHL/MOL/Siam i คิด นับตู้ในชีทค่าขนส่ง × อัตราคงที่
+CUSTOMERS = {
+    "CY": {"folder": CY_FOLDER, "mode": "cy_diff",
+           "owner": "ชาญณรงค์ มาลีแย้ม", "bank": "กสิกร 844-205-5344", "rate": None},
+    "NHL": {"folder": "1KhjrTAQw3aa9q-48RGbkx69JATIgUEbF", "mode": "count", "rate": 110,
+            "owner": "รุ่งโรจน์ เปรมปราชญ์", "bank": "ไทยพาณิชย์ 095-289-9898"},
+    "MOL": {"folder": "1ZEPHu94U4hSQhutHpu90SF5_2Wq4lWhz", "mode": "count", "rate": 100,
+            "owner": "ทิติพร พิชิตสุรกิจ", "bank": "กสิกร 0262730387"},
+    "SIAM i": {"folder": "1cUePF2x0cXt-uilOjcpePYQe5uyUnGNi", "mode": "count", "rate": 50,
+               "owner": "ทิติพร พิชิตสุรกิจ", "bank": "กสิกร 0262730387"},
 }
+KB_OWNERS = {c: {"owner": v["owner"], "bank": v["bank"]} for c, v in CUSTOMERS.items()}
 
 FNAME_RE = re.compile(r"(CYIV\d{4}-\d{3})\s+(.+?)\s+(\d+)(?:\+(\d+))?\.xlsx$", re.I)
+# count-mode: NHIV2606-001-Mitsubishi.xlsx / MLIV2603-001 DAIKIN.xlsx / SIIV2602-001.xlsx
+FNAME_COUNT_RE = re.compile(r"([A-Z]{2,4}IV\d{4}-\d{3})[\s\-]*(.*?)\.xlsx$", re.I)
+# โฟลเดอร์เดือนรูปแบบ M.YYYY เท่านั้น (ข้ามโฟลเดอร์ปีเก่า/ปะหน้า) ปี 2026+
+FOLDER_MONTH_RE = re.compile(r"^(\d{1,2})\.(\d{4})$")
 
 _KEY_NAME = "noble-history-446303-e4-c36409a0122c.json"
 _APP_DIR = Path(__file__).resolve().parents[1]
@@ -109,22 +124,79 @@ def kb_of(r: dict) -> float:
     return round(r["transport"] - r["quote"] * r["qty"] - r["ot"], 2)
 
 
-def load_all() -> list[dict]:
-    """อินวอย CY ทุกใบจาก Drive (ทุกโฟลเดอร์เดือน) พร้อม KB ต่อใบ."""
-    svc = _svc()
-    rows = []
-    for sub in _list_children(svc, CY_FOLDER):
+def parse_count_invoice(path: Path, fname: str, rate: float) -> dict | None:
+    """อินวอยแบบนับตู้ (NHL/MOL/Siam i): KB = จำนวนแถวตู้ในชีท "ค่าขนส่ง" × อัตรา.
+
+    คอลัมน์ค่าขนส่ง/จำนวนเงินต่างกันต่อเจ้า → หาจากแถวหัวตาราง (best-effort,
+    ใช้โชว์/จับคู่ยอดโอนเท่านั้น — ตัว KB ใช้แค่จำนวนตู้).
+    """
+    import openpyxl
+
+    m = FNAME_COUNT_RE.search(fname)
+    if not m:
+        return None
+    inv, label = m.group(1).upper(), (m.group(2) or "").strip()
+
+    wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+    ws = wb["ค่าขนส่ง"] if "ค่าขนส่ง" in wb.sheetnames else wb[wb.sheetnames[0]]
+    tcol = acol = None  # คอลัมน์ ค่าขนส่ง / จำนวนเงิน จากหัวตาราง
+    qty = 0
+    transport = row_sum = 0.0
+    for row in ws.iter_rows(min_row=10, max_row=80):
+        vals = {c.coordinate.rstrip("0123456789"): c.value for c in row if c.value is not None}
+        if tcol is None:
+            for col, v in vals.items():
+                if isinstance(v, str) and v.strip() == "ค่าขนส่ง":
+                    tcol = col
+                elif isinstance(v, str) and v.strip() == "จำนวนเงิน":
+                    acol = col
+            continue  # ยังไม่เข้าตาราง
+        if isinstance(vals.get("A"), (int, float)):  # แถวตู้
+            qty += 1
+            if tcol and isinstance(vals.get(tcol), (int, float)):
+                transport += float(vals[tcol])
+            if acol and isinstance(vals.get(acol), (int, float)):
+                row_sum += float(vals[acol])
+    wb.close()
+    return {
+        "inv": inv, "customer": label or inv, "quote": rate, "ot": 0.0,
+        "qty": qty, "transport": transport, "ot_sheet": 0.0,
+        "advances": round(row_sum - transport, 2), "grand_total": round(row_sum, 2),
+        "kb": round(qty * rate, 2),
+    }
+
+
+def _month_folders(svc, root_id: str):
+    """โฟลเดอร์เดือน M.YYYY ปี 2026+ ในโฟลเดอร์ลูกค้า (ข้ามโฟลเดอร์ปีเก่า/ปะหน้า)."""
+    for sub in _list_children(svc, root_id):
         if not sub["mimeType"].endswith("folder"):
             continue
-        for f in _list_children(svc, sub["id"]):
-            if not f["name"].lower().endswith(".xlsx"):
-                continue
-            r = parse_invoice(_download(svc, f["id"], f["name"]), f["name"])
-            if r:
-                r["month_folder"] = sub["name"]
-                r["kb"] = kb_of(r)
-                rows.append(r)
-    rows.sort(key=lambda r: r["inv"])
+        m = FOLDER_MONTH_RE.match(sub["name"].strip())
+        if m and int(m.group(2)) >= 2026:
+            yield sub
+
+
+def load_all() -> list[dict]:
+    """อินวอยทุกเจ้าของงานจาก Drive พร้อม KB ต่อใบ (field "cust" บอกว่าเจ้าไหน)."""
+    svc = _svc()
+    rows = []
+    for cust, cfg in CUSTOMERS.items():
+        for sub in _month_folders(svc, cfg["folder"]):
+            for f in _list_children(svc, sub["id"]):
+                if not f["name"].lower().endswith(".xlsx"):
+                    continue
+                p = _download(svc, f["id"], f["name"])
+                if cfg["mode"] == "cy_diff":
+                    r = parse_invoice(p, f["name"])
+                    if r:
+                        r["kb"] = kb_of(r)
+                else:
+                    r = parse_count_invoice(p, f["name"], cfg["rate"])
+                if r:
+                    r["month_folder"] = sub["name"]
+                    r["cust"] = cust
+                    rows.append(r)
+    rows.sort(key=lambda r: (r["cust"], r["inv"]))
     return rows
 
 

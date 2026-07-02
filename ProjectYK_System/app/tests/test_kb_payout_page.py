@@ -21,13 +21,13 @@ from services import kb_payout as kbp
 FAKE_ROWS = [
     {"inv": "CYIV2606-023", "customer": "JUN TAI", "quote": 4329, "ot": 200,
      "qty": 2, "transport": 10000.0, "ot_sheet": 0, "advances": 3214.98,
-     "grand_total": 13214.98, "month_folder": "6.2026", "kb": 1142.0},
+     "grand_total": 13214.98, "month_folder": "6.2026", "kb": 1142.0, "cust": "CY"},
     {"inv": "CYIV2606-026", "customer": "JUN TAI", "quote": 4329, "ot": 100,
      "qty": 1, "transport": 5000.0, "ot_sheet": 0, "advances": 963.0,
-     "grand_total": 5963.0, "month_folder": "6.2026", "kb": 571.0},
+     "grand_total": 5963.0, "month_folder": "6.2026", "kb": 571.0, "cust": "CY"},
     {"inv": "CYIV2606-001", "customer": "MINKANG", "quote": 4284, "ot": 0,
      "qty": 1, "transport": 5000.0, "ot_sheet": 0, "advances": 100.0,
-     "grand_total": 5100.0, "month_folder": "6.2026", "kb": 716.0},
+     "grand_total": 5100.0, "month_folder": "6.2026", "kb": 716.0, "cust": "CY"},
 ]
 
 

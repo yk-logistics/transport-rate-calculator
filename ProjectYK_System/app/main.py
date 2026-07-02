@@ -8118,12 +8118,13 @@ def finance_receivables(request: Request):
 
 
 @app.get("/kb-payout", response_class=HTMLResponse)
-def kb_payout_page(request: Request, amount: str = ""):
-    """KB จ่ายคืนเจ้าของงาน (CY) — โอกรอกยอดโอนจากสลิปธนาคาร → จับคู่อินวอย + KB.
+def kb_payout_page(request: Request, amount: str = "", cust: str = "CY"):
+    """KB จ่ายคืนเจ้าของงาน (CY/NHL/MOL/Siam i) — กรอกยอดโอน → จับคู่อินวอย + KB.
 
     อ่านอินวอยสดจาก Google Drive (read-only) ไม่แตะ payroll. เฉพาะ admin
     (permissions.py menu "kb"). ตรรกะอยู่ services/kb_payout.py (CLI ใช้ตัวเดียวกัน).
-    ใบที่ติ๊ก "รับแล้ว" (KbSettle) ถูกตัดออกจากการจับคู่ — เหลือเฉพาะใบค้างรับ.
+    ใบที่ติ๊ก "รับแล้ว" (KbSettle) ถูกตัดออกจากการจับคู่ — จับคู่ในเจ้าที่เลือกเท่านั้น
+    (สลิปโอนบอกอยู่แล้วว่าลูกค้ารายไหนโอน).
     """
     from services import kb_payout as kbp
 
@@ -8140,21 +8141,32 @@ def kb_payout_page(request: Request, amount: str = ""):
         settled = {k.inv_no: k for k in s.exec(select(KbSettle)).all()}
     for r in rows:
         r["settled"] = settled.get(r["inv"])
-    open_rows = [r for r in rows if r["inv"] not in settled]
+    if cust not in kbp.CUSTOMERS:
+        cust = "CY"
     amount_raw = (amount or "").strip()
     if amount_raw and not error:
         try:
             amt = float(amount_raw.replace(",", ""))
-            match = kbp.match_amount(open_rows, amt)  # จับคู่เฉพาะใบที่ยังไม่รับ
+            open_cust = [r for r in rows if r["cust"] == cust and not r["settled"]]
+            match = kbp.match_amount(open_cust, amt)
         except ValueError:
             error = "ยอดโอนต้องเป็นตัวเลข เช่น 19027.98"
+    # section ต่อเจ้าของงาน: รายการ + ยอดค้าง/รับแล้ว + ผู้รับโอน
+    sections = []
+    for c, cfg in kbp.CUSTOMERS.items():
+        crows = [r for r in rows if r["cust"] == c]
+        copen = [r for r in crows if not r["settled"]]
+        sections.append({
+            "cust": c, "owner": cfg["owner"], "bank": cfg["bank"],
+            "rate": cfg.get("rate"), "mode": cfg["mode"], "rows": crows,
+            "n_open": len(copen),
+            "kb_open": round(sum(r["kb"] for r in copen), 2),
+            "kb_settled": round(sum(r["kb"] for r in crows if r["settled"]), 2),
+        })
     ctx.update({
-        "rows": rows,
-        "kb_open_sum": round(sum(r["kb"] for r in open_rows), 2),
-        "kb_settled_sum": round(sum(r["kb"] for r in rows if r["settled"]), 2),
-        "n_open": len(open_rows),
+        "sections": sections, "cust": cust, "customers": list(kbp.CUSTOMERS.keys()),
         "match": match, "amount": amt, "amount_raw": amount_raw,
-        "owner": kbp.KB_OWNERS["CY"], "error": error,
+        "owner": kbp.KB_OWNERS[cust], "error": error,
     })
     return templates.TemplateResponse("kb_payout.html", ctx)
 

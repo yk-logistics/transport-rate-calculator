@@ -2,9 +2,13 @@
 {% block title %}KB จ่ายคืนเจ้าของงาน{% endblock %}
 {% block content %}
 <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
-  <h1 class="text-2xl font-bold">🤝 KB จ่ายคืนเจ้าของงาน · CY</h1>
+  <h1 class="text-2xl font-bold">🤝 KB จ่ายคืนเจ้าของงาน</h1>
   <form method="get" class="flex gap-2 items-center text-sm">
-    <label class="text-slate-500">ยอดที่ลูกค้าโอนมา (บาท)</label>
+    <label class="text-slate-500">ลูกค้าที่โอนมา</label>
+    <select name="cust" class="border rounded px-2 py-1">
+      {% for c in customers %}<option value="{{ c }}" {% if c == cust %}selected{% endif %}>{{ c }}</option>{% endfor %}
+    </select>
+    <label class="text-slate-500">ยอดโอน (บาท)</label>
     <input type="text" name="amount" value="{{ amount_raw or '' }}" placeholder="เช่น 19027.98"
            class="border rounded px-2 py-1 w-36 text-right font-mono" autofocus />
     <button class="bg-emerald-600 text-white px-4 py-1 rounded">จับคู่อินวอย</button>
@@ -18,14 +22,14 @@
 {% if match %}
   {% if match.combos %}
   <div class="bg-emerald-50 border border-emerald-200 rounded p-4 mb-6">
-    <div class="font-semibold mb-2">✅ ยอดโอน {{ "{:,.2f}".format(amount) }} ตรงกับ
+    <div class="font-semibold mb-2">✅ ยอดโอน {{ "{:,.2f}".format(amount) }} จาก {{ cust }} ตรงกับ
       {% if match.combos|length == 1 %}ชุดเดียว (มั่นใจได้){% else %}{{ match.combos|length }} ชุดที่เป็นไปได้ — ตรวจกับงานจริง{% endif %}
       · ลูกค้า{{ match.variant }}</div>
     {% for c in match.combos %}
     <div class="bg-white rounded border p-3 mb-2">
       <table class="w-full text-sm">
         <thead><tr class="text-slate-500 text-left">
-          <th class="py-1">อินวอย</th><th>ลูกค้า</th><th class="text-right">ตู้</th>
+          <th class="py-1">อินวอย</th><th>รายละเอียด</th><th class="text-right">ตู้</th>
           <th class="text-right">ยอดวางบิล</th><th class="text-right">ลูกค้าโอนจริง</th><th class="text-right">KB</th>
         </tr></thead>
         <tbody class="font-mono">
@@ -58,32 +62,41 @@
   </div>
   {% else %}
   <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded p-4 mb-6 text-sm">
-    🔍 ไม่เจอชุดอินวอยที่รวมได้ {{ "{:,.2f}".format(amount) }} เป๊ะ (ลองทั้งจ่ายเต็ม / หัก 1% เฉพาะค่าขนส่ง / หัก 1% / หัก 3%)
-    — อาจเป็นใบของเดือนที่ยังไม่อยู่ใน Drive, มีส่วนลด, หรือลูกค้าโอนหลายก้อนรวมกัน
+    🔍 ไม่เจอชุดอินวอยของ {{ cust }} ที่รวมได้ {{ "{:,.2f}".format(amount) }} เป๊ะ (ลองทั้งจ่ายเต็ม / หัก 1% เฉพาะค่าขนส่ง / หัก 1% / หัก 3%)
+    — เช็คว่าเลือกลูกค้าถูกเจ้า / ใบเดือนนั้นอยู่ใน Drive แล้ว / ลูกค้าโอนหลายก้อนรวมกัน
   </div>
   {% endif %}
 {% endif %}
 
-<div class="bg-white rounded-xl shadow overflow-x-auto">
-  <div class="px-4 pt-3 text-sm text-slate-500">อินวอย CY ทั้งหมดใน Drive ({{ rows|length }} ใบ · ค้างรับ {{ n_open }} ใบ) · KB ต่อใบ = ค่าขนส่ง − ราคาเสนอ×ตู้ − OT · จับคู่ยอดโอนเฉพาะใบค้างรับ</div>
+{% for sec in sections %}
+<div class="bg-white rounded-xl shadow overflow-x-auto mb-5">
+  <div class="px-4 py-2.5 flex items-center gap-3 flex-wrap border-b bg-slate-50 rounded-t-xl">
+    <span class="font-bold">{{ sec.cust }}</span>
+    {% if sec.rate %}<span class="text-xs px-2 py-0.5 rounded bg-sky-100 text-sky-700">KB ตู้ละ {{ "{:,.0f}".format(sec.rate) }}</span>
+    {% else %}<span class="text-xs px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">KB = ส่วนต่างราคาเสนอ</span>{% endif %}
+    <span class="text-xs text-slate-500">โอนคืน {{ sec.owner }} · {{ sec.bank }}</span>
+    <span class="ml-auto text-sm">ค้างรับ {{ sec.n_open }} ใบ
+      · KB ค้าง <b class="font-mono">{{ "{:,.2f}".format(sec.kb_open) }}</b>
+      · โอนคืน 90% = <b class="font-mono text-emerald-700">{{ "{:,.2f}".format(sec.kb_open * 0.9) }}</b></span>
+  </div>
   <table class="w-full text-sm">
-    <thead><tr class="text-left text-slate-500 border-b">
-      <th class="px-4 py-2">เดือน</th><th>อินวอย</th><th>ลูกค้า</th>
+    <thead><tr class="text-left text-slate-400 text-xs">
+      <th class="px-4 py-1.5">เดือน</th><th>อินวอย</th><th>รายละเอียด</th>
       <th class="text-right">ตู้</th><th class="text-right">ค่าขนส่ง</th>
-      <th class="text-right">ราคาเสนอ</th><th class="text-right">OT</th>
+      <th class="text-right">{% if sec.rate %}เรท/ตู้{% else %}ราคาเสนอ{% endif %}</th><th class="text-right">OT</th>
       <th class="text-right">ยอดวางบิล</th><th class="text-right">KB</th>
       <th class="text-center pr-4">รับ KB แล้ว?</th>
     </tr></thead>
     <tbody class="divide-y font-mono">
-    {% for r in rows %}
+    {% for r in sec.rows %}
       <tr class="hover:bg-slate-50 {% if r.settled %}bg-slate-50 text-slate-400{% endif %}">
         <td class="px-4 py-1 font-sans">{{ r.month_folder }}</td>
         <td>{{ r.inv }}</td><td class="font-sans">{{ r.customer }}</td>
         <td class="text-right">{{ r.qty }}</td>
-        <td class="text-right">{{ "{:,.0f}".format(r.transport) }}</td>
+        <td class="text-right">{{ "{:,.0f}".format(r.transport) if r.transport else '' }}</td>
         <td class="text-right">{{ "{:,.0f}".format(r.quote) }}</td>
-        <td class="text-right">{{ "{:,.0f}".format(r.ot) }}</td>
-        <td class="text-right">{{ "{:,.2f}".format(r.grand_total) }}</td>
+        <td class="text-right">{{ "{:,.0f}".format(r.ot) if r.ot else '' }}</td>
+        <td class="text-right">{{ "{:,.2f}".format(r.grand_total) if r.grand_total else '' }}</td>
         <td class="text-right font-semibold {% if r.kb < 0 %}text-rose-600{% endif %}">{{ "{:,.2f}".format(r.kb) }}</td>
         <td class="text-center pr-4 font-sans">
           {% if r.settled %}
@@ -105,20 +118,20 @@
     {% endfor %}
     </tbody>
     <tfoot>
-      <tr class="bg-slate-900 text-white font-bold">
-        <td class="px-4 py-2" colspan="8">KB ค้างรับ ({{ n_open }} ใบ) · โอนคืน 90% = {{ "{:,.2f}".format(kb_open_sum * 0.9) }} · ใบ ณ ที่จ่าย 3% = {{ "{:,.2f}".format(kb_open_sum * 0.03) }}</td>
-        <td class="text-right font-mono">{{ "{:,.2f}".format(kb_open_sum) }}</td><td></td>
-      </tr>
-      {% if kb_settled_sum %}
-      <tr class="bg-slate-100 text-slate-500">
-        <td class="px-4 py-1" colspan="8">รับแล้ว {{ rows|length - n_open }} ใบ</td>
-        <td class="text-right font-mono">{{ "{:,.2f}".format(kb_settled_sum) }}</td><td></td>
+      {% if sec.kb_settled %}
+      <tr class="bg-slate-100 text-slate-500 text-xs">
+        <td class="px-4 py-1" colspan="8">รับแล้ว {{ sec.rows|length - sec.n_open }} ใบ</td>
+        <td class="text-right font-mono">{{ "{:,.2f}".format(sec.kb_settled) }}</td><td></td>
       </tr>
       {% endif %}
     </tfoot>
   </table>
 </div>
+{% endfor %}
+
 <p class="text-xs text-slate-400 mt-3">
-  💡 อ่านสดจากโฟลเดอร์ "ใบวางบิล LCB → C.Y" ใน Google Drive (ไฟล์ใหม่โผล่เองเมื่อออกใบ) · หน้านี้อ่านอย่างเดียว ไม่แตะเงินเดือน/ฐานข้อมูล · เห็นเฉพาะ admin
+  💡 อ่านสดจากโฟลเดอร์อินวอยใน Google Drive (เฉพาะเดือนปี 2026+) · CY = ค่าขนส่ง − ราคาเสนอ×ตู้ − OT (จากชื่อไฟล์) ·
+  NHL/MOL/Siam i = จำนวนตู้ × เรท · โอนคืนเจ้าของงาน 90% เก็บ 10% · ใบหัก ณ ที่จ่าย 3% ของ KB เต็ม ·
+  read-only ไม่แตะเงินเดือน · เห็นเฉพาะ admin
 </p>
 {% endblock %}
