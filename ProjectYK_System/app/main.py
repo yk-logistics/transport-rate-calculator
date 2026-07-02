@@ -8117,6 +8117,54 @@ def finance_receivables(request: Request):
     return templates.TemplateResponse("finance_receivables.html", ctx)
 
 
+@app.get("/admin/plan", response_class=HTMLResponse)
+def admin_plan(request: Request):
+    """แพลน MVP ในระบบ (โอขอ 3ก.ค. "อยากเห็นแสงปลายอุโมงค์") — admin เท่านั้น (prefix /admin).
+
+    อ่าน docs/PLAN_STATUS.json (สถานะ/วัน) + แผน/สเปค markdown 2 ไฟล์ — deploy ต้อง
+    scp โฟลเดอร์ docs 3 ไฟล์นี้ขึ้น server ด้วยทุกครั้งที่แผนเปลี่ยน (YK_MVP/docs/).
+    """
+    import json as _json
+    from pathlib import Path as _P
+
+    docs = _P(__file__).resolve().parents[1] / "docs"
+
+    def _read(name: str) -> str:
+        try:
+            return (docs / name).read_text(encoding="utf-8")
+        except OSError:
+            return f"(ยังไม่พบไฟล์ {name} บนเครื่องนี้ — ต้อง scp ขึ้น YK_MVP/docs/)"
+
+    phases = []
+    updated = "?"
+    try:
+        data = _json.loads(_read("PLAN_STATUS.json"))
+        updated = data.get("updated", "?")
+        for ph in data.get("phases", []):
+            days = sum(t.get("days", 0) for t in ph["tasks"])
+            done = sum(t.get("days", 0) for t in ph["tasks"] if t.get("status") == "done")
+            phases.append({**ph, "days": round(days, 2), "done_days": round(done, 2),
+                           "pct": round(done / days * 100) if days else 0})
+    except Exception:
+        pass
+    total = round(sum(p["days"] for p in phases), 2)
+    done_d = round(sum(p["done_days"] for p in phases), 2)
+    n_tasks = sum(len(p["tasks"]) for p in phases)
+    n_done = sum(1 for p in phases for t in p["tasks"] if t.get("status") == "done")
+    remain = round(total - done_d, 2)
+    ctx = base_context(request)
+    ctx.update({
+        "phases": phases, "updated": updated,
+        "total_days": total, "done_days": done_d, "remain_days": remain,
+        "pct": round(done_d / total * 100) if total else 0,
+        "n_tasks": n_tasks, "n_done": n_done,
+        "remain_weeks": max(1, round(remain / 5)),
+        "md_plan": _read("MASTER_PLAN_2026-07.md"),
+        "md_specs": _read("MVP_TASK_SPECS.md"),
+    })
+    return templates.TemplateResponse("admin_plan.html", ctx)
+
+
 @app.get("/kb-payout", response_class=HTMLResponse)
 def kb_payout_page(request: Request, amount: str = "", cust: str = "CY"):
     """KB จ่ายคืนเจ้าของงาน (CY/NHL/MOL/Siam i) — กรอกยอดโอน → จับคู่อินวอย + KB.

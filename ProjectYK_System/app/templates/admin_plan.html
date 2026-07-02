@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}แผนงาน MVP{% endblock %}
+{% block content %}
+<div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+  <h1 class="text-2xl font-bold">🗺️ แพลน MVP — เห็นแสงปลายอุโมงค์</h1>
+  <div class="text-sm text-slate-500">อัปเดตล่าสุด {{ updated }} · แก้สถานะที่ docs/PLAN_STATUS.json</div>
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+  <div class="bg-white rounded-xl shadow p-4">
+    <div class="text-sm text-slate-500">ความคืบหน้ารวม</div>
+    <div class="text-3xl font-bold font-mono text-emerald-700">{{ pct }}%</div>
+    <div class="w-full bg-slate-200 rounded-full h-3 mt-2">
+      <div class="bg-emerald-500 h-3 rounded-full" style="width: {{ pct }}%"></div>
+    </div>
+  </div>
+  <div class="bg-white rounded-xl shadow p-4">
+    <div class="text-sm text-slate-500">ทำแล้ว / ทั้งหมด</div>
+    <div class="text-3xl font-bold font-mono">{{ done_days }} <span class="text-base text-slate-400">/ {{ total_days }} วันทำ</span></div>
+    <div class="text-xs text-slate-500 mt-1">{{ n_done }} จาก {{ n_tasks }} งาน</div>
+  </div>
+  <div class="bg-white rounded-xl shadow p-4">
+    <div class="text-sm text-slate-500">เหลืออีกประมาณ</div>
+    <div class="text-3xl font-bold font-mono text-sky-700">{{ remain_days }} <span class="text-base text-slate-400">วันทำ</span></div>
+    <div class="text-xs text-slate-500 mt-1">≈ {{ remain_weeks }} สัปดาห์ปฏิทิน (ทำ 3-4 งาน/เซสชันแบบที่ผ่านมา)</div>
+  </div>
+</div>
+
+<div class="space-y-4 mb-8">
+  {% for ph in phases %}
+  <div class="bg-white rounded-xl shadow">
+    <div class="px-4 py-2.5 flex items-center gap-3 border-b bg-slate-50 rounded-t-xl">
+      <span class="font-bold">เฟส {{ ph.code }} — {{ ph.name }}</span>
+      <div class="w-40 bg-slate-200 rounded-full h-2.5">
+        <div class="bg-emerald-500 h-2.5 rounded-full" style="width: {{ ph.pct }}%"></div>
+      </div>
+      <span class="text-sm font-mono">{{ ph.pct }}%</span>
+      <span class="ml-auto text-xs text-slate-500">{{ ph.done_days }}/{{ ph.days }} วัน</span>
+    </div>
+    <table class="w-full text-sm">
+      <tbody class="divide-y">
+      {% for t in ph.tasks %}
+        <tr class="{% if t.status == 'done' %}bg-emerald-50/50{% elif t.status == 'doing' %}bg-amber-50{% endif %}">
+          <td class="px-4 py-1.5 w-14 font-mono font-bold">{{ t.id }}</td>
+          <td>{{ t.name }}</td>
+          <td class="w-20 text-right font-mono text-slate-500">{{ t.days }} วัน</td>
+          <td class="w-28 text-center">
+            {% if t.status == 'done' %}<span class="text-emerald-600 font-semibold">✅ เสร็จ</span>
+            {% elif t.status == 'doing' %}<span class="text-amber-600 font-semibold">🔨 กำลังทำ</span>
+            {% else %}<span class="text-slate-400">รอคิว</span>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endfor %}
+</div>
+
+<details class="bg-white rounded-xl shadow mb-4">
+  <summary class="px-4 py-3 cursor-pointer font-semibold">📖 แผนแม่บทฉบับเต็ม (MASTER_PLAN_2026-07.md)</summary>
+  <div class="p-5 prose prose-sm max-w-none border-t" id="md-plan"></div>
+</details>
+<details class="bg-white rounded-xl shadow">
+  <summary class="px-4 py-3 cursor-pointer font-semibold">📐 สเปคลงมือรายงาน (MVP_TASK_SPECS.md)</summary>
+  <div class="p-5 prose prose-sm max-w-none border-t" id="md-specs"></div>
+</details>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script id="raw-plan" type="text/plain">{{ md_plan }}</script>
+<script id="raw-specs" type="text/plain">{{ md_specs }}</script>
+<script>
+  document.getElementById("md-plan").innerHTML = marked.parse(document.getElementById("raw-plan").textContent);
+  document.getElementById("md-specs").innerHTML = marked.parse(document.getElementById("raw-specs").textContent);
+  /* ตารางใน markdown ให้เลื่อนแนวนอนได้บนจอเล็ก */
+  document.querySelectorAll("#md-plan table, #md-specs table").forEach(t => {
+    t.classList.add("text-xs"); t.style.display = "block"; t.style.overflowX = "auto";
+  });
+</script>
+{% endblock %}

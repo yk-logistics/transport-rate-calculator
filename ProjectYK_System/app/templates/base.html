@@ -143,6 +143,7 @@
           <div class="yk-menu-panel hidden absolute right-0 mt-1 z-50 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 py-1 min-w-[180px]">
             {% if can_see(request, "/import") %}<a href="/import" class="block px-4 py-2 hover:bg-slate-100">⬆ Import</a>{% endif %}
             {% if can_see(request, "/admin/users") %}<a href="/admin/users" class="block px-4 py-2 hover:bg-slate-100">👤 ผู้ใช้</a>{% endif %}
+            {% if can_see(request, "/admin/users") %}<a href="/admin/plan" class="block px-4 py-2 hover:bg-slate-100">🗺️ แผนงาน MVP</a>{% endif %}
             <a href="/logout" class="block px-4 py-2 hover:bg-slate-100 text-rose-600">ออกจากระบบ</a>
           </div>
         </div>

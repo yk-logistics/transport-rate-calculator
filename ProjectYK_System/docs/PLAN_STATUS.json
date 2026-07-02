@@ -1,0 +1,59 @@
+{
+  "updated": "2026-07-03",
+  "note": "อัปเดตไฟล์นี้ทุกครั้งที่งานเปลี่ยนสถานะ (pending → doing → done) — หน้า /admin/plan อ่านไฟล์นี้",
+  "phases": [
+    {"code": "A", "name": "ปิดวงเงิน", "tasks": [
+      {"id": "A1", "name": "ลง KB 23 แถว CY (ทาง B + กติกาคนขับจากราคาคีย์)", "days": 1, "status": "done"},
+      {"id": "A2", "name": "ใบเสร็จ + ใบหัก ณ ที่จ่าย จากหน้า KB", "days": 1, "status": "pending"},
+      {"id": "A3", "name": "ติ๊กรับเงิน AR sync กลับ Google Sheet", "days": 0.5, "status": "pending"},
+      {"id": "A4", "name": "ปิดรอบ มิ.ย. 3 ไซท์ (finalize)", "days": 0.5, "status": "done"},
+      {"id": "A5", "name": "ทบทวนสลิป 3 มุม + หน้าโอนเงิน + ลดปุ่มปริ้น + แก้เลขบัญชี", "days": 1, "status": "pending"}
+    ]},
+    {"code": "B", "name": "รับงาน: ราคา + ปฏิทินรถ", "tasks": [
+      {"id": "B1", "name": "ย้ายเครื่องคิดเรทเข้า /quote", "days": 1, "status": "pending"},
+      {"id": "B2", "name": "เซฟใบเสนอราคา (Quotation)", "days": 1, "status": "pending"},
+      {"id": "B3", "name": "ราคาไหลเข้าเดลี่/บิล", "days": 1, "status": "pending"},
+      {"id": "B4", "name": "ปฏิทินกำลังรถ /calendar + บันทึกลา", "days": 1.5, "status": "pending"}
+    ]},
+    {"code": "C", "name": "วางบิลอัตโนมัติ + ตกหล่น", "tasks": [
+      {"id": "C1", "name": "เช็คความครบก่อนวางบิล", "days": 0.5, "status": "pending"},
+      {"id": "C2", "name": "ออกใบวางบิลจากระบบ (ลูกค้าประจำ 10 ราย)", "days": 2, "status": "pending"},
+      {"id": "C3", "name": "Oatside เข้าระบบ (อัปโหลด GPS → ยอดวางบิล)", "days": 1, "status": "pending"},
+      {"id": "C4", "name": "ระบบค่าเที่ยวตกหล่น/จ่ายตามหลัง", "days": 1, "status": "pending"}
+    ]},
+    {"code": "D", "name": "มุมมองผู้บริหาร", "tasks": [
+      {"id": "D1", "name": "เติมราคาเดลี่ครบทุกไซท์ (งานข้อมูล)", "days": 1, "status": "pending"},
+      {"id": "D2", "name": "เงินหมุน/งบดุลย่อ 8 สัปดาห์ล่วงหน้า", "days": 1.5, "status": "pending"},
+      {"id": "D3", "name": "ต้นทุน/กำไรต่อคัน", "days": 1, "status": "pending"}
+    ]},
+    {"code": "F", "name": "LINE เข้าระบบ", "tasks": [
+      {"id": "F1", "name": "หน้า /line ค้นแชท+รูปย้อนหลังทุกกลุ่ม", "days": 1, "status": "pending"},
+      {"id": "F2", "name": "กล่องงานเข้าจากกลุ่มลูกค้า", "days": 1, "status": "pending"},
+      {"id": "F3", "name": "ชุดหลักฐานวางบิล (รูปผูกเดลี่)", "days": 1.5, "status": "pending"},
+      {"id": "F4", "name": "น้ำมันจากไลน์เทียบระบบ", "days": 1, "status": "pending"},
+      {"id": "F5", "name": "สรุปเช้ารายกลุ่ม", "days": 0.5, "status": "pending"}
+    ]},
+    {"code": "P", "name": "แพลตฟอร์มใช้งาน", "tasks": [
+      {"id": "P1", "name": "สิทธิ์ละเอียดรายชิ้นส่วน โอปรับเองได้", "days": 1.5, "status": "pending"},
+      {"id": "P2", "name": "ประวัติใครทำอะไร (audit) + คลิกขวาดูประวัติช่อง", "days": 1.5, "status": "pending"},
+      {"id": "P3", "name": "เมนูคลิกขวาทั้งระบบ (framework)", "days": 1, "status": "pending"},
+      {"id": "P4", "name": "หน้า /plan โชว์แผน+progress ในระบบ", "days": 0.5, "status": "done"},
+      {"id": "P5", "name": "จัดระเบียบเมนู/หน้าเว็บใหม่ทั้งระบบ (หมวดหมู่ชัด)", "days": 1, "status": "pending"}
+    ]},
+    {"code": "G", "name": "ดูแลเครื่อง", "tasks": [
+      {"id": "G1", "name": "การ์ดสุขภาพเครื่อง + เตือนพื้นที่", "days": 0.5, "status": "pending"},
+      {"id": "G2", "name": "ย้ายรูปเก่าลง External (ปุ่มเดียว+ตรวจก่อนลบ)", "days": 1, "status": "pending"}
+    ]},
+    {"code": "S", "name": "ความปลอดภัย", "tasks": [
+      {"id": "S1", "name": "สำรอง 3 ชั้น (คืนละครั้ง→Drive ฟรี + External รายสัปดาห์)", "days": 1, "status": "pending"},
+      {"id": "S2", "name": "audit จุดเงินครบ + เช็ค upload/ไฟล์", "days": 0.5, "status": "pending"},
+      {"id": "S3", "name": "จัดระเบียบรหัสลับ + rotate token", "days": 0.5, "status": "pending"},
+      {"id": "S4", "name": "เอกสารความปลอดภัยสำหรับทีม", "days": 0.25, "status": "pending"},
+      {"id": "S5", "name": "checklist ตรวจเจาะรายไตรมาส", "days": 0.25, "status": "pending"}
+    ]},
+    {"code": "E", "name": "สนาม (PWA คนขับ)", "tasks": [
+      {"id": "E1", "name": "เช็คอิน 3 จุด + รูปตู้ 4 ด้าน + ปิดงาน + ฟอร์มแทนไลน์รก", "days": 1.5, "status": "pending"},
+      {"id": "E2", "name": "รายงานน้ำมันผิดปกติอัตโนมัติ", "days": 0.5, "status": "pending"}
+    ]}
+  ]
+}
