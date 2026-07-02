@@ -8148,9 +8148,120 @@ def quote_calculator():
 
 
 _OATSIDE_REPORT_DIRS = (
-    _APP_DIR_SELF / "oatside_report",  # server (vendored)
+    _APP_DIR_SELF / "oatside" / "TransportRateCalculator" / "reports" / "oatside-apr2026",  # build ล่าสุดจากระบบ (C3)
+    _APP_DIR_SELF / "oatside_report",  # สำเนารายงานเดิม (ก่อนมี C3)
     _APP_DIR_SELF.parents[1] / "transport-rate-calculator-repo" / "reports" / "oatside-pg-2026",  # dev (ราก repo)
 )
+
+
+@app.get("/oatside", response_class=HTMLResponse)
+def oatside_page(request: Request):
+    """ศูนย์ Oatside (C3): อัปโหลดไฟล์ GPS 2 ไฟล์ → คำนวณใหม่ → ดูรายงาน/โหลด Excel."""
+    from services import oatside_runner as orun
+
+    ctx = base_context(request)
+    ctx.update({
+        "lb": orun.last_build(),
+        "has_report": _first_existing(*_OATSIDE_REPORT_DIRS) is not None,
+        "has_xlsx": orun.XLSX_OUT.exists(),
+    })
+    return templates.TemplateResponse("oatside.html", ctx)
+
+
+@app.post("/oatside/run")
+async def oatside_run(request: Request):
+    """รับไฟล์ GPS ต้นทาง (Oatside) + ปลายทาง (P&G) → รัน engine (นาที-สองนาที)."""
+    from datetime import datetime as _dt
+
+    from services import oatside_runner as orun
+
+    form = await request.form()
+    fo, fd = form.get("origin_file"), form.get("dest_file")
+    if not (getattr(fo, "filename", "") and getattr(fd, "filename", "")):
+        return RedirectResponse("/oatside?err=ต้องเลือกไฟล์ครบทั้ง 2 ไฟล์", status_code=303)
+    updir = orun.UPLOADS / _dt.now().strftime("%Y%m%d-%H%M%S")
+    updir.mkdir(parents=True, exist_ok=True)
+    po = updir / Path(fo.filename).name
+    pd_ = updir / Path(fd.filename).name
+    po.write_bytes(await fo.read())
+    pd_.write_bytes(await fd.read())
+    orun.run_build(po, pd_)
+    return RedirectResponse("/oatside", status_code=303)
+
+
+@app.get("/oatside/xlsx")
+def oatside_xlsx():
+    from services import oatside_runner as orun
+
+    if not orun.XLSX_OUT.exists():
+        raise HTTPException(404, "ยังไม่เคยคำนวณ")
+    return FileResponse(orun.XLSX_OUT, filename=orun.XLSX_OUT.name)
+
+
+@app.get("/oatside/settings", response_class=HTMLResponse)
+def oatside_settings(request: Request, err: str = "", ok: str = ""):
+    """C5: โอแก้เงื่อนไขทุกอย่างเอง — เขียนกลับ JSON เดิม (สำรองก่อนทุกครั้ง)."""
+    from services import oatside_runner as orun
+
+    cfg = orun.load_json(orun.CONFIG)
+    ovr = orun.load_json(orun.OVERRIDES)
+    sections = []
+    for name, spec in orun.SECTIONS.items():
+        data = (ovr if spec["file"] == "overrides" else cfg).get(spec["key"], [])
+        sections.append({"name": name, "title": spec["title"], "fields": spec["fields"],
+                         "labels": spec["labels"], "rows": data})
+    ctx = base_context(request)
+    ctx.update({
+        "sections": sections, "general_fields": orun.GENERAL_FIELDS, "cfg": cfg,
+        "raw_config": json.dumps(cfg, ensure_ascii=False, indent=2),
+        "raw_overrides": json.dumps(ovr, ensure_ascii=False, indent=2),
+        "err": err, "ok": ok,
+    })
+    return templates.TemplateResponse("oatside_settings.html", ctx)
+
+
+@app.post("/oatside/settings/{section}")
+async def oatside_settings_save(section: str, request: Request):
+    from urllib.parse import quote as _q
+
+    from services import oatside_runner as orun
+
+    form = await request.form()
+    try:
+        if section == "general":
+            cfg = orun.load_json(orun.CONFIG)
+            for f, kind, _lab in orun.GENERAL_FIELDS:
+                v = (form.get(f) or "").strip()
+                if kind == "bool":
+                    cfg[f] = form.get(f) == "on"
+                elif v == "":
+                    continue
+                elif kind == "num":
+                    cfg[f] = int(float(v)) if float(v) == int(float(v)) else float(v)
+                else:
+                    if not orun._DATE_RE.match(v):
+                        raise ValueError(f"{f}: ต้องเป็น ปปปป-ดด-วว")
+                    cfg[f] = v
+            bak = orun.save_json(orun.CONFIG, cfg)
+        elif section == "raw":
+            which = form.get("which")
+            data = json.loads(form.get("json_text") or "")  # validate ก่อนเขียน
+            target = orun.OVERRIDES if which == "overrides" else orun.CONFIG
+            bak = orun.save_json(target, data)
+        elif section in orun.SECTIONS:
+            rows, perr = orun.parse_section_rows(form, section)
+            if perr:
+                raise ValueError(perr)
+            spec = orun.SECTIONS[section]
+            target = orun.OVERRIDES if spec["file"] == "overrides" else orun.CONFIG
+            data = orun.load_json(target)
+            data[spec["key"]] = rows
+            bak = orun.save_json(target, data)
+        else:
+            raise HTTPException(404)
+        return RedirectResponse(f"/oatside/settings?ok={_q('บันทึกแล้ว (สำรองเดิมไว้ที่ ' + bak + ') — กด คำนวณใหม่ เพื่อให้มีผล')}", status_code=303)
+    except (ValueError, json.JSONDecodeError) as e:
+        return RedirectResponse(f"/oatside/settings?err={_q(str(e))}", status_code=303)
 
 
 @app.get("/oatside/report")

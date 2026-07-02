@@ -123,7 +123,7 @@
             {% if can_see(request, "/finance") %}<a href="/finance/receivables" class="block px-4 py-2 hover:bg-slate-100">💵 รอรับเงินลูกค้า</a>{% endif %}
             {% if can_see(request, "/kb-payout") %}<a href="/kb-payout" class="block px-4 py-2 hover:bg-slate-100">🤝 KB เจ้าของงาน</a>{% endif %}
             {% if can_see(request, "/quote") %}<a href="/quote" class="block px-4 py-2 hover:bg-slate-100">🧮 เครื่องคิดราคา</a>{% endif %}
-            {% if can_see(request, "/oatside/report") %}<a href="/oatside/report" class="block px-4 py-2 hover:bg-slate-100">🚚 รายงาน Oatside</a>{% endif %}
+            {% if can_see(request, "/oatside") %}<a href="/oatside" class="block px-4 py-2 hover:bg-slate-100">🚚 Oatside (คำนวณ/รายงาน)</a>{% endif %}
             <a href="/deposits" class="block px-4 py-2 hover:bg-slate-100">🔒 เงินประกันตน</a>
           </div>
         </div>

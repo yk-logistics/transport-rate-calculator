@@ -1,0 +1,421 @@
+{
+  "version": 1,
+  "_help": "แก้ไฟล์นี้เพื่อเปลี่ยนกฎการคิดเงิน แล้วรัน build_oatside_reports.py ใหม่",
+  "trip_rates": [
+    {
+      "_note": "May 2026: base 6,400 ที่ช่วงน้ำมัน 31.00-31.99 และผันแปร 1.5% ต่อ 1 บาท (linear จาก base)",
+      "from": "2026-05-01",
+      "to": "2026-05-31",
+      "rate_baht": 6400,
+      "base_fuel_min": 31.0,
+      "base_fuel_max": 31.99,
+      "step_pct_per_baht": 1.5
+    },
+    {
+      "_note": "April high window: base 8,000 ที่ช่วงน้ำมัน 50.00-50.99",
+      "from": "2026-04-12",
+      "to": "2026-04-15",
+      "rate_baht": 8000,
+      "base_fuel_min": 50.0,
+      "base_fuel_max": 50.99,
+      "step_pct_per_baht": 1.5,
+      "floor_rate_baht": 6500
+    },
+    {
+      "_note": "April normal window: base 7,500 ที่ช่วงน้ำมัน 50.00-50.99",
+      "from": "2026-04-01",
+      "to": "2026-04-30",
+      "rate_baht": 7500,
+      "base_fuel_min": 50.0,
+      "base_fuel_max": 50.99,
+      "step_pct_per_baht": 1.5,
+      "floor_rate_baht": 6500
+    },
+    {
+      "_note": "fallback",
+      "rate_baht": 7500,
+      "base_fuel_min": 50.0,
+      "base_fuel_max": 50.99,
+      "step_pct_per_baht": 1.5
+    }
+  ],
+  "one_trip_surcharge_pct": 50,
+  "min_trips_per_truck_per_day": 2,
+  "max_travel_h": 48,
+  "max_origin_chain_gap_h": 3,
+  "_note_max_origin_chain_gap_h": "hours: max gap Origin_Out(prev)->Origin_In(next) for chain-merge; larger gap = new hub visit (see ProjectYK_System/TransportRateCalculator/docs/OATSIDE_ORIGIN_CHAIN_MERGE_FIX.md)",
+  "use_origin_24h_fifty": true,
+  "customer_no_work": [
+    {
+      "from": "2026-04-23",
+      "to": "2026-04-24",
+      "note": "customer no-work"
+    },
+    {
+      "from": "2026-04-27",
+      "to": "2026-04-28",
+      "note": "customer no-work"
+    }
+  ],
+  "manual_extra_trips": [],
+  "_note_manual_extra_trips": "เที่ยวที่ลูกค้าตกลงเก็บแต่ไม่มีในไฟล์ GPS — ลบ array ได้ถ้าไม่ใช้",
+  "remove_matched_trips": [
+    {
+      "dest_date": "2026-05-20",
+      "plate": "71-8005",
+      "count": 1,
+      "note": "เที่ยวว่าง(ตีเปล่า)ไป P&G ที่ GPS นับเป็นเที่ยวเต็ม → ตัดออกจาก base 1 เที่ยว แล้วลงเป็น manual ตีเปล่า50%+ขากลับ50% (ต้องคู่ exclude_50 ใน oatside_billing_overrides.json กัน +50% ลั่น)"
+    },
+    {
+      "dest_date": "2026-05-28",
+      "plate": "71-8009",
+      "count": 1,
+      "note": "รถไม่ได้วิ่งจริง (โอยืนยัน 2026-06-10) — GPS จับเป็นเที่ยว ABNORMAL (Origin 02:47-06:27, Dest 20:04-21:37) → ตัดออกทั้งเที่ยว ไม่คิดเงิน (คู่ exclude_50 กัน no_finish 100% ลั่น)"
+    }
+  ],
+  "_note_remove_matched_trips": "ตัดเที่ยว matched ท้ายสุดของวันออกจาก base (เที่ยวว่าง/ตีเปล่า GPS นับเต็ม) — รวมยอดเท่าเดิมเพราะ base ที่หาย = ตีเปล่า+ขากลับ manual; ต้องเพิ่ม exclude_50 override คู่กันเสมอ",
+  "manual_return_trips": [
+    {
+      "dest_date": "2026-04-22",
+      "plate": "72-1217",
+      "percent_of_trip_rate": 50,
+      "note": "ค่าขนส่งงานขากลับ 50% ของราคาเที่ยวหลัก"
+    },
+    {
+      "dest_date": "2026-05-01",
+      "plate": "71-5042",
+      "amount_baht": 3632,
+      "kind": "deadhead",
+      "note": "ตีเปล่าไป P&G 50%"
+    },
+    {
+      "dest_date": "2026-05-10",
+      "plate": "71-8009",
+      "amount_baht": 3584,
+      "note": "BH ขากลับ P&G>บ้านบึง 50%"
+    },
+    {
+      "dest_date": "2026-05-11",
+      "plate": "71-8009",
+      "amount_baht": 3584,
+      "note": "BH ขากลับ P&G>บ้านบึง 50%"
+    },
+    {
+      "dest_date": "2026-05-20",
+      "plate": "71-8002",
+      "amount_baht": 3728,
+      "note": "BH ขากลับ P&G>บ้านบึง 50%"
+    },
+    {
+      "dest_date": "2026-05-20",
+      "plate": "71-8005",
+      "amount_baht": 3728,
+      "kind": "deadhead",
+      "note": "ตีเปล่าไป P&G 50% (เที่ยวว่าง GPS นับเต็ม → ตัด base 1 เที่ยว แตกเป็นตีเปล่า+ขากลับ)"
+    },
+    {
+      "dest_date": "2026-05-20",
+      "plate": "71-8005",
+      "amount_baht": 3728,
+      "note": "BH ขากลับ P&G>บ้านบึง 50% (เที่ยวว่าง GPS นับเต็ม → ตัด base 1 เที่ยว แตกเป็นตีเปล่า+ขากลับ)"
+    },
+    {
+      "dest_date": "2026-05-20",
+      "plate": "71-8009",
+      "amount_baht": 3728,
+      "note": "BH ขากลับ P&G>บ้านบึง 50%"
+    },
+    {
+      "dest_date": "2026-05-20",
+      "plate": "71-8001",
+      "amount_baht": 3728,
+      "kind": "deadhead",
+      "note": "ตีเปล่าไป P&G 50% (วันผสม 2BH+ตีเปล่า, base บิล 1 เที่ยว)"
+    },
+    {
+      "dest_date": "2026-05-21",
+      "plate": "71-8001",
+      "amount_baht": 3728,
+      "note": "BH ขากลับ P&G>บ้านบึง 50%"
+    },
+    {
+      "dest_date": "2026-05-22",
+      "plate": "71-8009",
+      "amount_baht": 3728,
+      "note": "BH ขากลับ P&G>บ้านบึง 50%"
+    }
+  ],
+  "diesel_price_history": [
+    {
+      "date": "2026-01-09",
+      "price": 29.94,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-02-18",
+      "price": 29.94,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-03-10",
+      "price": 29.94,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-03-18",
+      "price": 30.44,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-03-21",
+      "price": 31.14,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-03-24",
+      "price": 32.94,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-03-26",
+      "price": 38.94,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-03-31",
+      "price": 40.74,
+      "source": "user-provided historical table (Bangchak ไฮดีเซล S, BE 2569)"
+    },
+    {
+      "date": "2026-04-01",
+      "price": 40.74,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-02",
+      "price": 44.24,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-03",
+      "price": 47.74,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-04",
+      "price": 47.74,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-05",
+      "price": 50.54,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-06",
+      "price": 50.54,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-07",
+      "price": 50.54,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-08",
+      "price": 50.54,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-09",
+      "price": 48.4,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-10",
+      "price": 48.4,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-11",
+      "price": 44.4,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-12",
+      "price": 44.4,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-13",
+      "price": 44.4,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-14",
+      "price": 44.4,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-15",
+      "price": 44.4,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-16",
+      "price": 44.4,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-17",
+      "price": 42.9,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-18",
+      "price": 42.9,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-19",
+      "price": 42.9,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-20",
+      "price": 42.9,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-21",
+      "price": 41.7,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-22",
+      "price": 41.7,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-23",
+      "price": 41.7,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-24",
+      "price": 40.2,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-25",
+      "price": 40.2,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-26",
+      "price": 40.2,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-27",
+      "price": 40.2,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-28",
+      "price": 40.2,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-29",
+      "price": 40.2,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-04-30",
+      "price": 40.2,
+      "source": "user-provided daily fuel rate table Apr 2026"
+    },
+    {
+      "date": "2026-05-01",
+      "price": 40.8,
+      "source": "Bangchak ไฮดีเซล S คอลัมน์ที่ 2 (26.05.2026)"
+    },
+    {
+      "date": "2026-05-08",
+      "price": 39.95,
+      "source": "Bangchak ไฮดีเซล S คอลัมน์ที่ 2 (26.05.2026)"
+    },
+    {
+      "date": "2026-05-13",
+      "price": 40.75,
+      "source": "Bangchak ไฮดีเซล S คอลัมน์ที่ 2 (26.05.2026)"
+    },
+    {
+      "date": "2026-05-14",
+      "price": 41.45,
+      "source": "Bangchak ไฮดีเซล S คอลัมน์ที่ 2 (26.05.2026)"
+    },
+    {
+      "date": "2026-05-19",
+      "price": 42.2,
+      "source": "Bangchak ไฮดีเซล S คอลัมน์ที่ 2 (26.05.2026)"
+    },
+    {
+      "date": "2026-05-20",
+      "price": 42.2,
+      "source": "Bangchak ไฮดีเซล S คอลัมน์ที่ 2 (26.05.2026)"
+    },
+    {
+      "date": "2026-05-26",
+      "price": 41.2,
+      "source": "Bangchak ไฮดีเซล S คอลัมน์ที่ 2 (26.05.2026)"
+    },
+    {
+      "date": "2026-05-29",
+      "price": 41.2,
+      "source": "Bangchak ไฮดีเซล S คอลัมน์ที่ 2 (04.06.2026)"
+    },
+    {
+      "date": "2026-05-30",
+      "price": 40.7,
+      "source": "Bangchak ไฮดีเซล S คอลัมน์ที่ 2 (04.06.2026)"
+    }
+  ],
+  "_note_diesel_price_history": "ราคาน้ำมันรายวัน (ไฮดีเซล) สำหรับคำนวณเรทตามวันที่วิ่ง; เติมจากข้อมูลย้อนหลังที่ผู้ใช้ให้",
+  "report_end_date": "2026-05-31",
+  "report_start_date": "2026-05-01",
+  "_note_report_date_range": "ช่วงรายงาน (trip_date): null = ทั้งหมด; ปัจจุบัน พ.ค. 2569",
+  "customer_rate_summary": "พ.ค. 2569: ฐาน 6,400 บาท (แถบน้ำมัน 31.00–31.99 บ./ล.) ปรับ +1.5% ต่อ 1 บาท (linear จากฐาน) อ้างอิงบางจาก ไฮดีเซล S (คอลัมน์ที่ 2)",
+  "_billing_locked_april_2026": {
+    "note": "วางบิลเม.ย. 2569 เรียบร้อย — เก็บอ้างอิงภายใน ไม่แสดงบนหน้ารายงานลูกค้า",
+    "report_window": {
+      "from": "2026-04-01",
+      "to": "2026-04-30"
+    },
+    "diesel_note": "ใช้ราคาจากคอลัมน์ที่ 2 ของตารางบางจาก (~40–50 บ./ล.) ตาม diesel_price_history เดิม",
+    "trip_rates": [
+      {
+        "_note": "April high window: base 8,000 ที่ช่วงน้ำมัน 50.00-50.99",
+        "from": "2026-04-12",
+        "to": "2026-04-15",
+        "rate_baht": 8000,
+        "base_fuel_min": 50.0,
+        "base_fuel_max": 50.99,
+        "step_pct_per_baht": 1.5,
+        "floor_rate_baht": 6500
+      },
+      {
+        "_note": "April normal window: base 7,500 ที่ช่วงน้ำมัน 50.00-50.99",
+        "from": "2026-04-01",
+        "to": "2026-04-30",
+        "rate_baht": 7500,
+        "base_fuel_min": 50.0,
+        "base_fuel_max": 50.99,
+        "step_pct_per_baht": 1.5,
+        "floor_rate_baht": 6500
+      }
+    ],
+    "summary": "ฐาน 7,500 บาท (12–15 เม.ย. 8,000) แถบน้ำมัน 50.00–50.99 บ./ล. ปรับ ±1.5%/บาท ไม่ต่ำกว่า 6,500"
+  }
+}

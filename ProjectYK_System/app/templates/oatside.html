@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Oatside — คำนวณเที่ยว/วางบิล{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+    <h1 class="text-2xl font-bold">🚚 Oatside / P&G — คำนวณจากไฟล์ GPS</h1>
+    <div class="flex gap-2 text-sm">
+      {% if has_report %}<a href="/oatside/report" class="bg-slate-800 text-white px-3 py-1.5 rounded-lg">📖 ดูรายงาน</a>{% endif %}
+      {% if has_xlsx %}<a href="/oatside/xlsx" class="border px-3 py-1.5 rounded-lg bg-white">⬇ Excel สรุป</a>{% endif %}
+      <a href="/oatside/settings" class="border px-3 py-1.5 rounded-lg bg-white">⚙️ แก้เงื่อนไขเอง</a>
+    </div>
+  </div>
+
+  {% if request.query_params.get('err') %}
+  <div class="bg-rose-50 border border-rose-200 text-rose-700 rounded p-3 mb-4 text-sm">⚠️ {{ request.query_params.get('err') }}</div>
+  {% endif %}
+
+  <form method="post" action="/oatside/run" enctype="multipart/form-data"
+        class="bg-white rounded-2xl shadow p-5 mb-5"
+        onsubmit="document.getElementById('runbtn').innerText='⏳ กำลังคำนวณ... (1-2 นาที อย่าปิดหน้า)'; document.getElementById('runbtn').disabled=true;">
+    <div class="font-semibold mb-3">คำนวณรอบใหม่ — อัปโหลดไฟล์ "รายงานการผ่านจุด" 2 ไฟล์จากเว็บ GPS</div>
+    <div class="grid sm:grid-cols-2 gap-4">
+      <label class="block">
+        <div class="text-sm text-slate-600 mb-1">① ไฟล์ฝั่ง <b>Oatside</b> (ต้นทาง)</div>
+        <input type="file" name="origin_file" accept=".xlsx" required class="w-full border rounded-lg p-2 text-sm bg-slate-50">
+      </label>
+      <label class="block">
+        <div class="text-sm text-slate-600 mb-1">② ไฟล์ฝั่ง <b>P&G</b> (ปลายทาง)</div>
+        <input type="file" name="dest_file" accept=".xlsx" required class="w-full border rounded-lg p-2 text-sm bg-slate-50">
+      </label>
+    </div>
+    <button id="runbtn" class="mt-4 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl font-bold">🚀 คำนวณใหม่</button>
+    <div class="text-xs text-slate-400 mt-2">ใช้เงื่อนไขปัจจุบันจากหน้า "แก้เงื่อนไขเอง" — ผลลัพธ์ทับรายงานเดิม (มี Excel เดิมโหลดเก็บได้ก่อน)</div>
+  </form>
+
+  {% if lb %}
+  <div class="bg-white rounded-2xl shadow p-5">
+    <div class="font-semibold mb-2">รอบคำนวณล่าสุด
+      {% if lb.ok %}<span class="text-emerald-600">✅ สำเร็จ</span>{% else %}<span class="text-rose-600">❌ ไม่สำเร็จ</span>{% endif %}
+      <span class="text-sm text-slate-400 font-normal">· {{ lb.at }}</span>
+    </div>
+    <div class="text-sm text-slate-600">ไฟล์: {{ lb.origin }} + {{ lb.dest }}</div>
+    <details class="mt-2"><summary class="text-sm text-slate-500 cursor-pointer">ดูรายละเอียดผลรัน</summary>
+      <pre class="text-xs bg-slate-50 rounded p-3 mt-2 overflow-x-auto whitespace-pre-wrap">{{ lb.log }}</pre>
+    </details>
+  </div>
+  {% else %}
+  <div class="text-sm text-slate-400">ยังไม่เคยคำนวณจากระบบ — รายงานที่เห็นตอนนี้คือชุดล่าสุดจากเครื่องเดิม</div>
+  {% endif %}
+</div>
+{% endblock %}

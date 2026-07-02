@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "dest_date": "2026-05-20",
+      "plate": "71-8005",
+      "action": "exclude_50",
+      "note": "ตัด 1 เที่ยวว่าง(ตีเปล่า)ออกจาก base แล้ว → เหลือ 1 เที่ยว แต่ไม่เก็บ +50% (วันนั้นวิ่งจริง 2 เที่ยว) — คู่กับ remove_matched_trips ใน oatside_config.json"
+    },
+    {
+      "dest_date": "2026-05-28",
+      "plate": "71-8009",
+      "action": "exclude_50",
+      "note": "รถไม่ได้วิ่งจริง — ตัดเที่ยวเดียวของวันออกจาก base แล้ว เหลือ 0 เที่ยว แต่ GPS เห็นรถที่โรงงาน → กัน no_finish 100% ลั่น (คู่กับ remove_matched_trips ใน oatside_config.json)"
+    }
+  ]
+}

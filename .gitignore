@@ -149,3 +149,9 @@ ProjectYK_System/app/_pdf_tmp/
 # done-alarm runtime state
 ProjectYK_System/tools/done-alarm/enabled.flag
 ProjectYK_System/tools/_kb_payout_cache/
+# Oatside runtime outputs (ใน app — สร้างใหม่ได้เสมอ)
+ProjectYK_System/app/oatside/uploads/
+ProjectYK_System/app/oatside/TransportRateCalculator/
+ProjectYK_System/app/oatside/Oatside_PG_Trip_Summary_By_Site.xlsx
+ProjectYK_System/app/oatside/_last_build.json
+ProjectYK_System/app/oatside/*.bak-*
