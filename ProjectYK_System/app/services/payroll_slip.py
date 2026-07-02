@@ -195,25 +195,38 @@ def slip_route_remark(r) -> str:
 _MAO_RATIO, _MAO_TOL, _TRIP_MAX = 0.60, 0.05, 0.15
 
 
-def slip_trip_fee_display(r, share_rate: float = _MAO_RATIO) -> float:
+def slip_trip_fee_display(r, share_rate: float = _MAO_RATIO, pay_mode: str | None = None) -> float:
     """ค่าเที่ยวต่อบรรทัดที่ "โชว์บนสลิป" (≠ ค่าที่เก็บใน DailyJob.trip_fee_driver).
 
     ปัญหา: importer ลง trip_fee_driver ของแถวเหมา = ค่าขนส่ง 'เต็ม'×60% (ยังไม่หัก KB)
-    แต่ engine จ่ายจริง = Σtfd − Σ(KB×share) [หัก KB×0.6 ที่ยอดรวม]. สลิปเดิมโชว์
-    ค่าดิบต่อบรรทัด → บวกมือได้มากกว่ายอดรวม (ต่าง = KB×0.6). แก้ที่ "การแสดงผล":
-    แถวเหมา → โชว์ tfd − KB×share (สูตรเดียวกับ engine ต่อแถว).
+    แต่ engine หัก KB×share ที่ยอดรวม → คนขับบวกมือรายบรรทัดได้มากกว่ายอดรวม.
+    แก้ที่ "การแสดงผล" ให้บรรทัดตรงกับที่ engine จ่ายจริงต่อแถว.
 
-    ห้ามคำนวณใหม่จากค่าขนส่ง×60% — ค่าเที่ยวที่โอแก้มือต่อเที่ยว (เช่น เหมา 55%:
-    ธัชชนพล/เสรี 3753→2064.15, ratio 0.55 ยังชนขอบ tol) ต้องโชว์ตามที่บันทึก
-    ไม่งั้นสลิปโชว์เกินที่จ่ายจริง (โอ 2ก.ค.).
+    dispatch ตามระบบจ่ายของ 'คน' (โอ 2ก.ค.: KB มีผลกับคนเหมาเท่านั้น):
+      lcb_mao   → tfd − KB×share ทุกแถวที่มีค่าเที่ยว (engine _sum_mao_kb_share ไม่มี ratio gate)
+      lcb_mixed → เฉพาะวันเหมา (ratio≈0.60) โชว์ (ค่าขนส่ง−KB)×share ตาม engine ที่
+                  คิดวันเหมาจาก driver_calc_price ; วันเที่ยวคงค่าดิบ (KB ไม่หัก)
+      โหมดอื่น (รายเที่ยว/ayu_mao/office) → tfd ดิบ (engine ไม่หัก KB จากค่าเที่ยว;
+                  ayu_mao จ่าย Σtfd ตรงๆ และค่าแก้มือ 55% เช่น ธัชชนพล/เสรี ต้องคงตามบันทึก)
+      pay_mode=None (ผู้เรียกไม่รู้จักคน) → เดาจาก ratio แบบเดิม: แถว ratio≈0.60 หัก KB×share
 
-    แถวค่าเที่ยว 'เหมาจ่าย' แบบ flat (lcb_trip เช่น 200฿, ratio ไม่ใช่ ~60%) คงค่าเดิม —
-    KB ไม่ลดค่าเหมาจ่าย (โอ 1ก.ค.). ไม่แตะเงินที่จ่าย/หน้าเดลี่.
+    ไม่แตะเงินที่จ่าย/หน้าเดลี่ — display เท่านั้น.
     """
-    rev = r.revenue_customer or 0.0
     tfd = r.trip_fee_driver or 0.0
-    if rev > 0 and abs((tfd / rev) - _MAO_RATIO) <= _MAO_TOL:
-        kb = getattr(r, "kb_amount", 0.0) or 0.0
+    kb = getattr(r, "kb_amount", 0.0) or 0.0
+    if pay_mode == "lcb_mao":
+        return round(tfd - kb * share_rate, 2) if tfd > 0 else tfd
+    rev = r.revenue_customer or 0.0
+    in_tol = rev > 0 and abs((tfd / rev) - _MAO_RATIO) <= _MAO_TOL
+    if pay_mode == "lcb_mixed":
+        if in_tol:
+            from services.payroll import driver_calc_price
+
+            return round(driver_calc_price(r) * share_rate, 2)
+        return tfd
+    if pay_mode is not None:
+        return tfd
+    if in_tol:
         return round(tfd - kb * share_rate, 2)
     return tfd
 
@@ -566,7 +579,8 @@ def build_payroll_slip_context(
         "route_text": delivery_route_text,
         "route_cell": slip_route_cell,      # ช่องส่งสินค้า: route หรือ status (ไม่มี remark)
         "route_remark": slip_route_remark,  # remark ที่ปลอดภัยจะโชว์ (ตัดโน้ตภายใน [...])
-        "trip_fee_show": slip_trip_fee_display,  # ค่าเที่ยวต่อบรรทัด (แถวเหมาหัก KB แล้ว)
+        # ค่าเที่ยวต่อบรรทัด หัก KB ตามระบบจ่ายของคนนี้ (เหมาหัก/รายเที่ยวไม่หัก/ผสมหักวันเหมา)
+        "trip_fee_show": (lambda r, _pm=emp.pay_mode: slip_trip_fee_display(r, pay_mode=_pm)),
         "day_kind": mixed_day_kind,
         "fuel_deduct_dates": fuel_deduct_dates,
         "fuel_excluded_amt": fuel_excluded_amt,

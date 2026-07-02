@@ -67,7 +67,7 @@
             <td class="c-route">{{ route_text(r) or '—' }}{% if r.customer_name_raw %} <span class="wb-muted">· {{ r.customer_name_raw }}</span>{% endif %}</td>
             {%- endif %}
             <td class="num c-trip">
-              <div class="tripv">{%- if k.kind == 'mao' %}{{ '{:,.0f}'.format((r.revenue_customer or 0) * 0.60) }}
+              <div class="tripv">{%- if k.kind == 'mao' %}{{ '{:,.0f}'.format(trip_fee_show(r)) }}
               {%- elif k.kind == 'trip' %}{{ '{:,.0f}'.format(r.trip_fee_driver) if r.trip_fee_driver else '0' }}
               {%- else %}—{% endif %}</div>
             </td>

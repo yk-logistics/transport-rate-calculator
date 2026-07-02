@@ -47,8 +47,24 @@ def client():
         # engine จ่ายตาม tfd ที่บันทึก → สลิปห้ามคำนวณใหม่เป็น 60% (2,252)
         s.add(DailyJob(site_code="LCB", driver_id=60, work_date=date(2026, 6, 3),
                        status_code="KLND", revenue_customer=3753, kb_amount=0, trip_fee_driver=2064.15))
+        # ปกรณ์ (เหมา): แถวค่าเที่ยวเหมาจ่าย 200 แต่มี KB — engine หัก KB ทุกแถวของคนเหมา
+        # (โอ 2ก.ค.: KB มีผลกับคนเหมา) → โชว์ 200−66=134
+        s.add(DailyJob(site_code="LCB", driver_id=60, work_date=date(2026, 6, 4),
+                       status_code="NHL", revenue_customer=2350, kb_amount=110, trip_fee_driver=200))
         # สุวิทย์: NHL มี KB แต่ค่าเที่ยว flat 200 (ไม่ใช่ 60%) → ต้องคงเดิม
         s.add(DailyJob(site_code="LCB", driver_id=61, work_date=date(2026, 6, 1),
+                       status_code="NHL", revenue_customer=2410, kb_amount=110, trip_fee_driver=200))
+        # สุวิทย์ (รายเที่ยว): ค่าเที่ยวบังเอิญ = 60% ของค่าขนส่ง + มี KB — คนรายเที่ยว
+        # KB ไม่แตะค่าเที่ยว (โอ 2ก.ค.) → ต้องโชว์ 3,000 เต็ม ไม่ใช่ 2,820
+        s.add(DailyJob(site_code="LCB", driver_id=61, work_date=date(2026, 6, 2),
+                       status_code="KLND", revenue_customer=5000, kb_amount=300, trip_fee_driver=3000))
+        # คนลูกผสม: วันเหมา (ratio 0.6) มี KB → หัก KB (โอ 2ก.ค.: ช่วงเหมาต้องหัก)
+        # วันเที่ยว (flat 200) มี KB → ไม่หัก
+        s.add(Employee(id=62, code="D62", full_name="นาย ลูกผสม ทดสอบ", pay_mode="lcb_mixed",
+                       home_site_code="LCB", status="active", base_salary=9240, care_allowance=3000))
+        s.add(DailyJob(site_code="LCB", driver_id=62, work_date=date(2026, 6, 1),
+                       status_code="NHL", revenue_customer=2410, kb_amount=110, trip_fee_driver=1446))
+        s.add(DailyJob(site_code="LCB", driver_id=62, work_date=date(2026, 6, 2),
                        status_code="NHL", revenue_customer=2410, kb_amount=110, trip_fee_driver=200))
         s.commit()
         from services.payroll import compute_pay_run
@@ -82,6 +98,29 @@ def test_helper_kb_adjusts_mao_row_not_flat_trip():
     assert slip_trip_fee_display(Row(2410, 110, 1500)) == 1434.0
 
 
+def test_helper_pay_mode_dispatch():
+    """dispatch ตามระบบจ่ายของคน (โอ 2ก.ค.): KB มีผลเฉพาะคนเหมา
+    (lcb_mao ทุกแถว / lcb_mixed เฉพาะวันเหมา) — คนรายเที่ยว/ayu_mao ไม่หัก."""
+    from services.payroll_slip import slip_trip_fee_display
+
+    class Row:
+        def __init__(self, rev, kb, tfd, ovr=None):
+            self.revenue_customer = rev; self.kb_amount = kb
+            self.trip_fee_driver = tfd; self.price_override = ovr
+
+    # lcb_mao: หัก KB×0.6 ทุกแถวที่มีค่าเที่ยว (ตรง engine ที่ไม่มี ratio gate)
+    assert slip_trip_fee_display(Row(2410, 110, 1446), pay_mode="lcb_mao") == 1380.0
+    assert slip_trip_fee_display(Row(2350, 110, 200), pay_mode="lcb_mao") == 134.0
+    assert slip_trip_fee_display(Row(0, 0, 0), pay_mode="lcb_mao") == 0.0
+    # คนรายเที่ยว: ไม่หักเลย แม้ ratio บังเอิญ ~60%
+    assert slip_trip_fee_display(Row(5000, 300, 3000), pay_mode="lcb_trip") == 3000.0
+    # ayu_mao: engine จ่าย tfd ดิบ (AYU ไม่มี KB) → ไม่หัก
+    assert slip_trip_fee_display(Row(3753, 0, 2064.15), pay_mode="ayu_mao") == 2064.15
+    # lcb_mixed: วันเหมา (ratio~0.6) → (ค่าขนส่ง−KB)×0.6 ตาม engine ; วันเที่ยว → ดิบ
+    assert slip_trip_fee_display(Row(2410, 110, 1446), pay_mode="lcb_mixed") == 1380.0
+    assert slip_trip_fee_display(Row(2410, 110, 200), pay_mode="lcb_mixed") == 200.0
+
+
 def test_slip_shows_kb_adjusted_trip_fee(client):
     """สลิป ปกรณ์: โชว์ 1,380 (ไม่ใช่ 1,446) สำหรับแถว NHL ที่มี KB."""
     b = client.get("/payroll/1/employee/60/slip", follow_redirects=True).text
@@ -90,6 +129,7 @@ def test_slip_shows_kb_adjusted_trip_fee(client):
     assert "3,000" in b        # แถวไม่มี KB ไม่เปลี่ยน
     assert "2,064" in b        # เหมา 55% แก้มือ → โชว์ตามที่บันทึก
     assert "2,252" not in b    # ห้ามคำนวณใหม่เป็น 60%
+    assert "134" in b          # แถวเหมาจ่าย 200 ของคนเหมา → หัก KB×0.6 = 134
 
 
 def test_slip_line_sum_matches_paid_total(client):
@@ -97,12 +137,22 @@ def test_slip_line_sum_matches_paid_total(client):
     with Session(engine) as s:
         it = s.exec(select(PayRunItem).where(
             PayRunItem.pay_run_id == 1, PayRunItem.employee_id == 60)).first()
-        # ปกรณ์: 1380 (NHL−KB) + 3000 + 2064.15 (55%) = 6444.15
-        # engine: Σtfd 6510.15 − KB×0.6 (66) = 6444.15
-        assert round(it.fuel_share_income, 2) == 6444.15
+        # ปกรณ์: 1380 (NHL−KB) + 3000 + 2064.15 (55%) + 134 (เหมาจ่าย−KB) = 6578.15
+        # engine: Σtfd 6710.15 − KB×0.6 สองแถว (132) = 6578.15
+        assert round(it.fuel_share_income, 2) == 6578.15
 
 
 def test_flat_trip_fee_untouched_on_slip(client):
-    """สุวิทย์ (lcb_trip) แถว NHL flat 200 → ยังโชว์ 200 (KB ไม่ลด)."""
+    """สุวิทย์ (lcb_trip) — คนรายเที่ยว KB ไม่แตะค่าเที่ยว (โอ 2ก.ค.)."""
     b = client.get("/payroll/1/employee/61/slip", follow_redirects=True).text
+    assert "200" in b          # แถว flat มี KB → คงเดิม
+    assert "3,000" in b        # แถว ratio บังเอิญ 60% + KB → คงเดิม
+    assert "2,820" not in b    # ห้ามหัก KB×0.6 ให้คนรายเที่ยว
+
+
+def test_mixed_mao_day_deducts_kb_trip_day_not(client):
+    """คนลูกผสม: วันเหมาหัก KB (โชว์ 1,380 ไม่ใช่ 1,446) วันเที่ยวไม่หัก (200)."""
+    b = client.get("/payroll/1/employee/62/slip", follow_redirects=True).text
+    assert "1,380" in b
+    assert "1,446" not in b
     assert "200" in b
