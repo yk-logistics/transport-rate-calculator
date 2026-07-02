@@ -57,6 +57,7 @@ from models import (
     KbRule,
     KbSettle,
     LeaveRecord,
+    TodoItem,
     Loan,
     LoanPayment,
     MaintInspection,
@@ -89,7 +90,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 32  # v32: KbSettle (ติ๊กใบรับ KB แล้ว หน้า /kb-payout — create_all, ไม่ต้อง ALTER)
+SCHEMA_VERSION = 33  # v33: TodoItem (สมุดโน้ต/สิ่งที่ต้องทำ /todo — create_all, ไม่ต้อง ALTER)
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -8115,6 +8116,167 @@ def finance_receivables(request: Request):
         "today": date.today(),
     })
     return templates.TemplateResponse("finance_receivables.html", ctx)
+
+
+# =========================================================================
+# สมุดโน้ต / สิ่งที่ต้องทำ (/todo) — โอสั่ง 3ก.ค.: แทนสมุดจด+ห้องโยนมาก่อน
+# จดเร็วแบบพิมพ์แชท (มือถือใช้ไมค์คีย์บอร์ดพูดแทนพิมพ์ได้) ค้นได้ แนบรูปได้
+# ของใครของมัน (แยกตาม username) — รายละเอียด (หมวด/ด่วน/กำหนด) ค่อยเติมทีหลังได้
+# =========================================================================
+
+_TODO_MEDIA = Path(__file__).resolve().parent / "_todo_media"
+
+
+def _todo_groups(items: list, today_d) -> list:
+    """จัดกลุ่มตามความเร่ง: ด่วน → เลยกำหนด → วันนี้ → มีกำหนดถัดไป → ไม่มีกำหนด."""
+    urgent, overdue, todays, upcoming, someday = [], [], [], [], []
+    for t in items:
+        if t.priority > 0:
+            urgent.append(t)
+        elif t.due_date and t.due_date < today_d:
+            overdue.append(t)
+        elif t.due_date and t.due_date == today_d:
+            todays.append(t)
+        elif t.due_date:
+            upcoming.append(t)
+        else:
+            someday.append(t)
+    upcoming.sort(key=lambda t: t.due_date)
+    urgent.sort(key=lambda t: (-t.priority, t.due_date or date.max))
+    return [
+        ("🔥 ด่วน", urgent), ("⏰ เลยกำหนด", overdue), ("📌 วันนี้", todays),
+        ("📅 มีกำหนด", upcoming), ("🗒️ ยังไม่กำหนด", someday),
+    ]
+
+
+@app.get("/todo", response_class=HTMLResponse)
+def todo_page(request: Request, q: str = "", cat: str = ""):
+    from auth import current_user
+
+    user = current_user(request)
+    uname = user.username if user else ""
+    with Session(engine) as s:
+        rows = s.exec(select(TodoItem).where(TodoItem.username == uname)).all()
+    if q.strip():
+        qq = q.strip().lower()
+        rows = [t for t in rows if qq in (t.text or "").lower() or qq in (t.category or "").lower()]
+    cats = sorted({(t.category or "").strip() for t in rows if (t.category or "").strip()})
+    if cat:
+        rows = [t for t in rows if (t.category or "").strip() == cat]
+    open_items = [t for t in rows if t.status == "open"]
+    done_items = sorted([t for t in rows if t.status == "done"],
+                        key=lambda t: t.done_at or t.created_at, reverse=True)[:50]
+    ctx = base_context(request)
+    ctx.update({
+        "groups": _todo_groups(open_items, date.today()),
+        "done_items": done_items, "cats": cats, "q": q, "cat": cat,
+        "n_open": len(open_items),
+        "media_of": lambda t: [m for m in (t.media_json or "").split(",") if m],
+    })
+    return templates.TemplateResponse("todo.html", ctx)
+
+
+@app.post("/todo/add")
+async def todo_add(request: Request):
+    from auth import current_user
+
+    user = current_user(request)
+    form = await request.form()
+    text = (form.get("text") or "").strip()
+    if not text:
+        return RedirectResponse("/todo", status_code=303)
+    due_raw = (form.get("due_date") or "").strip()
+    item = TodoItem(
+        username=user.username if user else "",
+        text=text,
+        category=(form.get("category") or "").strip(),
+        priority=int(form.get("priority") or 0),
+        due_date=date.fromisoformat(due_raw) if due_raw else None,
+    )
+    with Session(engine) as s:
+        s.add(item)
+        s.commit()
+        s.refresh(item)
+        names = []
+        for f in form.getlist("photos"):
+            if not getattr(f, "filename", ""):
+                continue
+            ext = Path(f.filename).suffix.lower()
+            if ext not in (".jpg", ".jpeg", ".png", ".webp", ".heic"):
+                continue
+            d = _TODO_MEDIA / str(item.id)
+            d.mkdir(parents=True, exist_ok=True)
+            name = f"{len(names) + 1}{ext}"
+            (d / name).write_bytes(await f.read())
+            names.append(name)
+        if names:
+            item.media_json = ",".join(names)
+            s.add(item)
+            s.commit()
+    return RedirectResponse("/todo", status_code=303)
+
+
+@app.post("/todo/{item_id}/update")
+def todo_update(item_id: int, request: Request, text: str = Form(""), category: str = Form(""),
+                priority: str = Form("0"), due_date: str = Form("")):
+    from auth import current_user
+
+    user = current_user(request)
+    with Session(engine) as s:
+        t = s.get(TodoItem, item_id)
+        if t and user and t.username == user.username:
+            if text.strip():
+                t.text = text.strip()
+            t.category = category.strip()
+            t.priority = int(priority or 0)
+            t.due_date = date.fromisoformat(due_date) if due_date.strip() else None
+            s.add(t)
+            s.commit()
+    return RedirectResponse("/todo", status_code=303)
+
+
+@app.post("/todo/{item_id}/toggle")
+def todo_toggle(item_id: int, request: Request):
+    from auth import current_user
+    from datetime import datetime as _dt
+
+    user = current_user(request)
+    with Session(engine) as s:
+        t = s.get(TodoItem, item_id)
+        if t and user and t.username == user.username:
+            t.status = "open" if t.status == "done" else "done"
+            t.done_at = _dt.utcnow() if t.status == "done" else None
+            s.add(t)
+            s.commit()
+    return RedirectResponse("/todo", status_code=303)
+
+
+@app.post("/todo/{item_id}/delete")
+def todo_delete(item_id: int, request: Request):
+    from auth import current_user
+
+    user = current_user(request)
+    with Session(engine) as s:
+        t = s.get(TodoItem, item_id)
+        if t and user and t.username == user.username:
+            s.delete(t)
+            s.commit()
+    return RedirectResponse("/todo", status_code=303)
+
+
+@app.get("/todo/media/{item_id}/{fname}")
+def todo_media(item_id: int, fname: str, request: Request):
+    from auth import current_user
+
+    user = current_user(request)
+    with Session(engine) as s:
+        t = s.get(TodoItem, item_id)
+    if not (t and user and t.username == user.username):
+        raise HTTPException(404)
+    p = (_TODO_MEDIA / str(item_id) / fname).resolve()
+    if not str(p).startswith(str(_TODO_MEDIA.resolve())) or not p.exists():
+        raise HTTPException(404)
+    return FileResponse(p)
 
 
 @app.get("/admin/plan", response_class=HTMLResponse)

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}สิ่งที่ต้องทำ{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
+    <h1 class="text-2xl font-bold">📝 สิ่งที่ต้องทำ <span class="text-base font-normal text-slate-500">({{ n_open }} รายการค้าง)</span></h1>
+    <form method="get" class="flex gap-2">
+      <input name="q" value="{{ q }}" placeholder="🔍 ค้นหา..." class="border rounded-lg px-3 py-1.5 text-sm w-44">
+      {% if q or cat %}<a href="/todo" class="text-sm text-slate-500 self-center">ล้าง</a>{% endif %}
+    </form>
+  </div>
+
+  {# ==== ช่องจดเร็ว (มือถือ: กดไมค์บนคีย์บอร์ดแล้วพูดได้เลย) ==== #}
+  <form method="post" action="/todo/add" enctype="multipart/form-data"
+        class="bg-white rounded-2xl shadow p-3 mb-5 sticky top-2 z-40 border-2 border-emerald-200">
+    <div class="flex gap-2">
+      <input name="text" required placeholder="จดตรงนี้เลย... เช่น สั่งยาง 71-8967 / พ่อฝากดูใบเสนอ KAO"
+             class="flex-1 border rounded-xl px-3 py-2.5 text-base" autocomplete="off">
+      <button class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 rounded-xl font-bold text-lg">+</button>
+    </div>
+    <div class="flex gap-2 mt-2 flex-wrap items-center text-sm">
+      <input name="category" list="cats" placeholder="หมวด (พิมพ์ใหม่ได้)" class="border rounded-lg px-2 py-1 w-36">
+      <datalist id="cats">{% for c in cats %}<option value="{{ c }}">{% endfor %}
+        <option value="ซ่อมบำรุง"><option value="อะไหล่"><option value="พ่อฝาก"><option value="ลูกค้า"><option value="ช่าง/คนขับ">
+      </datalist>
+      <select name="priority" class="border rounded-lg px-2 py-1">
+        <option value="0">ปกติ</option><option value="1">🔥 ด่วน</option><option value="2">🔥🔥 ด่วนมาก</option>
+      </select>
+      <input type="date" name="due_date" class="border rounded-lg px-2 py-1" title="กำหนดเสร็จ (เว้นได้)">
+      <label class="cursor-pointer text-slate-600 border rounded-lg px-2 py-1 hover:bg-slate-50">
+        📷 แนบรูป<input type="file" name="photos" accept="image/*" multiple class="hidden" onchange="this.parentNode.innerText='📷 '+this.files.length+' รูป'">
+      </label>
+      <span class="text-xs text-slate-400">ใส่แค่ข้อความก็พอ ที่เหลือมาเติมทีหลังได้</span>
+    </div>
+  </form>
+
+  {% if cats %}
+  <div class="flex gap-1.5 mb-4 flex-wrap">
+    <a href="/todo" class="text-xs px-2.5 py-1 rounded-full {% if not cat %}bg-slate-800 text-white{% else %}bg-white border{% endif %}">ทั้งหมด</a>
+    {% for c in cats %}
+    <a href="/todo?cat={{ c }}" class="text-xs px-2.5 py-1 rounded-full {% if cat == c %}bg-slate-800 text-white{% else %}bg-white border hover:bg-slate-50{% endif %}">{{ c }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% for label, items in groups %}{% if items %}
+  <div class="mb-4">
+    <div class="text-sm font-bold text-slate-500 mb-1.5">{{ label }} <span class="font-normal">({{ items|length }})</span></div>
+    <div class="space-y-1.5">
+      {% for t in items %}
+      <div class="bg-white rounded-xl shadow-sm border {% if t.priority >= 2 %}border-rose-300 bg-rose-50/40{% elif t.priority == 1 %}border-amber-300{% else %}border-slate-100{% endif %} px-3 py-2">
+        <div class="flex items-start gap-2.5">
+          <form method="post" action="/todo/{{ t.id }}/toggle">
+            <button class="w-6 h-6 mt-0.5 rounded-full border-2 border-slate-300 hover:border-emerald-500 hover:bg-emerald-50" title="เสร็จแล้ว"></button>
+          </form>
+          <div class="flex-1 min-w-0">
+            <div class="whitespace-pre-wrap break-words">{{ t.text }}</div>
+            <div class="flex gap-2 mt-0.5 text-xs text-slate-400 flex-wrap items-center">
+              {% if t.category %}<span class="bg-slate-100 rounded px-1.5">{{ t.category }}</span>{% endif %}
+              {% if t.due_date %}<span>⏰ {{ t.due_date | dmy }}</span>{% endif %}
+              <span>{{ t.created_at | dmy }}</span>
+              {% set pics = media_of(t) %}
+              {% for m in pics %}<a href="/todo/media/{{ t.id }}/{{ m }}" target="_blank"><img src="/todo/media/{{ t.id }}/{{ m }}" class="h-10 w-10 object-cover rounded inline-block border"></a>{% endfor %}
+              <details class="inline"><summary class="cursor-pointer hover:text-slate-600">แก้ไข</summary>
+                <form method="post" action="/todo/{{ t.id }}/update" class="flex gap-1.5 mt-1.5 flex-wrap items-center bg-slate-50 rounded-lg p-2">
+                  <input name="text" value="{{ t.text }}" class="border rounded px-2 py-0.5 w-64 text-sm">
+                  <input name="category" value="{{ t.category }}" list="cats" placeholder="หมวด" class="border rounded px-2 py-0.5 w-28 text-sm">
+                  <select name="priority" class="border rounded px-1 py-0.5 text-sm">
+                    <option value="0" {% if t.priority==0 %}selected{% endif %}>ปกติ</option>
+                    <option value="1" {% if t.priority==1 %}selected{% endif %}>ด่วน</option>
+                    <option value="2" {% if t.priority==2 %}selected{% endif %}>ด่วนมาก</option>
+                  </select>
+                  <input type="date" name="due_date" value="{{ t.due_date or '' }}" class="border rounded px-1 py-0.5 text-sm">
+                  <button class="bg-slate-800 text-white rounded px-2.5 py-0.5 text-sm">บันทึก</button>
+                </form>
+                <form method="post" action="/todo/{{ t.id }}/delete" class="inline" onsubmit="return confirm('ลบโน้ตนี้?')">
+                  <button class="text-rose-500 text-xs underline mt-1">ลบทิ้ง</button>
+                </form>
+              </details>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}{% endfor %}
+
+  {% if n_open == 0 %}
+  <div class="text-center text-slate-400 py-10">🎉 ไม่มีงานค้าง — จดอะไรใหม่ได้ที่ช่องบนเลย</div>
+  {% endif %}
+
+  {% if done_items %}
+  <details class="mt-6">
+    <summary class="cursor-pointer text-sm text-slate-500 font-semibold">✅ เสร็จแล้ว ({{ done_items|length }} ล่าสุด)</summary>
+    <div class="space-y-1 mt-2 opacity-60">
+      {% for t in done_items %}
+      <div class="bg-white rounded-lg border px-3 py-1.5 flex items-center gap-2 text-sm">
+        <form method="post" action="/todo/{{ t.id }}/toggle"><button class="text-emerald-600" title="ดึงกลับมาทำต่อ">✅</button></form>
+        <span class="line-through flex-1">{{ t.text }}</span>
+        {% if t.category %}<span class="text-xs bg-slate-100 rounded px-1.5">{{ t.category }}</span>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </details>
+  {% endif %}
+</div>
+{% endblock %}

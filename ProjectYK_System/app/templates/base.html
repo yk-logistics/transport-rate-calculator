@@ -148,6 +148,9 @@
           </div>
         </div>
 
+        {# ---- โน้ตส่วนตัว: ปุ่มตรง 1 คลิก (โอจดบ่อย) ---- #}
+        {% if can_see(request, "/todo") %}<a href="/todo" class="px-3 py-1.5 rounded hover:bg-slate-700" title="สิ่งที่ต้องทำ">📝</a>{% endif %}
+
         {# ---- Dark mode toggle ---- #}
         <button type="button" id="yk-theme-toggle" title="สลับโหมดมืด/สว่าง"
                 class="px-3 py-1.5 rounded hover:bg-slate-700 text-base leading-none">

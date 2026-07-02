@@ -31,6 +31,8 @@ MENUS = {
     "admin": ["/admin"],
     # KB จ่ายคืนเจ้าของงาน = ข้อมูลลับ — เฉพาะ admin
     "kb": ["/kb-payout"],
+    # สมุดโน้ตส่วนตัว (ของใครของมัน แยกด้วย username) — ทุก role ใช้ได้
+    "todo": ["/todo"],
 }
 
 # menu -> role -> "edit" | "view" | "deny"
@@ -50,6 +52,7 @@ MATRIX = {
     "import":    {"admin": "edit", "office": "deny", "accountant": "deny", "viewer": "deny"},
     "admin":     {"admin": "edit", "office": "deny", "accountant": "deny", "viewer": "deny"},
     "kb":        {"admin": "edit", "office": "deny", "accountant": "deny", "viewer": "deny"},
+    "todo":      {"admin": "edit", "office": "edit", "accountant": "edit", "viewer": "edit"},
 }
 
 

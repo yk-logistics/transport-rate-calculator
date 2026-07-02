@@ -1474,3 +1474,21 @@ class KbSettle(SQLModel, table=True):
     kb_amount: float = 0.0          # KB ของใบนี้ตอนติ๊ก (กันสูตร/ไฟล์เปลี่ยนทีหลัง)
     transfer_amount: float = 0.0    # ยอดโอนของก้อนที่ใบนี้ถูกจ่ายมาด้วย (0 = ติ๊กเดี่ยว)
     note: str = ""
+
+
+class TodoItem(SQLModel, table=True):
+    """สมุดโน้ต/สิ่งที่ต้องทำของโอ (หน้า /todo) — จดเร็วแบบพิมพ์แชท ค้นได้ แนบรูปได้.
+
+    แยกของใครของมันด้วย username; category = พิมพ์อิสระ (หมวดเกิดจากการใช้จริง);
+    priority: 0 ปกติ / 1 ด่วน / 2 ด่วนมาก; media_json = รายชื่อไฟล์รูปใน _todo_media/<id>/.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    username: str = Field(index=True)
+    text: str = ""
+    category: str = Field(default="", index=True)
+    priority: int = 0
+    due_date: Optional[date] = None
+    status: str = Field(default="open", index=True)   # open | done
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    done_at: Optional[datetime] = None
+    media_json: str = ""
