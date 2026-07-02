@@ -33,48 +33,45 @@
   </div>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-  <div class="lg:col-span-2 bg-white rounded-xl shadow overflow-x-auto">
-    <div class="px-4 pt-3 text-sm font-semibold">รายการค้างรับ เรียงตามวันนัดรับ</div>
+<div class="space-y-4">
+  {% for g in summary.groups %}
+  <div class="bg-white rounded-xl shadow overflow-x-auto">
+    <div class="px-4 py-2.5 flex items-center gap-3 flex-wrap border-b bg-slate-50 rounded-t-xl">
+      <span class="font-bold">{{ g.name }}</span>
+      <span class="text-xs px-2 py-0.5 rounded bg-slate-200 text-slate-600">{{ g.site }}</span>
+      {% if g.note %}<span class="text-xs text-slate-500">{{ g.note }}</span>{% endif %}
+      <span class="ml-auto text-sm">{{ g.rows|length }} ใบ
+        {% if g.n_overdue %}<span class="text-rose-600 font-semibold">· เลยกำหนด {{ g.n_overdue }}</span>{% endif %}
+        · รอรับ <b class="font-mono">{{ "{:,.2f}".format(g.net) }}</b></span>
+    </div>
     <table class="w-full text-sm">
-      <thead><tr class="text-left text-slate-500 border-b">
-        <th class="px-3 py-2">ไซท์</th><th>งวด</th><th>INV</th><th>ลูกค้า</th>
-        <th class="text-right">ยอดบิล</th><th class="text-right">สุทธิรอรับ</th>
-        <th>DUE รับ</th><th>หมายเหตุ</th>
+      <thead><tr class="text-left text-slate-400 text-xs">
+        <th class="px-4 py-1.5">งวด</th><th>INV</th><th>รายการ</th>
+        <th class="text-right">ยอดบิล</th><th class="text-right">หัก ณ ที่จ่าย</th>
+        <th class="text-right">สุทธิรอรับ</th><th>DUE รับ</th><th class="pr-4">หมายเหตุ</th>
       </tr></thead>
       <tbody class="divide-y">
-      {% for r in summary.pending %}
+      {% for r in g.rows %}
         <tr class="hover:bg-slate-50 {% if r.due and r.due < today %}bg-rose-50{% endif %}">
-          <td class="px-3 py-1">{{ r.site }}</td>
-          <td class="text-slate-500">{{ r.tab }}</td>
+          <td class="px-4 py-1 text-slate-500">{{ r.tab }}</td>
           <td class="font-mono">{{ r.inv }}</td>
           <td>{{ r.customer }}</td>
           <td class="text-right font-mono">{{ "{:,.2f}".format(r.amount) }}</td>
+          <td class="text-right font-mono text-slate-400">{{ "{:,.2f}".format(r.wht) }}</td>
           <td class="text-right font-mono font-semibold">{{ "{:,.2f}".format(r.net) }}</td>
           <td class="{% if r.due and r.due < today %}text-rose-600 font-semibold{% endif %}">
             {{ r.due | dmy if r.due else '—' }}{% if r.due and r.due < today %} ⚠{% endif %}</td>
-          <td class="text-slate-500 text-xs">{{ r.note }}</td>
+          <td class="pr-4 text-slate-500 text-xs">{{ r.note }}</td>
         </tr>
       {% endfor %}
       </tbody>
-      <tfoot><tr class="bg-slate-900 text-white font-bold">
-        <td class="px-3 py-2" colspan="5">รวมค้างรับ</td>
-        <td class="text-right font-mono">{{ "{:,.2f}".format(summary.total_net) }}</td>
-        <td colspan="2"></td>
-      </tr></tfoot>
     </table>
   </div>
+  {% endfor %}
 
-  <div class="bg-white rounded-xl shadow p-4 h-fit">
-    <div class="text-sm font-semibold mb-2">ค้างรับรายลูกค้า</div>
-    <table class="w-full text-sm">
-      <tbody class="divide-y">
-      {% for cust, v in summary.by_customer %}
-        <tr><td class="py-1">{{ cust }}</td>
-            <td class="text-right font-mono">{{ "{:,.2f}".format(v) }}</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
+  <div class="bg-slate-900 text-white rounded-xl px-4 py-3 flex justify-between font-bold">
+    <span>รวมค้างรับทุกลูกค้า ({{ summary.pending|length }} ใบ)</span>
+    <span class="font-mono">{{ "{:,.2f}".format(summary.total_net) }}</span>
   </div>
 </div>
 

@@ -51,7 +51,10 @@ def _make_register(path: Path):
     # แถวค้างรับ (ไม่มีสี) — เลยกำหนดแล้ว
     ws.append([datetime(2026, 6, 9), "2605-019", "BJC DHL", 684006.68, 0, 6840.07,
                677166.61, datetime(2026, 6, 25), "1-31/5", ""])
-    # แถวค้างรับ ยังไม่ถึงกำหนด
+    # จบ section แรก + หัว section ใหม่ (แบบไฟล์จริง) — แถวถัดไปต้องติดกลุ่ม HOMEPRO
+    ws.append([None, None, "รวมเป็นเงิน", 999999])
+    ws.append(["(HOMEPRO) CREDIT 35 DAYS // วางบิลทุกสัปดาห์"])
+    # แถวค้างรับ ยังไม่ถึงกำหนด (อยู่ในกลุ่ม HOMEPRO)
     ws.append([datetime(2026, 6, 10), "2606-003", "Homepro W1", 77946, 0, 779.46,
                77166.54, datetime(2026, 7, 20), "", ""])
     # แถวรวม (ต้องข้าม) + แถวรอออกบิล (ยอด 0/ว่าง ต้องข้าม)
@@ -77,6 +80,10 @@ def test_parse_register_fills_and_skips(reg):
     assert not by["2605-019"]["received"]
     assert by["2605-019"]["net"] == 677166.61
     assert by["2606-003"]["due"] == date(2026, 7, 20)
+    # กลุ่มจากหัว section: Homepro ติด HOMEPRO; BJC อยู่ section แรกไม่มีหัว → กลุ่มว่าง
+    assert by["2606-003"]["group"] == "HOMEPRO"
+    assert "CREDIT 35 DAYS" in by["2606-003"]["group_note"]
+    assert by["2605-019"]["group"] == ""
 
 
 def test_summarize(reg):
@@ -86,6 +93,11 @@ def test_summarize(reg):
     assert s["total_net"] == round(677166.61 + 77166.54, 2)
     assert s["n_overdue"] == 1 and s["overdue_net"] == 677166.61
     assert s["by_customer"][0][0] == "BJC DHL"
+    # จัดกลุ่ม: BJC (ไม่มีหัว section → ใช้ชื่อบริษัท) + HOMEPRO (จากหัว section)
+    gnames = {g["name"] for g in s["groups"]}
+    assert gnames == {"BJC DHL", "HOMEPRO"}
+    homepro = next(g for g in s["groups"] if g["name"] == "HOMEPRO")
+    assert homepro["net"] == 77166.54 and "CREDIT 35 DAYS" in homepro["note"]
 
 
 @pytest.fixture()

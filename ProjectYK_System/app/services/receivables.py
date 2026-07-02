@@ -165,13 +165,27 @@ def parse_register(path: Path, site: str) -> list[dict]:
         if not ym or ym[0] < MIN_YEAR:
             continue
         ws = wb[tab]
+        group = ""       # ชื่อกลุ่มลูกค้าจากหัว section เช่น "(KAO) CREDIT 30 DAYS" → "KAO"
+        group_note = ""  # ข้อความหัว section เต็มๆ (เงื่อนไขเครดิต ฯลฯ)
         for row in ws.iter_rows(min_row=4):
             cells = {c.coordinate.rstrip("0123456789"): c for c in row}
             cval = cells["C"].value if "C" in cells else None
             amount = _num(cells["D"].value) if "D" in cells else None
             cname = str(cval).strip() if cval is not None else ""
+            # หัว section = ข้อความในช่อง A แถวที่ไม่มีชื่อบริษัท/ยอด (เช่น "(HOMEPRO) CREDIT 35 DAYS")
+            aval = cells["A"].value if "A" in cells else None
+            if cname == "" and amount is None and isinstance(aval, str):
+                t = aval.strip()
+                if t and not t.startswith(("รายการวางบิล", "งวดประจำเดือน")) and t != "วันที่":
+                    m = re.match(r"\(\s*([^)]+?)\s*\)", t)
+                    group = (m.group(1) if m else t)[:40].strip()
+                    group_note = t
+                continue
             # ข้ามหัวตาราง / แถวรวม / แถวว่าง / แถวรอออกบิล (ยังไม่มียอด)
-            if cname in ("", "ชื่อบริษัท", "รวมเป็นเงิน") or amount is None or amount == 0:
+            if cname in ("", "ชื่อบริษัท") or amount is None or amount == 0:
+                continue
+            if cname == "รวมเป็นเงิน":
+                group = group_note = ""  # จบ section — กัน section ถัดไปที่ไม่มีหัวไปติดกลุ่มเก่า
                 continue
             inv = str(cells["B"].value).strip() if cells.get("B") and cells["B"].value else ""
             fill = _row_fill(cells["C"])
@@ -190,6 +204,7 @@ def parse_register(path: Path, site: str) -> list[dict]:
                 "note": str(cells["I"].value).strip() if cells.get("I") and cells["I"].value else "",
                 "rc": str(cells["J"].value).strip() if cells.get("J") and cells["J"].value else "",
                 "received": bool(fill), "fill": fill,
+                "group": group, "group_note": group_note,
             }
     wb.close()
     rows = list(out.values())
@@ -220,8 +235,23 @@ def summarize(rows: list[dict], today: date | None = None) -> dict:
     by_cust: dict[str, float] = {}
     for r in pending:
         by_cust[r["customer"]] = by_cust.get(r["customer"], 0.0) + r["net"]
+    # จัดกลุ่มแบบหัวตาราง Excel: มีหัว section ใช้ชื่อ section ไม่มีก็ใช้ชื่อบริษัท
+    groups: dict[tuple, dict] = {}
+    for r in pending:
+        key = (r["site"], r["group"] or r["customer"])
+        g = groups.setdefault(key, {"site": r["site"], "name": key[1], "note": "",
+                                    "rows": [], "net": 0.0, "n_overdue": 0})
+        g["rows"].append(r)
+        g["net"] = round(g["net"] + r["net"], 2)
+        if r["group_note"] and not g["note"]:
+            g["note"] = r["group_note"]
+        if r["due"] and r["due"] < today:
+            g["n_overdue"] += 1
+    for g in groups.values():
+        g["rows"].sort(key=lambda r: (r["due"] or date.max, r["inv"]))
     return {
         "pending": sorted(pending, key=lambda r: (r["due"] or date.max, r["site"], r["inv"])),
+        "groups": sorted(groups.values(), key=lambda g: -g["net"]),
         "total_net": round(sum(r["net"] for r in pending), 2),
         "overdue_net": round(sum(r["net"] for r in overdue), 2),
         "n_overdue": len(overdue),
