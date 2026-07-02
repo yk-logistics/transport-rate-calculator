@@ -218,9 +218,9 @@
       "tasks": [
         {
           "id": "G1",
-          "name": "การ์ดสุขภาพเครื่อง + เตือนพื้นที่",
+          "name": "หน้าสุขภาพเครื่อง /admin/server-health (ดิสก์/backup/บริการ + เตือนเหลือง-แดง; แจ้ง Discord ไปรวมงาน S1)",
           "days": 0.5,
-          "status": "pending"
+          "status": "done"
         },
         {
           "id": "G2",

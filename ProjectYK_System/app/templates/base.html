@@ -146,6 +146,7 @@
             {% if can_see(request, "/import") %}<a href="/import" class="block px-4 py-2 hover:bg-slate-100">⬆ Import</a>{% endif %}
             {% if can_see(request, "/admin/users") %}<a href="/admin/users" class="block px-4 py-2 hover:bg-slate-100">👤 ผู้ใช้</a>{% endif %}
             {% if can_see(request, "/admin/users") %}<a href="/admin/plan" class="block px-4 py-2 hover:bg-slate-100">🗺️ แผนงาน MVP</a>{% endif %}
+            {% if can_see(request, "/admin/users") %}<a href="/admin/server-health" class="block px-4 py-2 hover:bg-slate-100">🖥️ สุขภาพเครื่อง</a>{% endif %}
             <a href="/logout" class="block px-4 py-2 hover:bg-slate-100 text-rose-600">ออกจากระบบ</a>
           </div>
         </div>

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}สุขภาพเครื่อง Server{% endblock %}
+{% block content %}
+<div class="flex justify-between items-center mb-4">
+  <h1 class="text-2xl font-bold">🖥️ สุขภาพเครื่อง Server</h1>
+  <div class="text-sm text-slate-500">ตรวจเมื่อ {{ h.checked_at }} (ตัวเลขใหม่ทุก 10 นาที)</div>
+</div>
+
+{% if level == 'red' %}
+<div class="bg-rose-100 border-2 border-rose-400 text-rose-800 rounded-xl p-4 mb-4 font-bold">
+  🚨 พื้นที่เหลือน้อยกว่า 10% — ถึงเวลาย้ายรูปเก่าลง External HDD แล้ว (เสียบแผ่นที่เครื่อง server แล้วแจ้งได้เลย)
+</div>
+{% elif level == 'yellow' %}
+<div class="bg-amber-50 border border-amber-300 text-amber-800 rounded-xl p-4 mb-4">
+  ⚠️ พื้นที่เหลือน้อยกว่า 20% — เริ่มวางแผนย้ายรูปเก่าลง External HDD
+</div>
+{% endif %}
+
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+  <div class="bg-white rounded-xl shadow p-4">
+    <div class="text-sm text-slate-500">ดิสก์เครื่อง Server</div>
+    <div class="text-2xl font-bold font-mono {% if level == 'ok' %}text-emerald-700{% elif level == 'yellow' %}text-amber-600{% else %}text-rose-600{% endif %}">
+      เหลือ {{ h.free_gb }} GB <span class="text-sm text-slate-400">({{ h.free_pct }}%)</span></div>
+    <div class="w-full bg-slate-200 rounded-full h-3 mt-2">
+      <div class="{% if level == 'ok' %}bg-emerald-500{% elif level == 'yellow' %}bg-amber-500{% else %}bg-rose-500{% endif %} h-3 rounded-full"
+           style="width: {{ 100 - h.free_pct }}%"></div>
+    </div>
+    <div class="text-xs text-slate-400 mt-1">ใช้ {{ h.used_gb }} / {{ h.total_gb }} GB · เตือนเมื่อเหลือ &lt;20%</div>
+  </div>
+  <div class="bg-white rounded-xl shadow p-4">
+    <div class="text-sm text-slate-500">ข้อมูลสำรองล่าสุด (ในเครื่อง)</div>
+    <div class="text-xl font-bold font-mono">{{ h.latest_backup or '—' }}</div>
+    <div class="text-xs text-slate-400 mt-1">{{ h.latest_backup_name or 'ไม่พบไฟล์ backup' }} · โฟลเดอร์ backups {{ h.backups_gb or 0 }} GB</div>
+    <div class="text-xs text-amber-600 mt-1">⚠ ยังอยู่เครื่องเดียวกับข้อมูลจริง — สำรองขึ้น Drive (งาน S1) จะปิดความเสี่ยงนี้</div>
+  </div>
+  <div class="bg-white rounded-xl shadow p-4">
+    <div class="text-sm text-slate-500">บริการ</div>
+    <div class="text-xl font-bold">ระบบ MVP <span class="text-emerald-600">✅ ทำงาน</span></div>
+    <div class="text-xl font-bold mt-1">บอทเก็บไลน์
+      {% if h.line_bot_up %}<span class="text-emerald-600">✅ ทำงาน</span>
+      {% else %}<span class="text-rose-600">❌ ไม่ตอบ (เช็ค service YKLineBot)</span>{% endif %}</div>
+  </div>
+</div>
+
+<div class="bg-white rounded-xl shadow overflow-x-auto">
+  <div class="px-4 pt-3 text-sm font-semibold">ใครกินพื้นที่เท่าไหร่</div>
+  <table class="w-full text-sm">
+    <tbody class="divide-y">
+      <tr><td class="px-4 py-2">รูป/ไฟล์จากไลน์ (line_media)</td>
+          <td class="text-right font-mono">{{ h.line_media_gb if h.line_media_gb is not none else 'ไม่พบ (เครื่อง dev)' }} {% if h.line_media_gb is not none %}GB{% endif %}</td>
+          <td class="text-xs text-slate-400 pr-4">โต ~5 GB/เดือน · นโยบายเก็บบนเครื่อง 2 ปี แล้วย้ายลง External (งาน G2)</td></tr>
+      <tr><td class="px-4 py-2">ฐานข้อมูลระบบ (app.db)</td>
+          <td class="text-right font-mono">{{ h.db_mb or '—' }} MB</td><td></td></tr>
+      <tr><td class="px-4 py-2">สำรองในเครื่อง (backups)</td>
+          <td class="text-right font-mono">{{ h.backups_gb or '—' }} GB</td>
+          <td class="text-xs text-slate-400 pr-4">หมุนเวียนอัตโนมัติ ไม่โตไม่หยุด</td></tr>
+      <tr><td class="px-4 py-2">รูปในสมุดโน้ต (_todo_media)</td>
+          <td class="text-right font-mono">{{ h.todo_media_gb or 0 }} GB</td><td></td></tr>
+    </tbody>
+  </table>
+</div>
+<p class="text-xs text-slate-400 mt-3">💡 กติกามาตรฐาน: เตือนที่ใช้เกิน 80% (เหลือง) / 90% (แดง) · สำรองของร้อนรายวัน-ของเย็นรายสัปดาห์ · ย้ายของเก่าออกตามอายุ — รายละเอียดในแพลน MVP งาน G2/S1</p>
+{% endblock %}

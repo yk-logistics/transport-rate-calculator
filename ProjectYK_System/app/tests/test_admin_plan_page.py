@@ -41,3 +41,9 @@ def test_plan_admin_only():
     assert permissions.check("admin", "/admin/plan", "GET") == "edit"
     for role in ("office", "accountant", "viewer"):
         assert permissions.check(role, "/admin/plan", "GET") == "deny"
+
+
+def test_server_health_page(client):
+    b = client.get("/admin/server-health", follow_redirects=True).text
+    assert "สุขภาพเครื่อง" in b and "ดิสก์" in b
+    assert "GB" in b

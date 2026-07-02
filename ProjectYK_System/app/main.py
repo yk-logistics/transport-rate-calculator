@@ -8331,6 +8331,62 @@ def todo_media(item_id: int, fname: str, request: Request):
     return FileResponse(p)
 
 
+_HEALTH_CACHE: dict = {"at": None, "data": None}
+
+
+@app.get("/admin/server-health", response_class=HTMLResponse)
+def admin_server_health(request: Request):
+    """สุขภาพเครื่อง (G1): ดิสก์/ขนาดข้อมูล/backup ล่าสุด/พอร์ต — เตือนเหลือ <20%=เหลือง <10%=แดง.
+
+    เดินนับขนาดโฟลเดอร์ใหญ่ (รูปไลน์ 2 หมื่นไฟล์) ช้าเป็นวินาที → cache 10 นาที.
+    ส่วนแจ้งเข้า Discord อัตโนมัติ = ทำพร้อม S1 (ใช้ webhook เดียวกับ backup).
+    """
+    import shutil as _sh
+    import socket
+    from datetime import datetime as _dt, timedelta as _td
+
+    if _HEALTH_CACHE["at"] and _dt.now() - _HEALTH_CACHE["at"] < _td(minutes=10):
+        data = _HEALTH_CACHE["data"]
+    else:
+        def _dir_size(p: Path):
+            if not p.exists():
+                return None
+            return round(sum(f.stat().st_size for f in p.rglob("*") if f.is_file()) / 1e9, 2)
+
+        def _port_up(port: int) -> bool:
+            try:
+                with socket.create_connection(("127.0.0.1", port), timeout=1):
+                    return True
+            except OSError:
+                return False
+
+        app_dir = Path(__file__).resolve().parent
+        du = _sh.disk_usage(str(Path(app_dir.anchor)))
+        line_dir = Path(r"C:\Users\yklog\YK_LINE_ARCHIVER")
+        backups = app_dir.parent / "backups"
+        latest_bak = max(backups.glob("*.db"), key=lambda f: f.stat().st_mtime, default=None) \
+            if backups.exists() else None
+        data = {
+            "total_gb": round(du.total / 1e9, 1), "free_gb": round(du.free / 1e9, 1),
+            "used_gb": round(du.used / 1e9, 1),
+            "free_pct": round(du.free / du.total * 100, 1),
+            "line_media_gb": _dir_size(line_dir / "line_media"),
+            "backups_gb": _dir_size(backups),
+            "todo_media_gb": _dir_size(app_dir / "_todo_media"),
+            "db_mb": round((app_dir / "app.db").stat().st_size / 1e6, 1) if (app_dir / "app.db").exists() else None,
+            "latest_backup": _dt.fromtimestamp(latest_bak.stat().st_mtime).strftime("%d/%m/%Y %H:%M") if latest_bak else None,
+            "latest_backup_name": latest_bak.name if latest_bak else None,
+            "line_bot_up": _port_up(8020),
+            "checked_at": _dt.now().strftime("%d/%m/%Y %H:%M"),
+        }
+        _HEALTH_CACHE["at"] = _dt.now()
+        _HEALTH_CACHE["data"] = data
+    level = "red" if data["free_pct"] < 10 else ("yellow" if data["free_pct"] < 20 else "ok")
+    ctx = base_context(request)
+    ctx.update({"h": data, "level": level})
+    return templates.TemplateResponse("admin_server_health.html", ctx)
+
+
 @app.get("/admin/plan", response_class=HTMLResponse)
 def admin_plan(request: Request):
     """แพลน MVP ในระบบ (โอขอ 3ก.ค. "อยากเห็นแสงปลายอุโมงค์") — admin เท่านั้น (prefix /admin).
