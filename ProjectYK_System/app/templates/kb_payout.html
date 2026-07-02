@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}KB จ่ายคืนเจ้าของงาน{% endblock %}
+{% block content %}
+<div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+  <h1 class="text-2xl font-bold">🤝 KB จ่ายคืนเจ้าของงาน · CY</h1>
+  <form method="get" class="flex gap-2 items-center text-sm">
+    <label class="text-slate-500">ยอดที่ลูกค้าโอนมา (บาท)</label>
+    <input type="text" name="amount" value="{{ amount_raw or '' }}" placeholder="เช่น 19027.98"
+           class="border rounded px-2 py-1 w-36 text-right font-mono" autofocus />
+    <button class="bg-emerald-600 text-white px-4 py-1 rounded">จับคู่อินวอย</button>
+  </form>
+</div>
+
+{% if error %}
+<div class="bg-rose-50 border border-rose-200 text-rose-700 rounded p-3 mb-4 text-sm">⚠️ {{ error }}</div>
+{% endif %}
+
+{% if match %}
+  {% if match.combos %}
+  <div class="bg-emerald-50 border border-emerald-200 rounded p-4 mb-6">
+    <div class="font-semibold mb-2">✅ ยอดโอน {{ "{:,.2f}".format(amount) }} ตรงกับ
+      {% if match.combos|length == 1 %}ชุดเดียว (มั่นใจได้){% else %}{{ match.combos|length }} ชุดที่เป็นไปได้ — ตรวจกับงานจริง{% endif %}
+      · ลูกค้า{{ match.variant }}</div>
+    {% for c in match.combos %}
+    <div class="bg-white rounded border p-3 mb-2">
+      <table class="w-full text-sm">
+        <thead><tr class="text-slate-500 text-left">
+          <th class="py-1">อินวอย</th><th>ลูกค้า</th><th class="text-right">ตู้</th>
+          <th class="text-right">ยอดวางบิล</th><th class="text-right">ลูกค้าโอนจริง</th><th class="text-right">KB</th>
+        </tr></thead>
+        <tbody class="font-mono">
+        {% for r in c.invoices %}
+          <tr class="border-t">
+            <td class="py-1">{{ r.inv }}</td><td class="font-sans">{{ r.customer }}</td>
+            <td class="text-right">{{ r.qty }}</td>
+            <td class="text-right">{{ "{:,.2f}".format(r.grand_total) }}</td>
+            <td class="text-right">{{ "{:,.2f}".format(c.receipts[r.inv]) }}</td>
+            <td class="text-right font-semibold">{{ "{:,.2f}".format(r.kb) }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <div class="mt-3 flex gap-6 text-sm flex-wrap">
+        <div>KB รวม <b class="font-mono">{{ "{:,.2f}".format(c.kb_total) }}</b></div>
+        <div class="text-emerald-700">โอนคืน {{ owner.owner }} ({{ owner.bank }}) 90% =
+          <b class="font-mono text-base">{{ "{:,.2f}".format(c.payout) }}</b></div>
+        <div class="text-slate-500">ใบหัก ณ ที่จ่าย 3% ของ KB เต็ม = <b class="font-mono">{{ "{:,.2f}".format(c.wht_cert) }}</b> (เอกสารอย่างเดียว ไม่ลบยอดโอน)</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded p-4 mb-6 text-sm">
+    🔍 ไม่เจอชุดอินวอยที่รวมได้ {{ "{:,.2f}".format(amount) }} เป๊ะ (ลองทั้งจ่ายเต็ม / หัก 1% เฉพาะค่าขนส่ง / หัก 1% / หัก 3%)
+    — อาจเป็นใบของเดือนที่ยังไม่อยู่ใน Drive, มีส่วนลด, หรือลูกค้าโอนหลายก้อนรวมกัน
+  </div>
+  {% endif %}
+{% endif %}
+
+<div class="bg-white rounded-xl shadow overflow-x-auto">
+  <div class="px-4 pt-3 text-sm text-slate-500">อินวอย CY ทั้งหมดใน Drive ({{ rows|length }} ใบ) · KB ต่อใบ = ค่าขนส่ง − ราคาเสนอ×ตู้ − OT</div>
+  <table class="w-full text-sm">
+    <thead><tr class="text-left text-slate-500 border-b">
+      <th class="px-4 py-2">เดือน</th><th>อินวอย</th><th>ลูกค้า</th>
+      <th class="text-right">ตู้</th><th class="text-right">ค่าขนส่ง</th>
+      <th class="text-right">ราคาเสนอ</th><th class="text-right">OT</th>
+      <th class="text-right">ยอดวางบิล</th><th class="text-right pr-4">KB</th>
+    </tr></thead>
+    <tbody class="divide-y font-mono">
+    {% for r in rows %}
+      <tr class="hover:bg-slate-50">
+        <td class="px-4 py-1 font-sans">{{ r.month_folder }}</td>
+        <td>{{ r.inv }}</td><td class="font-sans">{{ r.customer }}</td>
+        <td class="text-right">{{ r.qty }}</td>
+        <td class="text-right">{{ "{:,.0f}".format(r.transport) }}</td>
+        <td class="text-right">{{ "{:,.0f}".format(r.quote) }}</td>
+        <td class="text-right">{{ "{:,.0f}".format(r.ot) }}</td>
+        <td class="text-right">{{ "{:,.2f}".format(r.grand_total) }}</td>
+        <td class="text-right pr-4 font-semibold {% if r.kb < 0 %}text-rose-600{% endif %}">{{ "{:,.2f}".format(r.kb) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+    <tfoot><tr class="bg-slate-900 text-white font-bold">
+      <td class="px-4 py-2" colspan="8">รวม KB ทั้งหมด · โอนคืน 90% = {{ "{:,.2f}".format(kb_sum * 0.9) }} · ใบ ณ ที่จ่าย 3% = {{ "{:,.2f}".format(kb_sum * 0.03) }}</td>
+      <td class="text-right pr-4 font-mono">{{ "{:,.2f}".format(kb_sum) }}</td>
+    </tr></tfoot>
+  </table>
+</div>
+<p class="text-xs text-slate-400 mt-3">
+  💡 อ่านสดจากโฟลเดอร์ "ใบวางบิล LCB → C.Y" ใน Google Drive (ไฟล์ใหม่โผล่เองเมื่อออกใบ) · หน้านี้อ่านอย่างเดียว ไม่แตะเงินเดือน/ฐานข้อมูล · เห็นเฉพาะ admin
+</p>
+{% endblock %}

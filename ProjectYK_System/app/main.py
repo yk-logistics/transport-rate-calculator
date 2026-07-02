@@ -8090,6 +8090,40 @@ def finance_pnl_detail(request: Request, year: int = 0, site: str = ""):
     return templates.TemplateResponse("finance_pnl.html", ctx)
 
 
+@app.get("/kb-payout", response_class=HTMLResponse)
+def kb_payout_page(request: Request, amount: str = ""):
+    """KB จ่ายคืนเจ้าของงาน (CY) — โอกรอกยอดโอนจากสลิปธนาคาร → จับคู่อินวอย + KB.
+
+    อ่านอินวอยสดจาก Google Drive (read-only) ไม่แตะ DB/payroll. เฉพาะ admin
+    (permissions.py menu "kb"). ตรรกะอยู่ services/kb_payout.py (CLI ใช้ตัวเดียวกัน).
+    """
+    from services import kb_payout as kbp
+
+    ctx = base_context(request)
+    error = None
+    rows: list = []
+    match = None
+    amt = None
+    try:
+        rows = kbp.load_all()
+    except Exception as e:  # Drive ล่ม/key หาย — โชว์ข้อความแทน 500
+        error = f"อ่านอินวอยจาก Google Drive ไม่สำเร็จ: {e}"
+    amount_raw = (amount or "").strip()
+    if amount_raw and not error:
+        try:
+            amt = float(amount_raw.replace(",", ""))
+            match = kbp.match_amount(rows, amt)
+        except ValueError:
+            error = "ยอดโอนต้องเป็นตัวเลข เช่น 19027.98"
+    ctx.update({
+        "rows": rows,
+        "kb_sum": round(sum(r["kb"] for r in rows), 2),
+        "match": match, "amount": amt, "amount_raw": amount_raw,
+        "owner": kbp.KB_OWNERS["CY"], "error": error,
+    })
+    return templates.TemplateResponse("kb_payout.html", ctx)
+
+
 @app.get("/finance/vehicles", response_class=HTMLResponse)
 def finance_vehicles(request: Request, month: str = "", site: str = ""):
     today = date.today()

@@ -29,6 +29,8 @@ MENUS = {
     "email": ["/email"],
     "import": ["/import"],
     "admin": ["/admin"],
+    # KB จ่ายคืนเจ้าของงาน = ข้อมูลลับ — เฉพาะ admin
+    "kb": ["/kb-payout"],
 }
 
 # menu -> role -> "edit" | "view" | "deny"
@@ -47,6 +49,7 @@ MATRIX = {
     "email":     {"admin": "edit", "office": "deny", "accountant": "view", "viewer": "deny"},
     "import":    {"admin": "edit", "office": "deny", "accountant": "deny", "viewer": "deny"},
     "admin":     {"admin": "edit", "office": "deny", "accountant": "deny", "viewer": "deny"},
+    "kb":        {"admin": "edit", "office": "deny", "accountant": "deny", "viewer": "deny"},
 }
 
 
