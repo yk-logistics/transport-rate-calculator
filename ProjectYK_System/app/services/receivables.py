@@ -25,7 +25,10 @@ from pathlib import Path
 _APP_DIR = Path(__file__).resolve().parents[1]
 _KEY_NAME = "noble-history-446303-e4-c36409a0122c.json"
 
-# หาไฟล์ใน Drive ด้วยชื่อ (ไม่ hardcode id) — โอแชร์ไฟล์ปุ๊บ ระบบเห็นเอง
+# โฟลเดอร์ "Project YK" ที่โอแชร์แบบลิงก์ (anyone-with-link Viewer, 2ก.ค.) —
+# ของที่แชร์แบบลิงก์ "ค้นหาด้วยชื่อ" ไม่เจอ ต้องเปิดจากรหัสโฟลเดอร์ตรงๆ
+AR_FOLDER = "1mcXEjbG93b-fhs7bwtqN2itLQjMehmBa"
+# หาไฟล์จากชื่อในโฟลเดอร์ก่อน แล้วค่อย fallback ค้นทั้ง Drive (เผื่อย้ายไฟล์/แชร์ตรง)
 REGISTER_QUERIES = {"AYU": "รายการรับเช็ค AYU", "LCB": "รายการรับเช็ค LCB"}
 
 # อ่านเฉพาะแท็บปีนี้เป็นต้นไป — แท็บปีเก่าอาจยังไม่ได้ไฮไลท์อัปเดต จะกลายเป็น
@@ -69,10 +72,17 @@ def _fetch_register(svc, site: str, name_query: str) -> Path | None:
     """หา+โหลดไฟล์ทะเบียนรับเช็คของไซต์ (cache ตาม modifiedTime — ไฟล์นี้แก้บ่อย)."""
     from googleapiclient.http import MediaIoBaseDownload
 
-    res = svc.files().list(
-        q=f"name contains '{name_query}' and trashed=false",
-        fields="files(id,name,mimeType,modifiedTime)", pageSize=5).execute()
-    files = [f for f in res.get("files", []) if not f["mimeType"].endswith("folder")]
+    files = []
+    for q in (f"'{AR_FOLDER}' in parents and name contains '{name_query}' and trashed=false",
+              f"name contains '{name_query}' and trashed=false"):
+        try:
+            res = svc.files().list(q=q, fields="files(id,name,mimeType,modifiedTime)",
+                                   pageSize=5).execute()
+        except Exception:
+            continue  # โฟลเดอร์ลิงก์ถูกยกเลิกแชร์ → ลองค้นทั้ง Drive ต่อ
+        files = [f for f in res.get("files", []) if not f["mimeType"].endswith("folder")]
+        if files:
+            break
     if not files:
         return None
     f = files[0]
