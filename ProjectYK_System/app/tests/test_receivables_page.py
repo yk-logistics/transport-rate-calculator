@@ -121,3 +121,22 @@ def test_page_renders(client):
     assert "677,166.61" in b
     assert "เสาไห้" not in b                  # รับแล้ว ไม่โชว์ในค้างรับ
     assert "LCB" in b                         # เตือนไฟล์ที่ยังไม่แชร์
+
+
+def test_system_settle_tick_and_undo(client, monkeypatch, reg):
+    """ติ๊กรับแล้วในระบบ (ArSettle) → หายจากค้างรับ; ยกเลิก → กลับมา; ไม่แตะชีท."""
+    from models import ArSettle
+    rows = ar.parse_register(reg, "AYU")
+    # ของจริง load_all parse ใหม่ทุก request → mock ต้องคืนสำเนาใหม่ทุกครั้ง
+    monkeypatch.setattr(ar, "load_all", lambda: ([dict(r) for r in rows], []))
+    b = client.get("/finance/receivables", follow_redirects=True).text
+    assert "(2 รายการ)" in b                    # ค้างรับ 2 ใบก่อนติ๊ก
+    client.post("/finance/receivables/settle", data={"inv_key": "AYU:2605-019"})
+    b = client.get("/finance/receivables", follow_redirects=True).text
+    assert "(1 รายการ)" in b                    # เหลือ 1 หลังติ๊ก
+    assert "ติ๊กรับแล้วในระบบ" in b             # ส่วนรายการที่ติ๊ก+ปุ่มยกเลิก
+    with Session(engine) as s:
+        assert s.exec(select(ArSettle)).first() is not None
+    client.post("/finance/receivables/settle", data={"inv_key": "AYU:2605-019", "undo": "1"})
+    b = client.get("/finance/receivables", follow_redirects=True).text
+    assert "(2 รายการ)" in b and "ติ๊กรับแล้วในระบบ" not in b

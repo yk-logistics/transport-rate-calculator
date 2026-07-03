@@ -54,6 +54,7 @@ from models import (
     ImportLog,
     InboxEmail,
     InboxSyncRun,
+    ArSettle,
     KbRule,
     KbSettle,
     LeaveRecord,
@@ -90,7 +91,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 33  # v33: TodoItem (สมุดโน้ต/สิ่งที่ต้องทำ /todo — create_all, ไม่ต้อง ALTER)
+SCHEMA_VERSION = 34  # v34: ArSettle (ติ๊กรับเงิน AR ในระบบ — create_all, ไม่ต้อง ALTER)
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -8109,13 +8110,47 @@ def finance_receivables(request: Request):
         rows, missing = ar.load_all()
     except Exception as e:
         error = f"อ่านไฟล์จาก Google Drive ไม่สำเร็จ: {e}"
+    # ติ๊กรับเงิน "ในระบบ" (ArSettle — โอ 3ก.ค.: ไม่แตะ Excel): received = สีในชีท OR ติ๊ก
+    with Session(engine) as s:
+        settled = {a.inv_key: a for a in s.exec(select(ArSettle)).all()}
+    sys_settled = []
+    for r in rows:
+        key = f"{r['site']}:{r['inv']}" if r["inv"] else ""
+        r["inv_key"] = key
+        if key and key in settled and not r["received"]:
+            r["received"] = True
+            r["fill"] = "system"
+            r["settle_info"] = settled[key]
+            sys_settled.append(r)
+    sys_settled.sort(key=lambda r: r["settle_info"].settled_on, reverse=True)
     ctx.update({
         "summary": ar.summarize(rows) if rows else None,
         "missing": missing, "error": error,
         "sa_email": ar.service_account_email(),
+        "sys_settled": sys_settled[:40],
         "today": date.today(),
     })
     return templates.TemplateResponse("finance_receivables.html", ctx)
+
+
+@app.post("/finance/receivables/settle")
+def finance_receivables_settle(request: Request, inv_key: str = Form(...), undo: str = Form("")):
+    """ติ๊ก/ยกเลิกติ๊ก รับเงินแล้ว — เก็บในระบบเท่านั้น ไม่เขียนกลับชีท."""
+    from auth import current_user
+
+    user = current_user(request)
+    key = inv_key.strip()
+    if not key or ":" not in key:
+        return RedirectResponse("/finance/receivables", status_code=303)
+    with Session(engine) as s:
+        existing = s.exec(select(ArSettle).where(ArSettle.inv_key == key)).first()
+        if undo == "1":
+            if existing:
+                s.delete(existing)
+        elif not existing:
+            s.add(ArSettle(inv_key=key, by_user=user.username if user else ""))
+        s.commit()
+    return RedirectResponse("/finance/receivables", status_code=303)
 
 
 # =========================================================================

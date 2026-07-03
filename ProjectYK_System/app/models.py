@@ -1492,3 +1492,17 @@ class TodoItem(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     done_at: Optional[datetime] = None
     media_json: str = ""
+
+
+class ArSettle(SQLModel, table=True):
+    """ติ๊ก "รับเงินแล้ว" บนหน้ารอรับเงินลูกค้า (/finance/receivables) — เก็บในระบบ
+    ไม่เขียนกลับ Google Sheet (โอ 3ก.ค.: แก้ในระบบ ไม่ใช่ใน Excel).
+
+    received ของแถว = สีไฮไลท์ในชีท OR มีแถวในตารางนี้; เฉพาะแถวที่มีเลข INV
+    (แถวไม่มี INV คีย์ไม่เสถียรข้ามรอบ parse — ไม่ให้ติ๊ก).
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    inv_key: str = Field(index=True, unique=True)   # "<SITE>:<INV>" เช่น "LCB:KLIV2605-001"
+    settled_on: date = Field(default_factory=date.today)
+    by_user: str = ""
+    note: str = ""

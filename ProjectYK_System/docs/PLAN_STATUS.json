@@ -20,9 +20,9 @@
         },
         {
           "id": "A3",
-          "name": "ติ๊กรับเงิน AR sync กลับ Google Sheet",
+          "name": "ติ๊กรับเงิน AR ในระบบ (ArSettle — โอเคาะ: ไม่แตะ Excel; received = สีชีท OR ติ๊ก)",
           "days": 0.5,
-          "status": "pending"
+          "status": "done"
         },
         {
           "id": "A4",
