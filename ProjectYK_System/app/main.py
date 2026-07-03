@@ -9641,11 +9641,12 @@ def dispatch_planner_list(request: Request, site: str = ""):
 
 
 @app.get("/dispatch/planner/new", response_class=HTMLResponse)
-def dispatch_planner_new_form(request: Request, site: str = "LCB"):
+def dispatch_planner_new_form(request: Request, site: str = "LCB", plan_date: str = ""):
     with Session(engine) as s:
         employees, vehicles, _ = _load_masters(s)
     ctx = base_context(request)
     ctx.update({
+        "default_date": _parse_date(plan_date),
         "plan": None,
         "lines": [],
         "employees": employees,
@@ -9933,6 +9934,292 @@ def dispatch_planner_reopen(plan_id: int, reopen_reason: str = Form("")):
         s.add(audit)
         s.commit()
     return RedirectResponse(url=f"/dispatch/planner/{plan_id}", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# B4: ปฏิทินกำลังรถ /calendar — ต่อวัน: รถทั้งหมด − จอง/วิ่งจริง − ซ่อมค้าง − คนลา
+# display/planning เท่านั้น ไม่แตะเงิน. วันลามาจาก 2 ทาง: LeaveRecord (ลงจากปฏิทิน)
+# + อ่านสดจากเดลี่ (leave_status / "ลาหยุด" ใน destination ที่ทีมคีย์อยู่แล้ว)
+# ---------------------------------------------------------------------------
+
+_TH_MONTH_FULL = ("", "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม",
+                  "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม",
+                  "พฤศจิกายน", "ธันวาคม")
+
+
+def _cal_month_bounds(month: str) -> tuple[date, date]:
+    from calendar import monthrange
+    try:
+        y_s, m_s = month.split("-")
+        first = date(int(y_s), int(m_s), 1)
+    except (ValueError, AttributeError):
+        first = date.today().replace(day=1)
+    return first, first.replace(day=monthrange(first.year, first.month)[1])
+
+
+@app.get("/calendar", response_class=HTMLResponse)
+def fleet_calendar(request: Request, site: str = "LCB", month: str = ""):
+    site = (site or "LCB").strip().upper()
+    if site not in models.SITE_CODES:
+        site = "LCB"
+    first, last = _cal_month_bounds(month)
+    today_d = date.today()
+
+    with Session(engine) as s:
+        vehicles = s.exec(
+            select(Vehicle)
+            .where(
+                Vehicle.home_site_code == site,
+                Vehicle.status == "active",
+                Vehicle.vehicle_kind.in_(("truck", "head")),  # type: ignore[attr-defined]
+            )
+            .order_by(Vehicle.plate_no)  # type: ignore[arg-type]
+        ).all()
+        vids = {v.id for v in vehicles}
+        vlabel = {v.id: v.plate_no + (f" ({v.nickname})" if v.nickname else "")
+                  for v in vehicles}
+        # เดลี่จริงส่วนใหญ่ไม่มี head_vehicle_id (ผูกด้วยข้อความทะเบียน) — match เอง
+        plate2vid = {v.plate_no.strip(): v.id for v in vehicles}
+        plate2vid.update({v.old_plate_no.strip(): v.id for v in vehicles
+                          if len((v.old_plate_no or "").strip()) > 3})
+
+        plan_rows = s.exec(
+            select(DispatchPlan, DispatchPlanLine)
+            .join(DispatchPlanLine, DispatchPlanLine.plan_id == DispatchPlan.id)
+            .where(
+                DispatchPlan.site_code == site,
+                DispatchPlan.plan_date >= first,
+                DispatchPlan.plan_date <= last,
+            )
+        ).all()
+        djs = s.exec(
+            select(DailyJob).where(
+                DailyJob.site_code == site,
+                DailyJob.work_date >= first,
+                DailyJob.work_date <= last,
+            )
+        ).all()
+        maints = s.exec(
+            select(MaintRecord).where(
+                MaintRecord.status == "in_progress",
+                MaintRecord.work_date <= last,
+                MaintRecord.vehicle_id.in_(vids),  # type: ignore[union-attr]
+            )
+        ).all() if vids else []
+        leave_rows = s.exec(
+            select(LeaveRecord, Employee)
+            .join(Employee, Employee.id == LeaveRecord.driver_id)
+            .where(
+                LeaveRecord.leave_date >= first,
+                LeaveRecord.leave_date <= last,
+                Employee.home_site_code == site,
+            )
+        ).all()
+        drivers = s.exec(
+            select(Employee)
+            .where(Employee.home_site_code == site, Employee.status == "active")
+            .order_by(Employee.full_name)  # type: ignore[arg-type]
+        ).all()
+
+    # --- จอง/วิ่งจริง: set ต่อวัน key = vehicle_id (รถใน master) — plan กับเดลี่คันเดียวกันนับครั้งเดียว
+    busy: dict[date, set[int]] = {}
+    busy_detail: dict[date, list[dict]] = {}
+    seen_busy: set[tuple[date, object]] = set()
+
+    def _add_busy(d: date, vehicle_id, plate_raw: str, job: str, driver: str, src: str):
+        if vehicle_id not in vids:
+            vehicle_id = plate2vid.get((plate_raw or "").strip())
+        key = vehicle_id if vehicle_id in vids else f"p:{(plate_raw or '').strip()}"
+        if (d, key) in seen_busy:
+            return
+        seen_busy.add((d, key))
+        if vehicle_id in vids:
+            busy.setdefault(d, set()).add(vehicle_id)
+            plate = vlabel[vehicle_id]
+        else:
+            plate = (plate_raw or "").strip() or "?"
+            src += " (ทะเบียนไม่อยู่ใน master — ไม่หักจากรถว่าง)"
+        busy_detail.setdefault(d, []).append(
+            {"plate": plate, "job": job, "driver": driver, "src": src})
+
+    for plan, line in plan_rows:
+        _add_busy(plan.plan_date, line.vehicle_id, line.plate_raw,
+                  line.job_type, line.driver_raw, "แผนงาน")
+    # แยกชนิดแถวเดลี่แบบเดียวกับ payroll (_count_work_days): status_code เป็นชื่อ
+    # ลูกค้า = วิ่งงาน, "รถจอด/รองาน/ไม่มีงาน" = ว่าง, "ลา/ขาด/ป่วย" = ลา,
+    # "ซ่อม/อุบัติเหตุ" = ซ่อม (นับเฉพาะวันนั้น)
+    import re as _re_cal
+    _daily_leave: dict[date, list[dict]] = {}
+    daily_repair: dict[date, dict[int, str]] = {}   # d -> {vehicle_id: เหตุ}
+    for r in djs:
+        stat_blob = f"{r.status_code or ''} {r.leave_status or ''}".strip().lower()
+        toks = {t for t in _re_cal.split(r"[\s/,;()\[\]\-_.]+", stat_blob) if t}
+        is_leave = (
+            bool((r.leave_status or "").strip())
+            or "ลาหยุด" in (r.destination or "")
+            or toks & {"ลา", "ขาด", "ป่วย", "ลากิจ", "ลาป่วย", "หยุด", "leave"}
+        )
+        if is_leave:
+            _daily_leave.setdefault(r.work_date, []).append({
+                "driver_id": r.driver_id,
+                "name": r.driver_raw_name or "",
+                "type": (r.leave_status or r.status_code or "ลาหยุด"),
+                "src": "daily", "id": None, "note": "",
+            })
+            continue
+        vid = r.head_vehicle_id if r.head_vehicle_id in vids \
+            else plate2vid.get((r.plate_no_raw or "").strip())
+        if "ซ่อม" in stat_blob or "อุบัติเหตุ" in stat_blob:
+            if vid in vids:
+                daily_repair.setdefault(r.work_date, {})[vid] = r.status_code
+            continue
+        if toks & {"รถจอด", "รองาน", "ไม่มีงาน", "idle"}:
+            continue  # รถจอดว่าง — ไม่ใช่งานจอง
+        if vid is None and not (r.plate_no_raw or "").strip():
+            continue  # แถวไม่มีรถ (office/อื่นๆ) ไม่เกี่ยวกำลังรถ
+        _add_busy(r.work_date, r.head_vehicle_id, r.plate_no_raw,
+                  r.customer_name_raw or r.status_code or r.trip_type_code,
+                  r.driver_raw_name, "เดลี่")
+
+    # --- ซ่อมค้าง: นับตั้งแต่วันเริ่มซ่อม (in_progress) จนกว่าจะปิด record
+    repair_from: dict[int, date] = {}
+    repair_info: dict[int, dict] = {}
+    for mrec in maints:
+        cur = repair_from.get(mrec.vehicle_id)
+        if cur is None or mrec.work_date < cur:
+            repair_from[mrec.vehicle_id] = mrec.work_date
+            repair_info[mrec.vehicle_id] = {
+                "record_no": mrec.record_no, "since": mrec.work_date,
+                "what": mrec.symptom or mrec.work_done or mrec.kind}
+
+    # --- คนลา: LeaveRecord + เดลี่ (dedupe ต่อวันด้วย driver_id/ชื่อ)
+    leave_by_day: dict[date, list[dict]] = {}
+    _leave_seen: set[tuple[date, object]] = set()
+    emp_name = {e.id: e.full_name for e in drivers}
+    for rec, emp in leave_rows:
+        k = (rec.leave_date, rec.driver_id)
+        if k in _leave_seen:
+            continue
+        _leave_seen.add(k)
+        leave_by_day.setdefault(rec.leave_date, []).append({
+            "driver_id": rec.driver_id, "name": emp.full_name,
+            "type": rec.leave_type, "src": "record", "id": rec.id,
+            "note": rec.note})
+    for d, items in _daily_leave.items():
+        for it in items:
+            k = (d, it["driver_id"] if it["driver_id"] else it["name"])
+            if k in _leave_seen or (d, it["name"]) in _leave_seen:
+                continue
+            _leave_seen.add(k)
+            if not it["name"] and it["driver_id"]:
+                it["name"] = emp_name.get(it["driver_id"], f"#{it['driver_id']}")
+            leave_by_day.setdefault(d, []).append(it)
+
+    # --- ประกอบรายวัน + จัดเป็นสัปดาห์ (จันทร์เริ่ม)
+    total = len(vehicles)
+    days: list[dict] = []
+    d = first
+    while d <= last:
+        b = busy.get(d, set())
+        drep = daily_repair.get(d, {})
+        open_rep = {vid for vid, frm in repair_from.items() if frm <= d}
+        rep = (open_rep | set(drep)) - b
+        lv = leave_by_day.get(d, [])
+        repair_list = []
+        for vid in sorted(rep):
+            if vid in open_rep:
+                repair_list.append(dict(repair_info[vid], plate=vlabel[vid]))
+            else:
+                repair_list.append({"plate": vlabel[vid], "since": d,
+                                    "record_no": "จากเดลี่", "what": drep[vid]})
+        days.append({
+            "d": d, "iso": d.isoformat(), "num": d.day,
+            "avail": max(total - len(b) - len(rep) - len(lv), 0),
+            "busy_n": len(b), "repair_n": len(rep), "leave_n": len(lv),
+            "busy_list": busy_detail.get(d, []),
+            "repair_list": repair_list,
+            "leave_list": lv,
+            "is_today": d == today_d,
+            "is_weekend": d.weekday() >= 5,
+        })
+        d += timedelta(days=1)
+    weeks: list[list] = []
+    row: list = [None] * first.weekday()
+    for day in days:
+        row.append(day)
+        if len(row) == 7:
+            weeks.append(row)
+            row = []
+    if row:
+        weeks.append(row + [None] * (7 - len(row)))
+
+    prev_m = (first - timedelta(days=1)).strftime("%Y-%m")
+    next_m = (last + timedelta(days=1)).strftime("%Y-%m")
+    u = current_user(request)
+    ctx = base_context(request)
+    ctx.update({
+        "site": site, "sites": models.SITE_CODES,
+        "month": first.strftime("%Y-%m"),
+        "month_label": f"{_TH_MONTH_FULL[first.month]} {first.year}",
+        "prev_m": prev_m, "next_m": next_m,
+        "weeks": weeks, "total": total, "vehicles": vehicles,
+        "drivers": drivers,
+        "can_edit": bool(u) and perm_check(u.role, "/calendar", "POST") == "edit",
+    })
+    return templates.TemplateResponse("calendar.html", ctx)
+
+
+@app.post("/calendar/leave")
+def calendar_leave_add(
+    driver_id: int = Form(...),
+    date_from: str = Form(...),
+    date_to: str = Form(""),
+    leave_type: str = Form("personal"),
+    note: str = Form(""),
+    site: str = Form("LCB"),
+    month: str = Form(""),
+):
+    d1 = _parse_date(date_from)
+    d2 = _parse_date(date_to) or d1
+    if not d1:
+        raise HTTPException(400, "date_from invalid")
+    if d2 < d1:
+        d1, d2 = d2, d1
+    if (d2 - d1).days > 62:
+        raise HTTPException(400, "ช่วงลายาวเกิน 62 วัน")
+    with Session(engine) as s:
+        if not s.get(Employee, driver_id):
+            raise HTTPException(404, "ไม่พบพนักงาน")
+        existing = {
+            r.leave_date
+            for r in s.exec(
+                select(LeaveRecord).where(
+                    LeaveRecord.driver_id == driver_id,
+                    LeaveRecord.leave_date >= d1,
+                    LeaveRecord.leave_date <= d2,
+                )
+            ).all()
+        }
+        d = d1
+        while d <= d2:
+            if d not in existing:
+                s.add(LeaveRecord(driver_id=driver_id, leave_date=d,
+                                  leave_type=leave_type.strip(), note=note.strip()))
+            d += timedelta(days=1)
+        s.commit()
+    return RedirectResponse(
+        url=f"/calendar?site={site}&month={month}#day-{d1.isoformat()}",
+        status_code=303)
+
+
+@app.post("/calendar/leave/{leave_id}/delete")
+def calendar_leave_delete(leave_id: int, site: str = Form("LCB"), month: str = Form("")):
+    with Session(engine) as s:
+        rec = s.get(LeaveRecord, leave_id)
+        if rec:
+            s.delete(rec)
+            s.commit()
+    return RedirectResponse(url=f"/calendar?site={site}&month={month}", status_code=303)
 
 
 @app.get("/dispatch/planner/{plan_id}/line-message", response_class=PlainTextResponse)

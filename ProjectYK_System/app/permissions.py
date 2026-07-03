@@ -26,6 +26,8 @@ MENUS = {
     "customers": ["/customers"],
     "fuel": ["/fuel", "/fuel-index", "/fuel-surcharge", "/api/fuel"],
     "dispatch": ["/dispatch", "/ops/lcb-fuel-dispatch"],
+    # ปฏิทินกำลังรถ + ลงบันทึกลา (B4) — หัวหน้าไซท์ (office) ใช้วางแผน/ลงลาได้
+    "calendar": ["/calendar"],
     "email": ["/email"],
     "import": ["/import"],
     "admin": ["/admin"],
@@ -52,6 +54,7 @@ MATRIX = {
     "customers": {"admin": "edit", "office": "edit", "accountant": "view", "viewer": "view"},
     "fuel":      {"admin": "edit", "office": "edit", "accountant": "view", "viewer": "view"},
     "dispatch":  {"admin": "edit", "office": "edit", "accountant": "view", "viewer": "view"},
+    "calendar":  {"admin": "edit", "office": "edit", "accountant": "view", "viewer": "view"},
     "email":     {"admin": "edit", "office": "deny", "accountant": "view", "viewer": "deny"},
     "import":    {"admin": "edit", "office": "deny", "accountant": "deny", "viewer": "deny"},
     "admin":     {"admin": "edit", "office": "deny", "accountant": "deny", "viewer": "deny"},

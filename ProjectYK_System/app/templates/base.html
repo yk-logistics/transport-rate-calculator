@@ -134,6 +134,7 @@
           <button type="button" class="yk-menu-btn px-3 py-1.5 rounded hover:bg-slate-700">งานรถ/สนาม ▾</button>
           <div class="yk-menu-panel hidden absolute left-0 mt-1 z-50 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 py-1 min-w-[180px]">
             <a href="/dispatch/planner" class="block px-4 py-2 hover:bg-slate-100">📋 Dispatch</a>
+            {% if can_see(request, "/calendar") %}<a href="/calendar" class="block px-4 py-2 hover:bg-slate-100">📅 ปฏิทินกำลังรถ</a>{% endif %}
             <a href="/maint" class="block px-4 py-2 hover:bg-slate-100">ซ่อม/ยาง/PM</a>
             {% if can_see(request, "/admin/users") %}<a href="/admin/check-links" class="block px-4 py-2 hover:bg-slate-100">🔗 ลิงก์ตรวจสภาพรถ</a>{% endif %}
             <a href="/admin/submissions" class="block px-4 py-2 hover:bg-slate-100">📱 Driver</a>
