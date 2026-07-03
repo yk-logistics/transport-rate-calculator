@@ -193,7 +193,12 @@ E2: รายงานน้ำมันผิดปกติ: ต่อยอ�
 
 ## เฟส P — แพลตฟอร์มใช้งาน (โอสั่ง 3ก.ค.: สิทธิ์ละเอียด + ตรวจย้อน + คลิกขวา + เห็นแผนในระบบ)
 
-### P1 สิทธิ์ละเอียดกว่าเมนู — โอปรับเองได้ — โมเดล: ใหญ่ออกแบบ+Sonnet ทำ (~1.5 วัน)
+### P1 ✅ เสร็จ 3ก.ค. กลางคืน — สิทธิ์ละเอียดรายชิ้นส่วน โอปรับเองได้
+**ของจริง:** `parts.py` (PART_DEFAULTS ในโค้ด — ไม่มีแถว DB = ใช้ default, key ไม่รู้จัก = admin เท่านั้น fail closed) + ตาราง `PartPermission` (v39: แถว role หรือ override รายคน — **รายคนชนะ role**) + helper template `part_visible(request,'key')` / `part_editable(...)`; หน้า `/admin/permissions` (เมนู ⚙️→🔐): matrix part×role ติ๊กเปลี่ยนแล้วมีผลทันที (invalidate cache ในโปรเซส) + ตั้ง/ลบ override รายคน; ทุกการแก้ → AuditLog (ดูได้ที่ /admin/audit?table=partpermission)
+**จุดที่ใช้แล้ว (4):** `transfer.edit_account` (ปุ่มแก้บัญชี + POST เช็คซ้ำ 403), `ar.settle` (ปุ่มติ๊กรับเงิน + POST 403), `daily.money_cols` + `daily.kb_col` (คอลัมน์ grid — **ตัด field ออกจาก payload /api/daily/grid-data เลย** ไม่ใช่แค่ซ่อน + grid-save บล็อกเขียน `no_permission:<field>` ต่อช่อง); เทสต์ 6 ตัว tests/test_part_permissions.py
+**เพิ่มจุดใหม่:** เพิ่ม key ใน PART_DEFAULTS → ครอบ template ด้วย helper (+ เช็ค POST ถ้าเป็นจุดเงิน) — หน้า admin โชว์เอง; จุดต่อไปตามสเปคเดิม: `payroll.boss_cols` (รอไล่กับโอว่าคอลัมน์ไหน = A5)
+
+สเปคเดิม (อ้างอิง): — โมเดล: ใหญ่ออกแบบ+Sonnet ทำ (~1.5 วัน)
 **เป้า:** จากเดิมกำหนดได้แค่ เมนู×(ดู/แก้/ไม่เห็น) → เพิ่มระดับ "ชิ้นส่วนในหน้า" เช่น หน้าสลิปเห็นได้แต่คอลัมน์บอส (KB/ค่าขนส่งจริง) เฉพาะ admin, หน้าโอนเงินเห็นได้แต่ปุ่มแก้บัญชีเฉพาะโอ
 **ดีไซน์:** (1) นิยาม "part key" ต่อจุด (เช่น `payroll.boss_cols`, `transfer.edit_account`, `daily.money_cols`) — ฝังในตำแหน่ง template ด้วย helper ใหม่ `can_part(request,'<key>')` (2) ตาราง `PartPermission` (v37): part_key, role, level(hide/view/edit) + default ตายตัวในโค้ด (ไม่มีแถว = ใช้ default) (3) หน้า /admin/permissions: ตาราง role×part ติ๊กปรับสด (admin เท่านั้น) + ต่อ user รายคน (override role) (4) เริ่มจากจุดอ่อนไหวจริง ~10 จุดแรก (บอส/บัญชี/KB/เงินเดือน) ไม่ต้องครอบทุกปุ่มวันแรก
 **เกณฑ์ผ่าน:** สร้าง user ทดสอบ role office → มองไม่เห็นคอลัมน์บอส/ปุ่มลับตามตาราง; โอสลับติ๊กแล้วมีผลทันทีไม่ต้อง restart
