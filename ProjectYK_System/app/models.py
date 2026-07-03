@@ -1506,3 +1506,41 @@ class ArSettle(SQLModel, table=True):
     settled_on: date = Field(default_factory=date.today)
     by_user: str = ""
     note: str = ""
+
+
+class Quotation(SQLModel, table=True):
+    """ใบเสนอราคา (B2, v35) — sync มาจากปุ่ม "บันทึกงาน" ของเครื่องคิด /quote
+    (โปรโตคอล Drive-sync เดิมของไฟล์ ชี้เข้า /quote/sync). raw_json = record
+    ทั้งก้อน (snapshot ครบ) → โหลดกลับเข้าเครื่องคิดได้ค่าเดิม; ฟิลด์อื่นถอดมา
+    เพื่อค้นหา/รายงาน. สถานะ/ราคาต่อรอง แก้ฝั่งระบบ (ไม่ถูก sync ทับ).
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    record_id: str = Field(index=True, unique=True)   # 'job_...' จากเครื่องคิด
+    customer_name: str = Field(default="", index=True)
+    factory_name: str = Field(default="", index=True)  # ชื่องาน/โรงงาน (jobName)
+    location_url: str = ""        # ลิงก์แมพปลายทางจากลูกค้า
+    origin_site: str = Field(default="", index=True)   # LCB | "" (ต้นทางเอง)
+    km_round: float = 0.0         # กม.ไป-กลับ
+    toll_cost: float = 0.0
+    price_offered: float = 0.0    # ราคาขายที่กรอก (ถ้าไม่กรอก = ราคาเป้า margin ขั้นต่ำ)
+    price_agreed: Optional[float] = None
+    status: str = Field(default="draft", index=True)
+    # draft | negotiating | agreed | rejected | archived (หายจากเครื่องคิด)
+    tags: str = ""
+    note: str = ""
+    saved_at: Optional[datetime] = None
+    raw_json: str = ""
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class QuotationAudit(SQLModel, table=True):
+    """ประวัติแก้สถานะ/ราคาใบเสนอ — INSERT-only (ลอก pattern DepositAudit)."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    quotation_id: int = Field(foreign_key="quotation.id", index=True)
+    changed_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    changed_by: str = ""
+    action: str = ""      # status | price_agreed | sync_update | sync_archive
+    field_name: str = ""
+    old_value: str = ""
+    new_value: str = ""

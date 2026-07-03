@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}ใบเสนอ — {{ row.customer_name }}{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-xl font-bold">📄 {{ row.customer_name or 'ลูกค้า' }} — {{ row.factory_name or '' }}</h1>
+  <a href="/quote/list" class="px-3 py-1.5 rounded border text-sm text-slate-600 hover:bg-slate-50">← กลับรายการ</a>
+</div>
+
+<div class="grid md:grid-cols-2 gap-4">
+  <div class="bg-white rounded-lg border p-4 text-sm space-y-2">
+    <div class="flex justify-between"><span class="text-slate-500">บันทึกเมื่อ</span><span>{{ (row.saved_at | dmy_hm) if row.saved_at else '—' }}</span></div>
+    <div class="flex justify-between"><span class="text-slate-500">ต้นทาง</span><span>{{ row.origin_site or 'กำหนดเอง' }}</span></div>
+    <div class="flex justify-between"><span class="text-slate-500">กม.ไป-กลับ</span><span>{{ '{:,.1f}'.format(row.km_round) }}</span></div>
+    <div class="flex justify-between"><span class="text-slate-500">ทางด่วน</span><span>{{ '{:,.0f}'.format(row.toll_cost) }}</span></div>
+    <div class="flex justify-between"><span class="text-slate-500">ราคาเสนอ</span><span class="font-bold text-base">{{ '{:,.2f}'.format(row.price_offered) }}</span></div>
+    <div class="flex justify-between"><span class="text-slate-500">ราคาตกลง</span><span class="font-bold text-base {% if row.price_agreed is not none %}text-emerald-700{% endif %}">{{ '{:,.2f}'.format(row.price_agreed) if row.price_agreed is not none else '—' }}</span></div>
+    {% if row.location_url %}
+    <div class="flex justify-between"><span class="text-slate-500">แมพปลายทาง</span><a href="{{ row.location_url }}" target="_blank" class="text-indigo-600 hover:underline">เปิดลิงก์ 🗺️</a></div>
+    {% endif %}
+    {% if row.tags %}<div class="flex justify-between"><span class="text-slate-500">แท็ก</span><span>{{ row.tags }}</span></div>{% endif %}
+    {% if row.note %}<div><span class="text-slate-500">โน้ต:</span> {{ row.note }}</div>{% endif %}
+    <div class="pt-2 border-t border-slate-100 text-xs text-slate-400">
+      แก้ตัวเลข/เส้นทาง: เปิด <a href="/quote" class="text-indigo-600 hover:underline">เครื่องคิดราคา</a>
+      แล้วเลือกงานนี้จาก "งานที่บันทึกไว้" (id {{ row.record_id }}) — แก้แล้วกดบันทึก ระบบ sync กลับมาเอง
+    </div>
+  </div>
+
+  <div class="space-y-4">
+    <form method="post" action="/quote/{{ row.id }}/status" class="bg-white rounded-lg border p-4 text-sm space-y-3">
+      <div class="font-semibold">อัปเดตสถานะ / ราคาต่อรอง</div>
+      <div class="flex gap-2 items-center flex-wrap">
+        <select name="status" class="border rounded px-2 py-1.5 text-sm">
+          {% for k, v in status_th.items() if k != 'archived' %}
+          <option value="{{ k }}" {% if row.status==k %}selected{% endif %}>{{ v }}</option>
+          {% endfor %}
+        </select>
+        <input name="price_agreed" placeholder="ราคาตกลง (บาท)" value="{{ row.price_agreed if row.price_agreed is not none else '' }}"
+               class="border rounded px-3 py-1.5 text-sm w-40">
+        <button class="bg-indigo-600 text-white px-4 py-1.5 rounded text-sm hover:bg-indigo-500">บันทึก</button>
+      </div>
+      <div class="text-xs text-slate-400">ทุกการแก้เก็บประวัติ (ไม่ทับของเดิม)</div>
+    </form>
+
+    <div class="bg-white rounded-lg border p-4">
+      <div class="font-semibold text-sm mb-2">ประวัติการแก้ไข</div>
+      <table class="w-full text-xs">
+        <thead class="text-slate-500"><tr>
+          <th class="text-left py-1">เมื่อ</th><th class="text-left py-1">โดย</th>
+          <th class="text-left py-1">อะไร</th><th class="text-left py-1">เดิม → ใหม่</th>
+        </tr></thead>
+        <tbody class="divide-y divide-slate-50">
+          {% for a in audits %}
+          <tr>
+            <td class="py-1 text-slate-500">{{ a.changed_at | dmy_hm }}</td>
+            <td class="py-1">{{ a.changed_by or '—' }}</td>
+            <td class="py-1">{{ {'status':'สถานะ','price_agreed':'ราคาตกลง','sync_update':'แก้จากเครื่องคิด','sync_archive':'ลบจากเครื่องคิด'}.get(a.action, a.action) }}</td>
+            <td class="py-1 text-slate-500">{% if a.old_value or a.new_value %}{{ a.old_value or '—' }} → {{ a.new_value or '—' }}{% endif %}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="py-3 text-center text-slate-400">ยังไม่มีการแก้ไข</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

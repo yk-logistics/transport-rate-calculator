@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}ใบเสนอราคา (บันทึก){% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-xl font-bold">📄 ใบเสนอราคา (บันทึกจากเครื่องคิด)</h1>
+  <a href="/quote" class="bg-slate-900 text-white px-3 py-1.5 rounded text-sm hover:bg-slate-700">🧮 เปิดเครื่องคิดราคา</a>
+</div>
+
+<div class="mb-3 text-sm text-slate-500">
+  กด "บันทึกงาน" ในเครื่องคิด → รายการโผล่ที่นี่อัตโนมัติ (sync สองทาง — เปิดเครื่องคิดจากเครื่องไหนก็เห็นรายการเดิม)
+</div>
+
+<form method="get" class="flex gap-2 mb-4 flex-wrap items-center">
+  <input name="q" value="{{ q }}" placeholder="ค้นหา ลูกค้า/งาน/แท็ก/โน้ต"
+         class="border rounded px-3 py-1.5 text-sm w-64">
+  <select name="status" class="border rounded px-2 py-1.5 text-sm">
+    <option value="">ทุกสถานะ (ยกเว้นที่ลบ)</option>
+    {% for k, v in status_th.items() %}
+    <option value="{{ k }}" {% if status==k %}selected{% endif %}>{{ v }}</option>
+    {% endfor %}
+  </select>
+  <button class="bg-indigo-600 text-white px-3 py-1.5 rounded text-sm hover:bg-indigo-500">ค้นหา</button>
+  {% if q or status %}<a href="/quote/list" class="text-sm text-slate-500 hover:underline">ล้าง</a>{% endif %}
+</form>
+
+<div class="bg-white rounded-lg border overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-600 text-xs uppercase">
+      <tr>
+        <th class="px-3 py-2 text-left">บันทึกเมื่อ</th>
+        <th class="px-3 py-2 text-left">ลูกค้า</th>
+        <th class="px-3 py-2 text-left">งาน/โรงงาน</th>
+        <th class="px-3 py-2 text-right">กม.ไป-กลับ</th>
+        <th class="px-3 py-2 text-right">ทางด่วน</th>
+        <th class="px-3 py-2 text-right">ราคาเสนอ</th>
+        <th class="px-3 py-2 text-right">ราคาตกลง</th>
+        <th class="px-3 py-2 text-left">สถานะ</th>
+        <th class="px-3 py-2"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for r in rows %}
+      <tr class="hover:bg-slate-50">
+        <td class="px-3 py-2 text-slate-500 text-xs">{{ (r.saved_at | dmy_hm) if r.saved_at else '—' }}</td>
+        <td class="px-3 py-2 font-medium">{{ r.customer_name or '—' }}</td>
+        <td class="px-3 py-2">{{ r.factory_name or '—' }}
+          {% if r.location_url %}<a href="{{ r.location_url }}" target="_blank" class="text-indigo-500 text-xs hover:underline">🗺️</a>{% endif %}
+        </td>
+        <td class="px-3 py-2 text-right">{{ '{:,.0f}'.format(r.km_round) }}</td>
+        <td class="px-3 py-2 text-right">{{ '{:,.0f}'.format(r.toll_cost) }}</td>
+        <td class="px-3 py-2 text-right font-semibold">{{ '{:,.0f}'.format(r.price_offered) }}</td>
+        <td class="px-3 py-2 text-right">{% if r.price_agreed is not none %}<span class="font-semibold text-emerald-700">{{ '{:,.0f}'.format(r.price_agreed) }}</span>{% else %}—{% endif %}</td>
+        <td class="px-3 py-2">
+          <span class="px-2 py-0.5 rounded text-xs font-medium
+            {% if r.status=='agreed' %}bg-emerald-100 text-emerald-700
+            {% elif r.status=='negotiating' %}bg-amber-100 text-amber-700
+            {% elif r.status=='rejected' %}bg-rose-100 text-rose-700
+            {% elif r.status=='archived' %}bg-slate-200 text-slate-500
+            {% else %}bg-slate-100 text-slate-600{% endif %}">{{ status_th.get(r.status, r.status) }}</span>
+        </td>
+        <td class="px-3 py-2 text-right"><a href="/quote/{{ r.id }}" class="text-indigo-600 hover:underline text-xs">เปิด →</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="px-4 py-8 text-center text-slate-400">
+        ยังไม่มีใบเสนอราคา — <a href="/quote" class="text-indigo-600 hover:underline">เปิดเครื่องคิด</a> แล้วกด "บันทึกงาน"
+      </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

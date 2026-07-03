@@ -71,6 +71,8 @@ from models import (
     PayRunItem,
     PettyCashTxn,
     PmPlan,
+    Quotation,
+    QuotationAudit,
     RateCard,
     SchemaInfo,
     StockTxn,
@@ -91,7 +93,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 34  # v34: ArSettle (ติ๊กรับเงิน AR ในระบบ — create_all, ไม่ต้อง ALTER)
+SCHEMA_VERSION = 35  # v35: Quotation + QuotationAudit (B2 เซฟใบเสนอราคา — create_all, ไม่ต้อง ALTER)
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -8212,6 +8214,28 @@ def _first_existing(*paths: Path) -> Optional[Path]:
     return None
 
 
+# B2: bootstrap ต่อท้ายไฟล์เครื่องคิด (ไม่แก้เนื้อไฟล์ — เลขเป๊ะ 100% ตามหลัก B1):
+# ชี้ระบบ "Sync to Drive" เดิมของไฟล์เข้า /quote/sync ของ MVP ครั้งแรกอัตโนมัติ
+# → ปุ่ม "บันทึกงาน" เดิม = เซฟเข้าระบบ (Quotation) + เปิดหน้าใหม่โหลดรายการกลับเอง
+_QUOTE_SYNC_BOOTSTRAP = """
+<script id="yk-quote-sync-bootstrap">
+(function () {
+  try {
+    var K = 'yk_drive_sync_settings_v1';
+    if (!localStorage.getItem(K)) {
+      localStorage.setItem(K, JSON.stringify({
+        url: '/quote/sync', secret: '',
+        autoSyncAfterSave: true, autoLoadOnOpen: true, autoNameOnSave: true
+      }));
+      if (typeof loadDriveSettings === 'function') loadDriveSettings();
+      if (typeof loadFromDrive === 'function') loadFromDrive(true);
+    }
+  } catch (e) {}
+})();
+</script>
+"""
+
+
 @app.get("/quote", response_class=HTMLResponse)
 def quote_calculator():
     """เครื่องคิดค่าขนส่งตามราคาน้ำมัน — ไฟล์เดี่ยวตัวเดียวกับ GitHub Pages."""
@@ -8221,7 +8245,190 @@ def quote_calculator():
     )
     if p is None:
         raise HTTPException(404, "ยังไม่ได้วางไฟล์เครื่องคิดราคาบนเครื่องนี้")
-    return HTMLResponse(p.read_text(encoding="utf-8"))
+    html = p.read_text(encoding="utf-8")
+    if "</body>" in html:
+        html = html.replace("</body>", _QUOTE_SYNC_BOOTSTRAP + "\n</body>", 1)
+    return HTMLResponse(html)
+
+
+def _quote_fields_from_record(rec: dict) -> dict:
+    """ถอดฟิลด์ค้นหา/รายงานจาก record ของเครื่องคิด (snapshot ทั้งก้อนอยู่ raw_json)."""
+    snap = rec.get("snapshot") or {}
+    fv = snap.get("fieldValues") or {}
+    summ = snap.get("summary") or {}
+
+    def _f(x) -> float:
+        try:
+            return float(x)
+        except (TypeError, ValueError):
+            return 0.0
+
+    preset = str(fv.get("mapsOriginPreset") or "")
+    cust_price = _f(fv.get("customerPrice"))
+    saved_at = None
+    try:
+        saved_at = datetime.fromisoformat(str(rec.get("savedAt") or "").replace("Z", "+00:00"))
+        saved_at = saved_at.replace(tzinfo=None)
+    except ValueError:
+        pass
+    return {
+        "customer_name": str(rec.get("customerName") or "").strip(),
+        "factory_name": str(rec.get("jobName") or "").strip(),
+        "location_url": str(fv.get("mapsDestinationLink") or "").strip(),
+        # preset ทั้งสองตัวในไฟล์ = ต้นทางโซนแหลมฉบัง; "custom" = กำหนดเอง
+        "origin_site": "LCB" if preset.startswith("13.0") else "",
+        "km_round": _f(summ.get("totalDistance")),
+        "toll_cost": _f(fv.get("tollCost")),
+        "price_offered": cust_price if cust_price > 0 else _f(summ.get("suggested15AfterFinance")),
+        "tags": str(rec.get("tags") or "").strip(),
+        "note": str(rec.get("note") or "").strip(),
+        "saved_at": saved_at,
+    }
+
+
+@app.post("/quote/sync")
+async def quote_sync_save(request: Request):
+    """รับ payload จากปุ่ม Sync ของเครื่องคิด (Content-Type text/plain ตามไฟล์เดิม).
+    upsert ตาม record id; record ที่หายจากเครื่องคิด → archived (ไม่ลบ — เก็บประวัติ)."""
+    try:
+        data = json.loads((await request.body()).decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        raise HTTPException(400, "payload ไม่ใช่ JSON")
+    if data.get("action") != "save":
+        raise HTTPException(400, "action ต้องเป็น save")
+    records = (data.get("payload") or {}).get("records") or []
+    u = current_user(request)
+    by = u.username if u else ""
+    with Session(engine) as s:
+        existing = {q.record_id: q for q in s.exec(select(Quotation)).all()}
+        seen: set[str] = set()
+        for rec in records:
+            rid = str(rec.get("id") or "").strip()
+            if not rid:
+                continue
+            seen.add(rid)
+            fields = _quote_fields_from_record(rec)
+            raw = json.dumps(rec, ensure_ascii=False)
+            q = existing.get(rid)
+            if q is None:
+                s.add(Quotation(record_id=rid, raw_json=raw, **fields))
+                continue
+            if q.raw_json == raw:
+                continue
+            for k, v in fields.items():
+                setattr(q, k, v)
+            q.raw_json = raw
+            q.updated_at = datetime.utcnow()
+            if q.status == "archived":
+                q.status = "draft"  # กลับมาโผล่ในเครื่องคิดอีกครั้ง
+            s.add(q)
+            s.add(QuotationAudit(quotation_id=q.id, changed_by=by,
+                                 action="sync_update", field_name="raw_json"))
+        for rid, q in existing.items():
+            if rid not in seen and q.status != "archived":
+                s.add(QuotationAudit(quotation_id=q.id, changed_by=by,
+                                     action="sync_archive", field_name="status",
+                                     old_value=q.status, new_value="archived"))
+                q.status = "archived"
+                q.updated_at = datetime.utcnow()
+                s.add(q)
+        s.commit()
+    return JSONResponse({"ok": True, "count": len(seen)})
+
+
+@app.get("/quote/sync")
+def quote_sync_load(action: str = "load"):
+    """เครื่องคิดโหลดรายการกลับ (?action=load) — คืนเฉพาะที่ยังไม่ archived."""
+    if action != "load":
+        raise HTTPException(400, "action ต้องเป็น load")
+    with Session(engine) as s:
+        rows = s.exec(
+            select(Quotation)
+            .where(Quotation.status != "archived")
+            .order_by(Quotation.saved_at.desc())  # type: ignore[union-attr]
+        ).all()
+    records = []
+    for q in rows:
+        try:
+            records.append(json.loads(q.raw_json))
+        except ValueError:
+            continue
+    return JSONResponse({"records": records})
+
+
+_QUOTE_STATUS_TH = {
+    "draft": "ร่าง", "negotiating": "ต่อรองอยู่", "agreed": "ตกลงแล้ว",
+    "rejected": "ไม่ผ่าน", "archived": "ลบจากเครื่องคิด",
+}
+
+
+@app.get("/quote/list", response_class=HTMLResponse)
+def quote_list(request: Request, q: str = "", status: str = ""):
+    with Session(engine) as s:
+        rows = s.exec(select(Quotation).order_by(
+            Quotation.saved_at.desc())).all()  # type: ignore[union-attr]
+    if status:
+        rows = [r for r in rows if r.status == status]
+    else:
+        rows = [r for r in rows if r.status != "archived"]
+    if q.strip():
+        needle = q.strip().lower()
+        rows = [r for r in rows if needle in
+                f"{r.customer_name} {r.factory_name} {r.tags} {r.note}".lower()]
+    ctx = base_context(request)
+    ctx.update({"rows": rows, "q": q, "status": status,
+                "status_th": _QUOTE_STATUS_TH})
+    return templates.TemplateResponse("quote_list.html", ctx)
+
+
+@app.get("/quote/{qid}", response_class=HTMLResponse)
+def quote_detail(qid: int, request: Request):
+    with Session(engine) as s:
+        row = s.get(Quotation, qid)
+        if not row:
+            raise HTTPException(404)
+        audits = s.exec(
+            select(QuotationAudit)
+            .where(QuotationAudit.quotation_id == qid)
+            .order_by(QuotationAudit.changed_at.desc())  # type: ignore[union-attr]
+        ).all()
+    ctx = base_context(request)
+    ctx.update({"row": row, "audits": audits, "status_th": _QUOTE_STATUS_TH})
+    return templates.TemplateResponse("quote_detail.html", ctx)
+
+
+@app.post("/quote/{qid}/status")
+def quote_set_status(qid: int, request: Request,
+                     status: str = Form(...), price_agreed: str = Form("")):
+    if status not in _QUOTE_STATUS_TH:
+        raise HTTPException(400, "สถานะไม่ถูกต้อง")
+    u = current_user(request)
+    by = u.username if u else ""
+    with Session(engine) as s:
+        row = s.get(Quotation, qid)
+        if not row:
+            raise HTTPException(404)
+        if status != row.status:
+            s.add(QuotationAudit(quotation_id=qid, changed_by=by, action="status",
+                                 field_name="status", old_value=row.status,
+                                 new_value=status))
+            row.status = status
+        new_price: Optional[float] = None
+        if price_agreed.strip():
+            try:
+                new_price = float(price_agreed.replace(",", ""))
+            except ValueError:
+                raise HTTPException(400, "ราคาตกลงไม่ใช่ตัวเลข")
+        if new_price is not None and new_price != row.price_agreed:
+            s.add(QuotationAudit(quotation_id=qid, changed_by=by, action="price_agreed",
+                                 field_name="price_agreed",
+                                 old_value="" if row.price_agreed is None else str(row.price_agreed),
+                                 new_value=str(new_price)))
+            row.price_agreed = new_price
+        row.updated_at = datetime.utcnow()
+        s.add(row)
+        s.commit()
+    return RedirectResponse(url=f"/quote/{qid}", status_code=303)
 
 
 _OATSIDE_REPORT_DIRS = (
