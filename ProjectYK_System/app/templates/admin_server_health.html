@@ -42,6 +42,68 @@
   </div>
 </div>
 
+{# ---- S1: สำรองข้อมูล 3 ชั้น ---- #}
+<div class="mb-6">
+  <div class="text-sm font-semibold mb-2">🛡️ สำรองข้อมูล 3 ชั้น (S1)</div>
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+    <div class="bg-white rounded-xl shadow p-4" data-hot-level="{{ hot_level }}">
+      <div class="text-sm text-slate-500">ชั้น 1 · ของร้อนทุกคืน 03:00 (ฐานข้อมูล+ตั้งค่า)</div>
+      {% if hot is none %}
+        <div class="text-lg font-bold text-slate-400 mt-1">ยังไม่เคยรัน</div>
+        <div class="text-xs text-slate-400">task YK_MVP_HOT_BACKUP บนเครื่อง server จะสร้างไฟล์คืนแรก</div>
+      {% else %}
+        <div class="text-lg font-bold mt-1 {% if hot_level == 'ok' %}text-emerald-700{% else %}text-rose-600{% endif %}">
+          {% if hot.ok %}✅ สำเร็จ{% else %}❌ พัง{% endif %}
+          <span class="text-sm font-normal text-slate-500">{{ hot.ts and (hot.ts | dmy_hm) }}{% if hot_age_h is not none %} ({{ hot_age_h }} ชม.ที่แล้ว){% endif %}</span>
+        </div>
+        <div class="text-xs text-slate-500 mt-1 font-mono">{{ hot.zip or '' }}{% if hot.size_mb %} · {{ hot.size_mb }} MB{% endif %}</div>
+        {% if hot.error %}<div class="text-xs text-rose-600 mt-1">{{ hot.error }}</div>{% endif %}
+        {% if hot_level == 'red' and hot.ok %}<div class="text-xs text-rose-600 mt-1">⚠ เกิน 26 ชม. — เช็ค task YK_MVP_HOT_BACKUP บน server</div>{% endif %}
+        {% if hot.drive_ok %}
+          <div class="text-xs text-emerald-700 mt-1">☁ ขึ้น Google Drive แล้ว</div>
+        {% else %}
+          <div class="text-xs text-amber-600 mt-1">☁ Drive ยังไม่ทำงาน — Google ตัดสิทธิ์ service account แล้ว ต้องต่อ OAuth บัญชีโอ (รอเคาะ) · ระหว่างนี้สำเนานอกเครื่อง = ชั้น 3</div>
+        {% endif %}
+      {% endif %}
+      <div class="text-xs text-slate-400 mt-2">เก็บหมุนเวียน 14 วัน + รายอาทิตย์ 8 ชุด ที่ D:\YK_BACKUPS · วิธีกู้: docs/BACKUP_RUNBOOK.md</div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow p-4">
+      <div class="text-sm text-slate-500">ชั้น 2 · รายสัปดาห์ลงแผ่น External (รูปไลน์+zip)</div>
+      <div class="text-lg font-bold mt-1 {% if ext_days is none %}text-slate-400{% elif ext_days > 10 %}text-rose-600{% else %}text-emerald-700{% endif %}">
+        {% if ext_days is none %}ยังไม่เคยทำ{% elif ext_days == 0 %}✅ วันนี้{% else %}{% if ext_days > 10 %}⚠{% else %}✅{% endif %} {{ ext_days }} วันที่แล้ว{% endif %}
+        {% if ext_drive %}<span class="text-sm font-normal text-slate-400">({{ ext_drive }})</span>{% endif %}
+      </div>
+      {% if ext_days is not none and ext_days > 10 %}<div class="text-xs text-rose-600">เกิน 10 วันแล้ว — เสียบแผ่นแล้วกดปุ่มด้านล่าง</div>{% endif %}
+      {% if ext_state.running %}
+        <div class="text-sm text-sky-700 mt-2">⏳ กำลัง copy ลงแผ่น… (ครั้งแรก ~5-10 นาที) — รีเฟรชหน้าเพื่อดูผล</div>
+      {% else %}
+        {% if ext_state.ts %}
+          <div class="text-xs mt-2 {% if ext_state.ok %}text-emerald-700{% else %}text-rose-600{% endif %}">รอบล่าสุด {{ ext_state.ts }}: {% if ext_state.ok %}สำเร็จ{% else %}พัง{% endif %}</div>
+          {% if ext_state.log %}<details class="text-xs text-slate-400"><summary class="cursor-pointer">รายละเอียด</summary><pre class="whitespace-pre-wrap">{{ ext_state.log }}</pre></details>{% endif %}
+        {% endif %}
+        {% if ext_targets %}
+        <form method="post" action="/admin/server-health/backup-external" class="mt-2 flex gap-2 items-center">
+          <select name="target" class="border rounded px-2 py-1 text-sm">
+            {% for t in ext_targets %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+          </select>
+          <button class="bg-slate-900 text-white px-3 py-1.5 rounded text-sm hover:bg-slate-700">💾 Backup ลงแผ่นนี้</button>
+        </form>
+        {% else %}
+        <div class="text-xs text-slate-400 mt-2">เสียบ External HDD ที่<b>เครื่อง server</b> แล้วรีเฟรชหน้านี้ — ปุ่มจะโผล่เอง</div>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    <div class="bg-white rounded-xl shadow p-4">
+      <div class="text-sm text-slate-500">ชั้น 3 · เครื่อง Dev ดูดสำเนา (Tailscale)</div>
+      <div class="text-sm mt-1 text-slate-600">เครื่องโอเปิดอยู่วันไหน task <span class="font-mono text-xs">YK_PULL_BACKUP</span> จะดูด zip คืนล่าสุดมาเก็บที่เครื่องโออัตโนมัติ — เป็นสำเนา<b>นอกเครื่อง server</b> ตัวหลักตอนนี้</div>
+      <div class="text-xs text-slate-400 mt-2">โฟลเดอร์ C:\Users\guole\YK_BACKUPS_MIRROR (เก็บ 14 ชุดล่าสุด)</div>
+    </div>
+  </div>
+</div>
+
 <div class="bg-white rounded-xl shadow overflow-x-auto">
   <div class="px-4 pt-3 text-sm font-semibold">ใครกินพื้นที่เท่าไหร่</div>
   <table class="w-full text-sm">

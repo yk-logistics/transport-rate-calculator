@@ -8815,6 +8815,76 @@ def todo_media(item_id: int, fname: str, request: Request):
 
 _HEALTH_CACHE: dict = {"at": None, "data": None}
 
+# ---- S1 ชั้น 2: Backup ลงแผ่น External (ปุ่มบนหน้า server-health) --------------
+_EXT_BACKUP: dict = {"running": False, "ok": None, "log": "", "ts": None}
+
+
+def _ext_backup_targets() -> list[str]:
+    """ไดรฟ์ที่เสียบเพิ่ม (E:-Z:) + เป้าทดสอบจาก env — ตัวเลือกของปุ่ม Backup ลงแผ่น."""
+    out = []
+    test = os.getenv("YK_EXT_TEST_TARGET", "").strip()
+    if test:
+        out.append(test)
+    for letter in "EFGHIJKLMNOPQRSTUVWXYZ":
+        try:
+            if Path(f"{letter}:/").exists():
+                out.append(f"{letter}:/")
+        except OSError:
+            continue
+    return out
+
+
+def _ext_backup_worker(target: str) -> None:
+    """robocopy ของเย็น (line_media) + ชุด zip ชั้น 1 ลงแผ่น — incremental
+    (ครั้งแรก ~4GB, ครั้งถัดไปเฉพาะไฟล์ใหม่). รันใน thread — ดูผลบนหน้าเดิม."""
+    import subprocess
+    from datetime import datetime as _dt
+
+    line_dir = Path(os.getenv("YK_LINE_DIR", r"C:\Users\yklog\YK_LINE_ARCHIVER"))
+    hot_dir = Path(os.getenv("YK_BACKUP_ROOT", r"D:\YK_BACKUPS"))
+    dest = Path(target) / "YK_BACKUP"
+    logs: list[str] = []
+    ok = True
+    try:
+        dest.mkdir(parents=True, exist_ok=True)
+        (dest / "YK_ARCHIVE.txt").write_text(
+            f"YK backup drive - do not delete\nlast: {_dt.now():%Y-%m-%d %H:%M}\n",
+            encoding="utf-8")
+        for src, name in ((line_dir / "line_media", "line_media"),
+                          (hot_dir, "hot_zips")):
+            if not src.exists():
+                logs.append(f"(ข้าม {name} — ไม่พบ {src})")
+                continue
+            r = subprocess.run(
+                ["robocopy", str(src), str(dest / name),
+                 "/E", "/NFL", "/NDL", "/NP", "/R:1", "/W:1"],
+                capture_output=True, text=True)
+            tail = (r.stdout or "").strip().splitlines()[-8:]
+            logs.append(f"{name}: exit {r.returncode}\n" + "\n".join(tail))
+            if r.returncode >= 8:   # robocopy: 0-7 = สำเร็จ, >=8 = มีไฟล์พลาด
+                ok = False
+        if ok:
+            set_setting("external_backup_last",
+                        _dt.now().isoformat(timespec="seconds") + "|" + str(target))
+    except Exception as e:  # noqa: BLE001 — โชว์เหตุบนหน้า ไม่ให้ thread ตายเงียบ
+        ok = False
+        logs.append(f"{type(e).__name__}: {e}")
+    _EXT_BACKUP.update({"running": False, "ok": ok, "log": "\n\n".join(logs),
+                        "ts": _dt.now().strftime("%d/%m/%Y %H:%M")})
+
+
+@app.post("/admin/server-health/backup-external")
+def admin_backup_external(target: str = Form(...)):
+    import threading
+
+    if _EXT_BACKUP["running"]:
+        return RedirectResponse("/admin/server-health", status_code=303)
+    if target not in _ext_backup_targets():
+        raise HTTPException(400, "ไม่พบไดรฟ์ที่เลือก — เสียบ External แล้วรีเฟรชหน้า")
+    _EXT_BACKUP.update({"running": True, "ok": None, "log": "", "ts": None})
+    threading.Thread(target=_ext_backup_worker, args=(target,), daemon=True).start()
+    return RedirectResponse("/admin/server-health", status_code=303)
+
 
 @app.get("/admin/server-health", response_class=HTMLResponse)
 def admin_server_health(request: Request):
@@ -8864,8 +8934,36 @@ def admin_server_health(request: Request):
         _HEALTH_CACHE["at"] = _dt.now()
         _HEALTH_CACHE["data"] = data
     level = "red" if data["free_pct"] < 10 else ("yellow" if data["free_pct"] < 20 else "ok")
+
+    # ---- S1: สถานะสำรอง 3 ชั้น (อ่านสดทุกครั้ง — ไฟล์เล็ก + ปุ่มเปลี่ยนสถานะบ่อย)
+    hot = None
+    hot_age_h = None
+    try:
+        sp = Path(os.getenv("YK_BACKUP_STATUS", r"D:\YK_BACKUPS\last_run.json"))
+        if sp.exists():
+            hot = json.loads(sp.read_text(encoding="utf-8"))
+            hot_age_h = round(
+                (_dt.now() - _dt.fromisoformat(hot["ts"])).total_seconds() / 3600, 1)
+    except (OSError, ValueError, KeyError):
+        hot = {"ok": False, "error": "อ่านไฟล์สถานะไม่ได้"}
+    hot_level = "none"
+    if hot is not None:
+        hot_level = "red" if (not hot.get("ok") or (hot_age_h or 0) > 26) else "ok"
+    ext_days = None
+    ext_drive = ""
+    raw_ext = get_setting("external_backup_last")
+    if raw_ext:
+        try:
+            t, _, ext_drive = raw_ext.partition("|")
+            ext_days = (_dt.now() - _dt.fromisoformat(t)).days
+        except ValueError:
+            pass
+
     ctx = base_context(request)
-    ctx.update({"h": data, "level": level})
+    ctx.update({"h": data, "level": level,
+                "hot": hot, "hot_age_h": hot_age_h, "hot_level": hot_level,
+                "ext_days": ext_days, "ext_drive": ext_drive,
+                "ext_state": _EXT_BACKUP, "ext_targets": _ext_backup_targets()})
     return templates.TemplateResponse("admin_server_health.html", ctx)
 
 

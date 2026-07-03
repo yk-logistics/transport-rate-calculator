@@ -236,9 +236,9 @@
       "tasks": [
         {
           "id": "S1",
-          "name": "สำรอง 3 ชั้น (คืนละครั้ง→Drive ฟรี + External รายสัปดาห์)",
+          "name": "สำรอง 3 ชั้น — ✅ คืนละ 03:00 zip ของร้อน→D: (14/8 ชุด) + ปุ่มลงแผ่น External + เครื่อง Dev ดูดสำเนา 09:30 + Discord แจ้งพัง + ซ้อมกู้แล้ว (runbook docs/BACKUP_RUNBOOK.md); ชั้น Drive รอ OAuth โอ — Google ตัดสิทธิ์ service account แล้ว",
           "days": 1,
-          "status": "pending"
+          "status": "done"
         },
         {
           "id": "S2",
