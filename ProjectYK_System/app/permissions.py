@@ -35,6 +35,8 @@ MENUS = {
     "todo": ["/todo"],
     # เครื่องคิดราคา + รายงาน Oatside (มีต้นทุน/เรทภายใน) — admin ก่อน รอโอสั่งขยาย
     "quote": ["/quote", "/oatside"],
+    # คลังแชทไลน์ (อ่านย้อนหลัง/ค้นหา) — ออฟฟิศ/บัญชีดูได้ (ใช้หาหลักฐานงาน)
+    "line": ["/line"],
 }
 
 # menu -> role -> "edit" | "view" | "deny"
@@ -56,6 +58,7 @@ MATRIX = {
     "kb":        {"admin": "edit", "office": "deny", "accountant": "deny", "viewer": "deny"},
     "todo":      {"admin": "edit", "office": "edit", "accountant": "edit", "viewer": "edit"},
     "quote":     {"admin": "edit", "office": "deny", "accountant": "deny", "viewer": "deny"},
+    "line":      {"admin": "edit", "office": "view", "accountant": "view", "viewer": "deny"},
 }
 
 

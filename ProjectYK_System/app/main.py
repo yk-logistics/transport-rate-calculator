@@ -8359,6 +8359,44 @@ def oatside_report_file(rel: str):
 
 
 # =========================================================================
+# คลังแชทไลน์ (/line) — F1: ค้นทุกกลุ่ม + เปิดรูปเก่า + กลุ่มเงียบลอยขึ้น
+# อ่าน line_archive.db ของ service 8020 แบบ read-only เท่านั้น (ห้ามเขียน)
+# =========================================================================
+
+
+@app.get("/line", response_class=HTMLResponse)
+def line_search_page(request: Request, q: str = "", group: str = "", page: int = 0):
+    from services import line_archive as la
+
+    ctx = base_context(request)
+    error = None
+    groups: list = []
+    results: list = []
+    if la.db_path() is None:
+        error = "ไม่พบคลังแชทบนเครื่องนี้ (line_archive.db) — ใช้ได้บนเครื่อง server"
+    else:
+        try:
+            groups = la.groups_by_activity()
+            if q.strip() or group:
+                results = la.search(q, group_id=group, limit=100, offset=max(page, 0) * 100)
+        except Exception as e:
+            error = f"อ่านคลังแชทไม่สำเร็จ: {e}"
+    ctx.update({"groups": groups, "results": results, "q": q, "group": group,
+                "page": max(page, 0), "error": error})
+    return templates.TemplateResponse("line_search.html", ctx)
+
+
+@app.get("/line/media/{msg_id}")
+def line_media_serve(msg_id: int):
+    from services import line_archive as la
+
+    p = la.media_file(msg_id)
+    if p is None:
+        raise HTTPException(404)
+    return FileResponse(p)
+
+
+# =========================================================================
 # สมุดโน้ต / สิ่งที่ต้องทำ (/todo) — โอสั่ง 3ก.ค.: แทนสมุดจด+ห้องโยนมาก่อน
 # จดเร็วแบบพิมพ์แชท (มือถือใช้ไมค์คีย์บอร์ดพูดแทนพิมพ์ได้) ค้นได้ แนบรูปได้
 # ของใครของมัน (แยกตาม username) — รายละเอียด (หมวด/ด่วน/กำหนด) ค่อยเติมทีหลังได้

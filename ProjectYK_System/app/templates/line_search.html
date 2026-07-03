@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}ค้นแชทไลน์{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto">
+  <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+    <h1 class="text-2xl font-bold">💬 คลังแชทไลน์ — ค้นย้อนหลังทุกกลุ่ม</h1>
+    <div class="text-sm text-slate-500">รูป/ไฟล์เก็บถาวร ไม่มีวันหมดอายุแบบในไลน์</div>
+  </div>
+
+  {% if error %}
+  <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded p-3 mb-4 text-sm">⚠️ {{ error }}</div>
+  {% endif %}
+
+  <form method="get" class="bg-white rounded-2xl shadow p-3 mb-5 flex gap-2 flex-wrap">
+    <input name="q" value="{{ q }}" placeholder="🔍 ค้นทุกกลุ่ม... ทะเบียนรถ / เลขตู้ / ชื่อคน / คำในแชท"
+           class="flex-1 border rounded-xl px-3 py-2.5 min-w-64" autofocus>
+    <select name="group" class="border rounded-xl px-2 py-2 max-w-56">
+      <option value="">ทุกกลุ่ม</option>
+      {% for g in groups %}<option value="{{ g.group_id }}" {% if group == g.group_id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}
+    </select>
+    <button class="bg-emerald-600 text-white px-5 rounded-xl font-bold">ค้นหา</button>
+  </form>
+
+  {% if results %}
+  <div class="bg-white rounded-2xl shadow divide-y mb-5">
+    {% for m in results %}
+    <div class="px-4 py-2.5">
+      <div class="text-xs text-slate-400 flex gap-2 flex-wrap">
+        <span class="font-semibold text-slate-500">{{ m.group_name }}</span>
+        <span>{{ m.who or "?" }}</span><span>{{ m.sent_at }}</span>
+      </div>
+      {% if m.text %}<div class="whitespace-pre-wrap break-words mt-0.5">{{ m.text }}</div>{% endif %}
+      {% if m.media_path %}
+        {% if m.msg_type == 'image' %}
+        <a href="/line/media/{{ m.id }}" target="_blank"><img src="/line/media/{{ m.id }}" loading="lazy" class="h-28 rounded-lg border mt-1"></a>
+        {% else %}
+        <a href="/line/media/{{ m.id }}" target="_blank" class="text-sky-700 underline text-sm">📎 เปิดไฟล์แนบ ({{ m.msg_type }})</a>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% if results|length == 100 %}
+  <div class="flex gap-2 mb-6">
+    {% if page > 0 %}<a href="/line?q={{ q }}&group={{ group }}&page={{ page - 1 }}" class="border rounded-lg px-3 py-1.5 bg-white text-sm">← ใหม่กว่า</a>{% endif %}
+    <a href="/line?q={{ q }}&group={{ group }}&page={{ page + 1 }}" class="border rounded-lg px-3 py-1.5 bg-white text-sm">เก่ากว่า →</a>
+  </div>
+  {% endif %}
+  {% elif q or group %}
+  <div class="text-slate-400 text-center py-8 mb-5">ไม่พบข้อความที่ตรง</div>
+  {% endif %}
+
+  {% if groups %}
+  <div class="bg-white rounded-2xl shadow overflow-x-auto">
+    <div class="px-4 pt-3 text-sm font-semibold">กลุ่มทั้งหมดเรียงตามความเคลื่อนไหว — กลุ่มเงียบนานอยู่ท้าย (เช็คว่าลูกค้า/คนขับหายไหม)</div>
+    <table class="w-full text-sm">
+      <thead><tr class="text-left text-slate-400 text-xs">
+        <th class="px-4 py-1.5">กลุ่ม</th><th class="text-right">ข้อความ</th><th class="text-right">รูป/ไฟล์</th><th class="pr-4">ล่าสุด</th>
+      </tr></thead>
+      <tbody class="divide-y">
+      {% for g in groups %}
+      <tr class="hover:bg-slate-50">
+        <td class="px-4 py-1.5"><a href="/line?group={{ g.group_id }}" class="hover:text-sky-700">{{ g.name }}</a></td>
+        <td class="text-right font-mono">{{ "{:,}".format(g.n_msg or 0) }}</td>
+        <td class="text-right font-mono">{{ "{:,}".format(g.n_media or 0) }}</td>
+        <td class="pr-4 text-slate-500">{{ g.last_at or "—" }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -97,6 +97,7 @@
             <a href="/petty-cash/clearance" class="block px-4 py-2 hover:bg-slate-100">รอเคลียร์</a>
             {% if can_see(request, "/petty/review") %}<a href="/petty/slip-control" class="block px-4 py-2 hover:bg-slate-100">🤖 อ่านสลิป</a>{% endif %}
             {% if can_see(request, "/email") %}<a href="/email/inbox" class="block px-4 py-2 hover:bg-slate-100">Email Inbox</a>{% endif %}
+            {% if can_see(request, "/line") %}<a href="/line" class="block px-4 py-2 hover:bg-slate-100">💬 ค้นแชทไลน์</a>{% endif %}
           </div>
         </div>
 
