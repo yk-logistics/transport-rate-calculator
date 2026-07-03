@@ -52,7 +52,9 @@
       </tr></thead>
       <tbody class="divide-y">
       {% for r in g.rows %}
-        <tr class="hover:bg-slate-50 {% if r.due and r.due < today %}bg-rose-50{% endif %}">
+        <tr class="hover:bg-slate-50 {% if r.due and r.due < today %}bg-rose-50{% endif %}"
+            data-ctx="ar-row" data-inv="{{ r.inv }}" data-customer="{{ r.customer }}"
+            data-net="{{ '%.2f' | format(r.net) }}">
           <td class="px-4 py-1 text-slate-500">{{ r.tab }}</td>
           <td class="font-mono">{{ r.inv }}</td>
           <td>{{ r.customer }}</td>

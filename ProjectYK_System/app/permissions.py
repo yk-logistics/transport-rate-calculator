@@ -39,6 +39,8 @@ MENUS = {
     "quote": ["/quote", "/oatside"],
     # คลังแชทไลน์ (อ่านย้อนหลัง/ค้นหา) — ออฟฟิศ/บัญชีดูได้ (ใช้หาหลักฐานงาน)
     "line": ["/line"],
+    # เมนูคลิกขวา (P3) — GET รายการเมนูเท่านั้น item กรองสิทธิ์รายตัวใน handler
+    "ctxmenu": ["/api/ctxmenu"],
 }
 
 # menu -> role -> "edit" | "view" | "deny"
@@ -62,6 +64,7 @@ MATRIX = {
     "todo":      {"admin": "edit", "office": "edit", "accountant": "edit", "viewer": "edit"},
     "quote":     {"admin": "edit", "office": "deny", "accountant": "deny", "viewer": "deny"},
     "line":      {"admin": "edit", "office": "view", "accountant": "view", "viewer": "deny"},
+    "ctxmenu":   {"admin": "view", "office": "view", "accountant": "view", "viewer": "view"},
 }
 
 

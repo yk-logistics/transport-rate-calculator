@@ -20,7 +20,8 @@
     <table class="w-full text-sm">
       <tbody class="divide-y">
       {% for r in brows %}
-        <tr class="hover:bg-slate-50">
+        <tr class="hover:bg-slate-50" data-ctx="transfer-row"
+            data-account="{{ r.emp.account_no }}" data-name="{{ r.emp.full_name }}">
           <td class="px-4 py-2 w-56">{{ r.emp.full_name }}</td>
           <td class="w-52">
             <button type="button" onclick="navigator.clipboard.writeText('{{ r.emp.account_no }}'); this.innerText='✓ คัดลอกแล้ว'; setTimeout(()=>this.innerText='{{ r.emp.account_no or "—" }}',1200)"

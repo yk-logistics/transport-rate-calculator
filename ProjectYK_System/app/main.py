@@ -8421,6 +8421,48 @@ def invoice_builder_build(request: Request,
                  f"attachment; filename*=UTF-8''{_urlquote(fname)}"})
 
 
+# P3: เมนูคลิกขวาทั้งระบบ — registry ฝั่ง server (กรองสิทธิ์ต่อ item ด้วย perm path)
+# client: static/ctxmenu.js (data-ctx บน element หรือ YKCtx.open จากโค้ด เช่น Tabulator)
+# กติกา: ห้ามใส่ action เงินตรงในเมนู — เมนูเปิดหน้า/ฟอร์มที่มีของเดิมเท่านั้น
+# =========================================================================
+
+CTX_MENUS: dict = {
+    "daily-cell": [
+        {"label": "📜 ประวัติแถวนี้", "kind": "call", "fn": "ykCtxDailyAudit"},
+        {"label": "📋 คัดลอกค่าในช่อง", "kind": "copy", "key": "value"},
+        {"label": "📋 คัดลอกเบอร์ตู้", "kind": "copy", "key": "container"},
+        {"label": "💬 หาตู้นี้ในแชทไลน์", "kind": "link",
+         "href": "/line?q={container}", "perm": "/line"},
+        {"label": "💡 ใบเสนอราคาลูกค้านี้", "kind": "link",
+         "href": "/quote/list?q={customer}", "perm": "/quote"},
+    ],
+    "transfer-row": [
+        {"label": "📋 คัดลอกเลขบัญชี", "kind": "copy", "key": "account"},
+        {"label": "📋 คัดลอกชื่อ", "kind": "copy", "key": "name"},
+        {"label": "👤 เปิดหน้าพนักงาน", "kind": "link",
+         "href": "/employees?q={name}", "perm": "/employees"},
+    ],
+    "ar-row": [
+        {"label": "📋 คัดลอกเลข INV", "kind": "copy", "key": "inv"},
+        {"label": "📋 คัดลอกยอดสุทธิ", "kind": "copy", "key": "net"},
+        {"label": "💬 หาลูกค้านี้ในแชทไลน์", "kind": "link",
+         "href": "/line?q={customer}", "perm": "/line"},
+    ],
+}
+
+
+@app.get("/api/ctxmenu/{menu_type}")
+def ctxmenu_items(menu_type: str, request: Request):
+    items = CTX_MENUS.get(menu_type)
+    if items is None:
+        raise HTTPException(404, "ไม่รู้จักชนิดเมนูนี้")
+    u = current_user(request)
+    role = u.role if u else ""
+    out = [{k: v for k, v in it.items() if k != "perm"} for it in items
+           if not it.get("perm") or perm_check(role, it["perm"], "GET") != "deny"]
+    return {"items": out}
+
+
 # =========================================================================
 # เครื่องคิดราคาขนส่ง (/quote) + รายงาน Oatside (/oatside/report) — โอสั่ง 3ก.ค. 03:00
 # "ย้ายเข้าระบบเลย" — เสิร์ฟไฟล์เดิมตรงๆ (ไม่ผ่าน Jinja) = เลขตรง GitHub Pages 100%

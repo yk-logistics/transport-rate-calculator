@@ -912,6 +912,20 @@
   }
   window.openAuditModal = openAuditModal;
 
+  // ── P3: คลิกขวาบนเซลล์ → เมนู (ผ่าน YKCtx framework ใน base) ──────────────
+  window.ykCtxDailyAudit = (d) => openAuditModal(d.id);
+  table.on("cellContext", function(e, cell) {
+    if (!window.YKCtx) return;
+    e.preventDefault();
+    const row = cell.getRow().getData();
+    YKCtx.open("daily-cell", {
+      id: row.id,
+      value: cell.getValue() == null ? "" : String(cell.getValue()),
+      container: row.container_no || "",
+      customer: row.customer_name || row.customer_name_raw || "",
+    }, e.clientX, e.clientY);
+  });
+
   // Track the cell currently being edited
   table.on("cellEditing", function(cell) { currentEditCell = cell; });
   table.on("cellEditCancelled", function(cell) { if (currentEditCell === cell) currentEditCell = null; });
