@@ -8321,6 +8321,104 @@ def finance_receivables_settle(request: Request, inv_key: str = Form(...), undo:
 
 
 # =========================================================================
+# C2: ออกใบวางบิลจากระบบ /billing/invoice — เติมฟอร์ม xlsx จาก template ไฟล์จริง
+# (สำเนาใบจริงใน app/invoice_templates/) แถวตู้จากเดลี่; ช่องที่ DB ไม่มี
+# (ค่าทดรองจ่าย/ป้ายลูกค้า) แก้ในฟอร์มก่อนสร้าง; **ไม่เขียน DB** — คีย์เลขใบ
+# ในกริดเหมือนเดิม; ตรวจย้อนกลับ: tools/verify_invoice_builder.py
+# =========================================================================
+
+
+@app.get("/billing/invoice", response_class=HTMLResponse)
+def invoice_builder_page(request: Request, series: str = "", month: str = ""):
+    from services import invoice_builder as ib
+
+    today = date.today()
+    if not month:
+        month = f"{today.year:04d}-{today.month:02d}"
+    try:
+        y, m = [int(x) for x in month.split("-")]
+        d1, d2 = _month_bounds(y, m)
+    except ValueError:
+        y, m = today.year, today.month
+        d1, d2 = _month_bounds(y, m)
+        month = f"{y:04d}-{m:02d}"
+
+    billed_groups, unbilled, next_no, cfg = [], [], "", None
+    if series in ib.REGISTRY:
+        cfg = ib.REGISTRY[series]
+        with Session(engine) as s:
+            billed, unbilled_jobs = ib.daily_rows_for_series(s, cfg, d1, d2)
+            next_no = ib.next_invoice_no(s, cfg, f"{y % 100:02d}{m:02d}")
+        billed_groups = [
+            {"inv": inv, "n": len(js),
+             "total": sum(j.revenue_customer for j in js),
+             "d1": min(j.work_date for j in js).strftime("%d/%m"),
+             "d2": max(j.work_date for j in js).strftime("%d/%m"),
+             "rows": [ib.job_to_row(j, cfg) for j in js]}
+            for inv, js in sorted(billed.items())
+        ]
+        unbilled = [ib.job_to_row(j, cfg) for j in unbilled_jobs]
+    ctx = base_context(request)
+    ctx.update({
+        "series": series, "month": month, "cfg": cfg,
+        "registry": ib.REGISTRY, "next_no": next_no,
+        "billed_groups": billed_groups, "unbilled": unbilled,
+        "billed_json": json.dumps(billed_groups, ensure_ascii=False, default=str),
+        "unbilled_json": json.dumps(unbilled, ensure_ascii=False, default=str),
+    })
+    return templates.TemplateResponse("invoice_builder.html", ctx)
+
+
+@app.post("/billing/invoice/build")
+def invoice_builder_build(request: Request,
+                          series: str = Form(...), inv_no: str = Form(...),
+                          inv_date: str = Form(...), rows_json: str = Form(...)):
+    from services import invoice_builder as ib
+
+    cfg = ib.REGISTRY.get(series)
+    if cfg is None:
+        raise HTTPException(400, "ไม่รู้จักชุดใบวางบิลนี้")
+    inv_no = inv_no.strip()
+    if not ib.parse_invoice_no(inv_no):
+        raise HTTPException(400, f"เลขใบไม่เข้ารูปแบบ {cfg.prefix}YYMM-###")
+    try:
+        d = datetime.strptime(inv_date.strip(), "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(400, "วันที่ใบไม่ถูกต้อง")
+    try:
+        raw_rows = json.loads(rows_json)
+        assert isinstance(raw_rows, list)
+    except (ValueError, AssertionError):
+        raise HTTPException(400, "rows_json ไม่ใช่ JSON list")
+    rows = []
+    for r in raw_rows:
+        rd = None
+        try:
+            rd = datetime.strptime(str(r.get("date") or "")[:10], "%Y-%m-%d").date()
+        except ValueError:
+            pass
+        rows.append({
+            "route": str(r.get("route") or ""), "cntr": str(r.get("cntr") or ""),
+            "size": str(r.get("size") or ""), "plate": str(r.get("plate") or ""),
+            "cust": str(r.get("cust") or ""), "job": str(r.get("job") or ""),
+            "date": rd, "price": float(r.get("price") or 0),
+            "wash": float(r.get("wash") or 0), "advance": float(r.get("advance") or 0),
+        })
+    try:
+        data = ib.build_invoice(cfg, inv_no, d, rows)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    cust = (rows[0].get("cust") or "").strip() if rows else ""
+    fname = f"{inv_no}{(' ' + cust) if cust else ''}.xlsx"
+    from urllib.parse import quote as _urlquote
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition":
+                 f"attachment; filename*=UTF-8''{_urlquote(fname)}"})
+
+
+# =========================================================================
 # เครื่องคิดราคาขนส่ง (/quote) + รายงาน Oatside (/oatside/report) — โอสั่ง 3ก.ค. 03:00
 # "ย้ายเข้าระบบเลย" — เสิร์ฟไฟล์เดิมตรงๆ (ไม่ผ่าน Jinja) = เลขตรง GitHub Pages 100%
 # ที่มา: TransportRateCalculator/transport_rate_calculator.html +

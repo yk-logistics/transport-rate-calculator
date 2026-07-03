@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}ออกใบวางบิล{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-xl font-bold">🧾 ออกใบวางบิล (ฟอร์มไฟล์จริง)</h1>
+  <a href="/billing" class="text-sm text-indigo-600 hover:underline">← กลับ Billing</a>
+</div>
+
+<div class="mb-3 text-sm text-slate-500">
+  เลือกลูกค้า+เดือน → เลือกแถวจากเดลี่ (หรือใบที่คีย์เลขแล้ว) → แก้ช่องที่ระบบไม่รู้
+  (ป้ายรายการ/ลูกค้าปลายทาง/ค่าทดรองจ่าย) → ดาวน์โหลด xlsx ฟอร์มเดียวกับไฟล์จริง<br>
+  ⚠️ ระบบ<b>ยังไม่เขียนเลขใบลงเดลี่</b> — ออกใบแล้วคีย์เลขในกริดเหมือนเดิม (กันเลขชน)
+</div>
+
+<form method="get" class="flex gap-2 mb-4 flex-wrap items-center">
+  <select name="series" class="border rounded px-2 py-1.5 text-sm">
+    <option value="">— เลือกลูกค้า —</option>
+    {% for k, c in registry.items() %}
+    <option value="{{ k }}" {% if series==k %}selected{% endif %}>{{ c.label }} ({{ c.prefix }})</option>
+    {% endfor %}
+  </select>
+  <input type="month" name="month" value="{{ month }}" class="border rounded px-2 py-1.5 text-sm">
+  <button class="bg-indigo-600 text-white px-3 py-1.5 rounded text-sm hover:bg-indigo-500">ดูงาน</button>
+  <span class="text-xs text-slate-400">ลูกค้าอื่น (KAO/NHL/CJ/JGL/KTL/งานวาฬ) — เพิ่ม template แล้วใช้ได้เลย</span>
+</form>
+
+{% if cfg %}
+<div class="grid md:grid-cols-2 gap-4 mb-4">
+  <div class="bg-white rounded-lg border p-3">
+    <div class="font-semibold mb-2 text-sm">แถวยังไม่มีเลขใบ ({{ unbilled | length }})</div>
+    <div class="max-h-80 overflow-y-auto">
+      <table class="w-full text-xs">
+        <thead class="bg-slate-50 text-slate-600"><tr>
+          <th class="px-1 py-1"></th><th class="px-2 py-1 text-left">วันที่</th>
+          <th class="px-2 py-1 text-left">ตู้</th><th class="px-2 py-1 text-left">ทะเบียน</th>
+          <th class="px-2 py-1 text-right">ราคา</th>
+        </tr></thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for r in unbilled %}
+          <tr>
+            <td class="px-1 py-1"><input type="checkbox" class="unb-pick" data-i="{{ loop.index0 }}"></td>
+            <td class="px-2 py-1">{{ r.date | dmy }}</td>
+            <td class="px-2 py-1">{{ r.cntr or '—' }}</td>
+            <td class="px-2 py-1">{{ r.plate }}</td>
+            <td class="px-2 py-1 text-right {% if not r.price %}text-rose-600 font-bold{% endif %}">
+              {{ '{:,.0f}'.format(r.price) }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="px-2 py-4 text-center text-slate-400">ไม่มี — ทุกแถวมีเลขใบแล้ว</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if unbilled %}
+    <button type="button" onclick="pickUnbilled()"
+            class="mt-2 bg-emerald-600 text-white px-3 py-1.5 rounded text-sm hover:bg-emerald-500">
+      ✚ ออกใบใหม่จากแถวที่ติ๊ก (เลขถัดไป: {{ next_no }})</button>
+    {% endif %}
+  </div>
+
+  <div class="bg-white rounded-lg border p-3">
+    <div class="font-semibold mb-2 text-sm">ใบที่คีย์เลขแล้วเดือนนี้ ({{ billed_groups | length }}) — กดเพื่อออกซ้ำ/พิมพ์ใหม่</div>
+    <div class="max-h-80 overflow-y-auto">
+      <table class="w-full text-xs">
+        <thead class="bg-slate-50 text-slate-600"><tr>
+          <th class="px-2 py-1 text-left">เลขใบ</th><th class="px-2 py-1 text-right">ตู้</th>
+          <th class="px-2 py-1 text-right">รวมค่าขนส่ง</th><th class="px-2 py-1 text-left">ช่วงวัน</th><th></th>
+        </tr></thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for g in billed_groups %}
+          <tr class="hover:bg-slate-50">
+            <td class="px-2 py-1 font-mono">{{ g.inv }}</td>
+            <td class="px-2 py-1 text-right">{{ g.n }}</td>
+            <td class="px-2 py-1 text-right">{{ '{:,.2f}'.format(g.total) }}</td>
+            <td class="px-2 py-1">{{ g.d1 }}–{{ g.d2 }}</td>
+            <td class="px-2 py-1 text-right">
+              <button type="button" onclick="pickBilled({{ loop.index0 }})"
+                      class="text-indigo-600 hover:underline">เปิด →</button></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="px-2 py-4 text-center text-slate-400">ยังไม่มีใบเดือนนี้</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="edit-panel" class="bg-white rounded-lg border p-4 hidden">
+  <div class="flex items-center gap-3 flex-wrap mb-3">
+    <div class="font-semibold">แก้ก่อนสร้าง:</div>
+    <label class="text-sm">เลขใบ <input id="f-inv" class="border rounded px-2 py-1 text-sm font-mono w-40"></label>
+    <label class="text-sm">วันที่ใบ <input id="f-date" type="date" class="border rounded px-2 py-1 text-sm"></label>
+    <span class="text-xs text-slate-400">ช่องเหลือง = ระบบไม่รู้ ต้องกรอกเอง</span>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-xs" id="edit-table">
+      <thead class="bg-slate-50 text-slate-600"><tr>
+        <th class="px-1 py-1">#</th>
+        <th class="px-1 py-1 text-left">รายการบรรทุก</th>
+        <th class="px-1 py-1 text-left">ตู้</th>
+        <th class="px-1 py-1 text-left">ไซส์</th>
+        <th class="px-1 py-1 text-left">ทะเบียน</th>
+        <th class="px-1 py-1 text-left">CUST.</th>
+        <th class="px-1 py-1 text-left">{{ 'BL' if cfg.job_field == 'bl_booking' else 'JOB' }}</th>
+        <th class="px-1 py-1 text-left">วันที่บรรทุก</th>
+        <th class="px-1 py-1 text-right">ค่าขนส่ง</th>
+        {% if cfg.style == 'advance_cols' %}<th class="px-1 py-1 text-right">ค่าล้าง/ซ่อม</th>{% endif %}
+        <th class="px-1 py-1 text-right">ค่าใช้จ่าย/ทดรอง</th>
+        <th></th>
+      </tr></thead>
+      <tbody id="edit-rows"></tbody>
+    </table>
+  </div>
+  <div class="flex items-center gap-2 mt-3 flex-wrap">
+    <button type="button" onclick="addRow()" class="border px-3 py-1.5 rounded text-sm hover:bg-slate-50">+ เพิ่มแถว (เก็บเพิ่ม/ตีเปล่า)</button>
+    <form method="post" action="/billing/invoice/build" id="build-form">
+      <input type="hidden" name="series" value="{{ series }}">
+      <input type="hidden" name="inv_no" id="p-inv">
+      <input type="hidden" name="inv_date" id="p-date">
+      <input type="hidden" name="rows_json" id="p-rows">
+      <button class="bg-indigo-600 text-white px-4 py-1.5 rounded text-sm hover:bg-indigo-500"
+              onclick="return packForm()">⬇️ สร้าง + ดาวน์โหลด xlsx</button>
+    </form>
+    <span class="text-xs text-slate-400">ราคาค่าขนส่งมาจากเดลี่ — ถ้าแก้ตรงนี้ ใบจะไม่ตรงระบบ (แก้ที่กริดแล้วออกใหม่ดีกว่า)</span>
+  </div>
+</div>
+
+<script>
+const UNBILLED = {{ unbilled_json | safe }};
+const BILLED = {{ billed_json | safe }};
+const HAS_WASH = {{ 'true' if cfg.style == 'advance_cols' else 'false' }};
+
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function rowHtml(r, i) {
+  const warn = 'bg-amber-50';
+  return `<tr class="border-t">
+    <td class="px-1 py-1 text-slate-400">${i + 1}</td>
+    <td><input data-k="route" value="${esc(r.route)}" class="${r.route ? '' : warn} border rounded px-1 py-0.5 w-28"></td>
+    <td><input data-k="cntr" value="${esc(r.cntr)}" class="border rounded px-1 py-0.5 w-28 font-mono"></td>
+    <td><input data-k="size" value="${esc(r.size)}" class="border rounded px-1 py-0.5 w-10"></td>
+    <td><input data-k="plate" value="${esc(r.plate)}" class="border rounded px-1 py-0.5 w-20"></td>
+    <td><input data-k="cust" value="${esc(r.cust)}" class="${r.cust ? '' : warn} border rounded px-1 py-0.5 w-24"></td>
+    <td><input data-k="job" value="${esc(r.job)}" class="border rounded px-1 py-0.5 w-32 font-mono"></td>
+    <td><input data-k="date" type="date" value="${esc(String(r.date).slice(0, 10))}" class="border rounded px-1 py-0.5"></td>
+    <td><input data-k="price" type="number" step="0.01" value="${r.price ?? 0}" class="border rounded px-1 py-0.5 w-20 text-right"></td>
+    ${HAS_WASH ? `<td><input data-k="wash" type="number" step="0.01" value="${r.wash ?? 0}" class="${warn} border rounded px-1 py-0.5 w-20 text-right"></td>` : ''}
+    <td><input data-k="advance" type="number" step="0.01" value="${r.advance ?? 0}" class="${warn} border rounded px-1 py-0.5 w-20 text-right"></td>
+    <td><button type="button" onclick="this.closest('tr').remove()" class="text-rose-500 px-1">✕</button></td>
+  </tr>`;
+}
+
+function openEditor(rows, inv, date) {
+  document.getElementById('edit-rows').innerHTML = rows.map(rowHtml).join('');
+  document.getElementById('f-inv').value = inv;
+  document.getElementById('f-date').value = date || new Date().toISOString().slice(0, 10);
+  document.getElementById('edit-panel').classList.remove('hidden');
+  document.getElementById('edit-panel').scrollIntoView({behavior: 'smooth'});
+}
+
+function pickUnbilled() {
+  const rows = [...document.querySelectorAll('.unb-pick:checked')].map(cb => UNBILLED[+cb.dataset.i]);
+  if (!rows.length) { alert('ติ๊กแถวก่อน'); return; }
+  openEditor(rows, '{{ next_no }}', null);
+}
+
+function pickBilled(i) { openEditor(BILLED[i].rows, BILLED[i].inv, null); }
+
+function addRow() {
+  const tb = document.getElementById('edit-rows');
+  tb.insertAdjacentHTML('beforeend',
+    rowHtml({route: '', cntr: '', size: '', plate: '', cust: '', job: '', date: '', price: 0, wash: 0, advance: 0},
+            tb.children.length));
+}
+
+function packForm() {
+  const rows = [...document.querySelectorAll('#edit-rows tr')].map(tr => {
+    const o = {};
+    tr.querySelectorAll('input[data-k]').forEach(inp => o[inp.dataset.k] = inp.value);
+    return o;
+  });
+  if (!rows.length) { alert('ไม่มีแถว'); return false; }
+  document.getElementById('p-inv').value = document.getElementById('f-inv').value.trim();
+  document.getElementById('p-date').value = document.getElementById('f-date').value;
+  document.getElementById('p-rows').value = JSON.stringify(rows);
+  return true;
+}
+</script>
+{% endif %}
+
+{% endblock %}
