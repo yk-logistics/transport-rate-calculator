@@ -170,7 +170,11 @@ Start-Sleep 1; Start-ScheduledTask -TaskName YK_MVP_APP; Start-Sleep 6
 สเปคเดิม (อ้างอิง): — โมเดล: ใหญ่ออกแบบ rule + Sonnet ทำหน้า (~1 วัน)
 สแกน line_message กลุ่มที่ mark เป็น "ลูกค้า" (เพิ่มคอลัมน์ mapping ฝั่ง MVP: ตาราง `LineGroupMap` group_id↔customer/site/ชนิด — **เก็บฝั่ง app.db** ไม่แตะ DB archiver) หา pattern งาน (มีวันที่+เวลา / เลขตู้ TEXU… 11 หลัก / คำ "เข้า","โหลด","ส่ง") → หน้า inbox แสดง candidate → ปุ่ม "รับเป็นงาน" เปิด dispatch planner พร้อม prefill + จำ line_message_id กันเด้งซ้ำ; **เกณฑ์ผ่าน:** ทดสอบกับข้อความจริงย้อนหลัง 1 สัปดาห์ — จับงานจริงได้ ≥80%, false positive มีปุ่ม "ไม่ใช่งาน" แล้วไม่โผล่ซ้ำ
 
-### F3 ชุดหลักฐานวางบิล (POD) — โมเดล: ใหญ่ (~1.5 วัน หลัง F1+C2)
+### F3 🔶 โค้ดเสร็จ 4ก.ค. 00:5x — ชุดหลักฐานวางบิล POD (เหลือวัดของจริงบน server)
+**ของจริง:** ตาราง v41 `JobMedia` (line_message_pk unique — linked/skipped กันเสนอซ้ำ); `services/line_pod.py`: รูปจากกลุ่ม kind=customer → บริบท text ±10 นาทีรอบรูป ดึงเลขตู้ (regex F2) + ทะเบียน (dd-dddd) → match เดลี่ work_date ±1 + status_code ตรง customer_name ของกลุ่ม (คะแนน ตู้ 3 / ทะเบียน 2 / วันตรง 1; ไม่มีเลขอ้างอิง = เสนอเฉพาะวันตรง); หน้า `/line/pod` review (radio เลือกแถว → ผูก / ข้าม); `/billing/evidence?series&month` ตารางแถว+thumbnail (เหลือง=ยังไม่มีรูป) + `&download=zip` จัดโฟลเดอร์ตามเลขใบ `<INV>/<วัน>_<ตู้>_<msgid>.jpg`; เทสต์ 5 ตัว tests/test_line_pod.py
+**เหลือ:** วัด ≥90% กับลูกค้าจริง 1 ราย 1 รอบบน server + LineGroupMap.customer_name ต้องตรง status_code ในเดลี่ (คั่น , ได้หลายค่า)
+
+สเปคเดิม (อ้างอิง): — โมเดล: ใหญ่ (~1.5 วัน หลัง F1+C2)
 รูปในกลุ่ม → เสนอผูก DailyJob: filter กลุ่ม↔ลูกค้า (LineGroupMap) + วัน sent_at = work_date ±1 + ทะเบียน/เลขตู้ใน text ใกล้เคียง (ข้อความก่อนหน้าในกลุ่มเดียวกัน 10 นาที) → หน้า review จับคู่ (ยืนยัน/เปลี่ยนงาน/ข้าม) → ตาราง `JobMedia` (daily_job_id, line_message_id, kind) → หน้า "เอกสารต่อลูกค้า+ช่วง" รวมรูป+ใบวางบิล (C2) → ZIP; **เกณฑ์ผ่าน:** ลูกค้า 1 ราย 1 รอบจริง: ครบทุกเที่ยว ≥90% โดยกดยืนยันไม่เกิน 1 คลิก/รูป
 
 ### F4 น้ำมันจากไลน์ — โมเดล: ใหญ่ (เงินใกล้ตัว) (~1 วัน)
