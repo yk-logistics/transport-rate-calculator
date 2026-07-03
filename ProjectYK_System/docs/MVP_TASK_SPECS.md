@@ -195,7 +195,11 @@ E2: รายงานน้ำมันผิดปกติ: ต่อยอ�
 **งาน:** (1) ตาราง `AuditLog` กลาง (v38): user, เวลา, ตาราง+id, field, old→new, หน้า/route — เขียนผ่าน helper เดียว `audit(...)` แล้วไล่ติดตามจุดเขียนสำคัญ (2) หน้า /admin/audit: ค้นตาม user/วัน/ตาราง (3) **คลิกขวาใน Grid ที่ช่องไหน → "ประวัติช่องนี้"** popup: ใครแก้ เมื่อไหร่ จากอะไรเป็นอะไร (รวม audit เดลี่เดิม+AuditLog ใหม่)
 **เกณฑ์ผ่าน:** แก้ราคา 1 ช่องใน grid → คลิกขวาเห็นรายการแก้ทันที พร้อมชื่อ user จริง; โอค้นย้อน "เมื่อวานใครแก้อะไรบ้าง" ได้ใน 3 คลิก
 
-### P3 เมนูคลิกขวาทั้งระบบ (framework เดียว) — โมเดล: Sonnet ตามสเปคนี้ (~1 วัน ก่อน P2/A5 ใช้ร่วม)
+### P3 ✅ เสร็จ 3ก.ค. กลางคืน — เมนูคลิกขวาทั้งระบบ (YKCtx)
+**ของจริง:** `static/ctxmenu.js` (โหลดใน base.html ทุกหน้า) — 2 ทางใช้: `data-ctx="<type>"` + data-attrs บน element (คลิกขวา/มือถือกดค้าง 550ms) หรือ `YKCtx.open(type, data, x, y)` จากโค้ด (grid เดลี่ใช้ทางนี้ผ่าน Tabulator `cellContext`); registry ฝั่ง server `CTX_MENUS` ใน main.py + route `/api/ctxmenu/{type}` กรองสิทธิ์ต่อ item (`perm` path → perm_check, permissions key `ctxmenu` ทุก role=view); item kind: copy/link/call (call = เรียก window fn ที่หน้านั้น expose เช่น `ykCtxDailyAudit`); **ไม่มี action เงินตรงในเมนู — เทสต์บังคับ**; ใช้แล้ว 3 ที่: grid เดลี่ (ประวัติแถว/คัดลอกค่า/คัดลอกตู้/หาตู้ในไลน์/ใบเสนอราคาลูกค้า), /payroll/<id>/accounts (คัดลอกบัญชี/ชื่อ/เปิดหน้าพนักงาน), /finance/receivables (คัดลอก INV/ยอด/หาลูกค้าในไลน์); เทสต์ 5 ตัว tests/test_ctxmenu.py
+**เพิ่มเมนูใหม่:** เพิ่ม type/item ใน CTX_MENUS (ใส่ perm ถ้าลิงก์ไปหน้าที่จำกัดสิทธิ์) + ใส่ data-ctx ใน template — ไม่ต้องแตะ JS
+
+สเปคเดิม (อ้างอิง): — โมเดล: Sonnet ตามสเปคนี้ (~1 วัน ก่อน P2/A5 ใช้ร่วม)
 **ดีไซน์:** JS component เดียว `ctxmenu.js` ใน base.html: element ใดประกาศ `data-ctx="daily-cell"` + `data-id=...` → คลิกขวาเปิดเมนูตามชนิด; รายการเมนูมาจาก registry ฝั่ง server (ต่อชนิด+สิทธิ์ P1 กรองแล้ว) เช่น daily-cell: [ประวัติช่องนี้, ดูรูปงานนี้ (F3/E1), เปิดใบเสนอราคา, copy]; transfer-row: [แก้เลขบัญชี (inline form), ประวัติบัญชี, copy เลขบัญชี]
 **กติกา:** มือถือ = กดค้าง; ปิดด้วย Esc/คลิกนอก; ห้ามใส่ action เงินตรงในเมนู (เมนูเปิด form ที่มีของเดิม)
 **เกณฑ์ผ่าน:** ใช้ได้ 3 ที่แรก (grid เดลี่, หน้าโอนเงิน, ตาราง AR) บน Chrome+มือถือ; สิทธิ์กรองรายการถูก
