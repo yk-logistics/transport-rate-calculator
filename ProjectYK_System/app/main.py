@@ -4447,6 +4447,48 @@ def payroll_print_all(run_id: int, request: Request):
     return resp
 
 
+@app.get("/payroll/{run_id}/accounts", response_class=HTMLResponse)
+def payroll_accounts(run_id: int, request: Request):
+    """บัญชีโอนเงินของรอบ (A5 ส่วนแรก): เลขบัญชีใหญ่ ก็อปคลิกเดียว แก้ inline ได้เลย.
+
+    ทำเป็นหน้าแยก (ไม่แตะ template /print ที่ session อื่นทำค้าง) — โอสั่ง 3ก.ค.
+    "ฉันแก้เองถ้าแก้ในระบบได้"; เรียงตามธนาคารเพื่อโอนเป็นชุด, เฉพาะ net>0.
+    """
+    with Session(engine) as s:
+        pr = s.get(PayRun, run_id)
+        if pr is None:
+            return RedirectResponse("/payroll", status_code=303)
+        items = s.exec(select(PayRunItem).where(PayRunItem.pay_run_id == run_id)).all()
+        emps = {e.id: e for e in s.exec(select(Employee).where(
+            Employee.id.in_([i.employee_id for i in items]))).all()}
+    rows = []
+    for it in items:
+        if (it.net_pay or 0) <= 0:
+            continue
+        e = emps.get(it.employee_id)
+        if e:
+            rows.append({"emp": e, "net": it.net_pay})
+    rows.sort(key=lambda r: ((r["emp"].bank_name or "ไม่ระบุ"), -(r["net"] or 0)))
+    ctx = base_context(request)
+    ctx.update({"run": pr, "rows": rows,
+                "total": round(sum(r["net"] for r in rows), 2)})
+    return templates.TemplateResponse("payroll_accounts.html", ctx)
+
+
+@app.post("/payroll/{run_id}/accounts/save")
+def payroll_accounts_save(run_id: int, emp_id: int = Form(...),
+                          bank_name: str = Form(""), account_no: str = Form("")):
+    """แก้ธนาคาร/เลขบัญชีของพนักงาน (แก้ที่ตัว Employee — มีผลทุกหน้า/ทุกรอบ)."""
+    with Session(engine) as s:
+        e = s.get(Employee, emp_id)
+        if e:
+            e.bank_name = bank_name.strip()
+            e.account_no = account_no.strip()
+            s.add(e)
+            s.commit()
+    return RedirectResponse(f"/payroll/{run_id}/accounts", status_code=303)
+
+
 @app.post("/payroll/{run_id}/employee/{emp_id}/transfer-note")
 def payroll_transfer_note(run_id: int, emp_id: int, note: str = Form("")):
     """บันทึกหมายเหตุหน้าโอนเงิน (แก้มือ) — ไม่ recompute (ไม่กระทบเงิน)."""

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}บัญชีโอนเงิน · {{ run.pay_cycle_tag }}{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+    <h1 class="text-2xl font-bold">💳 บัญชีโอนเงิน — {{ run.site_code }} {{ run.pay_cycle_tag }}</h1>
+    <a href="/payroll/{{ run.id }}" class="border px-3 py-1.5 rounded-lg bg-white text-sm">← กลับหน้ารอบ</a>
+  </div>
+  <div class="bg-sky-50 border border-sky-200 text-sky-800 rounded p-3 mb-4 text-sm">
+    💡 คลิกเลขบัญชีเพื่อคัดลอก · กด "แก้" เพื่อแก้ธนาคาร/เลขบัญชี (มีผลถาวรทุกรอบ) · เรียงตามธนาคารให้โอนเป็นชุด · เฉพาะคนที่มียอดโอน (net > 0)
+  </div>
+
+  {% set banks = rows | groupby("emp.bank_name") %}
+  {% for bank, brows in banks %}
+  <div class="bg-white rounded-xl shadow mb-4 overflow-x-auto">
+    <div class="px-4 py-2 font-bold border-b bg-slate-50 rounded-t-xl flex justify-between">
+      <span>🏦 {{ bank or "— ไม่ระบุธนาคาร (ต้องเติม!) —" }}</span>
+      <span class="text-sm font-normal">{{ brows|length }} คน · <b class="font-mono">{{ "{:,.2f}".format(brows|sum(attribute="net")) }}</b></span>
+    </div>
+    <table class="w-full text-sm">
+      <tbody class="divide-y">
+      {% for r in brows %}
+        <tr class="hover:bg-slate-50">
+          <td class="px-4 py-2 w-56">{{ r.emp.full_name }}</td>
+          <td class="w-52">
+            <button type="button" onclick="navigator.clipboard.writeText('{{ r.emp.account_no }}'); this.innerText='✓ คัดลอกแล้ว'; setTimeout(()=>this.innerText='{{ r.emp.account_no or "—" }}',1200)"
+                    class="font-mono text-lg font-bold tracking-wide hover:text-sky-700" title="คลิกเพื่อคัดลอก">{{ r.emp.account_no or "—" }}</button>
+          </td>
+          <td class="text-right font-mono font-semibold w-32">{{ "{:,.2f}".format(r.net) }}</td>
+          <td class="text-right pr-4 w-20">
+            <details class="inline text-left">
+              <summary class="cursor-pointer text-xs text-slate-500 underline">แก้</summary>
+              <form method="post" action="/payroll/{{ run.id }}/accounts/save"
+                    class="flex gap-1.5 mt-1.5 items-center bg-amber-50 border border-amber-200 rounded-lg p-2 absolute z-30 shadow-lg">
+                <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
+                <input name="bank_name" value="{{ r.emp.bank_name }}" placeholder="ธนาคาร" class="border rounded px-2 py-1 w-28 text-sm">
+                <input name="account_no" value="{{ r.emp.account_no }}" placeholder="เลขบัญชี" class="border rounded px-2 py-1 w-40 text-sm font-mono">
+                <button class="bg-slate-900 text-white rounded px-3 py-1 text-sm">บันทึก</button>
+              </form>
+            </details>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endfor %}
+
+  <div class="bg-slate-900 text-white rounded-xl px-4 py-3 flex justify-between font-bold">
+    <span>รวมยอดเตรียมโอน ({{ rows|length }} คน)</span>
+    <span class="font-mono">{{ "{:,.2f}".format(total) }}</span>
+  </div>
+</div>
+{% endblock %}
