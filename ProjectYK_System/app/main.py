@@ -94,7 +94,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 37  # v37: AuditLog (P2 audit กลาง — create_all, ไม่ต้อง ALTER)
+SCHEMA_VERSION = 38  # v38: DebtAccount (D2 เงินหมุน — create_all, ไม่ต้อง ALTER); v37: AuditLog (P2)
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -9581,7 +9581,118 @@ def finance_revenue(request: Request):
     return templates.TemplateResponse("finance_revenue.html", ctx)
 
 
+# D2: เงินหมุน/งบดุลย่อ 8 สัปดาห์ — เข้า (AR ตาม DUE จริงจากทะเบียนรับเช็ค) −
+# ออก (เงินเดือนตามรอบ 3 ไซท์ + งวดหนี้ DebtAccount/Loan + petty/น้ำมันเฉลี่ย)
+# มุมมองรายวันแบบเดิม (ค่าประมาณล้วน) ย้ายไป /finance/cashflow/daily
 @app.get("/finance/cashflow", response_class=HTMLResponse)
+def finance_cashflow_weeks(request: Request, opening: str = ""):
+    from services import receivables as ar
+
+    try:
+        opening_f = float(opening.replace(",", "")) if opening.strip() else 0.0
+    except ValueError:
+        opening_f = 0.0
+    ar_pending: list = []
+    ar_error = None
+    try:
+        rows_ar, _missing = ar.load_all()
+        with Session(engine) as s:
+            settled_keys = {a.inv_key for a in s.exec(select(ArSettle)).all()}
+        for r in rows_ar:
+            key = f"{r['site']}:{r['inv']}" if r["inv"] else ""
+            if key and key in settled_keys:
+                r["received"] = True
+        ar_pending = [r for r in rows_ar if not r["received"] and r["amount"] > 0]
+    except Exception as e:
+        ar_error = f"อ่านทะเบียนรับเช็คจาก Drive ไม่สำเร็จ: {e} — คอลัมน์เงินเข้าจะเป็น 0"
+    with Session(engine) as s:
+        data = finance_svc.weekly_cashflow(s, ar_pending, date.today(),
+                                           opening=opening_f)
+        n_debts = len(s.exec(select(models.DebtAccount)
+                             .where(models.DebtAccount.active == True)).all())  # noqa: E712
+    ctx = base_context(request)
+    ctx.update({"data": data, "opening": opening, "ar_error": ar_error,
+                "n_debts": n_debts, "today": date.today()})
+    return templates.TemplateResponse("finance_cashflow_weeks.html", ctx)
+
+
+@app.get("/finance/debts", response_class=HTMLResponse)
+def finance_debts(request: Request):
+    """D2: หนี้/วงเงิน โอกรอกเอง (บัตรเครดิต/OD/เงินกู้ส่วนตัว/ไฟแนนซ์รถ)."""
+    with Session(engine) as s:
+        rows = s.exec(select(models.DebtAccount)
+                      .order_by(models.DebtAccount.active.desc(),  # type: ignore[union-attr]
+                                models.DebtAccount.due_day)).all()
+    ctx = base_context(request)
+    ctx.update({"rows": rows,
+                "total_balance": sum(r.balance for r in rows if r.active),
+                "total_monthly": sum(r.monthly_payment for r in rows if r.active)})
+    return templates.TemplateResponse("finance_debts.html", ctx)
+
+
+@app.post("/finance/debts/save")
+def finance_debts_save(request: Request, debt_id: str = Form(""),
+                       name: str = Form(...), kind: str = Form("credit_card"),
+                       credit_limit: str = Form("0"), balance: str = Form("0"),
+                       interest_rate: str = Form("0"), statement_day: str = Form("0"),
+                       due_day: str = Form("1"), monthly_payment: str = Form("0"),
+                       plate: str = Form(""), note: str = Form("")):
+    def _f(x):
+        try:
+            return float(str(x).replace(",", ""))
+        except ValueError:
+            return 0.0
+
+    def _i(x, lo=0, hi=31):
+        try:
+            return min(hi, max(lo, int(x)))
+        except ValueError:
+            return lo
+
+    with Session(engine) as s:
+        d = s.get(models.DebtAccount, int(debt_id)) if debt_id.strip() else None
+        if d is None:
+            d = models.DebtAccount()
+            audit_log(s, request, "debtaccount", 0, "create", "", name.strip())
+        else:
+            if d.balance != _f(balance):
+                audit_log(s, request, "debtaccount", d.id, "balance",
+                          d.balance, _f(balance), note=d.name)
+            if d.monthly_payment != _f(monthly_payment):
+                audit_log(s, request, "debtaccount", d.id, "monthly_payment",
+                          d.monthly_payment, _f(monthly_payment), note=d.name)
+        d.name = name.strip()
+        d.kind = kind.strip() or "credit_card"
+        d.credit_limit = _f(credit_limit)
+        d.balance = _f(balance)
+        d.interest_rate = _f(interest_rate)
+        d.statement_day = _i(statement_day)
+        d.due_day = _i(due_day, lo=1)
+        d.monthly_payment = _f(monthly_payment)
+        d.plate = plate.strip()
+        d.note = note.strip()
+        d.updated_at = datetime.utcnow()
+        s.add(d)
+        s.commit()
+    return RedirectResponse("/finance/debts", status_code=303)
+
+
+@app.post("/finance/debts/{debt_id}/toggle")
+def finance_debts_toggle(debt_id: int, request: Request):
+    """ปิด/เปิดบัญชีหนี้ (soft — ไม่ลบจริง เก็บประวัติ)."""
+    with Session(engine) as s:
+        d = s.get(models.DebtAccount, debt_id)
+        if d:
+            audit_log(s, request, "debtaccount", d.id, "active",
+                      str(d.active), str(not d.active), note=d.name)
+            d.active = not d.active
+            d.updated_at = datetime.utcnow()
+            s.add(d)
+            s.commit()
+    return RedirectResponse("/finance/debts", status_code=303)
+
+
+@app.get("/finance/cashflow/daily", response_class=HTMLResponse)
 def finance_cashflow(request: Request, days: int = 90):
     days = max(30, min(180, days))
     with Session(engine) as s:

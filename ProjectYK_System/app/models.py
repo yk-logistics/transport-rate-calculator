@@ -1438,6 +1438,27 @@ class DepositAudit(SQLModel, table=True):
     reason: str = ""
 
 
+class DebtAccount(SQLModel, table=True):
+    """D2 (v38): หนี้/วงเงินที่โอกรอกเอง — ข้อมูลส่วนตัวไม่มีในระบบอื่น.
+
+    ใช้ 2 ที่: เงินหมุน 8 สัปดาห์ (/finance/cashflow — งวดจ่ายรายเดือนตาม due_day)
+    และ D3 ต้นทุนต่อคัน (kind=finance ผูกทะเบียน plate → งวดรถของคันนั้น).
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = ""                  # เช่น "บัตร KBank โอ", "ไฟแนนซ์ 71-8967"
+    kind: str = ""                  # credit_card | od | personal | finance
+    credit_limit: float = 0.0       # วงเงิน (0 = ไม่ระบุ)
+    balance: float = 0.0            # ยอดค้างปัจจุบัน (โออัปเดตมือ)
+    interest_rate: float = 0.0      # ดอกเบี้ย %/ปี
+    statement_day: int = 0          # วันตัดรอบ (1-31, 0 = ไม่ระบุ)
+    due_day: int = 1                # วันจ่ายของทุกเดือน (1-31)
+    monthly_payment: float = 0.0    # งวด/จ่ายขั้นต่ำ ต่อเดือน
+    plate: str = ""                 # ทะเบียนรถ (เฉพาะ kind=finance — ให้ D3)
+    active: bool = Field(default=True, index=True)
+    note: str = ""
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class AuditLog(SQLModel, table=True):
     """P2 (v37): audit กลางของจุดเขียนที่ยังไม่มีตาราง audit เฉพาะ — INSERT-only.
 

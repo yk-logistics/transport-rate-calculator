@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}หนี้/วงเงิน{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-xl font-bold">💳 หนี้ / วงเงิน (โอกรอกเอง)</h1>
+  <a href="/finance/cashflow" class="border px-3 py-1.5 rounded bg-white hover:bg-slate-50 text-sm">← เงินหมุน 8 สัปดาห์</a>
+</div>
+
+<div class="mb-3 text-sm text-slate-500">
+  ข้อมูลส่วนตัวที่ไม่มีในระบบ — กรอกครั้งเดียว งวดจ่ายรายเดือนจะไหลเข้าตารางเงินหมุนเอง ·
+  ไฟแนนซ์รถใส่ทะเบียนด้วยจะไปโผล่ต้นทุนต่อคัน (D3)
+</div>
+
+<div class="grid md:grid-cols-3 gap-3 mb-4">
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">ยอดค้างรวม (ที่เปิดใช้)</div>
+    <div class="text-xl font-bold font-mono">{{ '{:,.0f}'.format(total_balance) }}</div></div>
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">งวดจ่ายรวม/เดือน</div>
+    <div class="text-xl font-bold font-mono text-rose-600">{{ '{:,.0f}'.format(total_monthly) }}</div></div>
+</div>
+
+<div class="bg-white rounded-lg border overflow-x-auto mb-6">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-600 text-xs uppercase"><tr>
+      <th class="px-3 py-2 text-left">ชื่อ</th><th class="px-3 py-2 text-left">ชนิด</th>
+      <th class="px-3 py-2 text-right">วงเงิน</th><th class="px-3 py-2 text-right">ยอดค้าง</th>
+      <th class="px-3 py-2 text-right">ดอกเบี้ย %/ปี</th><th class="px-3 py-2 text-center">ตัดรอบ</th>
+      <th class="px-3 py-2 text-center">วันจ่าย</th><th class="px-3 py-2 text-right">งวด/เดือน</th>
+      <th class="px-3 py-2 text-left">ทะเบียน</th><th class="px-3 py-2 text-left">โน้ต</th><th></th>
+    </tr></thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for r in rows %}
+      <tr class="{% if not r.active %}opacity-40{% endif %} hover:bg-slate-50">
+        <td class="px-3 py-2 font-medium">{{ r.name }}</td>
+        <td class="px-3 py-2">{{ {'credit_card':'บัตรเครดิต','od':'OD','personal':'กู้ส่วนตัว','finance':'ไฟแนนซ์รถ'}.get(r.kind, r.kind) }}</td>
+        <td class="px-3 py-2 text-right font-mono">{{ '{:,.0f}'.format(r.credit_limit) }}</td>
+        <td class="px-3 py-2 text-right font-mono font-semibold">{{ '{:,.0f}'.format(r.balance) }}</td>
+        <td class="px-3 py-2 text-right font-mono">{{ r.interest_rate }}</td>
+        <td class="px-3 py-2 text-center">{{ r.statement_day or '—' }}</td>
+        <td class="px-3 py-2 text-center font-semibold">{{ r.due_day }}</td>
+        <td class="px-3 py-2 text-right font-mono text-rose-600">{{ '{:,.0f}'.format(r.monthly_payment) }}</td>
+        <td class="px-3 py-2 font-mono">{{ r.plate or '—' }}</td>
+        <td class="px-3 py-2 text-xs text-slate-500">{{ r.note | truncate(30) }}</td>
+        <td class="px-3 py-2 text-right whitespace-nowrap">
+          <details class="inline text-left">
+            <summary class="cursor-pointer text-xs text-indigo-600 underline">แก้</summary>
+            <form method="post" action="/finance/debts/save"
+                  class="absolute z-30 right-4 bg-white border rounded-lg shadow-xl p-3 grid grid-cols-2 gap-2 text-xs w-[420px]">
+              <input type="hidden" name="debt_id" value="{{ r.id }}">
+              <input name="name" value="{{ r.name }}" class="border rounded px-2 py-1 col-span-2" required>
+              <select name="kind" class="border rounded px-2 py-1">
+                {% for k, v in [('credit_card','บัตรเครดิต'),('od','OD'),('personal','กู้ส่วนตัว'),('finance','ไฟแนนซ์รถ')] %}
+                <option value="{{ k }}" {% if r.kind==k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+              </select>
+              <input name="plate" value="{{ r.plate }}" placeholder="ทะเบียน (ไฟแนนซ์)" class="border rounded px-2 py-1">
+              <input name="credit_limit" value="{{ r.credit_limit }}" placeholder="วงเงิน" class="border rounded px-2 py-1 text-right">
+              <input name="balance" value="{{ r.balance }}" placeholder="ยอดค้าง" class="border rounded px-2 py-1 text-right">
+              <input name="interest_rate" value="{{ r.interest_rate }}" placeholder="ดอกเบี้ย%" class="border rounded px-2 py-1 text-right">
+              <input name="monthly_payment" value="{{ r.monthly_payment }}" placeholder="งวด/เดือน" class="border rounded px-2 py-1 text-right">
+              <input name="statement_day" value="{{ r.statement_day }}" placeholder="วันตัดรอบ" class="border rounded px-2 py-1 text-right">
+              <input name="due_day" value="{{ r.due_day }}" placeholder="วันจ่าย" class="border rounded px-2 py-1 text-right">
+              <input name="note" value="{{ r.note }}" placeholder="โน้ต" class="border rounded px-2 py-1 col-span-2">
+              <button class="bg-slate-900 text-white rounded px-3 py-1.5 col-span-2">บันทึก</button>
+            </form>
+          </details>
+          <form method="post" action="/finance/debts/{{ r.id }}/toggle" class="inline ml-1">
+            <button class="text-xs text-slate-400 underline">{{ 'ปิด' if r.active else 'เปิดใช้' }}</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="11" class="px-4 py-8 text-center text-slate-400">ยังไม่มีรายการ — เพิ่มด้านล่าง</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="bg-white rounded-lg border p-4 max-w-3xl">
+  <div class="font-semibold mb-2 text-sm">➕ เพิ่มหนี้/วงเงินใหม่</div>
+  <form method="post" action="/finance/debts/save" class="grid md:grid-cols-3 gap-2 text-sm">
+    <input name="name" placeholder="ชื่อ เช่น บัตร KBank" class="border rounded px-2 py-1.5" required>
+    <select name="kind" class="border rounded px-2 py-1.5">
+      <option value="credit_card">บัตรเครดิต</option><option value="od">OD</option>
+      <option value="personal">กู้ส่วนตัว</option><option value="finance">ไฟแนนซ์รถ</option>
+    </select>
+    <input name="plate" placeholder="ทะเบียน (เฉพาะไฟแนนซ์)" class="border rounded px-2 py-1.5">
+    <input name="credit_limit" placeholder="วงเงิน" class="border rounded px-2 py-1.5 text-right">
+    <input name="balance" placeholder="ยอดค้างปัจจุบัน" class="border rounded px-2 py-1.5 text-right">
+    <input name="interest_rate" placeholder="ดอกเบี้ย %/ปี" class="border rounded px-2 py-1.5 text-right">
+    <input name="statement_day" placeholder="วันตัดรอบ (1-31)" class="border rounded px-2 py-1.5 text-right">
+    <input name="due_day" placeholder="วันจ่าย (1-31)" class="border rounded px-2 py-1.5 text-right" required>
+    <input name="monthly_payment" placeholder="งวด/ขั้นต่ำ ต่อเดือน" class="border rounded px-2 py-1.5 text-right" required>
+    <input name="note" placeholder="โน้ต" class="border rounded px-2 py-1.5 md:col-span-2">
+    <button class="bg-indigo-600 text-white rounded px-4 py-1.5 hover:bg-indigo-500">เพิ่ม</button>
+  </form>
+</div>
+
+{% endblock %}

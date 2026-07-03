@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}เงินหมุน 8 สัปดาห์{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-xl font-bold">💧 เงินหมุนล่วงหน้า 8 สัปดาห์</h1>
+  <div class="flex gap-2 text-sm">
+    <a href="/finance/debts" class="border px-3 py-1.5 rounded bg-white hover:bg-slate-50">💳 หนี้/วงเงิน ({{ n_debts }})</a>
+    <a href="/finance/cashflow/daily" class="border px-3 py-1.5 rounded bg-white hover:bg-slate-50 text-slate-500">มุมมองรายวัน (เก่า)</a>
+    <a href="/finance" class="border px-3 py-1.5 rounded bg-white hover:bg-slate-50">← CFO</a>
+  </div>
+</div>
+
+{% if ar_error %}<div class="mb-3 bg-amber-50 border border-amber-300 text-amber-800 rounded p-3 text-sm">⚠️ {{ ar_error }}</div>{% endif %}
+
+<form method="get" class="mb-4 flex gap-2 items-center text-sm">
+  <label>เงินสดตั้งต้นวันนี้ (บาท — โอกรอกเองเพื่อดูยอดสะสมจริง)</label>
+  <input name="opening" value="{{ opening }}" placeholder="0" class="border rounded px-3 py-1.5 w-40 font-mono text-right">
+  <button class="bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-500">คำนวณใหม่</button>
+</form>
+
+<div class="bg-white rounded-lg border overflow-x-auto mb-4">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-600 text-xs uppercase">
+      <tr>
+        <th class="px-3 py-2 text-left">สัปดาห์</th>
+        <th class="px-3 py-2 text-right">เข้า: AR ครบกำหนด</th>
+        <th class="px-3 py-2 text-right">ออก: เงินเดือน</th>
+        <th class="px-3 py-2 text-right">ออก: งวดหนี้</th>
+        <th class="px-3 py-2 text-right">ออก: petty+น้ำมัน (เฉลี่ย)</th>
+        <th class="px-3 py-2 text-right">สุทธิสัปดาห์</th>
+        <th class="px-3 py-2 text-right">สะสม</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for w in data.weeks %}
+      <tr class="{% if w.cum < 0 %}bg-rose-50{% elif w.net < 0 %}bg-amber-50/50{% endif %}">
+        <td class="px-3 py-2 whitespace-nowrap">
+          <b>W{{ w.week }}</b> <span class="text-xs text-slate-500">{{ w.start | dmy }} – {{ w.end | dmy }}</span>
+        </td>
+        <td class="px-3 py-2 text-right">
+          {% if w.ar_items %}
+          <details class="inline-block text-left">
+            <summary class="cursor-pointer font-mono text-emerald-700 hover:underline">{{ '{:,.0f}'.format(w.in_ar) }}</summary>
+            <div class="absolute z-30 bg-white border rounded-lg shadow-xl p-2 text-xs max-h-60 overflow-y-auto min-w-[280px]">
+              {% for r in w.ar_items %}
+              <div class="flex justify-between gap-3 py-0.5 border-b border-slate-100">
+                <span>{{ r.inv or '—' }} {{ r.customer | truncate(22) }}{% if r.due %} <span class="text-slate-400">DUE {{ r.due | dmy }}</span>{% endif %}</span>
+                <span class="font-mono">{{ '{:,.0f}'.format(r.net) }}</span>
+              </div>
+              {% endfor %}
+              <a href="/finance/receivables" class="block text-indigo-600 hover:underline pt-1">เปิดหน้ารอรับเงิน →</a>
+            </div>
+          </details>
+          {% else %}<span class="font-mono text-slate-300">0</span>{% endif %}
+        </td>
+        <td class="px-3 py-2 text-right">
+          {% if w.payroll_items %}
+          <details class="inline-block text-left">
+            <summary class="cursor-pointer font-mono text-rose-700 hover:underline">{{ '{:,.0f}'.format(w.out_payroll) }}</summary>
+            <div class="absolute z-30 bg-white border rounded-lg shadow-xl p-2 text-xs min-w-[260px]">
+              {% for e in w.payroll_items %}
+              <div class="flex justify-between gap-3 py-0.5"><a href="{{ e.href }}" class="text-indigo-600 hover:underline">{{ e.label }} ({{ e.date | dmy }})</a>
+                <span class="font-mono">{{ '{:,.0f}'.format(e.amount) }}</span></div>
+              {% endfor %}
+            </div>
+          </details>
+          {% else %}<span class="font-mono text-slate-300">0</span>{% endif %}
+        </td>
+        <td class="px-3 py-2 text-right">
+          {% if w.debt_items %}
+          <details class="inline-block text-left">
+            <summary class="cursor-pointer font-mono text-rose-700 hover:underline">{{ '{:,.0f}'.format(w.out_debt) }}</summary>
+            <div class="absolute z-30 bg-white border rounded-lg shadow-xl p-2 text-xs min-w-[240px]">
+              {% for e in w.debt_items %}
+              <div class="flex justify-between gap-3 py-0.5"><a href="{{ e.href }}" class="text-indigo-600 hover:underline">{{ e.label }} ({{ e.date | dmy }})</a>
+                <span class="font-mono">{{ '{:,.0f}'.format(e.amount) }}</span></div>
+              {% endfor %}
+            </div>
+          </details>
+          {% else %}<span class="font-mono text-slate-300">0</span>{% endif %}
+        </td>
+        <td class="px-3 py-2 text-right font-mono text-rose-700">{{ '{:,.0f}'.format(w.out_ops) }}</td>
+        <td class="px-3 py-2 text-right font-mono font-semibold {% if w.net < 0 %}text-rose-600{% else %}text-emerald-700{% endif %}">{{ '{:,.0f}'.format(w.net) }}</td>
+        <td class="px-3 py-2 text-right font-mono font-bold {% if w.cum < 0 %}text-rose-600{% endif %}">{{ '{:,.0f}'.format(w.cum) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="bg-slate-50 border rounded-lg p-3 text-xs text-slate-600">
+  <b>ข้อสมมติ (แก้ได้ — บอกได้เลยถ้าวันจ่ายจริงต่าง):</b>
+  <ul class="list-disc ml-5 mt-1">
+    {% for a in data.assumptions %}<li>{{ a }}</li>{% endfor %}
+    <li>petty เฉลี่ย {{ '{:,.0f}'.format(data.weekly_petty) }} ฿/สัปดาห์ · น้ำมันเฉลี่ย {{ '{:,.0f}'.format(data.weekly_fuel) }} ฿/สัปดาห์</li>
+    <li>สะสมเริ่มจากเงินสดตั้งต้นที่กรอก (ไม่กรอก = 0 — ดูแนวโน้มได้ แต่ยอดสะสมไม่ใช่เงินจริง)</li>
+  </ul>
+</div>
+
+{% endblock %}

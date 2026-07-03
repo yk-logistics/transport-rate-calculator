@@ -22,6 +22,7 @@ from sqlmodel import Session, select
 from models import (
     DailyJob,
     DailyJobFee,
+    DebtAccount,
     Employee,
     FuelTxn,
     Loan,
@@ -543,6 +544,131 @@ def cash_flow_projection(session: Session, start: date, days: int = 90) -> list[
 
     rows.sort(key=lambda x: (x["date"], x["direction"]))
     return rows
+
+
+# --------------------------------------------------------------------------
+# D2: เงินหมุน 8 สัปดาห์ (/finance/cashflow)
+# --------------------------------------------------------------------------
+
+# ข้อสมมติวันจ่ายเงินเดือน (โอยังไม่เคาะวันจ่ายจริง — จ่ายหลังปิดรอบ ~5 วัน):
+# BIGC รอบจบสิ้นเดือน → จ่ายวันที่ 5 เดือนถัดไป; LCB จบ 15 → จ่าย 20; AYU จบ 25 → จ่าย 30
+PAYROLL_PAY_DAY = {"BIGC": 5, "LCB": 20, "AYU": 30}
+
+
+def _clamp_day(y: int, m: int, day: int) -> date:
+    last = (add_months(date(y, m, 1), 1) - timedelta(days=1)).day
+    return date(y, m, min(max(1, day), last))
+
+
+def _latest_run_net(session: Session, site: str) -> tuple[float, Optional[PayRun]]:
+    """ยอดโอนของรอบล่าสุดของไซท์ = Σ net_pay เฉพาะ net>0 (ตามกติกายอดโอนรวม)."""
+    pr = session.exec(
+        select(PayRun).where(PayRun.site_code == site)
+        .order_by(PayRun.id.desc())  # type: ignore[union-attr]
+    ).first()
+    if pr is None:
+        return 0.0, None
+    items = session.exec(
+        select(PayRunItem).where(PayRunItem.pay_run_id == pr.id)).all()
+    return sum(i.net_pay for i in items if (i.net_pay or 0) > 0), pr
+
+
+def weekly_cashflow(session: Session, ar_pending: list[dict], start: date,
+                    weeks: int = 8, opening: float = 0.0) -> dict:
+    """ตาราง 8 สัปดาห์ล่วงหน้า: เข้า (AR ตาม DUE จริง) − ออก (เงินเดือน/งวดหนี้/petty+fuel เฉลี่ย).
+
+    ar_pending: แถวค้างรับจาก services.receivables (หลัง merge ArSettle แล้ว) —
+    ส่งเข้ามาเพราะโหลดจาก Drive ที่ route (มี error handling อยู่แล้ว).
+    ทุกก้อนเงินมี items ให้คลิกย้อนแหล่งได้ตามเกณฑ์ผ่าน D2.
+    """
+    w0 = start - timedelta(days=start.weekday())  # จันทร์ของสัปดาห์ปัจจุบัน
+    horizon_end = w0 + timedelta(days=7 * weeks - 1)
+
+    # เงินเดือน: รอบล่าสุดต่อไซท์ → จ่ายทุกเดือนตาม PAYROLL_PAY_DAY
+    payroll_events: list[dict] = []
+    for site, pay_day in PAYROLL_PAY_DAY.items():
+        amt, pr = _latest_run_net(session, site)
+        if amt <= 0:
+            continue
+        cur = date(w0.year, w0.month, 1)
+        while cur <= horizon_end:
+            d = _clamp_day(cur.year, cur.month, pay_day)
+            if w0 <= d <= horizon_end:
+                payroll_events.append({
+                    "date": d, "amount": amt, "site": site,
+                    "label": f"เงินเดือน {site} (~รอบล่าสุด {pr.pay_cycle_tag})",
+                    "href": f"/payroll/{pr.id}"})
+            cur = add_months(cur, 1)
+
+    # งวดหนี้: DebtAccount รายเดือนตาม due_day + Loan (ตารางผ่อนที่มีอยู่แล้ว)
+    debt_events: list[dict] = []
+    for acc in session.exec(select(DebtAccount).where(DebtAccount.active == True)).all():  # noqa: E712
+        if (acc.monthly_payment or 0) <= 0:
+            continue
+        cur = date(w0.year, w0.month, 1)
+        while cur <= horizon_end:
+            d = _clamp_day(cur.year, cur.month, acc.due_day or 1)
+            if w0 <= d <= horizon_end:
+                debt_events.append({"date": d, "amount": acc.monthly_payment,
+                                    "label": f"{acc.name} ({acc.kind})",
+                                    "href": "/finance/debts"})
+            cur = add_months(cur, 1)
+    for loan in session.exec(select(Loan).where(Loan.status == "active")).all():
+        for r in amortization_schedule(loan, max_rows=360):
+            if w0 <= r.due_date <= horizon_end:
+                debt_events.append({"date": r.due_date, "amount": r.payment,
+                                    "label": f"เงินกู้ {loan.lender} ({loan.code})",
+                                    "href": "/finance/loans"})
+
+    # petty + fuel: เฉลี่ยรายสัปดาห์จาก 30 วันหลังสุด (เงินสดบริษัทออกจริง —
+    # payroll หัก petty คืนจากคนขับแล้วใน net จึงไม่นับซ้ำ)
+    p30 = session.exec(select(PettyCashTxn).where(
+        PettyCashTxn.txn_date >= start - timedelta(days=30),
+        PettyCashTxn.txn_date < start,
+        PettyCashTxn.direction == "out")).all()
+    weekly_petty = sum((p.amount or 0.0) for p in p30) / 30.0 * 7.0
+    f30 = session.exec(select(FuelTxn).where(
+        FuelTxn.txn_date >= start - timedelta(days=30),
+        FuelTxn.txn_date < start)).all()
+    weekly_fuel = sum((f.amount or 0.0) for f in f30) / 30.0 * 7.0
+
+    rows = []
+    cum = opening
+    for i in range(weeks):
+        ws = w0 + timedelta(days=7 * i)
+        we = ws + timedelta(days=6)
+        ar_items = [r for r in ar_pending
+                    if r.get("due") and ws <= r["due"] <= we]
+        # AR เลยกำหนดก่อนหน้าช่วง = ใส่สัปดาห์แรก (ตามหลัก "ควรได้แล้ว")
+        if i == 0:
+            ar_items += [r for r in ar_pending if r.get("due") and r["due"] < ws]
+        in_ar = sum(r["net"] for r in ar_items)
+        pay_items = [e for e in payroll_events if ws <= e["date"] <= we]
+        debt_items = [e for e in debt_events if ws <= e["date"] <= we]
+        out_pay = sum(e["amount"] for e in pay_items)
+        out_debt = sum(e["amount"] for e in debt_items)
+        out_ops = weekly_petty + weekly_fuel
+        net = in_ar - out_pay - out_debt - out_ops
+        cum += net
+        rows.append({
+            "week": i + 1, "start": ws, "end": we,
+            "in_ar": round(in_ar, 2), "ar_items": ar_items,
+            "out_payroll": round(out_pay, 2), "payroll_items": pay_items,
+            "out_debt": round(out_debt, 2), "debt_items": debt_items,
+            "out_ops": round(out_ops, 2),
+            "net": round(net, 2), "cum": round(cum, 2),
+        })
+    return {
+        "weeks": rows,
+        "weekly_petty": round(weekly_petty, 2),
+        "weekly_fuel": round(weekly_fuel, 2),
+        "assumptions": [
+            f"เงินเดือน: ใช้ยอดรอบล่าสุดต่อไซท์ จ่ายวันที่ {PAYROLL_PAY_DAY['BIGC']} (BIGC) / "
+            f"{PAYROLL_PAY_DAY['LCB']} (LCB) / {PAYROLL_PAY_DAY['AYU']} (AYU) ของเดือน — ข้อสมมติ ยังไม่เคาะวันจ่ายจริง",
+            "petty+น้ำมัน: เฉลี่ยจาก 30 วันหลังสุด เกลี่ยเท่ากันทุกสัปดาห์",
+            "AR ที่เลยกำหนดแล้ว: นับรวมในสัปดาห์แรก",
+        ],
+    }
 
 
 # --------------------------------------------------------------------------
