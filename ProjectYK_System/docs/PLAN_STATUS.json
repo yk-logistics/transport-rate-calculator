@@ -86,9 +86,9 @@
         },
         {
           "id": "C2",
-          "name": "ออกใบวางบิลจากระบบ (ลูกค้าประจำ 10 ราย)",
+          "name": "ออกใบวางบิลจากระบบ — 🔶 engine+หน้า /billing/invoice เสร็จ (CY+KMMT verified 5 ใบจริงเลขตรงทุกช่อง); เหลือ vendor template ลูกค้าที่เหลือตาม runbook INVOICE_BUILDER_SPEC.md",
           "days": 2,
-          "status": "pending"
+          "status": "doing"
         },
         {
           "id": "C3",
