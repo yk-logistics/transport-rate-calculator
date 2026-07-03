@@ -16,11 +16,12 @@
   </form>
 </div>
 
-<div class="grid grid-cols-4 gap-3 mb-4 text-sm">
+<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4 text-sm">
   <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">เที่ยวรวม</div><div class="text-lg font-bold">{{ "{:,}".format(totals.trips) }}</div></div>
   <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">รายรับ</div><div class="text-lg font-bold font-mono text-emerald-700">{{ "{:,.0f}".format(totals.revenue) }}</div></div>
   <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">น้ำมัน + ซ่อม</div><div class="text-lg font-bold font-mono text-rose-700">{{ "{:,.0f}".format(totals.cost_fuel + totals.cost_maint) }}</div></div>
-  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">Gross Margin</div><div class="text-lg font-bold font-mono {% if totals.gross_margin>=0 %}text-emerald-700{% else %}text-rose-700{% endif %}">{{ "{:,.0f}".format(totals.gross_margin) }}</div></div>
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">ค่าเที่ยวคนขับ + งวดรถ</div><div class="text-lg font-bold font-mono text-rose-700">{{ "{:,.0f}".format(totals.cost_driver + totals.cost_install) }}</div></div>
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">กำไรสุทธิ/คันรวม</div><div class="text-lg font-bold font-mono {% if totals.net_margin>=0 %}text-emerald-700{% else %}text-rose-700{% endif %}">{{ "{:,.0f}".format(totals.net_margin) }}</div></div>
 </div>
 
 <div class="bg-white border rounded-lg overflow-x-auto">
@@ -36,13 +37,16 @@
         <th class="px-3 py-2 text-right">น้ำมัน (บาท)</th>
         <th class="px-3 py-2 text-right">ลิตร</th>
         <th class="px-3 py-2 text-right">ซ่อม</th>
-        <th class="px-3 py-2 text-right bg-slate-50">Gross Margin</th>
+        <th class="px-3 py-2 text-right">ค่าเที่ยวคนขับ</th>
+        <th class="px-3 py-2 text-right">งวดรถ</th>
+        <th class="px-3 py-2 text-right bg-slate-50">กำไรสุทธิ/คัน</th>
         <th class="px-3 py-2 text-right">%</th>
+        <th class="px-3 py-2 text-center">6 เดือน</th>
       </tr>
     </thead>
     <tbody class="divide-y font-mono">
       {% for v in rows %}
-      <tr class="hover:bg-slate-50 {% if v.gross_margin<0 %}bg-rose-50{% endif %}">
+      <tr class="hover:bg-slate-50 {% if v.net_margin<0 %}bg-rose-50{% endif %}">
         <td class="px-3 py-2 font-semibold">{{ v.plate }}</td>
         <td class="px-3 py-2 font-sans">{{ v.nickname }}</td>
         <td class="px-3 py-2 font-sans">{{ v.truck_type }}</td>
@@ -52,17 +56,35 @@
         <td class="px-3 py-2 text-right text-slate-600">{{ "{:,.0f}".format(v.cost_fuel) }}</td>
         <td class="px-3 py-2 text-right text-slate-500 text-xs">{{ "{:,.0f}".format(v.fuel_liters) }}</td>
         <td class="px-3 py-2 text-right text-slate-600">{{ "{:,.0f}".format(v.cost_maint) }}</td>
-        <td class="px-3 py-2 text-right bg-slate-50 font-semibold {% if v.gross_margin<0 %}text-rose-700{% else %}text-emerald-700{% endif %}">{{ "{:,.0f}".format(v.gross_margin) }}</td>
+        <td class="px-3 py-2 text-right text-slate-600">{{ "{:,.0f}".format(v.cost_driver) }}</td>
+        <td class="px-3 py-2 text-right text-slate-600">{{ "{:,.0f}".format(v.cost_install) }}</td>
+        <td class="px-3 py-2 text-right bg-slate-50 font-semibold {% if v.net_margin<0 %}text-rose-700{% else %}text-emerald-700{% endif %}">{{ "{:,.0f}".format(v.net_margin) }}</td>
         <td class="px-3 py-2 text-right text-xs font-sans">{{ "{:.1f}".format(v.margin_pct) }}%</td>
+        <td class="px-3 py-2 text-center">
+          {% if v.spark %}
+          {% set mx = v.spark | map('abs') | max %}
+          <svg width="72" height="22" viewBox="0 0 72 22" class="inline-block" aria-label="กำไร 6 เดือน">
+            {% for m in v.spark %}
+            {% set h = (m | abs) / (mx or 1) * 9 %}
+            <rect x="{{ loop.index0 * 12 + 2 }}" width="8"
+                  y="{{ 11 - h if m >= 0 else 11 }}" height="{{ h if h > 0.5 else 0.5 }}"
+                  fill="{{ '#059669' if m >= 0 else '#e11d48' }}"></rect>
+            {% endfor %}
+            <line x1="0" y1="11" x2="72" y2="11" stroke="#cbd5e1" stroke-width="0.5"/>
+          </svg>
+          {% endif %}
+        </td>
       </tr>
       {% else %}
-      <tr><td colspan="11" class="px-3 py-8 text-center text-slate-500">ไม่มีข้อมูลในเดือนนี้</td></tr>
+      <tr><td colspan="14" class="px-3 py-8 text-center text-slate-500">ไม่มีข้อมูลในเดือนนี้</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
 
 <p class="text-xs text-slate-400 mt-3">
-  💡 Gross Margin = รายรับ − น้ำมัน − ซ่อมบำรุง (ยังไม่หักเงินเดือน/ดอกเบี้ย/ค่าใช้จ่ายคงที่) · คันที่ติดลบ = เดือนนั้นไม่คุ้มเชื้อเพลิง+ซ่อม ต้องดูเป็นรายปี
+  💡 กำไรสุทธิ/คัน = รายรับ − น้ำมัน − ซ่อม − ค่าเที่ยวคนขับ − งวดรถ (งวดจาก
+  <a href="/finance/debts" class="text-indigo-500 hover:underline">💳 หนี้/วงเงิน</a> ชนิดไฟแนนซ์ผูกทะเบียน — ยังไม่กรอก = 0)
+  · ยังไม่หักเงินเดือนฐาน/ค่าใช้จ่ายกลาง · เรียงคันแย่สุดขึ้นก่อน · แท่ง 6 เดือน: เขียว=กำไร แดง=ขาดทุน (เก่า→ใหม่)
 </p>
 {% endblock %}

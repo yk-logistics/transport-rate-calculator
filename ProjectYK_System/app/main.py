@@ -8001,7 +8001,9 @@ def finance_dashboard(
                                       period=_period_for(month))
         loans_info = finance_svc.loan_summary(s)
         health = finance_svc.break_even_and_runway(s)
-        veh_costs = finance_svc.cost_per_vehicle(s, y, m, site)[:15]
+        # Top 15 ตามรายรับ (cost_per_vehicle เรียงกำไรแย่สุดก่อนตาม D3 — หน้านี้คงเดิม)
+        veh_costs = sorted(finance_svc.cost_per_vehicle(s, y, m, site),
+                           key=lambda r: -r["revenue"])[:15]
 
         prev_y, prev_m = (y, m - 1) if m > 1 else (y - 1, 12)
         prev_tag = f"{prev_y:04d}-{prev_m:02d}"
@@ -9544,12 +9546,33 @@ def finance_vehicles(request: Request, month: str = "", site: str = ""):
         y, m = today.year, today.month
     with Session(engine) as s:
         rows = finance_svc.cost_per_vehicle(s, y, m, site)
+        # D3: sparkline กำไรสุทธิ 6 เดือนย้อนหลัง (รวมเดือนที่ดู) ต่อคัน
+        spark: dict[int, list[float]] = {}
+        sy, sm = y, m
+        hist: list[tuple[int, int]] = []
+        for _ in range(6):
+            hist.append((sy, sm))
+            sy, sm = (sy, sm - 1) if sm > 1 else (sy - 1, 12)
+        for hy, hm in reversed(hist):   # เก่า→ใหม่
+            if (hy, hm) == (y, m):
+                month_rows = rows
+            else:
+                month_rows = finance_svc.cost_per_vehicle(s, hy, hm, site)
+            by_vid = {r["vehicle_id"]: r["net_margin"] for r in month_rows}
+            for r in rows:
+                spark.setdefault(r["vehicle_id"], []).append(
+                    round(by_vid.get(r["vehicle_id"], 0.0)))
+    for r in rows:
+        r["spark"] = spark.get(r["vehicle_id"], [])
     totals = {
         "trips": sum(r["trips"] for r in rows),
         "revenue": sum(r["revenue"] for r in rows),
         "cost_fuel": sum(r["cost_fuel"] for r in rows),
         "cost_maint": sum(r["cost_maint"] for r in rows),
+        "cost_driver": sum(r["cost_driver"] for r in rows),
+        "cost_install": sum(r["cost_install"] for r in rows),
         "gross_margin": sum(r["gross_margin"] for r in rows),
+        "net_margin": sum(r["net_margin"] for r in rows),
     }
     ctx = base_context(request)
     ctx.update({"month": month, "site": site, "rows": rows, "totals": totals})

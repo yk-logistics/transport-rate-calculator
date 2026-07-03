@@ -348,8 +348,17 @@ def yearly_rollup(session: Session, year: int, site: str = "") -> list[dict]:
 # --------------------------------------------------------------------------
 
 def cost_per_vehicle(session: Session, year: int, month: int, site: str = "") -> list[dict]:
-    """For each active vehicle in the period, compute revenue + cost breakdown."""
+    """For each active vehicle in the period, compute revenue + cost breakdown.
+
+    D3 (3ก.ค.69): เพิ่มค่าเที่ยวคนขับ + งวดรถ (DebtAccount kind=finance ผูกทะเบียน)
+    → net_margin ต่อคัน; แถวเดลี่ที่ไม่มี head_vehicle_id จับด้วยทะเบียนข้อความ
+    (gotcha เดียวกับปฏิทิน B4); เรียงกำไรแย่สุดขึ้นก่อน.
+    """
     start, end = month_bounds(year, month)
+
+    vehicles = session.exec(select(Vehicle)).all()
+    v_map = {v.id: v for v in vehicles}
+    plate2vid = {(v.plate_no or "").strip(): v.id for v in vehicles if v.plate_no}
 
     # Jobs per vehicle (revenue side)
     stmt = select(DailyJob).where(
@@ -386,35 +395,47 @@ def cost_per_vehicle(session: Session, year: int, month: int, site: str = "") ->
         if m.vehicle_id:
             maint_by_v[m.vehicle_id] = maint_by_v.get(m.vehicle_id, 0.0) + (m.total_cost or 0.0)
 
+    # งวดรถ: DebtAccount ไฟแนนซ์ที่ผูกทะเบียน (โอกรอกที่ /finance/debts)
+    install_by_v: dict[int, float] = {}
+    for acc in session.exec(select(DebtAccount).where(
+            DebtAccount.active == True,      # noqa: E712
+            DebtAccount.kind == "finance")).all():
+        vid = plate2vid.get((acc.plate or "").strip())
+        if vid:
+            install_by_v[vid] = install_by_v.get(vid, 0.0) + (acc.monthly_payment or 0.0)
+
     # Aggregate per vehicle
     agg: dict[int, dict] = {}
     for j in jobs:
-        vid = j.head_vehicle_id
+        vid = j.head_vehicle_id or plate2vid.get((j.plate_no_raw or "").strip())
         if not vid:
             continue
         g = agg.setdefault(vid, {
             "vehicle_id": vid, "trips": 0,
-            "revenue": 0.0, "fees": 0.0,
+            "revenue": 0.0, "fees": 0.0, "driver_fee": 0.0,
         })
         g["trips"] += 1
         g["revenue"] += (j.revenue_customer or 0.0)
         g["fees"] += fee_by_job.get(j.id, 0.0)
+        g["driver_fee"] += (j.trip_fee_driver or 0.0)
 
-    # Bring in all vehicles even if no revenue (they still incurred maint/fuel)
-    for vid in set(fuel_by_v) | set(maint_by_v):
+    # Bring in all vehicles even if no revenue (they still incurred maint/fuel/งวด)
+    for vid in set(fuel_by_v) | set(maint_by_v) | set(install_by_v):
         if vid not in agg:
-            agg[vid] = {"vehicle_id": vid, "trips": 0, "revenue": 0.0, "fees": 0.0}
-
-    vehicles = session.exec(select(Vehicle)).all()
-    v_map = {v.id: v for v in vehicles}
+            agg[vid] = {"vehicle_id": vid, "trips": 0, "revenue": 0.0,
+                        "fees": 0.0, "driver_fee": 0.0}
 
     rows = []
     for vid, g in agg.items():
         v = v_map.get(vid)
         fuel_amt, fuel_l = fuel_by_v.get(vid, (0.0, 0.0))
         maint_amt = maint_by_v.get(vid, 0.0)
+        install_amt = install_by_v.get(vid, 0.0)
+        driver_amt = g["driver_fee"]
         rev = g["revenue"] + g["fees"]
-        cost = fuel_amt + maint_amt
+        gross_cost = fuel_amt + maint_amt
+        total_cost = gross_cost + driver_amt + install_amt
+        net = rev - total_cost
         rows.append({
             "vehicle_id": vid,
             "plate": v.plate_no if v else f"?#{vid}",
@@ -425,11 +446,14 @@ def cost_per_vehicle(session: Session, year: int, month: int, site: str = "") ->
             "cost_fuel": fuel_amt,
             "fuel_liters": fuel_l,
             "cost_maint": maint_amt,
-            "cost_total": cost,
-            "gross_margin": rev - cost,
-            "margin_pct": (rev - cost) / rev * 100 if rev else 0,
+            "cost_driver": driver_amt,
+            "cost_install": install_amt,
+            "cost_total": total_cost,
+            "gross_margin": rev - gross_cost,   # ความหมายเดิม (dashboard ใช้อยู่)
+            "net_margin": net,
+            "margin_pct": net / rev * 100 if rev else 0,
         })
-    rows.sort(key=lambda r: -r["revenue"])
+    rows.sort(key=lambda r: r["net_margin"])  # แย่สุดขึ้นก่อน (D3)
     return rows
 
 
