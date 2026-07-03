@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}สรุปแชทรายวัน{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-xl font-bold">🌅 สรุปแชทไลน์รายวัน</h1>
+  <a href="/line" class="text-sm text-indigo-600 hover:underline">← ค้นแชทไลน์</a>
+</div>
+
+<form method="get" class="flex gap-2 mb-4 items-center text-sm">
+  <input type="date" name="d" value="{{ day.isoformat() }}" class="border rounded px-2 py-1.5">
+  <button class="bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-500">ดูวันนี้เลือก</button>
+  <span class="text-xs text-slate-400">default = เมื่อวาน</span>
+</form>
+
+{% if error %}
+<div class="bg-amber-50 border border-amber-300 text-amber-800 rounded p-3 text-sm">⚠️ {{ error }}</div>
+{% elif data %}
+
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 text-sm">
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">ข้อความรวม ({{ day | dmy }})</div>
+    <div class="text-xl font-bold">{{ data.total_msg }}</div></div>
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">รูป/ไฟล์</div>
+    <div class="text-xl font-bold">{{ data.total_media }}</div></div>
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">กลุ่มที่คุยกัน</div>
+    <div class="text-xl font-bold">{{ data.groups | length }}</div></div>
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">กลุ่มเงียบ >3 วัน</div>
+    <div class="text-xl font-bold {% if data.silent %}text-amber-600{% endif %}">{{ data.silent | length }}</div></div>
+</div>
+
+<div class="bg-white rounded-lg border overflow-x-auto mb-4">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-600 text-xs uppercase"><tr>
+      <th class="px-3 py-2 text-left">กลุ่ม</th>
+      <th class="px-3 py-2 text-right">ข้อความ</th>
+      <th class="px-3 py-2 text-right">รูป/ไฟล์</th>
+      <th class="px-3 py-2 text-left">ข้อความแรก</th>
+      <th class="px-3 py-2 text-left">ข้อความสุดท้าย</th>
+      <th></th>
+    </tr></thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for g in data.groups %}
+      <tr class="hover:bg-slate-50">
+        <td class="px-3 py-2 font-medium">{{ g.name }}</td>
+        <td class="px-3 py-2 text-right font-mono">{{ g.n_msg }}</td>
+        <td class="px-3 py-2 text-right font-mono text-slate-500">{{ g.n_media }}</td>
+        <td class="px-3 py-2 text-xs">
+          <span class="text-slate-400 font-mono">{{ g.first.at }}</span> <b>{{ g.first.who }}</b>:
+          {{ g.first.text or ('[' + g.first.msg_type + ']') }}</td>
+        <td class="px-3 py-2 text-xs">
+          <span class="text-slate-400 font-mono">{{ g.last.at }}</span> <b>{{ g.last.who }}</b>:
+          {{ g.last.text or ('[' + g.last.msg_type + ']') }}</td>
+        <td class="px-3 py-2 text-right">
+          <a href="/line?group={{ g.group_id }}" class="text-indigo-600 hover:underline text-xs">เปิด →</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="px-4 py-8 text-center text-slate-400">วันนั้นไม่มีข้อความเลย</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if data.silent %}
+<div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+  <div class="font-semibold text-sm mb-2 text-amber-800">🔕 กลุ่มเงียบเกิน 3 วัน (ลูกค้าหาย? บอทหลุดกลุ่ม?)</div>
+  <div class="flex flex-wrap gap-2 text-xs">
+    {% for g in data.silent %}
+    <span class="bg-white border border-amber-300 rounded px-2 py-1">{{ g.name }}
+      <span class="text-slate-400 font-mono">({{ g.last_at }})</span></span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

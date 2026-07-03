@@ -9194,6 +9194,29 @@ def line_search_page(request: Request, q: str = "", group: str = "", page: int =
     return templates.TemplateResponse("line_search.html", ctx)
 
 
+@app.get("/line/digest", response_class=HTMLResponse)
+def line_digest(request: Request, d: str = ""):
+    """F5: สรุปเช้ารายกลุ่ม — จำนวนข้อความ/รูปของวัน (default เมื่อวาน) + กลุ่มเงียบ >3 วัน."""
+    from services import line_archive as la
+
+    today = date.today()
+    try:
+        day = date.fromisoformat(d) if d.strip() else today - timedelta(days=1)
+    except ValueError:
+        day = today - timedelta(days=1)
+    ctx = base_context(request)
+    error, data = None, None
+    if la.db_path() is None:
+        error = "ไม่พบคลังแชทบนเครื่องนี้ (line_archive.db) — ใช้ได้บนเครื่อง server"
+    else:
+        try:
+            data = la.daily_digest(day.isoformat(), today.isoformat())
+        except Exception as e:
+            error = f"อ่านคลังแชทไม่สำเร็จ: {e}"
+    ctx.update({"day": day, "data": data, "error": error})
+    return templates.TemplateResponse("line_digest.html", ctx)
+
+
 @app.get("/line/media/{msg_id}")
 def line_media_serve(msg_id: int):
     from services import line_archive as la

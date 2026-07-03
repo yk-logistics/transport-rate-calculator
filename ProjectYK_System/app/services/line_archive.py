@@ -79,6 +79,59 @@ def search(q: str = "", group_id: str = "", msg_type: str = "",
     return [dict(r) for r in rows]
 
 
+def daily_digest(day_iso: str, today_iso: str) -> dict:
+    """F5: สรุปต่อกลุ่มของวัน day_iso (YYYY-MM-DD) + กลุ่มเงียบ >3 วันเทียบ today_iso.
+
+    sent_at ใน DB เป็น TEXT ขึ้นต้นด้วยวันที่ — เทียบด้วย substr เพื่อรองรับทั้ง
+    'YYYY-MM-DD HH:MM' และ ISO 'T'.
+    """
+    with _conn() as c:
+        active = {r["group_id"]: dict(r) for r in c.execute(
+            "SELECT group_id, name FROM line_group WHERE COALESCE(active,1)=1")}
+        rows = c.execute("""
+            SELECT m.group_id, m.msg_type, m.text, m.media_path, m.sent_at,
+                   COALESCE(u.alias, u.display_name) AS who
+            FROM line_message m LEFT JOIN line_user u ON u.user_id = m.user_id
+            WHERE substr(m.sent_at, 1, 10) = ?
+            ORDER BY m.sent_at""", (day_iso,)).fetchall()
+        last_at = {r["group_id"]: r["last_at"] for r in c.execute(
+            "SELECT group_id, MAX(sent_at) AS last_at FROM line_message GROUP BY group_id")}
+
+    per: dict[str, dict] = {}
+    for r in rows:
+        gid = r["group_id"]
+        if gid not in active:
+            continue
+        g = per.setdefault(gid, {
+            "group_id": gid, "name": active[gid]["name"],
+            "n_msg": 0, "n_media": 0, "first": None, "last": None})
+        g["n_msg"] += 1
+        if r["media_path"]:
+            g["n_media"] += 1
+        item = {"who": r["who"] or "", "text": (r["text"] or "")[:120],
+                "at": str(r["sent_at"])[11:16], "msg_type": r["msg_type"]}
+        if g["first"] is None:
+            g["first"] = item
+        g["last"] = item
+
+    # เงียบ >3 วัน: ข้อความล่าสุดเก่ากว่า (today − 3 วัน) — string compare พอ (ISO)
+    from datetime import date as _date, timedelta as _td
+    cutoff = (_date.fromisoformat(today_iso) - _td(days=3)).isoformat()
+    silent = []
+    for gid, g in active.items():
+        la_ = last_at.get(gid)
+        if la_ is None or str(la_)[:10] < cutoff:
+            silent.append({"group_id": gid, "name": g["name"],
+                           "last_at": str(la_ or "")[:16] or "ไม่เคยมีข้อความ"})
+    silent.sort(key=lambda x: x["last_at"])
+    return {
+        "groups": sorted(per.values(), key=lambda g: -g["n_msg"]),
+        "silent": silent,
+        "total_msg": sum(g["n_msg"] for g in per.values()),
+        "total_media": sum(g["n_media"] for g in per.values()),
+    }
+
+
 def media_file(msg_id: int) -> Path | None:
     """ไฟล์ media ของข้อความ (ตรวจอยู่ใต้ line_media จริง กัน path traversal)."""
     root = media_root()
