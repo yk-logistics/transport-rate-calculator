@@ -163,7 +163,11 @@ Start-Sleep 1; Start-ScheduledTask -TaskName YK_MVP_APP; Start-Sleep 6
 ### F1 หน้า /line ค้นหาย้อนหลัง — โมเดล: Sonnet (~1 วัน)
 (1) `services/line_archive.py`: search(q, group_id?, msg_type?, since?, limit=200 + pagination), groups_by_activity() (2) route /line (สิทธิ์: menu "line" admin=edit office=view) + /line/media/{id} เสิร์ฟไฟล์ (ตรวจ path traversal! media_path ต้องอยู่ใต้ line_media จริง) (3) UI: ช่องค้น + ผลลัพธ์ (กลุ่ม/คน/เวลา/ข้อความ, รูป=thumbnail คลิกขยาย) + แท็บ "กลุ่มตามความเคลื่อนไหว" ล่าสุด→เงียบ; **เกณฑ์ผ่าน:** ค้นคำที่รู้ว่ามี (เช่น ทะเบียนรถ) เจอในทุกกลุ่มที่เกี่ยว < 2 วิ; เปิดรูปเก่าเดือน มิ.ย. ได้
 
-### F2 กล่องงานเข้า — โมเดล: ใหญ่ออกแบบ rule + Sonnet ทำหน้า (~1 วัน)
+### F2 🔶 โค้ดเสร็จ 4ก.ค. 00:2x — กล่องงานเข้า /line/inbox (เหลือวัดของจริงบน server)
+**ของจริง:** ตาราง v40 `LineGroupMap` (group↔ลูกค้า/ไซท์/ชนิด — **ฝั่ง app.db** ตามสเปค ไม่แตะ DB archiver) + `LineJobSeen` (กันเด้งซ้ำ unique ต่อ line_message.id); scanner `services/line_inbox.py`: candidate = มีเลขตู้ (regex 4 ตัวอักษร+7 เลข ยอมช่องว่าง/ขีด) OR (คำสั่งงาน เข้าโหลด/ส่งตู้/รับตู้/คืนตู้/บรรจุ/booking/ใบงาน + มีวันที่หรือเวลา) OR (คำอ่อน เข้า/ส่ง/พรุ่งนี้ + วันที่+เวลาครบ); เดาวันงาน ("พรุ่งนี้"→sent+1, "6/7"→ปีที่ส่ง รับ พ.ศ.2หลัก, ย้อน>2วัน/ล่วง>45วัน=ไม่เดา); หน้า /line/inbox: mark ชนิดกลุ่ม + list candidate เรียงคะแนน + ปุ่ม "รับเป็นงาน" (record แล้ว redirect `/dispatch/planner/new?site=&plan_date=`) / "ไม่ใช่งาน"; เทสต์ 6 ตัว tests/test_line_inbox.py
+**เหลือ (บน server เท่านั้น):** โอ mark กลุ่มลูกค้าจริง → รันย้อน 7 วันวัด ≥80% ตามเกณฑ์ผ่าน แล้วจูน KEYWORDS/regex ถ้าต่ำ
+
+สเปคเดิม (อ้างอิง): — โมเดล: ใหญ่ออกแบบ rule + Sonnet ทำหน้า (~1 วัน)
 สแกน line_message กลุ่มที่ mark เป็น "ลูกค้า" (เพิ่มคอลัมน์ mapping ฝั่ง MVP: ตาราง `LineGroupMap` group_id↔customer/site/ชนิด — **เก็บฝั่ง app.db** ไม่แตะ DB archiver) หา pattern งาน (มีวันที่+เวลา / เลขตู้ TEXU… 11 หลัก / คำ "เข้า","โหลด","ส่ง") → หน้า inbox แสดง candidate → ปุ่ม "รับเป็นงาน" เปิด dispatch planner พร้อม prefill + จำ line_message_id กันเด้งซ้ำ; **เกณฑ์ผ่าน:** ทดสอบกับข้อความจริงย้อนหลัง 1 สัปดาห์ — จับงานจริงได้ ≥80%, false positive มีปุ่ม "ไม่ใช่งาน" แล้วไม่โผล่ซ้ำ
 
 ### F3 ชุดหลักฐานวางบิล (POD) — โมเดล: ใหญ่ (~1.5 วัน หลัง F1+C2)
