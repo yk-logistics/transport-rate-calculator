@@ -190,7 +190,11 @@ E2: รายงานน้ำมันผิดปกติ: ต่อยอ�
 **ดีไซน์:** (1) นิยาม "part key" ต่อจุด (เช่น `payroll.boss_cols`, `transfer.edit_account`, `daily.money_cols`) — ฝังในตำแหน่ง template ด้วย helper ใหม่ `can_part(request,'<key>')` (2) ตาราง `PartPermission` (v37): part_key, role, level(hide/view/edit) + default ตายตัวในโค้ด (ไม่มีแถว = ใช้ default) (3) หน้า /admin/permissions: ตาราง role×part ติ๊กปรับสด (admin เท่านั้น) + ต่อ user รายคน (override role) (4) เริ่มจากจุดอ่อนไหวจริง ~10 จุดแรก (บอส/บัญชี/KB/เงินเดือน) ไม่ต้องครอบทุกปุ่มวันแรก
 **เกณฑ์ผ่าน:** สร้าง user ทดสอบ role office → มองไม่เห็นคอลัมน์บอส/ปุ่มลับตามตาราง; โอสลับติ๊กแล้วมีผลทันทีไม่ต้อง restart
 
-### P2 ประวัติใครทำอะไร (audit) ดูจากระบบ+คลิกขวา — โมเดล: ใหญ่วางแกน+Sonnet (~1.5 วัน)
+### P2 ✅ เสร็จ 3ก.ค. กลางคืน — ประวัติใครทำอะไร (audit)
+**ของจริง:** ตาราง `AuditLog` (v37, INSERT-only) + helper `audit_log(s, request, table, row_id, field, old, new, note)` ใน main.py — **ติดแล้ว 4 จุด:** แก้ธนาคาร/เลขบัญชี (accounts/save — log เฉพาะช่องที่เปลี่ยนจริง + ชื่อคนใน note), finalize รอบเงินเดือน, ติ๊ก/ยกเลิกติ๊กรับเงิน AR, ติ๊ก/ยกเลิกติ๊กรับ KB; หน้า `/admin/audit` (เมนู ⚙️→🕵️) รวม 6 แหล่ง (AuditLog + DailyJobAudit + DepositAudit + DispatchPlanAudit + QuotationAudit) กรอง user/ตาราง/ย้อนหลัง N วัน/ค้นหา (cap 500); grid เดลี่คลิกขวา "📜 ประวัติช่องนี้" = per-field (`/api/daily/{id}/audit?field=`) + "ประวัติทั้งแถว"; เทสต์ 4 ตัว tests/test_audit_log.py
+**ติดจุดใหม่:** เรียก `audit_log(...)` ใน Session เดียวกันก่อน commit — จุดที่มีตาราง audit เฉพาะแล้วเขียนที่เดิมต่อไป แค่เพิ่ม adapter ใน `_collect_audit_rows`
+
+สเปคเดิม (อ้างอิง): — โมเดล: ใหญ่วางแกน+Sonnet (~1.5 วัน)
 **มีแล้ว:** เดลี่มี audit ต่อแถว (`/api/daily/{id}/audit`), DepositAudit, DispatchPlanAudit — **ขาด:** จุดเงินอื่น (แก้ราคา/บัญชี/ติ๊ก KB/finalize) + ที่ดูรวม
 **งาน:** (1) ตาราง `AuditLog` กลาง (v38): user, เวลา, ตาราง+id, field, old→new, หน้า/route — เขียนผ่าน helper เดียว `audit(...)` แล้วไล่ติดตามจุดเขียนสำคัญ (2) หน้า /admin/audit: ค้นตาม user/วัน/ตาราง (3) **คลิกขวาใน Grid ที่ช่องไหน → "ประวัติช่องนี้"** popup: ใครแก้ เมื่อไหร่ จากอะไรเป็นอะไร (รวม audit เดลี่เดิม+AuditLog ใหม่)
 **เกณฑ์ผ่าน:** แก้ราคา 1 ช่องใน grid → คลิกขวาเห็นรายการแก้ทันที พร้อมชื่อ user จริง; โอค้นย้อน "เมื่อวานใครแก้อะไรบ้าง" ได้ใน 3 คลิก
