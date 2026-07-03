@@ -8359,6 +8359,20 @@ _QUOTE_SYNC_BOOTSTRAP = """
 """
 
 
+# B1.1: แถบเมนู YK บนหัวเครื่องคิด — inject ตอนเสิร์ฟแบบเดียวกับ sync bootstrap
+# (ไม่แตะเนื้อไฟล์/สูตร — เลขเป๊ะ 100% ตามหลัก B1); inline style ล้วน
+# เพราะไฟล์เครื่องคิดไม่มี Tailwind ของ base.html
+_QUOTE_NAV_BAR = """
+<div id="yk-quote-nav" style="background:#0f172a;color:#fff;padding:10px 16px;
+display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:14px;">
+  <a href="/daily" style="color:#fff;text-decoration:none;font-weight:700;">&larr; Project YK</a>
+  <span style="font-weight:600;">📋 เครื่องคิดราคาขนส่ง</span>
+  <a href="/quote/list" style="color:#cbd5e1;text-decoration:none;">📄 รายการใบเสนอที่เซฟไว้</a>
+</div>
+"""
+
+
 @app.get("/quote", response_class=HTMLResponse)
 def quote_calculator():
     """เครื่องคิดค่าขนส่งตามราคาน้ำมัน — ไฟล์เดี่ยวตัวเดียวกับ GitHub Pages."""
@@ -8371,6 +8385,10 @@ def quote_calculator():
     html = p.read_text(encoding="utf-8")
     if "</body>" in html:
         html = html.replace("</body>", _QUOTE_SYNC_BOOTSTRAP + "\n</body>", 1)
+    # แทรกแถบเมนูถัดจาก <body ...> แรก (ไฟล์เดิมไม่ถูกแก้)
+    m = re.search(r"<body[^>]*>", html)
+    if m:
+        html = html[:m.end()] + _QUOTE_NAV_BAR + html[m.end():]
     return HTMLResponse(html)
 
 
