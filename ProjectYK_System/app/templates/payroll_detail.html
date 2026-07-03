@@ -224,6 +224,41 @@
 </div>
 {% endif %}
 
+{# ---- C4: ค่าเที่ยวตกหล่น/จ่ายตามหลัง ---- #}
+{% if adj_applied %}
+<div class="mb-3 rounded-lg border border-teal-300 bg-teal-50 p-3 flex items-start gap-3">
+  <div class="text-teal-700 text-xl leading-none">↩</div>
+  <div class="flex-1 text-sm">
+    <div class="font-semibold text-teal-900">ตกหล่นจากรอบก่อน — ดูดเข้ารอบนี้แล้ว {{ adj_applied|length }} รายการ (รวมอยู่ใน รายได้อื่น/หักอื่น ของคนนั้นแล้ว)</div>
+    <div class="mt-1 space-y-0.5 text-teal-800 text-xs">
+      {% for r in adj_applied %}
+      <div>{{ r.name }} — <span class="font-semibold {% if r.a.amount >= 0 %}text-emerald-700{% else %}text-rose-700{% endif %}">{{ '{:+,.2f}'.format(r.a.amount) }}</span> · {{ r.a.reason }}</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+{% if adj_pending %}
+<div class="mb-3 rounded-lg border border-cyan-300 bg-cyan-50 p-3 flex items-start gap-3">
+  <div class="text-cyan-700 text-xl leading-none">⏳</div>
+  <div class="flex-1 text-sm">
+    <div class="font-semibold text-cyan-900">ค่าเที่ยวตกหล่นรอรอบถัดไป (ไซท์ {{ run.site_code }}) {{ adj_pending|length }} รายการ — จะถูกบวก/หักอัตโนมัติเมื่อคำนวณรอบที่ใหม่กว่ารอบต้นเหตุ</div>
+    <div class="mt-1 space-y-0.5 text-cyan-800 text-xs">
+      {% for r in adj_pending %}
+      <div class="flex items-center gap-2">
+        <span>{{ r.name }} — <span class="font-semibold {% if r.a.amount >= 0 %}text-emerald-700{% else %}text-rose-700{% endif %}">{{ '{:+,.2f}'.format(r.a.amount) }}</span> · {{ r.a.reason }}</span>
+        <form method="post" action="/payroll/adjustments/{{ r.a.id }}/cancel" class="inline"
+              onsubmit="return confirm('ยกเลิกยอดตกหล่น {{ r.name }} {{ '{:+,.2f}'.format(r.a.amount) }}?')">
+          <input type="hidden" name="run_id" value="{{ run.id }}">
+          <button class="text-rose-500 hover:text-rose-700 text-xs border border-rose-200 rounded px-1.5">ยกเลิก</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% if policy_review and policy_review.count > 0 %}
 <div class="mb-3 rounded-lg border border-fuchsia-300 bg-fuchsia-50 p-3 flex items-start gap-3">
   <div class="text-fuchsia-700 text-xl leading-none">⚑</div>

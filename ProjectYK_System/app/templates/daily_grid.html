@@ -1023,7 +1023,8 @@
         saveDetails.innerHTML = `<div class="font-semibold mb-1">รายการที่ต้องตรวจ</div><ul class="list-disc ml-5">${errors.slice(0,12).map(e=>`<li>ID ${e.id||"-"}: ${e.error||"error"}</li>`).join("")}</ul><div class="mt-2">ระบบยังเก็บสถานะ unsaved ไว้ ให้แก้ช่องที่ผิดแล้วกด Save อีกครั้ง</div>`;
       } else {
         dirtyRows.clear();
-        saveMsg.textContent = `บันทึกแล้ว ${out.updated} แถว`;
+        saveMsg.textContent = `บันทึกแล้ว ${out.updated} แถว`
+          + (out.adjustments ? ` · ตั้งยอดตกหล่นรอบปิดแล้ว ${out.adjustments} รายการ (จ่าย/หักรอบถัดไป — ดูในหน้ารอบเงินเดือน)` : "");
         saveMsg.className = "text-xs text-emerald-700";
         table.replaceData().then(updateDirtyFeedback);
       }

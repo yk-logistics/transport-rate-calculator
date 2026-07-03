@@ -116,7 +116,10 @@ Start-Sleep 1; Start-ScheduledTask -TaskName YK_MVP_APP; Start-Sleep 6
 ### C3 Oatside เข้าระบบ (สเปคละเอียดอยู่ในแพลนแล้ว) — โมเดล: ใหญ่ wiring+ตรวจเลข (~1 วัน)
 เพิ่มเติมจากแพลน: (1) vendor `Oatside/build_oatside_reports.py` → `app/services/oatside_engine.py` **ห้ามแก้เนื้อ** (คอมเมนต์หัวไฟล์: vendored จากไหน วันไหน sync ยังไง) + copy `oatside_config.json`, `oatside_billing_overrides.json` ไป `app/` (2) route GET/POST `/oatside` (admin): อัปโหลด 2 xlsx → เซฟ `_oatside_uploads/<ts>/` → เรียก parse_legs→build_trips→pricing → เก็บผล json ล่าสุด (3) template: ตารางต่อวัน (เที่ยว, เรท, surcharge 50/100, blank run, รวม) + ปุ่มดาวน์โหลด xlsx เดิม (เรียก writer เดิมได้) (4) **เกณฑ์ผ่านตายตัว: อัปโหลดไฟล์เดือน เม.ย./พ.ค. ที่มีรายงานจริงแล้ว → ยอดรวมตรงรายงานเดิมทุกบาท**
 
-### C4 ระบบค่าเที่ยวตกหล่น (โอสั่ง 3ก.ค.) — โมเดล: **ใหญ่เท่านั้น** (~1 วัน)
+### C4 ✅ เสร็จ 3ก.ค. (Fable — งานเงิน) — ระบบค่าเที่ยวตกหล่น/จ่ายตามหลัง
+**ของจริง:** แก้ trip_fee_driver ในหน้า /daily ของแถวช่วงรอบ finalized → ตั้ง `PayAdjustment` (v36) อัตโนมัติ → กล่องฟ้า /payroll/<id> (ยกเลิกได้ก่อนดูด) → engine ดูดเข้ารอบใหม่ (other_income/other_deduction + note) แบบ idempotent (recompute ไม่ double, ไม่เข้ารอบเก่ากว่า, ไซท์เดียวกัน); ดู tfd ตัวเดียวเพราะ engine จ่ายจาก Σ tfd ทุก pay_mode; เทสต์ 7 ตัว; **อ่าน docs/PAY_ADJUSTMENT_RUNBOOK.md ก่อนทำเคสจริงแรก (ราคา AYU ที่โอจะแก้ทีหลัง) + net_guard เสมอ**
+
+สเปคเดิม (อ้างอิง): — โมเดล: **ใหญ่เท่านั้น** (~1 วัน)
 **โจทย์:** บางลูกค้าเดาราคา/เว้นราคาไว้ก่อนเพื่อจ่ายคนขับ พอวางบิลจริงค่อยรู้ราคา → ต้องจ่ายเพิ่ม/หักคืนคนขับย้อนหลัง; รอบเก่า finalized ห้าม recompute (สดย่อยจะหาย — บั๊กที่รู้แล้ว)
 **ดีไซน์:** ตาราง `PayAdjustment` (v35): employee_id, source_run_id (รอบที่เกิดเหตุ), daily_job_id?, amount (+จ่ายเพิ่ม/−หักคืน), reason, status (pending→applied), applied_run_id — engine ตอน compute รอบใหม่: ดูด pending ของ emp เข้า other_income/other_deduction + mark applied; หน้า /payroll/<id> โชว์บรรทัด "ตกหล่นจากรอบก่อน"; ปุ่มสร้างจากหน้าแก้เดลี่: แก้ราคา/ค่าเที่ยวของแถวในรอบ finalized → เสนอ adjustment อัตโนมัติ (ต่าง = ใหม่−เก่า ตาม pay_mode: trip=Δtfd, mao=Δ(price−kb)×rate)
 **เกณฑ์ผ่าน:** เทสต์ 3 เคส (trip จ่ายเพิ่ม/mao หักคืน/ไม่มี pending = engine เดิมเป๊ะ) + เคสจริงแรก: ถ้าโอแก้ราคา AYU ที่ปิดไปแล้ว

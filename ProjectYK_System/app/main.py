@@ -69,6 +69,7 @@ from models import (
     PayCycle,
     PayRun,
     PayRunItem,
+    PayAdjustment,
     PettyCashTxn,
     PmPlan,
     Quotation,
@@ -93,7 +94,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 35  # v35: Quotation + QuotationAudit (B2 เซฟใบเสนอราคา — create_all, ไม่ต้อง ALTER)
+SCHEMA_VERSION = 36  # v36: PayAdjustment (C4 ค่าเที่ยวตกหล่น — create_all, ไม่ต้อง ALTER)
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -1925,7 +1926,11 @@ async def daily_grid_save(request: Request):
     saved_ids: list[int] = []
     errors: list[dict] = []
     audits: list[models.DailyJobAudit] = []
+    adjustments_created = 0
     with Session(engine) as s:
+        # C4: แก้ค่าเที่ยวของแถวที่อยู่ในรอบ finalize แล้ว (ห้าม recompute) →
+        # ตั้งยอดตกหล่น (PayAdjustment) รอจ่ายเพิ่ม/หักคืนรอบถัดไปอัตโนมัติ
+        fin_runs = s.exec(select(PayRun).where(PayRun.status == "finalized")).all()
         for item in rows:
             if not isinstance(item, dict):
                 continue
@@ -2007,6 +2012,27 @@ async def daily_grid_save(request: Request):
                         field_name=k, old_value=("" if ov is None else str(ov)),
                         new_value=("" if nv is None else str(nv)),
                     ))
+            # C4: engine จ่ายจาก Σ trip_fee_driver ทุก pay_mode → Δค่าเที่ยว
+            # ของแถวในรอบ finalized = ยอดตกหล่นที่ต้องตามจ่าย/หักคืน
+            if "trip_fee_driver" in touched and row.driver_id and row.work_date:
+                old_fee = float(before_snap.get("trip_fee_driver") or 0.0)
+                delta = round((row.trip_fee_driver or 0.0) - old_fee, 2)
+                if abs(delta) >= 0.01:
+                    fin = next((r for r in fin_runs
+                                if r.site_code == row.site_code
+                                and r.period_start <= row.work_date <= r.period_end),
+                               None)
+                    if fin:
+                        s.add(PayAdjustment(
+                            employee_id=row.driver_id, site_code=row.site_code,
+                            source_run_id=fin.id, daily_job_id=row.id,
+                            amount=delta, created_by=changed_by,
+                            reason=(f"แก้ค่าเที่ยว {row.work_date:%d/%m/%Y} "
+                                    f"{(row.plate_no_raw or '').strip()} หลังปิดรอบ "
+                                    f"{fin.pay_cycle_tag} "
+                                    f"({old_fee:,.2f}→{(row.trip_fee_driver or 0):,.2f})"),
+                        ))
+                        adjustments_created += 1
             row.updated_at = datetime.utcnow()
             s.add(row)
             try:
@@ -2019,7 +2045,8 @@ async def daily_grid_save(request: Request):
             s.add(a)
         s.commit()
     return {"ok": True, "updated": updated, "saved_ids": saved_ids,
-            "errors": errors, "audited": len(audits)}
+            "errors": errors, "audited": len(audits),
+            "adjustments": adjustments_created}
 
 
 @app.get("/api/daily/{job_id}/audit")
@@ -3839,6 +3866,21 @@ def payroll_detail(run_id: int, request: Request, err: str = ""):
                 })
         pending_price.sort(key=lambda x: (x["date"], x["name"]))
         stale = _detect_payrun_stale(s, pr, items)
+        # C4: ค่าเที่ยวตกหล่น — ที่ดูดเข้ารอบนี้แล้ว + ที่ค้างรอรอบถัดไปของไซท์นี้
+        adj_applied = s.exec(
+            select(PayAdjustment, Employee)
+            .join(Employee, Employee.id == PayAdjustment.employee_id)
+            .where(PayAdjustment.status == "applied",
+                   PayAdjustment.applied_run_id == pr.id)
+            .order_by(PayAdjustment.id)
+        ).all()
+        adj_pending = s.exec(
+            select(PayAdjustment, Employee)
+            .join(Employee, Employee.id == PayAdjustment.employee_id)
+            .where(PayAdjustment.status == "pending",
+                   PayAdjustment.site_code == pr.site_code)
+            .order_by(PayAdjustment.id)
+        ).all()
     ctx = base_context(request)
     from services.payroll_slip import salary_folder_month_tag
 
@@ -3860,9 +3902,30 @@ def payroll_detail(run_id: int, request: Request, err: str = ""):
         },
         "policy_review": policy_review,
         "pending_price": pending_price,
+        "adj_applied": [{"a": a, "name": (e.nickname or e.full_name)} for a, e in adj_applied],
+        "adj_pending": [{"a": a, "name": (e.nickname or e.full_name)} for a, e in adj_pending],
         "salary_export_folder_month": salary_folder_month_tag(pr),
     })
     return templates.TemplateResponse("payroll_detail.html", ctx)
+
+
+@app.post("/payroll/adjustments/{adj_id}/cancel")
+def payroll_adjustment_cancel(adj_id: int, request: Request, run_id: str = Form("")):
+    """ยกเลิกยอดตกหล่นที่ยัง pending (ก่อนถูกดูดเข้ารอบ) — applied แล้วห้ามแตะ."""
+    u = current_user(request)
+    with Session(engine) as s:
+        a = s.get(PayAdjustment, adj_id)
+        if not a:
+            raise HTTPException(404)
+        if a.status != "pending":
+            raise HTTPException(409, "รายการถูกดูดเข้ารอบแล้ว — ยกเลิกไม่ได้")
+        a.status = "cancelled"
+        a.updated_at = datetime.utcnow()
+        a.reason = (a.reason + f" [ยกเลิกโดย {(u.username if u else '?')}]").strip()
+        s.add(a)
+        s.commit()
+    back = f"/payroll/{run_id}" if run_id.strip().isdigit() else "/payroll"
+    return RedirectResponse(back, status_code=303)
 
 
 @app.get("/payroll/{run_id}/employee/{emp_id}", response_class=HTMLResponse)

@@ -42,6 +42,7 @@ from models import (
     DailyJobFee,
     Employee,
     FuelTxn,
+    PayAdjustment,
     PayRun,
     PayRunAdjust,
     PayRunItem,
@@ -1324,6 +1325,60 @@ def get_or_create_pay_run(
     return pr
 
 
+def _apply_pay_adjustments(session: Session, pay_run: PayRun, employee_id: int,
+                           item: PayRunItem) -> None:
+    """C4 ค่าเที่ยวตกหล่น/จ่ายตามหลัง: ดูดรายการ pending ของคนนี้เข้ารอบนี้
+    (+ → other_income / − → other_deduction) แล้ว mark applied.
+
+    - recompute รอบเดิมซ้ำ: ชุดที่เคย applied กับรอบนี้ถูกดูดกลับมาใหม่
+      (items เก่าถูกลบตอน recompute) — ไม่ double ไม่หาย
+    - ดูดเฉพาะไซท์เดียวกัน และรอบนี้ต้องจบทีหลังรอบต้นเหตุ (กัน pending
+      โดนดูดเข้ารอบเก่าที่ยัง draft ค้าง)
+    """
+    from sqlalchemy import and_ as sa_and, or_ as sa_or
+
+    adjs = session.exec(
+        select(PayAdjustment).where(
+            PayAdjustment.employee_id == employee_id,
+            PayAdjustment.site_code == pay_run.site_code,
+            sa_or(
+                PayAdjustment.status == "pending",
+                sa_and(PayAdjustment.status == "applied",
+                       PayAdjustment.applied_run_id == pay_run.id),
+            ),
+        )
+    ).all()
+    applied: list[PayAdjustment] = []
+    for a in adjs:
+        if a.status == "pending" and a.source_run_id:
+            src = session.get(PayRun, a.source_run_id)
+            if src and src.period_end >= pay_run.period_end:
+                continue  # รอบนี้ไม่ใหม่กว่ารอบต้นเหตุ — ยังไม่ดูด
+        applied.append(a)
+    if not applied:
+        return
+    pos = round(sum(a.amount for a in applied if a.amount > 0), 2)
+    neg = round(sum(-a.amount for a in applied if a.amount < 0), 2)
+    item.other_income = round((item.other_income or 0) + pos, 2)
+    item.other_deduction = round((item.other_deduction or 0) + neg, 2)
+    item.gross_total = round((item.gross_total or 0) + pos, 2)
+    item.deduction_total = round((item.deduction_total or 0) + neg, 2)
+    item.net_pay = round((item.net_pay or 0) + pos - neg, 2)
+    parts = []
+    if pos:
+        parts.append(f"+{pos:,.2f}")
+    if neg:
+        parts.append(f"-{neg:,.2f}")
+    tagline = "ตกหล่นจากรอบก่อน " + "/".join(parts)
+    item.note = f"{item.note} | {tagline}" if (item.note or "").strip() else tagline
+    from datetime import datetime as _dt
+    for a in applied:
+        a.status = "applied"
+        a.applied_run_id = pay_run.id
+        a.updated_at = _dt.utcnow()
+        session.add(a)
+
+
 def compute_pay_run(
     session: Session, pay_run: PayRun, recompute: bool = True, force: bool = False
 ) -> list[PayRunItem]:
@@ -1429,6 +1484,8 @@ def compute_pay_run(
             net_pay=calc.net_pay,
             note=calc.note,
         )
+        # C4: ค่าเที่ยวตกหล่นจากรอบ finalized ก่อนหน้า → บวก/หักเข้ารอบนี้
+        _apply_pay_adjustments(session, pay_run, emp.id, item)
         session.add(item)
         items.append(item)
     session.commit()

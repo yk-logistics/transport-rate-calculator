@@ -1534,6 +1534,30 @@ class Quotation(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class PayAdjustment(SQLModel, table=True):
+    """C4 ค่าเที่ยวตกหล่น/จ่ายตามหลัง (v36): แก้ค่าเที่ยวของแถวในรอบที่ finalize แล้ว
+    (ห้าม recompute — สดย่อยจะหาย) → เก็บส่วนต่างไว้จ่ายเพิ่ม/หักคืนรอบถัดไป.
+
+    amount: + = จ่ายเพิ่มคนขับ, − = หักคืน. เกิดอัตโนมัติจาก grid-save เมื่อแก้
+    trip_fee_driver ของแถวในช่วงรอบ finalized (Δ = ใหม่−เก่า — engine จ่ายจาก
+    Σ trip_fee_driver ทุก pay_mode) หรือสร้าง/ยกเลิกมือจากหน้า /payroll/<id>.
+    engine ดูด pending เข้า other_income/other_deduction ของรอบใหม่ (ไซท์เดียวกัน
+    และรอบต้องใหม่กว่ารอบต้นเหตุ) แล้ว mark applied — recompute รอบเดิมซ้ำไม่ double.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    employee_id: int = Field(foreign_key="employee.id", index=True)
+    site_code: str = Field(default="", index=True)
+    source_run_id: Optional[int] = Field(default=None, foreign_key="payrun.id", index=True)
+    daily_job_id: Optional[int] = Field(default=None, foreign_key="dailyjob.id")
+    amount: float = 0.0
+    reason: str = ""
+    status: str = Field(default="pending", index=True)  # pending | applied | cancelled
+    applied_run_id: Optional[int] = Field(default=None, foreign_key="payrun.id", index=True)
+    created_by: str = ""
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class QuotationAudit(SQLModel, table=True):
     """ประวัติแก้สถานะ/ราคาใบเสนอ — INSERT-only (ลอก pattern DepositAudit)."""
     id: Optional[int] = Field(default=None, primary_key=True)
