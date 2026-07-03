@@ -104,6 +104,20 @@ def test_build_cy_single_sheet_with_advance_cols():
     assert ws["M33"].value == "=SUM(M16:M32)"
 
 
+def test_build_cj_plain_style():
+    import openpyxl
+    rows = _rows(1)
+    rows[0].update({"cust": "HAIER APPLIANCES", "job": "COAU7269153180", "price": 8300})
+    data = ib.build_invoice(ib.REGISTRY["CJ"], "CJIV2606-099", date(2026, 6, 10), rows)
+    wb = openpyxl.load_workbook(io.BytesIO(data))
+    ws = wb["ค่าขนส่ง"]
+    assert ws["G8"].value == "CJIV2606-099"
+    assert ws["J16"].value == 8300.0 and ws["K16"].value == "ค่าขนส่ง "
+    assert ws["H16"].value == "COAU7269153180"
+    assert ws["J26"].value == "=SUM(J16:J25)"  # สูตรรวมของ template ยังอยู่
+    assert "ค่าทดรองจ่าย" not in wb.sheetnames or ib.REGISTRY["CJ"].advance_sheet is None
+
+
 def test_build_rejects_too_many_rows():
     with pytest.raises(ValueError):
         ib.build_invoice(ib.REGISTRY["KMMT"], "KTIV2606-099", date(2026, 6, 30), _rows(16))

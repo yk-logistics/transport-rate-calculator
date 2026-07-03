@@ -101,13 +101,12 @@
         <th class="px-1 py-1 text-left">รายการบรรทุก</th>
         <th class="px-1 py-1 text-left">ตู้</th>
         <th class="px-1 py-1 text-left">ไซส์</th>
-        <th class="px-1 py-1 text-left">ทะเบียน</th>
-        <th class="px-1 py-1 text-left">CUST.</th>
+        {% if has_plate %}<th class="px-1 py-1 text-left">ทะเบียน</th>{% endif %}
+        {% if has_cust %}<th class="px-1 py-1 text-left">CUST.</th>{% endif %}
         <th class="px-1 py-1 text-left">{{ 'BL' if cfg.job_field == 'bl_booking' else 'JOB' }}</th>
         <th class="px-1 py-1 text-left">วันที่บรรทุก</th>
         <th class="px-1 py-1 text-right">ค่าขนส่ง</th>
-        {% if cfg.style == 'advance_cols' %}<th class="px-1 py-1 text-right">ค่าล้าง/ซ่อม</th>{% endif %}
-        <th class="px-1 py-1 text-right">ค่าใช้จ่าย/ทดรอง</th>
+        {% for c in ui_charges %}<th class="px-1 py-1 text-right">{{ c.label }}</th>{% endfor %}
         <th></th>
       </tr></thead>
       <tbody id="edit-rows"></tbody>
@@ -130,24 +129,27 @@
 <script>
 const UNBILLED = {{ unbilled_json | safe }};
 const BILLED = {{ billed_json | safe }};
-const HAS_WASH = {{ 'true' if cfg.style == 'advance_cols' else 'false' }};
+const CHARGES = {{ ui_charges | tojson }};
+const HAS_PLATE = {{ 'true' if has_plate else 'false' }};
+const HAS_CUST = {{ 'true' if has_cust else 'false' }};
 
 function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 function rowHtml(r, i) {
   const warn = 'bg-amber-50';
+  const chargeCells = CHARGES.map(c =>
+    `<td><input data-k="${c.key}" type="number" step="0.01" value="${r[c.key] ?? 0}" class="${warn} border rounded px-1 py-0.5 w-20 text-right"></td>`).join('');
   return `<tr class="border-t">
     <td class="px-1 py-1 text-slate-400">${i + 1}</td>
     <td><input data-k="route" value="${esc(r.route)}" class="${r.route ? '' : warn} border rounded px-1 py-0.5 w-28"></td>
     <td><input data-k="cntr" value="${esc(r.cntr)}" class="border rounded px-1 py-0.5 w-28 font-mono"></td>
     <td><input data-k="size" value="${esc(r.size)}" class="border rounded px-1 py-0.5 w-10"></td>
-    <td><input data-k="plate" value="${esc(r.plate)}" class="border rounded px-1 py-0.5 w-20"></td>
-    <td><input data-k="cust" value="${esc(r.cust)}" class="${r.cust ? '' : warn} border rounded px-1 py-0.5 w-24"></td>
+    ${HAS_PLATE ? `<td><input data-k="plate" value="${esc(r.plate)}" class="border rounded px-1 py-0.5 w-20"></td>` : ''}
+    ${HAS_CUST ? `<td><input data-k="cust" value="${esc(r.cust)}" class="${r.cust ? '' : warn} border rounded px-1 py-0.5 w-24"></td>` : ''}
     <td><input data-k="job" value="${esc(r.job)}" class="border rounded px-1 py-0.5 w-32 font-mono"></td>
     <td><input data-k="date" type="date" value="${esc(String(r.date).slice(0, 10))}" class="border rounded px-1 py-0.5"></td>
     <td><input data-k="price" type="number" step="0.01" value="${r.price ?? 0}" class="border rounded px-1 py-0.5 w-20 text-right"></td>
-    ${HAS_WASH ? `<td><input data-k="wash" type="number" step="0.01" value="${r.wash ?? 0}" class="${warn} border rounded px-1 py-0.5 w-20 text-right"></td>` : ''}
-    <td><input data-k="advance" type="number" step="0.01" value="${r.advance ?? 0}" class="${warn} border rounded px-1 py-0.5 w-20 text-right"></td>
+    ${chargeCells}
     <td><button type="button" onclick="this.closest('tr').remove()" class="text-rose-500 px-1">✕</button></td>
   </tr>`;
 }

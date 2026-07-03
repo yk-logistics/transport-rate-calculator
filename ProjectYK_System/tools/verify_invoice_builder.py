@@ -5,9 +5,9 @@
     ProjectYK_System\\app\\.venv\\Scripts\\python.exe ProjectYK_System\\tools\\verify_invoice_builder.py ^
         --db <app.db สำเนา server> --real <ไฟล์ใบจริง.xlsx> --inv KTIV2606-017 --series KMMT
 
-หลัก: ดึงแถวเดลี่ของใบนั้นจาก DB → เติมช่องที่ผู้ใช้ต้องกรอก (ป้าย/ค่าทดรองจ่าย)
-จาก "ไฟล์จริง" (จำลองสิ่งที่ทีมพิมพ์) → build → เทียบชีทค่าขนส่ง(+ทดรองจ่าย)
-ช่องต่อช่อง: ตัวเลขจาก DB ต้องตรงไฟล์จริงเป๊ะ ไม่ตรง = FAIL.
+หลัก: ดึงแถวเดลี่ของใบนั้นจาก DB → เติมช่องที่ผู้ใช้ต้องกรอก (ป้าย/ค่าทดรองจ่าย/
+ค่าธรรมเนียม) จาก "ไฟล์จริง" (จำลองสิ่งที่ทีมพิมพ์) → build → เทียบช่องต่อช่อง:
+ตัวเลขที่มาจาก DB (ราคา/ตู้/ไซส์/ทะเบียน/วันที่) ต้องตรงไฟล์จริงเป๊ะ ไม่ตรง = FAIL.
 """
 from __future__ import annotations
 
@@ -45,6 +45,9 @@ def main() -> int:
     args = ap.parse_args()
 
     cfg = REGISTRY[args.series]
+    charge_cols = {c["key"]: c["col"] for c in cfg.charges}
+    read_cols = dict(cfg.cols) | charge_cols
+
     real = openpyxl.load_workbook(args.real, data_only=True)
     rw = real[cfg.detail_sheet]
 
@@ -53,7 +56,12 @@ def main() -> int:
     for r in range(cfg.row_start, cfg.row_end + 1):
         if rw[f"A{r}"].value is None:
             continue
-        real_rows.append({c: norm(rw[f"{c}{r}"].value) for c in "ABDEFGHIJKL"} | {"_r": r})
+        rec = {k: norm(rw[f"{col}{r}"].value) for k, col in read_cols.items()}
+        # ไฟล์จริงบางใบพิมพ์เลขลำดับค้างไว้ล่วงหน้า — แถวไม่มีตู้และไม่มีราคา = แถวเปล่า
+        if rec.get("cntr") in (None, "") and not rec.get("price"):
+            continue
+        rec["_r"] = r
+        real_rows.append(rec)
     inv_date = norm(rw[cfg.date_cell].value)
 
     con = sqlite3.connect(f"file:{args.db}?mode=ro", uri=True)
@@ -61,50 +69,52 @@ def main() -> int:
     db_rows = [dict(x) for x in con.execute(
         "SELECT * FROM dailyjob WHERE invoice_no=? ORDER BY work_date, id", (args.inv,))]
     if len(db_rows) != len(real_rows):
-        print(f"FAIL: จำนวนแถว DB={len(db_rows)} ไฟล์จริง={len(real_rows)}")
+        print(f"FAIL {args.inv}: จำนวนแถว DB={len(db_rows)} ไฟล์จริง={len(real_rows)}")
         return 1
 
     # จับคู่แถวด้วยเลขตู้ (ลำดับในไฟล์อาจไม่ตรงลำดับ DB)
     by_cntr = {r["container_no"]: r for r in db_rows}
     rows, fails = [], []
     for fr in real_rows:
-        j = by_cntr.get(str(fr["D"]))
+        j = by_cntr.get(str(fr["cntr"]))
         if j is None:
-            fails.append(f"ตู้ {fr['D']} ไม่มีใน DB")
+            fails.append(f"ตู้ {fr['cntr']} ไม่มีใน DB")
             continue
-        # เลขเงิน/ฟิลด์ที่ DB ต้องตรงไฟล์จริง
+        # ช่องที่มาจาก DB ต้องตรงไฟล์จริง
         checks = {
-            "J ราคา": (float(j["revenue_customer"]), float(fr["J"] or 0)),
-            "E ไซส์": (str(j["container_size"]), str(fr["E"])),
-            "F ทะเบียน": (str(j["plate_no_raw"]), str(fr["F"])),
-            "I วันที่": (j["work_date"], str(fr["I"])),
+            "ราคา": (float(j["revenue_customer"]), float(fr["price"] or 0)),
+            "ไซส์": (str(j["container_size"]), str(fr["size"])),
+            "วันที่": (j["work_date"], str(fr["date"])),
         }
-        # H (job/BL) เทียบเฉพาะเมื่อ DB มีค่า — CY ไม่คีย์ BL ในเดลี่ (ช่องกรอกใน UI)
-        job_db = j["job_ref"] if cfg.job_field == "job_ref" else j["bl_booking"]
-        if str(job_db or "").strip():
-            checks["H job/BL"] = (str(job_db).strip(), str(fr["H"] or "").strip())
+        if "plate" in cfg.cols:
+            checks["ทะเบียน"] = (str(j["plate_no_raw"]), str(fr["plate"]))
+        # job/BL เทียบเฉพาะเมื่อ DB มีค่า — CY/CJ/NHL ไม่คีย์ในเดลี่ (ช่องกรอกใน UI)
+        job_db = str(j[cfg.job_field] or "").strip()
+        if job_db:
+            checks["job/BL"] = (job_db, str(fr.get("job") or "").strip())
         for name, (db_v, f_v) in checks.items():
             if str(db_v) != str(f_v):
-                fails.append(f"{args.inv} ตู้ {fr['D']} {name}: DB={db_v!r} ไฟล์={f_v!r}")
-        rows.append({
-            "route": fr["B"] or "", "cntr": fr["D"], "size": fr["E"],
-            "plate": fr["F"], "cust": fr["G"] or "", "job": fr["H"] or "",
-            "date": date.fromisoformat(j["work_date"]), "price": j["revenue_customer"],
-            "wash": float(fr.get("K") or 0) if cfg.style == "advance_cols" else 0.0,
-            "advance": 0.0, "_r": fr["_r"],
-        })
+                fails.append(f"{args.inv} ตู้ {fr['cntr']} {name}: DB={db_v!r} ไฟล์={f_v!r}")
+        row = {
+            "route": fr.get("route") or "", "cntr": fr["cntr"],
+            "size": fr["size"], "plate": fr.get("plate") or "",
+            "cust": fr.get("cust") or "", "job": fr.get("job") or "",
+            "date": date.fromisoformat(j["work_date"]),
+            "price": j["revenue_customer"], "advance": 0.0, "_r": fr["_r"],
+        }
+        for k in charge_cols:
+            row[k] = float(fr.get(k) or 0)
+        rows.append(row)
 
-    # ค่าทดรองจ่าย: เอาจากไฟล์จริง (สิ่งที่ผู้ใช้กรอก)
-    if cfg.style == "advance_sheet":
+    # ค่าทดรองจ่ายชีทแยก (KMMT): เอาจากไฟล์จริง (สิ่งที่ผู้ใช้กรอก)
+    if cfg.advance_sheet:
         ra = real[cfg.advance_sheet]
+        price_col = cfg.cols["price"]
         for row in rows:
-            row["advance"] = float(norm(ra[f"{cfg.col_price}{row['_r']}"].value) or 0)
-    else:
-        for row, fr in zip(rows, real_rows):
-            row["advance"] = float(fr.get("L") or 0)
+            row["advance"] = float(norm(ra[f"{price_col}{row['_r']}"].value) or 0)
 
     if fails:
-        print("FAIL (DB ไม่ตรงไฟล์จริง):")
+        print(f"FAIL {args.inv} (DB ไม่ตรงไฟล์จริง):")
         for f in fails:
             print(" -", f)
         return 1
@@ -118,30 +128,31 @@ def main() -> int:
         diffs.append(f"{cfg.inv_cell}: {gw[cfg.inv_cell].value!r} != {rw[cfg.inv_cell].value!r}")
     if norm(gw[cfg.date_cell].value) != inv_date:
         diffs.append(f"{cfg.date_cell}: {gw[cfg.date_cell].value!r} != {inv_date!r}")
-    cols = "ABDEFGHIJ" + ("KL" if cfg.style == "advance_cols" else "K")
     for i, fr in enumerate(real_rows):
         gr = cfg.row_start + i  # generated เรียงตามไฟล์จริง
-        for c in cols:
-            gv, fv = norm(gw[f"{c}{gr}"].value), fr[c]
-            if c == "J":
+        for k, col in read_cols.items():
+            gv, fv = norm(gw[f"{col}{gr}"].value), fr[k]
+            if k == "price" or k in charge_cols:
                 gv, fv = float(gv or 0), float(fv or 0)
             if (gv or "") != (fv or "") and str(gv) != str(fv):
-                diffs.append(f"ค่าขนส่ง {c}{gr}: gen={gv!r} real={fv!r}")
-    total_gen = sum(float(r["price"]) + (r["wash"] + r["advance"] if cfg.style == "advance_cols" else 0) for r in rows)
-    total_cell = "M33" if cfg.style == "advance_cols" else "J31"
-    total_real = float(norm(rw[total_cell].value) or 0)
+                diffs.append(f"ค่าขนส่ง {col}{gr} ({k}): gen={gv!r} real={fv!r}")
+    total_gen = sum(
+        float(r["price"]) + sum(float(r.get(k) or 0) for k in charge_cols)
+        for r in rows)
+    total_real = float(norm(rw[cfg.total_cell].value) or 0)
     if abs(total_gen - total_real) > 0.005:
-        diffs.append(f"ยอดรวม: gen={total_gen} real={total_real}")
-    if cfg.style == "advance_sheet":
+        diffs.append(f"ยอดรวม {cfg.total_cell}: gen={total_gen} real={total_real}")
+    if cfg.advance_sheet:
         ga, ra = gen[cfg.advance_sheet], real[cfg.advance_sheet]
+        price_col = cfg.cols["price"]
         for i, row in enumerate(rows):
             gr = cfg.row_start + i
-            gv = float(norm(ga[f"{cfg.col_price}{gr}"].value) or 0)
-            fv = float(norm(ra[f"{cfg.col_price}{row['_r']}"].value) or 0)
+            gv = float(norm(ga[f"{price_col}{gr}"].value) or 0)
+            fv = float(norm(ra[f"{price_col}{row['_r']}"].value) or 0)
             if abs(gv - fv) > 0.005:
-                diffs.append(f"ทดรองจ่าย J{gr}: gen={gv} real={fv}")
+                diffs.append(f"ทดรองจ่าย {price_col}{gr}: gen={gv} real={fv}")
         adv_gen = sum(r["advance"] for r in rows)
-        adv_real = float(norm(ra[f"J{cfg.advance_row_end + 1}"].value) or 0)
+        adv_real = float(norm(ra[f"{price_col}{cfg.advance_row_end + 1}"].value) or 0)
         if abs(adv_gen - adv_real) > 0.005:
             diffs.append(f"ยอดทดรองจ่ายรวม: gen={adv_gen} real={adv_real}")
 

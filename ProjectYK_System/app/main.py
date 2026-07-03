@@ -8363,6 +8363,9 @@ def invoice_builder_page(request: Request, series: str = "", month: str = ""):
         "series": series, "month": month, "cfg": cfg,
         "registry": ib.REGISTRY, "next_no": next_no,
         "billed_groups": billed_groups, "unbilled": unbilled,
+        "ui_charges": cfg.ui_charges() if cfg else [],
+        "has_plate": bool(cfg and "plate" in cfg.cols),
+        "has_cust": bool(cfg and "cust" in cfg.cols),
         "billed_json": json.dumps(billed_groups, ensure_ascii=False, default=str),
         "unbilled_json": json.dumps(unbilled, ensure_ascii=False, default=str),
     })
@@ -8390,6 +8393,7 @@ def invoice_builder_build(request: Request,
         assert isinstance(raw_rows, list)
     except (ValueError, AssertionError):
         raise HTTPException(400, "rows_json ไม่ใช่ JSON list")
+    money_keys = ["price", "advance"] + [c["key"] for c in cfg.charges]
     rows = []
     for r in raw_rows:
         rd = None
@@ -8397,13 +8401,12 @@ def invoice_builder_build(request: Request,
             rd = datetime.strptime(str(r.get("date") or "")[:10], "%Y-%m-%d").date()
         except ValueError:
             pass
-        rows.append({
-            "route": str(r.get("route") or ""), "cntr": str(r.get("cntr") or ""),
-            "size": str(r.get("size") or ""), "plate": str(r.get("plate") or ""),
-            "cust": str(r.get("cust") or ""), "job": str(r.get("job") or ""),
-            "date": rd, "price": float(r.get("price") or 0),
-            "wash": float(r.get("wash") or 0), "advance": float(r.get("advance") or 0),
-        })
+        row = {k: str(r.get(k) or "") for k in
+               ("route", "cntr", "size", "plate", "cust", "job")}
+        row["date"] = rd
+        for k in money_keys:
+            row[k] = float(r.get(k) or 0)
+        rows.append(row)
     try:
         data = ib.build_invoice(cfg, inv_no, d, rows)
     except ValueError as e:
