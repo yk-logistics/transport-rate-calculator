@@ -66,7 +66,15 @@ Start-Sleep 1; Start-ScheduledTask -TaskName YK_MVP_APP; Start-Sleep 6
 **วิธี:** **อย่า rewrite สูตร** — แตก HTML เดิม: เอา `<script>` + `<style>` มาวางใน template ใหม่ `templates/quote.html` ครอบด้วย base.html (เมนู "เงิน→📋 ใบเสนอราคา"); ตัดส่วนที่ชนกับ Tailwind ของ base ออกให้แสดงผลถูก; **เลขทุกตัวต้องเท่าหน้าเดิม** — เกณฑ์ผ่าน: กรอกอินพุตเดียวกัน 3 เคส (สั้น/กลาง/ไกล+ทางด่วน) ผลตรงหน้า GitHub Pages เป๊ะทุกบาท (screenshot เทียบ)
 **สิทธิ์:** menu "quote" admin=edit, office=view? → เริ่ม admin เท่านั้น รอโอสั่งขยาย
 
-### B2 เซฟใบเสนอราคา — โมเดล: Sonnet (~1 วัน)
+### B2 ✅ เสร็จ+deploy 3ก.ค. (commit 0f7a066) — เซฟใบเสนอราคา
+**วิธีที่ทำจริง (ต่างจากสเปคเดิม — ดีกว่า: ไม่แตะไฟล์เครื่องคิดเลย):** เครื่องคิดมีปุ่ม "บันทึกงาน" + ระบบ "Sync to Drive" (URL ตั้งได้) อยู่แล้วในไฟล์ → MVP ทำ endpoint `/quote/sync` พูดโปรโตคอลเดียวกัน (POST `{action:'save',payload:{records}}` / GET `?action=load`) แล้ว inject script 10 บรรทัดต่อท้าย `/quote` ตอนเสิร์ฟ (ไฟล์ vendored ไม่ถูกแก้) ตั้งค่า sync ครั้งแรกอัตโนมัติ — ปุ่มบันทึกเดิม=เซฟเข้าระบบ, เปิดเครื่องไหนก็เห็นรายการเดิม
+- ตาราง `Quotation` (v35): record_id จากเครื่องคิด, snapshot ทั้งก้อนใน raw_json (โหลดกลับได้ค่าเดิมครบ — เทสต์ round-trip แล้ว), ฟิลด์ถอด (ลูกค้า/งาน/กม./ทางด่วน/ราคา/ลิงก์แมพ/origin_site) ไว้ค้นหา; ลบในเครื่องคิด = status archived ไม่ลบจริง
+- `/quote/list` ค้นหา+filter สถานะ, `/quote/{id}` แก้สถานะ draft/ต่อรอง/ตกลง/ไม่ผ่าน + ราคาตกลง → `QuotationAudit` insert-only (แก้ราคา 2 ครั้งเห็น 2 แถว — เทสต์แล้ว); เมนู เงิน→📄 ใบเสนอราคา
+- เทสต์ 8 ตัว tests/test_quote_save.py; สิทธิ์ตาม menu `quote` (admin เท่านั้น รอโอสั่งขยาย)
+- **หมายเหตุให้โอ:** เปิด /quote ครั้งแรกในเบราว์เซอร์ใหม่ ระบบตั้ง Sync URL ให้เอง; ถ้าโอเคยตั้ง Apps Script ไว้ในหน้า GitHub Pages เดิม ไม่กระทบกัน (คนละ origin)
+- ต่อยอด B3: ใบ status=agreed มี price_agreed พร้อมใช้ match เข้าเดลี่
+
+สเปคเดิม (อ้างอิง): — โมเดล: Sonnet (~1 วัน)
 **Model `Quotation` (v34):** id, customer_id?, customer_name, factory_name, location_url (ลิงก์กูเกิลแมพจากลูกค้า), origin_site (LCB/AYU/BIGC), km_round, toll_cost, cost_breakdown_json (เก็บอินพุต+เอาต์พุตเครื่องคิดทั้งก้อน), price_offered, price_agreed?, status (draft/negotiating/agreed/rejected), created_at, updated_at + ตาราง `QuotationAudit` (แก้ราคา = insert ประวัติ ห้าม update ทับ — ลอก pattern `DepositAudit`)
 **UI:** ปุ่ม "เซฟ" ในหน้า /quote (JS โพสต์ค่า form+ผลลัพธ์) + หน้า /quote/list ค้นหาตามลูกค้า/โรงงาน/สถานะ + หน้าเดี่ยวแก้สถานะ/อัปเดตราคาต่อรอง
 **เกณฑ์ผ่าน:** เซฟ→ปิดเบราว์เซอร์→เปิดใหม่→โหลดใบเดิมกลับเข้าเครื่องคิดได้ค่าเดิมครบ; แก้ราคา 2 ครั้งเห็นประวัติ 2 แถว
