@@ -79,19 +79,58 @@ REGISTRY: dict[str, SeriesCfg] = {
         charges=[{"key": "wash", "label": "ค่าล้าง/ซ่อม", "col": "K"},
                  {"key": "advance", "label": "ค่าใช้จ่าย", "col": "L"}],
         amount_formula=("M", "J", "L"), total_cell="M33"),
+    "KAO": SeriesCfg(
+        key="KAO", label="KAO (MIST)", prefix="MTIV",
+        status_codes=("KAO",), template="KAO.xlsx",
+        row_end=32, date_cell="M8", cols=dict(_BASE_COLS), job_field="job_ref",
+        charges=[{"key": "wash", "label": "ค่าค้างหาง/OT", "col": "K"},
+                 {"key": "advance", "label": "ค่าใช้จ่าย", "col": "L"}],
+        amount_formula=("M", "J", "L"), total_cell="M33"),
     "CJ": SeriesCfg(
         key="CJ", label="CJ Logistics", prefix="CJIV",
         status_codes=("CJ",), template="CJ.xlsx",
         row_end=25, cols=dict(_BASE_COLS), job_field="bl_booking",
         remark_col="K", total_cell="J26"),
+    "KTL": SeriesCfg(
+        key="KTL", label="KTL (งานหัวลาก)", prefix="KLIV",
+        status_codes=("KTL",), template="KTL.xlsx",
+        row_end=30, cols=dict(_BASE_COLS), job_field="bl_booking",
+        remark_col="K", total_cell="J31",
+        advance_sheet="ค่าทดรองจ่าย", advance_row_end=30),
+    "JGL": SeriesCfg(
+        key="JGL", label="JGL", prefix="JGIV",
+        status_codes=("JGL",), template="JGL.xlsx",
+        row_end=32, date_cell="L8", cols=dict(_BASE_COLS), job_field="bl_booking",
+        charges=[{"key": "advance", "label": "ค่าใช้จ่าย", "col": "K"}],
+        amount_formula=("L", "J", "K"), total_cell="L33"),
+    "WHALE": SeriesCfg(
+        key="WHALE", label="งานวาฬ (เงินสด)", prefix="WHIV",
+        status_codes=("WHALE",), template="WHALE.xlsx",
+        row_end=30, cols=dict(_BASE_COLS), job_field="bl_booking",
+        remark_col="K", total_cell="J31",
+        advance_sheet="ค่าทดรองจ่าย", advance_row_end=31),
+    # PX19 + Nippon ยาง: เดลี่ยังไม่คีย์ invoice_no เลย (C1 จับได้) — layout ตรวจกับ
+    # ไฟล์จริงแล้ว แต่ verify ตัวเลขอัตโนมัติยังไม่ได้ → **ใบแรกที่ออกจริงให้เทียบมือ 1 ครั้ง**
+    "PX19": SeriesCfg(
+        key="PX19", label="PX19", prefix="PXIV",
+        status_codes=("PX19",), template="PX19.xlsx",
+        row_end=32, date_cell="M8", cols=dict(_BASE_COLS), job_field="bl_booking",
+        charges=[{"key": "wash", "label": "ค่าเสียเวลา", "col": "K"},
+                 {"key": "advance", "label": "ค่าใช้จ่าย", "col": "L"}],
+        amount_formula=("M", "J", "L"), total_cell="M33"),
+    "NIPPON_TIRE": SeriesCfg(
+        key="NIPPON_TIRE", label="Nippon (ยาง)", prefix="NTIV",
+        status_codes=("Nippon",), template="NIPPON_TIRE.xlsx",
+        row_end=30, cols=dict(_BASE_COLS), job_field="job_ref",
+        remark_col="K", total_cell="J31",
+        advance_sheet="ค่าทดรองจ่าย", advance_row_end=31),
 }
 
-# ซีรีส์อื่นที่รู้ mapping แล้วแต่ยังไม่ vendor template (เพิ่มไฟล์+config = ใช้ได้เลย):
+# เหลือเจ้าเดียวที่ยังไม่เข้า registry:
 # **NHL (NHIV) ห้ามเพิ่มแบบง่าย** — ไฟล์จริงมี ≥2 เลย์เอาต์ (Mitsubishi: แถว 14-37
 # รวม N38 / WH: แถว 14-29 รวมแถว 30, N เป็นคอลัมน์ข้อมูลคนละความหมาย) ทีมแทรก/ลบ
 # แถวเอง — ต้องถามทีมก่อนว่าฟอร์มไหนเป็นหลัก (ดู docs/INVOICE_BUILDER_SPEC.md)
-KNOWN_UNVENDORED = {"NHL": "NHIV", "JGL": "JGIV", "KTL": "KLIV",
-                    "KAO": "MTIV", "WHALE": "WHIV"}
+KNOWN_UNVENDORED = {"NHL": "NHIV"}
 
 _SEQ_RE = re.compile(r"^([A-Z]{2,4}IV)(\d{4})-(\d{1,4})")
 

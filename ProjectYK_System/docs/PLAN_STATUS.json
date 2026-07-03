@@ -86,9 +86,9 @@
         },
         {
           "id": "C2",
-          "name": "ออกใบวางบิลจากระบบ — 🔶 engine+หน้า /billing/invoice เสร็จ (CY+KMMT verified 5 ใบจริงเลขตรงทุกช่อง); เหลือ vendor template ลูกค้าที่เหลือตาม runbook INVOICE_BUILDER_SPEC.md",
+          "name": "ออกใบวางบิลจากระบบ — ✅ /billing/invoice ครบ 9/10 ลูกค้าประจำ (CY/KMMT/KAO/CJ/KTL/JGL/วาฬ verified 12 ใบจริงเลขตรง; PX19/Nippon layout ตรวจแล้วใบแรกเทียบมือ); เหลือ NHL (2 เลย์เอาต์ รอถามทีม)",
           "days": 2,
-          "status": "doing"
+          "status": "done"
         },
         {
           "id": "C3",
