@@ -94,7 +94,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 36  # v36: PayAdjustment (C4 ค่าเที่ยวตกหล่น — create_all, ไม่ต้อง ALTER)
+SCHEMA_VERSION = 37  # v37: AuditLog (P2 audit กลาง — create_all, ไม่ต้อง ALTER)
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -2049,14 +2049,31 @@ async def daily_grid_save(request: Request):
             "adjustments": adjustments_created}
 
 
+def audit_log(s: Session, request: Optional[Request], table_name: str, row_id: int,
+              field: str, old, new, note: str = "") -> None:
+    """P2: บันทึกจุดเขียนสำคัญที่ยังไม่มีตาราง audit เฉพาะ — INSERT-only.
+
+    เรียกใน Session เดียวกันก่อน commit เพื่อให้ log กับข้อมูลไปด้วยกัน.
+    """
+    u = current_user(request) if request is not None else None
+    s.add(models.AuditLog(
+        user=u.username if u else "",
+        table_name=table_name, row_id=int(row_id or 0), field=field,
+        old_value="" if old is None else str(old),
+        new_value="" if new is None else str(new),
+        route=request.url.path if request is not None else "", note=note))
+
+
 @app.get("/api/daily/{job_id}/audit")
-def daily_job_audit(job_id: int, limit: int = 50):
-    """ประวัติการแก้ไขของแถวเดลี่นั้น (ล่าสุดก่อน)."""
+def daily_job_audit(job_id: int, limit: int = 50, field: str = ""):
+    """ประวัติการแก้ไขของแถวเดลี่นั้น (ล่าสุดก่อน) — field ระบุ = เฉพาะช่องนั้น (P2 คลิกขวา)."""
     with Session(engine) as s:
+        stmt = select(models.DailyJobAudit).where(
+            models.DailyJobAudit.daily_job_id == job_id)
+        if field:
+            stmt = stmt.where(models.DailyJobAudit.field_name == field)
         rows = s.exec(
-            select(models.DailyJobAudit)
-            .where(models.DailyJobAudit.daily_job_id == job_id)
-            .order_by(models.DailyJobAudit.changed_at.desc())
+            stmt.order_by(models.DailyJobAudit.changed_at.desc())
             .limit(max(1, min(200, limit)))
         ).all()
         return {
@@ -4541,12 +4558,18 @@ def payroll_accounts(run_id: int, request: Request):
 
 
 @app.post("/payroll/{run_id}/accounts/save")
-def payroll_accounts_save(run_id: int, emp_id: int = Form(...),
+def payroll_accounts_save(run_id: int, request: Request, emp_id: int = Form(...),
                           bank_name: str = Form(""), account_no: str = Form("")):
     """แก้ธนาคาร/เลขบัญชีของพนักงาน (แก้ที่ตัว Employee — มีผลทุกหน้า/ทุกรอบ)."""
     with Session(engine) as s:
         e = s.get(Employee, emp_id)
         if e:
+            if e.bank_name != bank_name.strip():
+                audit_log(s, request, "employee", emp_id, "bank_name",
+                          e.bank_name, bank_name.strip(), note=e.full_name)
+            if e.account_no != account_no.strip():
+                audit_log(s, request, "employee", emp_id, "account_no",
+                          e.account_no, account_no.strip(), note=e.full_name)
             e.bank_name = bank_name.strip()
             e.account_no = account_no.strip()
             s.add(e)
@@ -4577,7 +4600,7 @@ def payroll_transfer_note(run_id: int, emp_id: int, note: str = Form("")):
 
 
 @app.post("/payroll/{run_id}/finalize")
-def payroll_finalize(run_id: int):
+def payroll_finalize(run_id: int, request: Request):
     from datetime import datetime as _dt
     from sqlalchemy import func as sa_func, or_ as _or
     with Session(engine) as s:
@@ -4651,6 +4674,8 @@ def payroll_finalize(run_id: int):
         policy_review = _collect_policy_review_for_payrun(s, pr, limit=1)
         if policy_review["count"] > 0:
             return RedirectResponse(f"/payroll/{pr.id}?err=policy_review_block", status_code=303)
+        audit_log(s, request, "payrun", pr.id, "status", pr.status, "finalized",
+                  note=f"{pr.site_code} {pr.pay_cycle_tag}")
         pr.status = "finalized"
         pr.finalized_at = _dt.utcnow()
         # Lock petty cash rows that were consumed — include blank/NULL site_code
@@ -8313,8 +8338,11 @@ def finance_receivables_settle(request: Request, inv_key: str = Form(...), undo:
         existing = s.exec(select(ArSettle).where(ArSettle.inv_key == key)).first()
         if undo == "1":
             if existing:
+                audit_log(s, request, "arsettle", existing.id or 0, "received",
+                          "1", "0", note=key)
                 s.delete(existing)
         elif not existing:
+            audit_log(s, request, "arsettle", 0, "received", "0", "1", note=key)
             s.add(ArSettle(inv_key=key, by_user=user.username if user else ""))
         s.commit()
     return RedirectResponse("/finance/receivables", status_code=303)
@@ -8428,7 +8456,8 @@ def invoice_builder_build(request: Request,
 
 CTX_MENUS: dict = {
     "daily-cell": [
-        {"label": "📜 ประวัติแถวนี้", "kind": "call", "fn": "ykCtxDailyAudit"},
+        {"label": "📜 ประวัติช่องนี้", "kind": "call", "fn": "ykCtxDailyAuditField"},
+        {"label": "📜 ประวัติทั้งแถว", "kind": "call", "fn": "ykCtxDailyAudit"},
         {"label": "📋 คัดลอกค่าในช่อง", "kind": "copy", "key": "value"},
         {"label": "📋 คัดลอกเบอร์ตู้", "kind": "copy", "key": "container"},
         {"label": "💬 หาตู้นี้ในแชทไลน์", "kind": "link",
@@ -8461,6 +8490,73 @@ def ctxmenu_items(menu_type: str, request: Request):
     out = [{k: v for k, v in it.items() if k != "perm"} for it in items
            if not it.get("perm") or perm_check(role, it["perm"], "GET") != "deny"]
     return {"items": out}
+
+
+# P2: หน้า /admin/audit — รวมประวัติจากทุกตาราง audit (AuditLog กลาง + ตารางเฉพาะ)
+# =========================================================================
+
+_AUDIT_TABLE_TH = {
+    "daily": "เดลี่", "deposit": "เงินประกันตน", "dispatch": "แผนจัดรถ",
+    "quotation": "ใบเสนอราคา", "employee": "พนักงาน (บัญชี/ธนาคาร)",
+    "payrun": "รอบเงินเดือน", "arsettle": "ติ๊กรับเงิน AR", "kbsettle": "ติ๊กรับ KB",
+}
+
+
+def _collect_audit_rows(s: Session, since: datetime, limit: int = 500) -> list[dict]:
+    """รวม audit ทุกแหล่งเป็นรูปเดียว {at,user,table,row_id,field,old,new,note,route}."""
+    out: list[dict] = []
+    for a in s.exec(select(models.AuditLog).where(models.AuditLog.at >= since)).all():
+        out.append({"at": a.at, "user": a.user, "table": a.table_name,
+                    "row_id": a.row_id, "field": a.field, "old": a.old_value,
+                    "new": a.new_value, "note": a.note, "route": a.route})
+    for a in s.exec(select(models.DailyJobAudit)
+                    .where(models.DailyJobAudit.changed_at >= since)).all():
+        out.append({"at": a.changed_at, "user": a.changed_by, "table": "daily",
+                    "row_id": a.daily_job_id, "field": a.field_name,
+                    "old": a.old_value, "new": a.new_value, "note": a.action,
+                    "route": "/daily"})
+    for a in s.exec(select(models.DepositAudit)
+                    .where(models.DepositAudit.changed_at >= since)).all():
+        out.append({"at": a.changed_at, "user": a.changed_by, "table": "deposit",
+                    "row_id": a.employee_id, "field": a.field_name,
+                    "old": a.old_value, "new": a.new_value, "note": a.reason,
+                    "route": "/deposits"})
+    for a in s.exec(select(models.DispatchPlanAudit)
+                    .where(models.DispatchPlanAudit.changed_at >= since)).all():
+        out.append({"at": a.changed_at, "user": a.changed_by, "table": "dispatch",
+                    "row_id": a.plan_id, "field": a.field_name,
+                    "old": a.old_value, "new": a.new_value,
+                    "note": f"{a.action} {a.note}".strip(), "route": "/dispatch/planner"})
+    for a in s.exec(select(QuotationAudit)
+                    .where(QuotationAudit.changed_at >= since)).all():
+        out.append({"at": a.changed_at, "user": a.changed_by, "table": "quotation",
+                    "row_id": a.quotation_id, "field": a.field_name,
+                    "old": a.old_value, "new": a.new_value, "note": a.action,
+                    "route": "/quote/list"})
+    out.sort(key=lambda r: r["at"], reverse=True)
+    return out[:limit]
+
+
+@app.get("/admin/audit", response_class=HTMLResponse)
+def admin_audit(request: Request, user: str = "", table: str = "",
+                days: int = 7, q: str = ""):
+    days = max(1, min(days, 90))
+    since = datetime.utcnow() - timedelta(days=days)
+    with Session(engine) as s:
+        rows = _collect_audit_rows(s, since)
+    if user.strip():
+        rows = [r for r in rows if user.strip().lower() in r["user"].lower()]
+    if table:
+        rows = [r for r in rows if r["table"] == table]
+    if q.strip():
+        needle = q.strip().lower()
+        rows = [r for r in rows if needle in
+                f"{r['field']} {r['old']} {r['new']} {r['note']}".lower()]
+    users = sorted({r["user"] for r in rows if r["user"]})
+    ctx = base_context(request)
+    ctx.update({"rows": rows, "user_q": user, "table_q": table, "days": days,
+                "q": q, "table_th": _AUDIT_TABLE_TH, "users": users})
+    return templates.TemplateResponse("admin_audit.html", ctx)
 
 
 # =========================================================================
@@ -9409,7 +9505,7 @@ def kb_payout_page(request: Request, amount: str = "", cust: str = "CY"):
 
 
 @app.post("/kb-payout/settle")
-def kb_payout_settle(inv_no: str = Form(...), kb_amount: str = Form("0"),
+def kb_payout_settle(request: Request, inv_no: str = Form(...), kb_amount: str = Form("0"),
                      transfer_amount: str = Form("0"), undo: str = Form("")):
     """ติ๊ก/ยกเลิกติ๊ก 'รับ KB แล้ว' รายใบ. inv_no รับหลายใบคั่น , (จากปุ่มบันทึกทั้งชุด)."""
     invs = [v.strip() for v in inv_no.split(",") if v.strip()]
@@ -9426,8 +9522,11 @@ def kb_payout_settle(inv_no: str = Form(...), kb_amount: str = Form("0"),
             existing = s.exec(select(KbSettle).where(KbSettle.inv_no == inv)).first()
             if undo == "1":
                 if existing:
+                    audit_log(s, request, "kbsettle", existing.id or 0, "received",
+                              "1", "0", note=inv)
                     s.delete(existing)
             elif not existing:
+                audit_log(s, request, "kbsettle", 0, "received", "0", "1", note=inv)
                 s.add(KbSettle(inv_no=inv, kb_amount=_f(kbs[i] if i < len(kbs) else "0"),
                                transfer_amount=_f(transfer_amount)))
         s.commit()

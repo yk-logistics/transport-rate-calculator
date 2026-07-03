@@ -1438,6 +1438,24 @@ class DepositAudit(SQLModel, table=True):
     reason: str = ""
 
 
+class AuditLog(SQLModel, table=True):
+    """P2 (v37): audit กลางของจุดเขียนที่ยังไม่มีตาราง audit เฉพาะ — INSERT-only.
+
+    จุดที่มีตารางเฉพาะอยู่แล้ว (DailyJobAudit/DepositAudit/DispatchPlanAudit/
+    QuotationAudit) เขียนที่เดิมต่อไป — หน้า /admin/audit รวมให้ดูที่เดียว.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    user: str = ""
+    table_name: str = Field(default="", index=True)   # เช่น employee, payrun, arsettle
+    row_id: int = Field(default=0, index=True)
+    field: str = ""
+    old_value: str = ""
+    new_value: str = ""
+    route: str = ""             # path ที่ทำรายการ เช่น /payroll/12/accounts/save
+    note: str = ""
+
+
 TRIP_TYPE_CODES_BY_SITE: dict[str, tuple[tuple[str, str], ...]] = {
     "AYU": (
         ("",         "— ไม่ระบุ —"),

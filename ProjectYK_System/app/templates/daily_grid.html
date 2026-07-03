@@ -885,12 +885,12 @@
   const auditJob = document.getElementById("ykAuditJob");
   document.getElementById("ykAuditClose").addEventListener("click", () => auditModal.classList.add("hidden"));
   auditModal.addEventListener("click", (e) => { if (e.target === auditModal) auditModal.classList.add("hidden"); });
-  async function openAuditModal(jobId){
-    auditJob.textContent = "#" + jobId;
+  async function openAuditModal(jobId, field){
+    auditJob.textContent = "#" + jobId + (field ? (" · ช่อง " + field) : "");
     auditBody.innerHTML = '<div class="text-slate-400 py-4 text-center">กำลังโหลด…</div>';
     auditModal.classList.remove("hidden");
     try {
-      const r = await fetch(`/api/daily/${jobId}/audit`);
+      const r = await fetch(`/api/daily/${jobId}/audit` + (field ? `?field=${encodeURIComponent(field)}` : ""));
       const j = await r.json();
       if (!j.rows || !j.rows.length){
         auditBody.innerHTML = '<div class="text-slate-400 py-4 text-center">ยังไม่มีประวัติการแก้ไข</div>';
@@ -914,12 +914,14 @@
 
   // ── P3: คลิกขวาบนเซลล์ → เมนู (ผ่าน YKCtx framework ใน base) ──────────────
   window.ykCtxDailyAudit = (d) => openAuditModal(d.id);
+  window.ykCtxDailyAuditField = (d) => openAuditModal(d.id, d.field);
   table.on("cellContext", function(e, cell) {
     if (!window.YKCtx) return;
     e.preventDefault();
     const row = cell.getRow().getData();
     YKCtx.open("daily-cell", {
       id: row.id,
+      field: cell.getField() || "",
       value: cell.getValue() == null ? "" : String(cell.getValue()),
       container: row.container_no || "",
       customer: row.customer_name || row.customer_name_raw || "",

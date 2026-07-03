@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}ประวัติใครทำอะไร{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-xl font-bold">🕵️ ประวัติใครทำอะไร (Audit)</h1>
+  <div class="text-xs text-slate-400">รวมทุกแหล่ง: เดลี่ · เงินประกันตน · แผนจัดรถ · ใบเสนอราคา · บัญชีธนาคาร · finalize · ติ๊ก AR/KB</div>
+</div>
+
+<form method="get" class="flex gap-2 mb-4 flex-wrap items-center text-sm">
+  <select name="user" class="border rounded px-2 py-1.5">
+    <option value="">ทุกคน</option>
+    {% for u in users %}<option value="{{ u }}" {% if user_q==u %}selected{% endif %}>{{ u }}</option>{% endfor %}
+  </select>
+  <select name="table" class="border rounded px-2 py-1.5">
+    <option value="">ทุกตาราง</option>
+    {% for k, v in table_th.items() %}<option value="{{ k }}" {% if table_q==k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+  </select>
+  <select name="days" class="border rounded px-2 py-1.5">
+    {% for d in [1, 3, 7, 14, 30, 90] %}
+    <option value="{{ d }}" {% if days==d %}selected{% endif %}>ย้อนหลัง {{ d }} วัน</option>
+    {% endfor %}
+  </select>
+  <input name="q" value="{{ q }}" placeholder="ค้นหา ช่อง/ค่า/หมายเหตุ" class="border rounded px-3 py-1.5 w-56">
+  <button class="bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-500">ค้นหา</button>
+  {% if user_q or table_q or q %}<a href="/admin/audit" class="text-slate-500 hover:underline">ล้าง</a>{% endif %}
+</form>
+
+<div class="bg-white rounded-lg border overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-600 text-xs uppercase">
+      <tr>
+        <th class="px-3 py-2 text-left">เวลา</th>
+        <th class="px-3 py-2 text-left">ใคร</th>
+        <th class="px-3 py-2 text-left">ตาราง</th>
+        <th class="px-3 py-2 text-left">แถว</th>
+        <th class="px-3 py-2 text-left">ช่อง</th>
+        <th class="px-3 py-2 text-left">เดิม → ใหม่</th>
+        <th class="px-3 py-2 text-left">หมายเหตุ</th>
+        <th class="px-3 py-2 text-left">ที่หน้า</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for r in rows %}
+      <tr class="hover:bg-slate-50">
+        <td class="px-3 py-1.5 font-mono text-xs whitespace-nowrap">{{ r.at | dmy_hm }}</td>
+        <td class="px-3 py-1.5 font-medium">{{ r.user or '—' }}</td>
+        <td class="px-3 py-1.5">{{ table_th.get(r.table, r.table) }}</td>
+        <td class="px-3 py-1.5 font-mono text-xs">{{ r.row_id or '' }}</td>
+        <td class="px-3 py-1.5 font-mono text-xs">{{ r.field }}</td>
+        <td class="px-3 py-1.5">
+          <span class="text-rose-600">{{ r.old | truncate(40) }}</span>
+          <span class="text-slate-400">→</span>
+          <span class="text-emerald-700">{{ r.new | truncate(40) }}</span>
+        </td>
+        <td class="px-3 py-1.5 text-xs text-slate-500">{{ r.note | truncate(60) }}</td>
+        <td class="px-3 py-1.5 text-xs"><a href="{{ r.route }}" class="text-indigo-500 hover:underline">{{ r.route }}</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">ไม่มีรายการในช่วง/เงื่อนไขนี้</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="text-xs text-slate-400 mt-2">โชว์สูงสุด 500 รายการล่าสุด — แคบช่วงวัน/กรองถ้าหาไม่เจอ</div>
+
+{% endblock %}
