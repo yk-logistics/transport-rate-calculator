@@ -94,7 +94,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 38  # v38: DebtAccount (D2 เงินหมุน — create_all, ไม่ต้อง ALTER); v37: AuditLog (P2)
+SCHEMA_VERSION = 39  # v39: PartPermission (P1 สิทธิ์รายชิ้นส่วน); v38: DebtAccount (D2); v37: AuditLog (P2) — create_all ทั้งหมด ไม่ต้อง ALTER
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -834,6 +834,21 @@ def _can_see(request, prefix: str) -> bool:
 
 
 templates.env.globals["can_see"] = _can_see
+
+
+# P1: สิทธิ์ระดับชิ้นส่วนในหน้า (part) — ดู parts.py; ใช้ใน template:
+#   {% if part_visible(request, 'daily.kb_col') %} / {% if part_editable(...) %}
+def _part_level_of(request, key: str) -> str:
+    import parts as _parts
+    u = current_user(request)
+    if u is None:
+        return "hide"
+    with Session(engine) as s:
+        return _parts.part_level(s, u.role, u.username, key)
+
+
+templates.env.globals["part_visible"] = lambda request, key: _part_level_of(request, key) != "hide"
+templates.env.globals["part_editable"] = lambda request, key: _part_level_of(request, key) == "edit"
 
 
 # RBAC enforcement is registered as a class middleware (see RbacMiddleware below),
@@ -1717,6 +1732,7 @@ def daily_grid_page(request: Request):
 
 @app.get("/api/daily/grid-data")
 def daily_grid_data(
+    request: Request = None,  # None = เรียกตรงจากโค้ด/เทสต์ (ข้าม filter P1)
     site: str = "",
     d_from: str = "",
     d_to: str = "",
@@ -1863,6 +1879,17 @@ def daily_grid_data(
         }
         for r in rows
     ]
+    # P1: ตัด field เงิน/KB ออกจาก payload สำหรับ role ที่ไม่มีสิทธิ์ —
+    # ซ่อนแค่คอลัมน์ใน grid ไม่พอ (เปิด devtools ก็เห็น) ต้องไม่ส่งไปเลย
+    if request is not None:
+        if _part_level_of(request, "daily.kb_col") == "hide":
+            for d in data:
+                d.pop("kb_amount", None)
+        if _part_level_of(request, "daily.money_cols") == "hide":
+            for d in data:
+                for f in ("revenue_customer", "trip_fee_driver", "price_override",
+                          "driver_calc_price", "wht_53"):
+                    d.pop(f, None)
     return {"items": data}
 
 
@@ -1872,6 +1899,14 @@ async def daily_grid_save(request: Request):
     rows = payload.get("rows", []) if isinstance(payload, dict) else []
     if not isinstance(rows, list) or not rows:
         return JSONResponse({"ok": False, "error": "no rows"}, status_code=400)
+
+    # P1: role ที่ไม่มีสิทธิ์ edit ส่วนเงิน/KB — ห้ามเขียน field เหล่านั้น
+    _blocked_fields: set = set()
+    if _part_level_of(request, "daily.kb_col") != "edit":
+        _blocked_fields |= {"kb_amount"}
+    if _part_level_of(request, "daily.money_cols") != "edit":
+        _blocked_fields |= {"revenue_customer", "trip_fee_driver",
+                            "price_override", "wht_53"}
 
     editable = {
         "work_date",
@@ -1942,10 +1977,13 @@ async def daily_grid_save(request: Request):
                 errors.append({"id": rid, "error": "not_found"})
                 continue
             # snapshot ค่าเดิมของช่องที่ส่งมา → diff หลัง apply เพื่อบันทึก audit
-            touched = [k for k in item.keys() if k in editable]
+            touched = [k for k in item.keys() if k in editable and k not in _blocked_fields]
             before_snap = {k: getattr(row, k, None) for k in touched}
             for key, val in item.items():
                 if key not in editable:
+                    continue
+                if key in _blocked_fields:
+                    errors.append({"id": rid, "error": f"no_permission:{key}"})
                     continue
                 old_value = getattr(row, key, None)
                 if key == "price_override":
@@ -4561,6 +4599,8 @@ def payroll_accounts(run_id: int, request: Request):
 def payroll_accounts_save(run_id: int, request: Request, emp_id: int = Form(...),
                           bank_name: str = Form(""), account_no: str = Form("")):
     """แก้ธนาคาร/เลขบัญชีของพนักงาน (แก้ที่ตัว Employee — มีผลทุกหน้า/ทุกรอบ)."""
+    if _part_level_of(request, "transfer.edit_account") != "edit":
+        raise HTTPException(403, "ไม่มีสิทธิ์แก้เลขบัญชี (ดู /admin/permissions)")
     with Session(engine) as s:
         e = s.get(Employee, emp_id)
         if e:
@@ -8332,6 +8372,8 @@ def finance_receivables_settle(request: Request, inv_key: str = Form(...), undo:
     """ติ๊ก/ยกเลิกติ๊ก รับเงินแล้ว — เก็บในระบบเท่านั้น ไม่เขียนกลับชีท."""
     from auth import current_user
 
+    if _part_level_of(request, "ar.settle") != "edit":
+        raise HTTPException(403, "ไม่มีสิทธิ์ติ๊กรับเงิน (ดู /admin/permissions)")
     user = current_user(request)
     key = inv_key.strip()
     if not key or ":" not in key:
@@ -8494,6 +8536,79 @@ def ctxmenu_items(menu_type: str, request: Request):
     return {"items": out}
 
 
+# P1: หน้า /admin/permissions — โอปรับสิทธิ์รายชิ้นส่วน (role × part) สด
+# =========================================================================
+
+
+@app.get("/admin/permissions", response_class=HTMLResponse)
+def admin_permissions(request: Request):
+    import parts as _parts
+    from permissions import ROLES
+
+    with Session(engine) as s:
+        db_rows = s.exec(select(models.PartPermission)).all()
+        users = s.exec(select(AppUser).order_by(AppUser.username)).all()  # type: ignore[arg-type]
+    role_over = {(r.part_key, r.role): r.level for r in db_rows if not r.username}
+    user_over = [r for r in db_rows if r.username]
+    matrix = []
+    for key, spec in _parts.PART_DEFAULTS.items():
+        row = {"key": key, "label": spec["label"], "cells": []}
+        for role in ROLES:
+            default = spec["roles"].get(role, "hide")
+            row["cells"].append({
+                "role": role,
+                "level": role_over.get((key, role), default),
+                "default": default,
+                "overridden": (key, role) in role_over,
+            })
+        matrix.append(row)
+    ctx = base_context(request)
+    ctx.update({"matrix": matrix, "roles": ROLES, "user_over": user_over,
+                "usernames": [u.username for u in users],
+                "part_keys": list(_parts.PART_DEFAULTS)})
+    return templates.TemplateResponse("admin_permissions.html", ctx)
+
+
+@app.post("/admin/permissions/save")
+def admin_permissions_save(request: Request, part_key: str = Form(...),
+                           role: str = Form(""), username: str = Form(""),
+                           level: str = Form(...)):
+    """ตั้งสิทธิ์ 1 ช่อง (role หรือ override รายคน); level='default' = ลบแถวกลับ default."""
+    import parts as _parts
+    from permissions import ROLES
+
+    if part_key not in _parts.PART_DEFAULTS:
+        raise HTTPException(400, "ไม่รู้จัก part นี้")
+    if level not in _parts.LEVELS + ("default",):
+        raise HTTPException(400, "ระดับไม่ถูกต้อง")
+    if not username and role not in ROLES:
+        raise HTTPException(400, "ต้องระบุ role หรือ username")
+    with Session(engine) as s:
+        q = select(models.PartPermission).where(
+            models.PartPermission.part_key == part_key,
+            models.PartPermission.role == (("" if username else role)),
+            models.PartPermission.username == username.strip())
+        row = s.exec(q).first()
+        old = row.level if row else "(default)"
+        if level == "default":
+            if row:
+                s.delete(row)
+        elif row:
+            row.level = level
+            row.updated_at = datetime.utcnow()
+            s.add(row)
+        else:
+            s.add(models.PartPermission(
+                part_key=part_key, role="" if username else role,
+                username=username.strip(), level=level))
+        audit_log(s, request, "partpermission", 0, part_key, old, level,
+                  note=username.strip() or role)
+        s.commit()
+    _parts.invalidate_cache()
+    return RedirectResponse("/admin/permissions", status_code=303)
+
+
+# =========================================================================
 # P2: หน้า /admin/audit — รวมประวัติจากทุกตาราง audit (AuditLog กลาง + ตารางเฉพาะ)
 # =========================================================================
 

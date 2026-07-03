@@ -314,8 +314,19 @@
   let currentEditCell = null;
   let calcMode = "sum";
 
+  // P1: สิทธิ์รายชิ้นส่วน — ซ่อนคอลัมน์เงิน/KB จาก role ที่ไม่มีสิทธิ์ (ปรับที่ /admin/permissions)
+  const MONEY_COLS_VISIBLE = {{ 'true' if part_visible(request, 'daily.money_cols') else 'false' }};
+  const KB_COL_VISIBLE = {{ 'true' if part_visible(request, 'daily.kb_col') else 'false' }};
+  const MONEY_FIELDS = new Set(["revenue_customer","trip_fee_driver","price_override","driver_calc_price","wht_53"]);
+  const KB_FIELDS = new Set(["kb_amount"]);
+  function fieldAllowed(f){
+    if (KB_FIELDS.has(f)) return KB_COL_VISIBLE;
+    if (MONEY_FIELDS.has(f)) return MONEY_COLS_VISIBLE;
+    return true;
+  }
+
   // [field, label, editable]
-  const ALL_FIELDS = [
+  const ALL_FIELDS_RAW = [
     ["id","ID",false], ["work_date","วันที่",true], ["site_code","ไซต์",true],
     ["driver_id","driver_id",true],
     ["driver_name","คนขับ",false], ["driver_raw_name","คนขับ(raw)",true],
@@ -349,6 +360,7 @@
     ["remark","หมายเหตุ",true],
     ["source","source",false], ["created_at","created_at",false], ["updated_at","updated_at",false]
   ];
+  const ALL_FIELDS = ALL_FIELDS_RAW.filter(([f]) => fieldAllowed(f));
 
   const PRESETS = {
     basic:     ["work_date","site_code","driver_name","plate_no","status_code","leave_status","trip_type_code","origin","pickup_location","destination"],

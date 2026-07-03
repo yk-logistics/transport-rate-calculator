@@ -151,6 +151,7 @@
             {% if can_see(request, "/admin/users") %}<a href="/admin/plan" class="block px-4 py-2 hover:bg-slate-100">🗺️ แผนงาน MVP</a>{% endif %}
             {% if can_see(request, "/admin/users") %}<a href="/admin/server-health" class="block px-4 py-2 hover:bg-slate-100">🖥️ สุขภาพเครื่อง</a>{% endif %}
             {% if can_see(request, "/admin/users") %}<a href="/admin/audit" class="block px-4 py-2 hover:bg-slate-100">🕵️ ประวัติใครทำอะไร</a>{% endif %}
+            {% if can_see(request, "/admin/users") %}<a href="/admin/permissions" class="block px-4 py-2 hover:bg-slate-100">🔐 สิทธิ์รายชิ้นส่วน</a>{% endif %}
             <a href="/logout" class="block px-4 py-2 hover:bg-slate-100 text-rose-600">ออกจากระบบ</a>
           </div>
         </div>

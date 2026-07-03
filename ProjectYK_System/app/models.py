@@ -1438,6 +1438,20 @@ class DepositAudit(SQLModel, table=True):
     reason: str = ""
 
 
+class PartPermission(SQLModel, table=True):
+    """P1 (v39): สิทธิ์ระดับ "ชิ้นส่วนในหน้า" ละเอียดกว่าเมนู — โอปรับเองที่ /admin/permissions.
+
+    แถว role-level: role ระบุ, username ว่าง; แถว override รายคน: username ระบุ (ชนะ role).
+    ไม่มีแถว = ใช้ default ตายตัวในโค้ด (parts.PART_DEFAULTS).
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    part_key: str = Field(index=True)     # เช่น transfer.edit_account
+    role: str = ""                        # admin | office | accountant | viewer
+    username: str = ""                    # override รายคน (ชนะ role)
+    level: str = "hide"                   # hide | view | edit
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class DebtAccount(SQLModel, table=True):
     """D2 (v38): หนี้/วงเงินที่โอกรอกเอง — ข้อมูลส่วนตัวไม่มีในระบบอื่น.
 

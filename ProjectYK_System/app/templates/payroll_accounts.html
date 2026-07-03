@@ -29,6 +29,7 @@
           </td>
           <td class="text-right font-mono font-semibold w-32">{{ "{:,.2f}".format(r.net) }}</td>
           <td class="text-right pr-4 w-20">
+            {% if part_editable(request, 'transfer.edit_account') %}
             <details class="inline text-left">
               <summary class="cursor-pointer text-xs text-slate-500 underline">แก้</summary>
               <form method="post" action="/payroll/{{ run.id }}/accounts/save"
@@ -39,6 +40,7 @@
                 <button class="bg-slate-900 text-white rounded px-3 py-1 text-sm">บันทึก</button>
               </form>
             </details>
+            {% endif %}
           </td>
         </tr>
       {% endfor %}

@@ -65,7 +65,7 @@
             {{ r.due | dmy if r.due else '—' }}{% if r.due and r.due < today %} ⚠{% endif %}</td>
           <td class="text-slate-500 text-xs">{{ r.note }}</td>
           <td class="pr-3 text-center">
-            {% if r.inv_key %}
+            {% if r.inv_key and part_editable(request, 'ar.settle') %}
             <form method="post" action="/finance/receivables/settle" class="inline">
               <input type="hidden" name="inv_key" value="{{ r.inv_key }}">
               <button class="text-xs border rounded px-2 py-0.5 hover:bg-emerald-50 hover:border-emerald-400 whitespace-nowrap">✓ รับแล้ว</button>

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}สิทธิ์รายชิ้นส่วน{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-xl font-bold">🔐 สิทธิ์รายชิ้นส่วน (ละเอียดกว่าเมนู)</h1>
+  <div class="text-xs text-slate-400">เปลี่ยนแล้วมีผลทันที ไม่ต้อง restart · ใครแก้อะไรดูได้ที่ <a href="/admin/audit?table=partpermission" class="text-indigo-500 hover:underline">🕵️ audit</a></div>
+</div>
+
+<div class="mb-3 text-sm text-slate-500">
+  สิทธิ์ระดับเมนู (เห็นทั้งหน้า/ไม่เห็น) อยู่ในโค้ด permissions.py เหมือนเดิม —
+  หน้านี้คุม "ชิ้นส่วนในหน้า" เช่น คอลัมน์ KB, ปุ่มแก้เลขบัญชี · <b>hide</b>=ไม่เห็น · <b>view</b>=เห็นอย่างเดียว · <b>edit</b>=เห็น+แก้
+</div>
+
+<div class="bg-white rounded-lg border overflow-x-auto mb-6">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-600 text-xs uppercase">
+      <tr>
+        <th class="px-3 py-2 text-left">ชิ้นส่วน</th>
+        {% for role in roles %}<th class="px-3 py-2 text-center">{{ role }}</th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for row in matrix %}
+      <tr class="hover:bg-slate-50">
+        <td class="px-3 py-2">
+          <div class="font-medium">{{ row.label }}</div>
+          <div class="font-mono text-xs text-slate-400">{{ row.key }}</div>
+        </td>
+        {% for c in row.cells %}
+        <td class="px-3 py-2 text-center">
+          <form method="post" action="/admin/permissions/save" class="inline">
+            <input type="hidden" name="part_key" value="{{ row.key }}">
+            <input type="hidden" name="role" value="{{ c.role }}">
+            <select name="level" onchange="this.form.submit()"
+                    class="border rounded px-1 py-0.5 text-xs {% if c.overridden %}bg-amber-50 border-amber-400{% endif %}
+                           {% if c.level=='edit' %}text-emerald-700 font-semibold{% elif c.level=='hide' %}text-slate-400{% endif %}">
+              {% for lv in ['hide', 'view', 'edit'] %}
+              <option value="{{ lv }}" {% if c.level==lv %}selected{% endif %}>{{ lv }}</option>
+              {% endfor %}
+              {% if c.overridden %}<option value="default">↺ กลับ default ({{ c.default }})</option>{% endif %}
+            </select>
+          </form>
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="bg-white rounded-lg border p-4 max-w-2xl">
+  <div class="font-semibold mb-1 text-sm">👤 Override รายคน (ชนะ role)</div>
+  <div class="text-xs text-slate-400 mb-3">เช่น ให้ office คนเดียวเห็นคอลัมน์เงินได้ โดย office คนอื่นยังไม่เห็น</div>
+  {% if user_over %}
+  <table class="w-full text-xs mb-3">
+    <thead class="text-slate-500"><tr><th class="text-left py-1">คน</th><th class="text-left">ชิ้นส่วน</th><th class="text-left">ระดับ</th><th></th></tr></thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for r in user_over %}
+      <tr>
+        <td class="py-1.5 font-medium">{{ r.username }}</td>
+        <td class="font-mono">{{ r.part_key }}</td>
+        <td class="{% if r.level=='edit' %}text-emerald-700 font-semibold{% endif %}">{{ r.level }}</td>
+        <td class="text-right">
+          <form method="post" action="/admin/permissions/save" class="inline">
+            <input type="hidden" name="part_key" value="{{ r.part_key }}">
+            <input type="hidden" name="username" value="{{ r.username }}">
+            <input type="hidden" name="level" value="default">
+            <button class="text-rose-500 text-xs underline">ลบ override</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  <form method="post" action="/admin/permissions/save" class="flex gap-2 flex-wrap items-center text-sm">
+    <select name="username" class="border rounded px-2 py-1.5" required>
+      <option value="">— เลือกคน —</option>
+      {% for u in usernames %}<option value="{{ u }}">{{ u }}</option>{% endfor %}
+    </select>
+    <select name="part_key" class="border rounded px-2 py-1.5">
+      {% for k in part_keys %}<option value="{{ k }}">{{ k }}</option>{% endfor %}
+    </select>
+    <select name="level" class="border rounded px-2 py-1.5">
+      <option value="hide">hide</option><option value="view">view</option><option value="edit">edit</option>
+    </select>
+    <button class="bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-500">ตั้ง override</button>
+  </form>
+</div>
+
+{% endblock %}
