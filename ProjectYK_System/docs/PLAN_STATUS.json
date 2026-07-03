@@ -242,9 +242,9 @@
         },
         {
           "id": "S2",
-          "name": "audit จุดเงินครบ + เช็ค upload/ไฟล์",
+          "name": "audit จุดเงินครบ + เช็ค upload/ไฟล์ — ✅ ครบ 12 จุดเงิน (เก็บตก PayAdjustment cancel + เรทราคา) + ตรวจ upload/traversal ครบ (รายงาน SECURITY_S2_APP_AUDIT.md); ⚠️ /uploads public รอเคาะวิธีแก้",
           "days": 0.5,
-          "status": "pending"
+          "status": "done"
         },
         {
           "id": "S3",
@@ -254,15 +254,15 @@
         },
         {
           "id": "S4",
-          "name": "เอกสารความปลอดภัยสำหรับทีม",
+          "name": "เอกสารความปลอดภัยสำหรับทีม — ✅ SECURITY_TEAM_ONE_PAGER.md (13 ข้อ พิมพ์แปะ/ส่งไลน์ทีมได้)",
           "days": 0.25,
-          "status": "pending"
+          "status": "done"
         },
         {
           "id": "S5",
-          "name": "checklist ตรวจเจาะรายไตรมาส",
+          "name": "checklist ตรวจเจาะรายไตรมาส — ✅ SECURITY_QUARTERLY_CHECKLIST.md (7 หมวด runbook + ตารางประวัติรัน; รอบแรกยังไม่ได้รัน)",
           "days": 0.25,
-          "status": "pending"
+          "status": "done"
         }
       ]
     },
