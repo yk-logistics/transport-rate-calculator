@@ -86,72 +86,93 @@
       <a href="/daily" class="font-bold text-lg">Project YK · One Platform</a>
       <div class="flex gap-1 text-sm flex-wrap items-center">
 
-        {# ---- ปฏิบัติการ ---- #}
+        {# ==== P5 (โอสั่ง 3ก.ค. "ขอเป็นหมวดหมู่"): เมนู 5 หมวดตาม flow ธุรกิจ ====
+           รับงาน → หน้างาน → เงิน → ผู้บริหาร → เครื่องมือ — URL เดิมทุกตัว แค่ย้ายหมวด #}
+
+        {# ---- 1) รับงาน ---- #}
         <div class="yk-menu relative">
-          <button type="button" class="yk-menu-btn px-3 py-1.5 rounded hover:bg-slate-700">ปฏิบัติการ ▾</button>
-          <div class="yk-menu-panel hidden absolute left-0 mt-1 z-50 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 py-1 min-w-[180px]">
-            <a href="/daily" class="block px-4 py-2 hover:bg-slate-100">Daily</a>
-            <a href="/fuel" class="block px-4 py-2 hover:bg-slate-100">น้ำมัน</a>
-            <a href="/petty-cash" class="block px-4 py-2 hover:bg-slate-100">สดย่อย</a>
-            <a href="/petty-cash/pending" class="block px-4 py-2 hover:bg-slate-100">รอหักคนขับ</a>
-            <a href="/petty-cash/clearance" class="block px-4 py-2 hover:bg-slate-100">รอเคลียร์</a>
-            {% if can_see(request, "/petty/review") %}<a href="/petty/slip-control" class="block px-4 py-2 hover:bg-slate-100">🤖 อ่านสลิป</a>{% endif %}
-            {% if can_see(request, "/email") %}<a href="/email/inbox" class="block px-4 py-2 hover:bg-slate-100">Email Inbox</a>{% endif %}
-            {% if can_see(request, "/line") %}<a href="/line" class="block px-4 py-2 hover:bg-slate-100">💬 ค้นแชทไลน์</a>{% endif %}
+          <button type="button" class="yk-menu-btn px-3 py-1.5 rounded hover:bg-slate-700">รับงาน ▾</button>
+          <div class="yk-menu-panel hidden absolute left-0 mt-1 z-50 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 py-1 min-w-[210px]">
+            {% if can_see(request, "/quote") %}<a href="/quote" class="block px-4 py-2 hover:bg-slate-100">🧮 เครื่องคิดราคา</a>{% endif %}
+            {% if can_see(request, "/quote") %}<a href="/quote/list" class="block px-4 py-2 hover:bg-slate-100">📄 ใบเสนอราคา (บันทึก)</a>{% endif %}
+            {% if can_see(request, "/line") %}<a href="/line/inbox" class="block px-4 py-2 hover:bg-slate-100">📥 กล่องงานเข้า (ไลน์)</a>{% endif %}
+            {% if can_see(request, "/calendar") %}<a href="/calendar" class="block px-4 py-2 hover:bg-slate-100">📅 ปฏิทินกำลังรถ</a>{% endif %}
+            <a href="/dispatch/planner" class="block px-4 py-2 hover:bg-slate-100">📋 Dispatch (แผนจัดรถ)</a>
           </div>
         </div>
 
-        {# ---- ข้อมูลหลัก ---- #}
+        {# ---- 2) หน้างาน ---- #}
         <div class="yk-menu relative">
-          <button type="button" class="yk-menu-btn px-3 py-1.5 rounded hover:bg-slate-700">ข้อมูลหลัก ▾</button>
-          <div class="yk-menu-panel hidden absolute left-0 mt-1 z-50 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 py-1 min-w-[180px]">
+          <button type="button" class="yk-menu-btn px-3 py-1.5 rounded hover:bg-slate-700">หน้างาน ▾</button>
+          <div class="yk-menu-panel hidden absolute left-0 mt-1 z-50 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 py-1 min-w-[210px]">
+            <a href="/daily" class="block px-4 py-2 hover:bg-slate-100">Daily (งานรายวัน)</a>
+            <a href="/fuel" class="block px-4 py-2 hover:bg-slate-100">⛽ น้ำมัน</a>
+            <a href="/maint" class="block px-4 py-2 hover:bg-slate-100">🔧 ซ่อม/ยาง/PM</a>
+            <a href="/admin/submissions" class="block px-4 py-2 hover:bg-slate-100">📱 Driver (PWA)</a>
+            <div class="border-t border-slate-100 my-1"></div>
+            <a href="/petty-cash" class="block px-4 py-2 hover:bg-slate-100">สดย่อย</a>
+            <a href="/petty-cash/pending" class="block px-4 py-2 hover:bg-slate-100">สดย่อย: รอหักคนขับ</a>
+            <a href="/petty-cash/clearance" class="block px-4 py-2 hover:bg-slate-100">สดย่อย: รอเคลียร์</a>
+            {% if can_see(request, "/petty/review") %}<a href="/petty/slip-control" class="block px-4 py-2 hover:bg-slate-100">🤖 อ่านสลิป</a>{% endif %}
+            <div class="border-t border-slate-100 my-1"></div>
+            {% if can_see(request, "/line") %}<a href="/line" class="block px-4 py-2 hover:bg-slate-100">💬 ค้นแชทไลน์</a>{% endif %}
+            {% if can_see(request, "/line") %}<a href="/line/digest" class="block px-4 py-2 hover:bg-slate-100">🌅 สรุปแชทรายวัน</a>{% endif %}
+            {% if can_see(request, "/line") %}<a href="/line/pod" class="block px-4 py-2 hover:bg-slate-100">📎 ผูกรูปหลักฐาน (POD)</a>{% endif %}
+            {% if can_see(request, "/email") %}<a href="/email/inbox" class="block px-4 py-2 hover:bg-slate-100">📧 Email Inbox</a>{% endif %}
+            {% if can_see(request, "/admin/users") %}<a href="/admin/check-links" class="block px-4 py-2 hover:bg-slate-100">🔗 ลิงก์ตรวจสภาพรถ</a>{% endif %}
+          </div>
+        </div>
+
+        {# ---- 3) เงิน ---- #}
+        <div class="yk-menu relative">
+          <button type="button" class="yk-menu-btn px-3 py-1.5 rounded hover:bg-slate-700">เงิน ▾</button>
+          <div class="yk-menu-panel hidden absolute left-0 mt-1 z-50 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 py-1 min-w-[210px]">
+            <a href="/billing" class="block px-4 py-2 hover:bg-slate-100">Billing (ตรวจก่อนวางบิล)</a>
+            <a href="/billing/invoice" class="block px-4 py-2 hover:bg-slate-100">🧾 ออกใบวางบิล</a>
+            {% if can_see(request, "/line") %}<a href="/billing/evidence" class="block px-4 py-2 hover:bg-slate-100">🗂️ ชุดหลักฐานวางบิล</a>{% endif %}
+            {% if can_see(request, "/finance") %}<a href="/finance/receivables" class="block px-4 py-2 hover:bg-slate-100">💵 รอรับเงินลูกค้า (AR)</a>{% endif %}
+            {% if can_see(request, "/kb-payout") %}<a href="/kb-payout" class="block px-4 py-2 hover:bg-slate-100">🤝 KB เจ้าของงาน</a>{% endif %}
+            <div class="border-t border-slate-100 my-1"></div>
+            {% if can_see(request, "/payroll") %}<a href="/payroll" class="block px-4 py-2 hover:bg-slate-100">Payroll (เงินเดือน)</a>{% endif %}
+            <a href="/deposits" class="block px-4 py-2 hover:bg-slate-100">🔒 เงินประกันตน</a>
+            <div class="border-t border-slate-100 my-1"></div>
+            <a href="/rates" class="block px-4 py-2 hover:bg-slate-100">เรทราคา</a>
+            <a href="/fuel-index" class="block px-4 py-2 hover:bg-slate-100">⛽ Fuel (ราคาน้ำมัน)</a>
+            {% if can_see(request, "/oatside") %}<a href="/oatside" class="block px-4 py-2 hover:bg-slate-100">🚚 Oatside (คำนวณ/รายงาน)</a>{% endif %}
+          </div>
+        </div>
+
+        {# ---- 4) ผู้บริหาร ---- #}
+        {% if can_see(request, "/finance") or can_see(request, "/admin/users") %}
+        <div class="yk-menu relative">
+          <button type="button" class="yk-menu-btn px-3 py-1.5 rounded hover:bg-slate-700">ผู้บริหาร ▾</button>
+          <div class="yk-menu-panel hidden absolute left-0 mt-1 z-50 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 py-1 min-w-[210px]">
+            {% if can_see(request, "/finance") %}<a href="/finance" class="block px-4 py-2 hover:bg-slate-100">💰 CFO Dashboard</a>{% endif %}
+            {% if can_see(request, "/finance") %}<a href="/finance/cashflow" class="block px-4 py-2 hover:bg-slate-100">💧 เงินหมุน 8 สัปดาห์</a>{% endif %}
+            {% if can_see(request, "/finance") %}<a href="/finance/debts" class="block px-4 py-2 hover:bg-slate-100">💳 หนี้/วงเงิน</a>{% endif %}
+            {% if can_see(request, "/finance") %}<a href="/finance/vehicles" class="block px-4 py-2 hover:bg-slate-100">🚛 ต้นทุน/กำไรต่อคัน</a>{% endif %}
+            {% if can_see(request, "/admin/users") %}<a href="/admin/plan" class="block px-4 py-2 hover:bg-slate-100">🗺️ แผนงาน MVP</a>{% endif %}
+          </div>
+        </div>
+        {% endif %}
+
+        {# ---- 5) เครื่องมือ ---- #}
+        <div class="yk-menu relative">
+          <button type="button" class="yk-menu-btn px-3 py-1.5 rounded hover:bg-slate-700">เครื่องมือ ▾</button>
+          <div class="yk-menu-panel hidden absolute right-0 mt-1 z-50 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 py-1 min-w-[210px]">
             <a href="/employees" class="block px-4 py-2 hover:bg-slate-100">คนขับ</a>
             <a href="/vehicles" class="block px-4 py-2 hover:bg-slate-100">รถ</a>
             <a href="/customers" class="block px-4 py-2 hover:bg-slate-100">ลูกค้า</a>
             <a href="/admin/promote" class="block px-4 py-2 hover:bg-slate-100">สร้าง Master</a>
-          </div>
-        </div>
-
-        {# ---- เงิน ---- #}
-        <div class="yk-menu relative">
-          <button type="button" class="yk-menu-btn px-3 py-1.5 rounded hover:bg-slate-700">เงิน ▾</button>
-          <div class="yk-menu-panel hidden absolute left-0 mt-1 z-50 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 py-1 min-w-[180px]">
-            {% if can_see(request, "/payroll") %}<a href="/payroll" class="block px-4 py-2 hover:bg-slate-100">Payroll</a>{% endif %}
-            <a href="/rates" class="block px-4 py-2 hover:bg-slate-100">เรทราคา</a>
-            <a href="/fuel-index" class="block px-4 py-2 hover:bg-slate-100">⛽ Fuel (ราคาน้ำมัน)</a>
-            <a href="/billing" class="block px-4 py-2 hover:bg-slate-100">Billing</a>
-            {% if can_see(request, "/finance") %}<a href="/finance" class="block px-4 py-2 hover:bg-slate-100">💰 CFO</a>{% endif %}
-            {% if can_see(request, "/finance") %}<a href="/finance/receivables" class="block px-4 py-2 hover:bg-slate-100">💵 รอรับเงินลูกค้า</a>{% endif %}
-            {% if can_see(request, "/kb-payout") %}<a href="/kb-payout" class="block px-4 py-2 hover:bg-slate-100">🤝 KB เจ้าของงาน</a>{% endif %}
-            {% if can_see(request, "/quote") %}<a href="/quote" class="block px-4 py-2 hover:bg-slate-100">🧮 เครื่องคิดราคา</a>{% endif %}
-            {% if can_see(request, "/quote") %}<a href="/quote/list" class="block px-4 py-2 hover:bg-slate-100">📄 ใบเสนอราคา (บันทึก)</a>{% endif %}
-            {% if can_see(request, "/oatside") %}<a href="/oatside" class="block px-4 py-2 hover:bg-slate-100">🚚 Oatside (คำนวณ/รายงาน)</a>{% endif %}
-            <a href="/deposits" class="block px-4 py-2 hover:bg-slate-100">🔒 เงินประกันตน</a>
-          </div>
-        </div>
-
-        {# ---- งานรถ / สนาม ---- #}
-        <div class="yk-menu relative">
-          <button type="button" class="yk-menu-btn px-3 py-1.5 rounded hover:bg-slate-700">งานรถ/สนาม ▾</button>
-          <div class="yk-menu-panel hidden absolute left-0 mt-1 z-50 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 py-1 min-w-[180px]">
-            <a href="/dispatch/planner" class="block px-4 py-2 hover:bg-slate-100">📋 Dispatch</a>
-            {% if can_see(request, "/calendar") %}<a href="/calendar" class="block px-4 py-2 hover:bg-slate-100">📅 ปฏิทินกำลังรถ</a>{% endif %}
-            <a href="/maint" class="block px-4 py-2 hover:bg-slate-100">ซ่อม/ยาง/PM</a>
-            {% if can_see(request, "/admin/users") %}<a href="/admin/check-links" class="block px-4 py-2 hover:bg-slate-100">🔗 ลิงก์ตรวจสภาพรถ</a>{% endif %}
-            <a href="/admin/submissions" class="block px-4 py-2 hover:bg-slate-100">📱 Driver</a>
-          </div>
-        </div>
-
-        {# ---- ระบบ ---- #}
-        <div class="yk-menu relative">
-          <button type="button" class="yk-menu-btn px-3 py-1.5 rounded hover:bg-slate-700">ระบบ ▾</button>
-          <div class="yk-menu-panel hidden absolute right-0 mt-1 z-50 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 py-1 min-w-[180px]">
-            {% if can_see(request, "/import") %}<a href="/import" class="block px-4 py-2 hover:bg-slate-100">⬆ Import</a>{% endif %}
-            {% if can_see(request, "/admin/users") %}<a href="/admin/users" class="block px-4 py-2 hover:bg-slate-100">👤 ผู้ใช้</a>{% endif %}
-            {% if can_see(request, "/admin/users") %}<a href="/admin/plan" class="block px-4 py-2 hover:bg-slate-100">🗺️ แผนงาน MVP</a>{% endif %}
-            {% if can_see(request, "/admin/users") %}<a href="/admin/server-health" class="block px-4 py-2 hover:bg-slate-100">🖥️ สุขภาพเครื่อง</a>{% endif %}
-            {% if can_see(request, "/admin/users") %}<a href="/admin/audit" class="block px-4 py-2 hover:bg-slate-100">🕵️ ประวัติใครทำอะไร</a>{% endif %}
-            {% if can_see(request, "/admin/users") %}<a href="/admin/permissions" class="block px-4 py-2 hover:bg-slate-100">🔐 สิทธิ์รายชิ้นส่วน</a>{% endif %}
+            {% if can_see(request, "/import") %}<div class="border-t border-slate-100 my-1"></div>
+            <a href="/import" class="block px-4 py-2 hover:bg-slate-100">⬆ Import</a>{% endif %}
+            {% if can_see(request, "/admin/users") %}
+            <a href="/admin/users" class="block px-4 py-2 hover:bg-slate-100">👤 ผู้ใช้</a>
+            <a href="/admin/permissions" class="block px-4 py-2 hover:bg-slate-100">🔐 สิทธิ์รายชิ้นส่วน</a>
+            <a href="/admin/audit" class="block px-4 py-2 hover:bg-slate-100">🕵️ ประวัติใครทำอะไร</a>
+            <a href="/admin/server-health" class="block px-4 py-2 hover:bg-slate-100">🖥️ สุขภาพเครื่อง</a>
+            {% endif %}
+            <div class="border-t border-slate-100 my-1"></div>
             <a href="/logout" class="block px-4 py-2 hover:bg-slate-100 text-rose-600">ออกจากระบบ</a>
           </div>
         </div>
