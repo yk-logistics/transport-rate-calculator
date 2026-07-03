@@ -83,44 +83,49 @@
         ปิดรอบ + ล็อก
       </button>
     </form>
-    <form method="post" action="/payroll/{{ run.id }}/delete" class="inline"
-      onsubmit="return confirm('ลบรอบนี้ทั้งหมด?');">
-      <button class="text-sm px-3 py-1.5 border border-rose-200 text-rose-700 rounded hover:bg-rose-50">
-        ลบรอบ
-      </button>
-    </form>
     {% endif %}
-    <form method="post" action="/payroll/{{ run.id }}/export-pdfs" class="inline"
-          title="บันทึกที่ Salary/{{ run.site_code }}/{{ salary_export_folder_month }}/Driver/"
-          onsubmit="return confirm('สร้าง PDF และบันทึกในโฟลเดอร์ Salary/{{ run.site_code }}/{{ salary_export_folder_month }}/Driver ?');">
-      <button type="submit" class="text-sm px-3 py-1.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-medium">
-        📄 ส่งออก PDF (สลิปทุกคน + สรุป + โอนเงิน)
-      </button>
-    </form>
-    <a href="/payroll/{{ run.id }}/accounts"
-       class="text-sm px-3 py-1.5 rounded bg-sky-600 text-white hover:bg-sky-700 font-medium">
-      💳 บัญชีโอนเงิน (ก็อป/แก้เลขบัญชี)
-    </a>
+
+    {# A5: ใช้จริง 3 อย่าง (โอ 3ก.ค.) = 3 ปุ่มใหญ่ — ที่เหลือพับเข้า "เพิ่มเติม ▾" #}
     <a href="/payroll/{{ run.id }}/print" target="_blank"
-       class="text-sm px-3 py-1.5 rounded bg-indigo-600 text-white hover:bg-indigo-700 font-medium"
+       class="text-sm px-4 py-1.5 rounded bg-indigo-600 text-white hover:bg-indigo-700 font-semibold"
        title="สลิปสำหรับคนขับ: ซ่อนราคาขนส่งจริง/KB (กด Ctrl+P)">
-      🖨 พิมพ์ (คนขับ)
+      🖨 สลิปคนขับ
     </a>
     <a href="/payroll/{{ run.id }}/print?for=boss" target="_blank"
-       class="text-sm px-3 py-1.5 rounded bg-rose-600 text-white hover:bg-rose-700 font-medium"
-       title="สลิปสำหรับผู้บริหาร: เห็นค่าขนส่งจริง + ราคากลาง + KB — อย่าแจกคนขับ">
-      🔒 พิมพ์ (ผู้บริหาร)
+       class="text-sm px-4 py-1.5 rounded bg-rose-600 text-white hover:bg-rose-700 font-semibold"
+       title="ชุดผู้บริหาร: เห็นค่าขนส่งจริง + ราคากลาง + KB — อย่าแจกคนขับ">
+      🔒 ชุดผู้บริหาร
     </a>
-    <a href="/payroll/{{ run.id }}/tax"
-       class="text-sm px-3 py-1.5 rounded bg-slate-200 text-slate-700 hover:bg-slate-300 font-medium"
-       title="สรุปภาษีหัก ณ ที่จ่าย + ภาษีสะสมทั้งปี ต่อคน">
-      📊 ภาษี
-    </a>
-    <button onclick="printPayrollTable()"
-       class="text-sm px-3 py-1.5 rounded bg-slate-700 text-white hover:bg-slate-800 font-medium"
-       title="ปริ้น/เซฟ PDF เฉพาะตารางรวมหน้านี้ (เอกสารภายในผู้บริหาร)">
-      🖨 ปริ้นตารางนี้
-    </button>
+    <form method="post" action="/payroll/{{ run.id }}/export-zip" class="inline"
+          onsubmit="this.querySelector('button').textContent='⏳ กำลังสร้าง…';">
+      <button class="text-sm px-4 py-1.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-semibold"
+              title="ดาวน์โหลด ZIP สลิป PDF แยกไฟล์รายคน">
+        📦 ZIP รายคน
+      </button>
+    </form>
+
+    <details class="relative inline-block">
+      <summary class="text-sm px-3 py-1.5 border rounded hover:bg-slate-50 cursor-pointer list-none select-none">เพิ่มเติม ▾</summary>
+      <div class="absolute right-0 mt-1 z-40 bg-white border border-slate-200 rounded-lg shadow-xl py-1 min-w-[240px] text-sm">
+        <a href="/payroll/{{ run.id }}/accounts" class="block px-4 py-2 hover:bg-slate-100">💳 บัญชีโอนเงิน (ก็อป/แก้เลขบัญชี)</a>
+        <a href="/payroll/{{ run.id }}/tax" class="block px-4 py-2 hover:bg-slate-100"
+           title="สรุปภาษีหัก ณ ที่จ่าย + สะสมทั้งปี ต่อคน">📊 ภาษี</a>
+        <button onclick="printPayrollTable()" class="block w-full text-left px-4 py-2 hover:bg-slate-100"
+                title="ปริ้น/เซฟ PDF เฉพาะตารางรวมหน้านี้ (เอกสารภายในผู้บริหาร)">🖨 ปริ้นตารางรวมหน้านี้</button>
+        <form method="post" action="/payroll/{{ run.id }}/export-pdfs"
+              title="บันทึกที่ Salary/{{ run.site_code }}/{{ salary_export_folder_month }}/Driver/"
+              onsubmit="return confirm('สร้าง PDF และบันทึกในโฟลเดอร์ Salary/{{ run.site_code }}/{{ salary_export_folder_month }}/Driver ?');">
+          <button type="submit" class="block w-full text-left px-4 py-2 hover:bg-slate-100">📄 ส่งออก PDF ลงโฟลเดอร์ Salary</button>
+        </form>
+        {% if run.status != 'finalized' %}
+        <div class="border-t border-slate-100 my-1"></div>
+        <form method="post" action="/payroll/{{ run.id }}/delete"
+              onsubmit="return confirm('ลบรอบนี้ทั้งหมด?');">
+          <button class="block w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600">🗑 ลบรอบ</button>
+        </form>
+        {% endif %}
+      </div>
+    </details>
   </div>
 </div>
 
