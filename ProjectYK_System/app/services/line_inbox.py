@@ -23,9 +23,49 @@ from services import line_archive as la
 CONTAINER_RE = re.compile(r"\b([A-Z]{4})\s?-?(\d{7})\b")
 DATE_RE = re.compile(r"\b(\d{1,2})[/\-.](\d{1,2})(?:[/\-.](\d{2,4}))?\b")
 TIME_RE = re.compile(r"\b\d{1,2}[:.]\d{2}\s*(?:น\.?)?\b")
-KEYWORDS = ("เข้าโหลด", "โหลด", "ส่งตู้", "รับตู้", "คืนตู้", "บรรจุ",
-            "booking", "ใบงาน", "แผนงาน", "เข้าท่า", "ปล่อยตู้", "แผนพรุ่งนี้")
+# จำนวนตู้แบบ 1x40 / 2X20 / 3x40HQ — สัญญาณสั่งงานชัด (จูนจากข้อความจริง 4ก.ค.)
+NXSIZE_RE = re.compile(r"\b\d{1,2}\s?[xX]\s?[24]0\b")
+KEYWORDS = ("เข้าโหลด", "โหลด", "ส่งตู้", "รับตู้", "คืนตู้", "บรรจุ", "จอง",
+            "booking", "ใบงาน", "แผนงาน", "เข้าท่า", "ปล่อยตู้", "แผนพรุ่งนี้",
+            "รับงานได้")  # ขอเลื่อน/ยืนยันงาน + มีวันที่ (คำตอบรับสั้นไม่มีวันที่ = ไม่ติด)
 _WEAK_KEYWORDS = ("เข้า", "ส่ง", "พรุ่งนี้")
+# โพสต์แจกงานของฝั่งเราเอง (สรุปงานที่จ่ายให้คนขับแล้ว): มีทะเบียน หัว.. + หาง..
+# — ไม่ใช่ "งานเข้าใหม่" ไม่ต้องโผล่ใน inbox (จูนจากข้อความจริง: เกินครึ่งของ hit เดิม)
+_OWN_DISPATCH_RE = re.compile(r"หัว\s*\d{2,3}\s?-\s?\d{4}[\s\S]*หาง")
+
+
+# เดา mapping กลุ่มจากชื่อ — prefill ให้โอกดยืนยัน (customer_name ต้องตรง status_code เดลี่)
+_GROUP_GUESSES = (
+    ("CY", ("customer", "CY", "LCB")),
+    ("KLND", ("customer", "KLND", "LCB")),
+    ("KAO", ("customer", "KAO", "LCB")),
+    ("PX19", ("customer", "PX19", "LCB")),
+    ("CJ", ("customer", "CJ", "LCB")),
+    ("JGL", ("customer", "JGL", "LCB")),
+    ("NIPPON", ("customer", "Nippon", "LCB")),
+    ("NHL", ("customer", "NHL", "LCB")),
+    ("KTL", ("customer", "KTL", "LCB")),
+    ("โฮมโปร", ("customer", "", "")),
+    ("CALTEX", ("station", "", "")),
+    ("ปตท", ("station", "", "")),
+    ("ซ่อม", ("internal", "", "")),
+    ("อู่", ("internal", "", "")),
+    ("ยาง", ("internal", "", "")),
+    ("ช่าง", ("internal", "", "")),
+    ("หัวหน้างาน", ("internal", "", "")),
+    ("พขร", ("internal", "", "")),
+    ("บัญชี", ("internal", "", "")),
+    ("FLEET", ("internal", "", "")),
+)
+
+
+def guess_group_map(name: str) -> tuple[str, str, str]:
+    """(kind, customer_name, site) จากชื่อกลุ่ม — ไม่เข้าเค้า = ('other','','')."""
+    up = (name or "").upper()
+    for token, guess in _GROUP_GUESSES:
+        if token.upper() in up:
+            return guess
+    return ("other", "", "")
 
 
 def _guess_work_date(text: str, sent_iso: str) -> str:
@@ -63,9 +103,11 @@ def score_message(text: str) -> dict | None:
     t = (text or "").strip()
     if not t:
         return None
+    if _OWN_DISPATCH_RE.search(t):
+        return None  # โพสต์แจกงานของเราเอง — งานถูกจ่ายแล้ว ไม่ใช่งานเข้าใหม่
     up = t.upper()
     containers = [f"{a}{b}" for a, b in CONTAINER_RE.findall(up)]
-    has_kw = any(k.upper() in up for k in KEYWORDS)
+    has_kw = any(k.upper() in up for k in KEYWORDS) or bool(NXSIZE_RE.search(t))
     has_weak = any(k in t for k in _WEAK_KEYWORDS)
     has_date = bool(DATE_RE.search(t))
     has_time = bool(TIME_RE.search(t))

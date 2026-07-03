@@ -91,7 +91,8 @@
               <option value="">—</option>
               {% for sc in ['LCB','AYU','BIGC'] %}<option value="{{ sc }}" {% if g.site_code==sc %}selected{% endif %}>{{ sc }}</option>{% endfor %}
             </select></td>
-          <td class="px-2 py-1.5"><button form="gm-{{ loop.index }}" class="text-indigo-600 underline">บันทึก</button></td>
+          <td class="px-2 py-1.5"><button form="gm-{{ loop.index }}" class="text-indigo-600 underline">บันทึก</button>
+            {% if g.guessed %}<span class="text-amber-600 text-[10px] ml-1" title="ระบบเดาจากชื่อกลุ่ม — กดบันทึกเพื่อยืนยัน">← เดาให้แล้ว</span>{% endif %}</td>
         </tr>
         {% endfor %}
       </tbody>

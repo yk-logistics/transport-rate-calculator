@@ -73,6 +73,21 @@ def test_score_message_patterns():
     assert li.score_message("texu 1234567 นะ".upper()) is not None    # ตู้มีช่องว่าง
 
 
+def test_score_tuned_from_real_messages():
+    """จูนจากข้อความจริง 7 วัน (4ก.ค.) — เคสที่เคยหลุด/เคยจับเกิน"""
+    # จองรถ + วันที่ (เคยหลุดเพราะไม่มีคำ "จอง")
+    assert li.score_message("จองรถวิ่งงานขาเข้า CONTINENTAL วันที่ 30/06 จำนวน 1x40'") is not None
+    assert li.score_message("ขอจองรถ 1X20' KAO-HH เพิ่ม วันที่ 7/7 พอได้มั้ยคะ") is not None
+    # ขอเลื่อนงาน + วันที่
+    assert li.score_message("เลื่อนไปส่งวันที่ 06/07 จำนวน 2 ตู้ รับงานได้ไหมคะ") is not None
+    # โพสต์แจกงานของเราเอง (หัว-หาง+คนขับ) = งานจ่ายแล้ว ต้องไม่โผล่
+    assert li.score_message(
+        "Job. KLND26-017444 BL. SITTADLC647160 รับตู้หนักJWD เปิดCONTINENTAL\n"
+        "- นายพชร ทุมเชียงเข้ม หัว71-9628 หาง72-4920") is None
+    # คำตอบรับสั้นไม่มีวันที่ = ไม่ติด
+    assert li.score_message("รับงานได้ค่ะ") is None
+
+
 def test_guess_work_date():
     assert li._guess_work_date("พรุ่งนี้เข้าโหลด", "2026-07-03 20:00") == "2026-07-04"
     assert li._guess_work_date("ส่งตู้วันที่ 6/7", "2026-07-03 20:00") == "2026-07-06"

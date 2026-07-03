@@ -9258,11 +9258,18 @@ def line_inbox(request: Request, days: int = 7):
                 c["site_code"] = (mp.site_code if mp else "") or "LCB"
         except Exception as e:
             error = f"อ่านคลังแชทไม่สำเร็จ: {e}"
+    from services.line_inbox import guess_group_map
     for g in groups:
         mp = maps.get(g["group_id"])
-        g["kind"] = mp.kind if mp else ""
-        g["customer_name"] = mp.customer_name if mp else ""
-        g["site_code"] = mp.site_code if mp else ""
+        if mp:
+            g["kind"] = mp.kind
+            g["customer_name"] = mp.customer_name
+            g["site_code"] = mp.site_code
+            g["guessed"] = False
+        else:
+            # ยังไม่ mark — เดาจากชื่อกลุ่มให้ก่อน (prefill) โอแค่กดบันทึกยืนยัน
+            g["kind"], g["customer_name"], g["site_code"] = guess_group_map(g["name"])
+            g["guessed"] = g["kind"] != "other"
     ctx.update({"groups": groups, "candidates": candidates, "days": days,
                 "error": error, "n_seen": len(seen)})
     return templates.TemplateResponse("line_inbox.html", ctx)
