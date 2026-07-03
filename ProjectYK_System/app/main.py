@@ -7680,6 +7680,9 @@ def billing_page(
             all_stmt = all_stmt.where(DailyJob.customer_id == cust_id_int)
         ready_by_cust: dict[str, dict] = {}
         _dup_key_rows: dict[tuple, list] = {}
+        # B3: เทียบราคาแถวที่ลงแล้วกับใบเสนอ agreed (ลูกค้า+ปลายทางตรง)
+        agreed_quotes = _agreed_quotes(s)
+        cust_names = {cid: c.name for cid, c in cust_map.items()}
 
         def _sample(j) -> dict:
             return {"work_date": j.work_date, "site": j.site_code,
@@ -7697,9 +7700,16 @@ def billing_page(
             c = cust_map.get(j.customer_id) if j.customer_id else None
             cname = (c.name if c else (j.customer_name_raw or j.status_code or "(ไม่ระบุ)")).strip() or "(ไม่ระบุ)"
             rg = ready_by_cust.setdefault(cname, {
-                "name": cname, "no_price": [], "no_doc": [], "dup": []})
+                "name": cname, "no_price": [], "no_doc": [], "dup": [],
+                "price_diff": []})
             if (j.revenue_customer or 0) <= 0:
                 rg["no_price"].append(_sample(j))
+            elif agreed_quotes:
+                mq = _quote_price_match(agreed_quotes, j, cust_names)
+                if mq and abs((j.revenue_customer or 0) - mq.price_agreed) > 0.005:
+                    rg["price_diff"].append(dict(
+                        _sample(j), current=j.revenue_customer,
+                        expected=mq.price_agreed, quote_id=mq.id))
             if not ((j.doc_no or "").strip() or (j.invoice_no or "").strip()
                     or (j.job_ref or "").strip() or (j.receive_inv_no or "").strip()):
                 rg["no_doc"].append(_sample(j))
@@ -7712,8 +7722,9 @@ def billing_page(
                     ready_by_cust[cname]["dup"].append(smp)
         ready_issues = sorted(
             (g for g in ready_by_cust.values()
-             if g["no_price"] or g["no_doc"] or g["dup"]),
-            key=lambda g: -(len(g["no_price"]) + len(g["no_doc"]) + len(g["dup"])))
+             if g["no_price"] or g["no_doc"] or g["dup"] or g["price_diff"]),
+            key=lambda g: -(len(g["no_price"]) + len(g["no_doc"])
+                            + len(g["dup"]) + len(g["price_diff"])))
 
     current_billing_month = f"{today.year:04d}-{today.month:02d}"
     ctx = base_context(request)
@@ -8478,6 +8489,110 @@ def quote_set_status(qid: int, request: Request,
         s.add(row)
         s.commit()
     return RedirectResponse(url=f"/quote/{qid}", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# B3: ราคาไหลเข้าเดลี่/บิล — ใบเสนอ status=agreed เสนอราคาให้แถวเดลี่ที่
+# ลูกค้า+ปลายทางตรง; ไม่ auto-ทับ (คนคีย์กดรับต่อแถว → เขียน + DailyJobAudit)
+# ห้ามแตะ engine เงินเดือน — เขียนเฉพาะ revenue_customer ของแถวที่ราคาว่าง
+# ---------------------------------------------------------------------------
+
+def _qnorm(text: str) -> str:
+    return " ".join((text or "").strip().lower().split())
+
+
+def _agreed_quotes(s: Session) -> list:
+    return s.exec(select(Quotation).where(
+        Quotation.status == "agreed",
+        Quotation.price_agreed.is_not(None),  # type: ignore[union-attr]
+    )).all()
+
+
+def _quote_price_match(quotes: list, job, cust_name_by_id: dict) -> Optional[Quotation]:
+    """หาใบเสนอที่ตรง "ทั้งลูกค้าและปลายทาง" (เข้มไว้ก่อน — เรื่องเงินห้ามเดา):
+    ลูกค้า = ชื่อในใบเสนอเท่ากับ customer_name_raw / status_code / ชื่อลูกค้า master;
+    ปลายทาง = ชื่องาน/โรงงานในใบเสนอเป็นส่วนหนึ่งของปลายทางเดลี่ (หรือกลับกัน)."""
+    jcust = {_qnorm(job.customer_name_raw), _qnorm(job.status_code),
+             _qnorm(cust_name_by_id.get(job.customer_id, ""))} - {""}
+    jdest = _qnorm(job.destination)
+    if not jcust or not jdest:
+        return None
+    for q in quotes:
+        qc, qf = _qnorm(q.customer_name), _qnorm(q.factory_name)
+        if qc and qf and qc in jcust and (qf in jdest or jdest in qf):
+            return q
+    return None
+
+
+@app.get("/api/daily-jobs/quote-suggest")
+def api_daily_quote_suggest(site: str = "", d_from: str = "", d_to: str = ""):
+    """แถวเดลี่ราคาว่างที่มีใบเสนอ agreed ตรง — ให้ปุ่มในหน้า grid โชว์ให้คนคีย์กดรับ."""
+    lo, hi = _parse_date(d_from), _parse_date(d_to)
+    with Session(engine) as s:
+        quotes = _agreed_quotes(s)
+        if not quotes:
+            return {"items": []}
+        stmt = select(DailyJob)
+        if lo:
+            stmt = stmt.where(DailyJob.work_date >= lo)
+        if hi:
+            stmt = stmt.where(DailyJob.work_date <= hi)
+        if site:
+            stmt = stmt.where(DailyJob.site_code == site.strip().upper())
+        cust = {c.id: c.name for c in s.exec(select(Customer)).all()}
+        items = []
+        for j in s.exec(stmt.order_by(DailyJob.work_date).limit(3000)).all():  # type: ignore[arg-type]
+            if (j.revenue_customer or 0) > 0 or _daily_row_kind(j) != "job":
+                continue
+            q = _quote_price_match(quotes, j, cust)
+            if not q:
+                continue
+            items.append({
+                "job_id": j.id, "quote_id": q.id,
+                "work_date": j.work_date.isoformat(),
+                "site": j.site_code,
+                "plate": (j.plate_no_raw or "").strip(),
+                "driver": j.driver_raw_name or "",
+                "customer": (j.customer_name_raw or j.status_code or "").strip(),
+                "destination": j.destination or "",
+                "price": q.price_agreed,
+                "quote_label": f"{q.customer_name} — {q.factory_name}",
+            })
+    return {"items": items[:200]}
+
+
+@app.post("/api/daily-jobs/apply-quote")
+async def api_daily_apply_quote(request: Request):
+    """คนคีย์กดรับ → เขียนราคาใบเสนอลง revenue_customer (เฉพาะแถวราคาว่าง) + audit.
+    ตรวจ match ซ้ำฝั่ง server — ไม่เชื่อ payload จากหน้าเว็บ."""
+    body = await request.json()
+    try:
+        job_id, quote_id = int(body.get("job_id")), int(body.get("quote_id"))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "job_id/quote_id ไม่ถูกต้อง")
+    u = current_user(request)
+    with Session(engine) as s:
+        j = s.get(DailyJob, job_id)
+        q = s.get(Quotation, quote_id)
+        if not j or not q:
+            raise HTTPException(404)
+        if q.status != "agreed" or q.price_agreed is None:
+            raise HTTPException(409, "ใบเสนอไม่อยู่สถานะตกลงราคา")
+        if (j.revenue_customer or 0) > 0:
+            raise HTTPException(409, "แถวนี้มีราคาแล้ว — ระบบไม่ทับราคาเดิม")
+        cust = {c.id: c.name for c in s.exec(select(Customer)).all()}
+        if _quote_price_match([q], j, cust) is not q:
+            raise HTTPException(409, "ลูกค้า/ปลายทางของแถวไม่ตรงใบเสนอ")
+        old = j.revenue_customer or 0.0
+        j.revenue_customer = float(q.price_agreed)
+        j.updated_at = datetime.utcnow()
+        s.add(models.DailyJobAudit(
+            daily_job_id=j.id, changed_by=(u.username if u else ""),
+            action="quote_apply", field_name="revenue_customer",
+            old_value=str(old), new_value=str(j.revenue_customer)))
+        s.add(j)
+        s.commit()
+        return {"ok": True, "value": j.revenue_customer}
 
 
 _OATSIDE_REPORT_DIRS = (

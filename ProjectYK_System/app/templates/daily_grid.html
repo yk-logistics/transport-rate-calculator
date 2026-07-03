@@ -81,6 +81,7 @@
     <button type="button" id="fullscreenBtn" title="เต็มจอ" class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded text-sm hover:bg-slate-200">⛶ เต็มจอ</button>
     <button type="button" id="pageToggleBtn" title="สลับแบ่งหน้า/แสดงทั้งหมด" class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded text-sm hover:bg-slate-200">📄 แบ่งหน้า</button>
     <button type="button" id="saveGridBtn" class="bg-emerald-600 text-white px-4 py-1.5 rounded text-sm hover:bg-emerald-700 font-semibold">💾 Save Grid</button>
+    <button type="button" id="quoteSuggestBtn" title="เสนอราคาจากใบเสนอที่ตกลงแล้ว (เฉพาะแถวราคาว่างที่ลูกค้า+ปลายทางตรง)" class="bg-sky-100 text-sky-800 px-3 py-1.5 rounded text-sm hover:bg-sky-200">💡 ราคาจากใบเสนอ</button>
     <span id="saveMsg" class="text-xs text-slate-500"></span>
   </div>
   <div class="md:col-span-6 border-t pt-3">
@@ -110,6 +111,9 @@
 </div>
 
 <div id="saveDetails" class="hidden rounded-lg border p-3 text-xs mb-3"></div>
+
+{# B3: พาเนลราคาจากใบเสนอ — เสนอ ไม่ auto-ทับ คนคีย์กดรับต่อแถว/ทั้งหมด #}
+<div id="quotePanel" class="hidden rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm mb-3"></div>
 
 <!-- Subtotal mode selector -->
 <div class="flex items-center gap-4 text-xs mb-2 bg-white border rounded-lg px-3 py-2 flex-wrap">
@@ -1032,6 +1036,63 @@
       updateDirtyFeedback();
     }
   });
+
+  // ── B3: ราคาจากใบเสนอ (agreed) — เสนอ ไม่ auto-ทับ คนคีย์กดรับต่อแถว ─────────
+  const quoteBtn = document.getElementById("quoteSuggestBtn");
+  const quotePanel = document.getElementById("quotePanel");
+  async function quoteApplyOne(btn){
+    const res = await fetch("/api/daily-jobs/apply-quote", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({job_id: +btn.dataset.job, quote_id: +btn.dataset.quote}),
+    });
+    const o = await res.json().catch(() => ({}));
+    const row = document.getElementById(`qrow-${btn.dataset.job}`);
+    if (res.ok && o.ok){
+      row.innerHTML = `<span class="text-emerald-700">✅ ลงราคา ${Number(o.value).toLocaleString()} แล้ว</span>`;
+      return true;
+    }
+    btn.insertAdjacentHTML("afterend", `<span class="text-rose-600 text-xs">${o.detail || "ไม่สำเร็จ"}</span>`);
+    return false;
+  }
+  async function loadQuoteSuggest(){
+    const p = new URLSearchParams(location.search);
+    const qs = new URLSearchParams();
+    ["site", "d_from", "d_to"].forEach(k => { const v = p.get(k); if (v) qs.set(k, v); });
+    quotePanel.classList.remove("hidden");
+    quotePanel.textContent = "กำลังหาใบเสนอที่ตรงกับแถวราคาว่าง...";
+    let items = [];
+    try {
+      const res = await fetch(`/api/daily-jobs/quote-suggest?${qs}`);
+      items = (await res.json()).items || [];
+    } catch (e) { quotePanel.textContent = "โหลดไม่สำเร็จ: " + e; return; }
+    if (!items.length){
+      quotePanel.innerHTML = '💡 ไม่มีแถวราคาว่างในช่วงนี้ที่ตรงกับใบเสนอ — ต้องมีใบสถานะ "ตกลงแล้ว"+ราคาตกลง ใน <a class="underline text-sky-700" href="/quote/list">ใบเสนอราคา</a> และชื่อลูกค้า+ปลายทางต้องตรงกัน <button id="quoteClose" class="ml-2 px-2 py-0.5 text-xs border rounded bg-white">ปิด</button>';
+      document.getElementById("quoteClose").onclick = () => quotePanel.classList.add("hidden");
+      return;
+    }
+    quotePanel.innerHTML =
+      `<div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+         <b>💡 ราคาจากใบเสนอที่ตกลงแล้ว — ${items.length} แถว (กด "รับ" ถึงจะเขียนลงเดลี่ · ไม่ทับราคาที่ลงแล้ว)</b>
+         <span class="flex gap-2">
+           <button id="quoteApplyAll" class="bg-sky-600 text-white px-3 py-1 rounded text-xs hover:bg-sky-500">รับทั้งหมด</button>
+           <button id="quoteClose" class="px-2 py-1 text-xs border rounded bg-white hover:bg-slate-50">ปิด</button>
+         </span>
+       </div>` +
+      items.map(it => `<div class="py-1 border-b border-sky-100 flex items-center gap-2 flex-wrap" id="qrow-${it.job_id}">
+         <span>${it.work_date} · ${it.plate || "—"}${it.driver ? " · " + it.driver : ""} · <b>${it.customer}</b> → ${it.destination}</span>
+         <span class="font-bold">${Number(it.price).toLocaleString()} ฿</span>
+         <span class="text-xs text-slate-500">(ใบเสนอ: ${it.quote_label})</span>
+         <button class="qapply bg-emerald-600 text-white px-2 py-0.5 rounded text-xs hover:bg-emerald-500" data-job="${it.job_id}" data-quote="${it.quote_id}">รับ</button>
+       </div>`).join("");
+    document.getElementById("quoteClose").onclick = () => quotePanel.classList.add("hidden");
+    quotePanel.querySelectorAll(".qapply").forEach(b =>
+      b.onclick = async () => { if (await quoteApplyOne(b)) table.replaceData(); });
+    document.getElementById("quoteApplyAll").onclick = async () => {
+      for (const b of quotePanel.querySelectorAll(".qapply")) await quoteApplyOne(b);
+      table.replaceData();
+    };
+  }
+  if (quoteBtn) quoteBtn.addEventListener("click", loadQuoteSuggest);
 
   // ── Columns dialog ──────────────────────────────────────────────────────────
   function renderColumnsChecklist(){
