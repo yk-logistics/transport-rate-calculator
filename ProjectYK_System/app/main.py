@@ -7667,6 +7667,54 @@ def billing_page(
             "wht": sum(g["wht"] for g in groups.values()),
         }
 
+        # ---- C1: แถบ "พร้อมวางบิล?" — ตรวจจากแถวทั้งหมดในช่วง (ไม่ใช่แค่ revenue>0)
+        # ต่อลูกค้า: ราคาว่าง / ไม่มีเลขใบงาน / ซ้ำ วัน+ทะเบียน+ตู้ (ตู้ไม่ว่างเท่านั้น
+        # — รถเดิมวิ่งหลายเที่ยว/วันเป็นเรื่องปกติ); แถวรถจอด/ลา/ซ่อม ไม่ใช่งานวางบิล
+        all_stmt = select(DailyJob).where(
+            DailyJob.work_date >= period_start,
+            DailyJob.work_date <= period_end,
+        ).order_by(DailyJob.work_date, DailyJob.id)
+        if site:
+            all_stmt = all_stmt.where(DailyJob.site_code == site)
+        if cust_id_int:
+            all_stmt = all_stmt.where(DailyJob.customer_id == cust_id_int)
+        ready_by_cust: dict[str, dict] = {}
+        _dup_key_rows: dict[tuple, list] = {}
+
+        def _sample(j) -> dict:
+            return {"work_date": j.work_date, "site": j.site_code,
+                    "plate": (j.plate_no_raw or "").strip(),
+                    "driver": j.driver_raw_name or "",
+                    "dest": j.destination or "", "container": j.container_no or ""}
+
+        for j in s.exec(all_stmt).all():
+            if _daily_row_kind(j) != "job":
+                continue
+            has_cust = bool(j.customer_id or (j.customer_name_raw or "").strip()
+                            or (j.status_code or "").strip())
+            if not has_cust and not (j.destination or "").strip():
+                continue  # แถวไม่มีทั้งลูกค้า/ปลายทาง (เช่น เติมน้ำมันอย่างเดียว)
+            c = cust_map.get(j.customer_id) if j.customer_id else None
+            cname = (c.name if c else (j.customer_name_raw or j.status_code or "(ไม่ระบุ)")).strip() or "(ไม่ระบุ)"
+            rg = ready_by_cust.setdefault(cname, {
+                "name": cname, "no_price": [], "no_doc": [], "dup": []})
+            if (j.revenue_customer or 0) <= 0:
+                rg["no_price"].append(_sample(j))
+            if not ((j.doc_no or "").strip() or (j.invoice_no or "").strip()
+                    or (j.job_ref or "").strip() or (j.receive_inv_no or "").strip()):
+                rg["no_doc"].append(_sample(j))
+            if (j.container_no or "").strip():
+                k = (j.work_date, (j.plate_no_raw or "").strip(), j.container_no.strip())
+                _dup_key_rows.setdefault(k, []).append((cname, _sample(j)))
+        for k, lst in _dup_key_rows.items():
+            if len(lst) > 1:
+                for cname, smp in lst:
+                    ready_by_cust[cname]["dup"].append(smp)
+        ready_issues = sorted(
+            (g for g in ready_by_cust.values()
+             if g["no_price"] or g["no_doc"] or g["dup"]),
+            key=lambda g: -(len(g["no_price"]) + len(g["no_doc"]) + len(g["dup"])))
+
     current_billing_month = f"{today.year:04d}-{today.month:02d}"
     ctx = base_context(request)
     ctx.update({
@@ -7676,6 +7724,7 @@ def billing_page(
         "customers": customers,
         "summary": summary,
         "current_billing_month": current_billing_month,
+        "ready_issues": ready_issues,
     })
     return templates.TemplateResponse("billing_page.html", ctx)
 
@@ -10154,6 +10203,25 @@ _TH_MONTH_FULL = ("", "มกราคม", "กุมภาพันธ์", "�
                   "พฤศจิกายน", "ธันวาคม")
 
 
+def _daily_row_kind(r) -> str:
+    """แยกชนิดแถวเดลี่ (ตรรกะเดียวกับ payroll _count_work_days — ใช้ร่วม
+    ปฏิทินรถ B4 + เช็คก่อนวางบิล C1): 'job' วิ่งงาน / 'idle' รถจอด-รองาน /
+    'leave' ลา-ขาด-ป่วย / 'repair' ซ่อม-อุบัติเหตุ."""
+    stat_blob = f"{r.status_code or ''} {r.leave_status or ''}".strip().lower()
+    toks = {t for t in re.split(r"[\s/,;()\[\]\-_.]+", stat_blob) if t}
+    if (
+        bool((r.leave_status or "").strip())
+        or "ลาหยุด" in (r.destination or "")
+        or toks & {"ลา", "ขาด", "ป่วย", "ลากิจ", "ลาป่วย", "หยุด", "leave"}
+    ):
+        return "leave"
+    if "ซ่อม" in stat_blob or "อุบัติเหตุ" in stat_blob:
+        return "repair"
+    if toks & {"รถจอด", "รองาน", "ไม่มีงาน", "idle"}:
+        return "idle"
+    return "job"
+
+
 def _cal_month_bounds(month: str) -> tuple[date, date]:
     from calendar import monthrange
     try:
@@ -10252,21 +10320,11 @@ def fleet_calendar(request: Request, site: str = "LCB", month: str = ""):
     for plan, line in plan_rows:
         _add_busy(plan.plan_date, line.vehicle_id, line.plate_raw,
                   line.job_type, line.driver_raw, "แผนงาน")
-    # แยกชนิดแถวเดลี่แบบเดียวกับ payroll (_count_work_days): status_code เป็นชื่อ
-    # ลูกค้า = วิ่งงาน, "รถจอด/รองาน/ไม่มีงาน" = ว่าง, "ลา/ขาด/ป่วย" = ลา,
-    # "ซ่อม/อุบัติเหตุ" = ซ่อม (นับเฉพาะวันนั้น)
-    import re as _re_cal
     _daily_leave: dict[date, list[dict]] = {}
     daily_repair: dict[date, dict[int, str]] = {}   # d -> {vehicle_id: เหตุ}
     for r in djs:
-        stat_blob = f"{r.status_code or ''} {r.leave_status or ''}".strip().lower()
-        toks = {t for t in _re_cal.split(r"[\s/,;()\[\]\-_.]+", stat_blob) if t}
-        is_leave = (
-            bool((r.leave_status or "").strip())
-            or "ลาหยุด" in (r.destination or "")
-            or toks & {"ลา", "ขาด", "ป่วย", "ลากิจ", "ลาป่วย", "หยุด", "leave"}
-        )
-        if is_leave:
+        kind = _daily_row_kind(r)
+        if kind == "leave":
             _daily_leave.setdefault(r.work_date, []).append({
                 "driver_id": r.driver_id,
                 "name": r.driver_raw_name or "",
@@ -10276,11 +10334,11 @@ def fleet_calendar(request: Request, site: str = "LCB", month: str = ""):
             continue
         vid = r.head_vehicle_id if r.head_vehicle_id in vids \
             else plate2vid.get((r.plate_no_raw or "").strip())
-        if "ซ่อม" in stat_blob or "อุบัติเหตุ" in stat_blob:
+        if kind == "repair":
             if vid in vids:
                 daily_repair.setdefault(r.work_date, {})[vid] = r.status_code
             continue
-        if toks & {"รถจอด", "รองาน", "ไม่มีงาน", "idle"}:
+        if kind == "idle":
             continue  # รถจอดว่าง — ไม่ใช่งานจอง
         if vid is None and not (r.plate_no_raw or "").strip():
             continue  # แถวไม่มีรถ (office/อื่นๆ) ไม่เกี่ยวกำลังรถ

@@ -63,6 +63,52 @@
   * นับเฉพาะ DailyJob ที่ <code>revenue_customer &gt; 0</code> · รวมค่าใช้จ่ายอื่น (LCB: lift/yard/clean/shore/port/weighing/mflow/pickup_return/special/ot) ผูกกับ job นั้น
 </p>
 
+{# ---- C1: พร้อมวางบิล? — ตรวจความครบของเดลี่ก่อนออกบิล ---- #}
+{% if ready_issues %}
+<div class="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3">
+  <div class="font-semibold text-amber-800 mb-2">⚠️ ยังไม่พร้อมวางบิล — เดลี่ในช่วงนี้มีแถวไม่ครบ {{ ready_issues|length }} ลูกค้า</div>
+  <div class="space-y-2">
+    {% for g in ready_issues %}
+    <details class="bg-white rounded border border-amber-200"
+             {% if loop.first %}open{% endif %}>
+      <summary class="cursor-pointer px-3 py-2 text-sm flex flex-wrap gap-2 items-center"
+               data-ready="{{ g.name }}" data-noprice="{{ g.no_price|length }}" data-nodoc="{{ g.no_doc|length }}" data-dup="{{ g.dup|length }}">
+        <span class="font-semibold">{{ g.name }}</span>
+        {% if g.no_price %}<span class="px-2 py-0.5 rounded text-xs bg-rose-100 text-rose-700">ราคาว่าง {{ g.no_price|length }}</span>{% endif %}
+        {% if g.no_doc %}<span class="px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-700">ไม่มีเลขใบงาน {{ g.no_doc|length }}</span>{% endif %}
+        {% if g.dup %}<span class="px-2 py-0.5 rounded text-xs bg-purple-100 text-purple-700">ตู้ซ้ำ {{ g.dup|length }}</span>{% endif %}
+      </summary>
+      <div class="px-3 pb-3 text-xs space-y-2">
+        {% for label, cls, items in [("ราคาว่าง", "text-rose-700", g.no_price), ("ไม่มีเลขใบงาน", "text-amber-700", g.no_doc), ("ซ้ำ วัน+ทะเบียน+ตู้", "text-purple-700", g.dup)] %}
+        {% if items %}
+        <div>
+          <div class="font-semibold {{ cls }} mb-0.5">{{ label }} ({{ items|length }})</div>
+          {% for it in items[:15] %}
+          <div class="py-0.5 border-b border-slate-50">
+            <a class="text-indigo-600 hover:underline"
+               href="/daily?site={{ it.site }}&d_from={{ it.work_date }}&d_to={{ it.work_date }}&q={{ it.plate or it.driver }}">
+              {{ it.work_date | dmy }} · {{ it.plate or '—' }}</a>
+            {% if it.driver %} · {{ it.driver }}{% endif %}
+            {% if it.dest %} · {{ it.dest }}{% endif %}
+            {% if it.container %} · ตู้ {{ it.container }}{% endif %}
+            <span class="text-slate-400">→ คลิกไปแก้ใน grid</span>
+          </div>
+          {% endfor %}
+          {% if items|length > 15 %}<div class="text-slate-400">… อีก {{ items|length - 15 }} แถว</div>{% endif %}
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<div class="mb-4 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800">
+  ✅ พร้อมวางบิล — เดลี่ทุกแถวงานจริงในช่วงนี้มีราคา เลขใบงานครบ และไม่มีตู้ซ้ำ
+</div>
+{% endif %}
+
 {% for g in groups %}
   <div class="bg-white border rounded-lg mb-4">
     <div class="px-4 py-2 border-b flex justify-between items-center">
