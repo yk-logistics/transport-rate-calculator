@@ -201,6 +201,16 @@
           const willOpen = panel.classList.contains('hidden');
           closeAll(m);
           panel.classList.toggle('hidden', !willOpen);
+          // มือถือ: แถวเมนูพับบรรทัด ปุ่มที่ panel ชิดขวา (right-0) อาจตกมาอยู่
+          // ซ้ายของจอ → กล่องกางหลุดขอบ; เปิดแล้วดันกล่องกลับเข้าจอเสมอ (ทั้งสองข้าง)
+          panel.style.transform = '';
+          if (willOpen) {
+            const r = panel.getBoundingClientRect();
+            let dx = 0;
+            if (r.left < 8) dx = 8 - r.left;
+            else if (r.right > window.innerWidth - 8) dx = (window.innerWidth - 8) - r.right;
+            if (dx) panel.style.transform = 'translateX(' + dx + 'px)';
+          }
         });
       });
       document.addEventListener('click', () => closeAll(null));
