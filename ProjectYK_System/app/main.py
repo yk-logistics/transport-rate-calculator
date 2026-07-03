@@ -3974,6 +3974,8 @@ def payroll_adjustment_cancel(adj_id: int, request: Request, run_id: str = Form(
             raise HTTPException(404)
         if a.status != "pending":
             raise HTTPException(409, "รายการถูกดูดเข้ารอบแล้ว — ยกเลิกไม่ได้")
+        audit_log(s, request, "payadjustment", a.id, "status", "pending", "cancelled",
+                  note=f"emp {a.employee_id} จำนวน {a.amount}")
         a.status = "cancelled"
         a.updated_at = datetime.utcnow()
         a.reason = (a.reason + f" [ยกเลิกโดย {(u.username if u else '?')}]").strip()
@@ -6199,15 +6201,19 @@ async def rate_create(request: Request):
         _apply_rate_form(card, form)
         card.source = "manual"
         s.add(card)
+        audit_log(s, request, "ratecard", 0, "create", "",
+                  f"{card.kind} {card.site_code}/{card.destination} = {card.rate_value}")
         s.commit()
     return RedirectResponse("/rates", status_code=303)
 
 
 @app.post("/rates/{card_id}/delete")
-def rate_delete(card_id: int):
+def rate_delete(card_id: int, request: Request):
     with Session(engine) as s:
         card = s.get(RateCard, card_id)
         if card is not None:
+            audit_log(s, request, "ratecard", card_id, "delete",
+                      f"{card.kind} {card.site_code}/{card.destination} = {card.rate_value}", "")
             s.delete(card)
             s.commit()
     return RedirectResponse("/rates", status_code=303)
@@ -6220,10 +6226,14 @@ async def rate_update(request: Request, card_id: int):
         card = s.get(RateCard, card_id)
         if card is None:
             return RedirectResponse("/rates", status_code=303)
+        old_value = card.rate_value
         _apply_rate_form(card, form)
         if card.source == "auto" and (form.get("promote_to_manual") or "") == "on":
             card.source = "manual"
             card.priority = max(card.priority, 1)
+        if card.rate_value != old_value:
+            audit_log(s, request, "ratecard", card_id, "rate_value", old_value,
+                      card.rate_value, note=f"{card.kind} {card.site_code}/{card.destination}")
         s.add(card)
         s.commit()
     return RedirectResponse("/rates", status_code=303)
