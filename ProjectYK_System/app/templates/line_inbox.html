@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}กล่องงานเข้า (ไลน์){% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-xl font-bold">📥 กล่องงานเข้าจากกลุ่มลูกค้า</h1>
+  <div class="flex gap-2 text-sm">
+    <a href="/line" class="border px-3 py-1.5 rounded bg-white hover:bg-slate-50">💬 ค้นแชท</a>
+    <a href="/line/digest" class="border px-3 py-1.5 rounded bg-white hover:bg-slate-50">🌅 สรุปรายวัน</a>
+  </div>
+</div>
+
+<div class="mb-3 text-sm text-slate-500">
+  ระบบสแกนข้อความกลุ่มที่ mark เป็น "ลูกค้า" หาแววสั่งงาน (เลขตู้ / เข้า-โหลด-ส่ง + วันเวลา)
+  — <b>ระบบไม่สร้างงานเอง</b> คนกด "รับเป็นงาน" (เปิดหน้าแผนงาน) หรือ "ไม่ใช่งาน" (ไม่โผล่ซ้ำ)
+</div>
+
+{% if error %}<div class="bg-amber-50 border border-amber-300 text-amber-800 rounded p-3 text-sm mb-4">⚠️ {{ error }}</div>{% endif %}
+
+<form method="get" class="mb-4 flex gap-2 items-center text-sm">
+  <select name="days" class="border rounded px-2 py-1.5" onchange="this.form.submit()">
+    {% for d in [3, 7, 14, 30] %}<option value="{{ d }}" {% if days==d %}selected{% endif %}>ย้อนหลัง {{ d }} วัน</option>{% endfor %}
+  </select>
+  <span class="text-xs text-slate-400">จัดการแล้ว {{ n_seen }} ข้อความ (ไม่โผล่ซ้ำ)</span>
+</form>
+
+<div class="bg-white rounded-lg border mb-6">
+  <div class="px-4 py-2 font-semibold text-sm border-b bg-slate-50">🕯️ Candidate งานเข้า ({{ candidates | length }})</div>
+  <div class="divide-y divide-slate-100">
+    {% for c in candidates %}
+    <div class="p-3 flex flex-wrap gap-3 items-start hover:bg-slate-50">
+      <div class="flex-1 min-w-[280px]">
+        <div class="text-xs text-slate-500 mb-1">
+          <b class="text-slate-700">{{ c.group_name }}</b>
+          {% if c.customer_name %}<span class="bg-indigo-100 text-indigo-700 rounded px-1.5">{{ c.customer_name }}</span>{% endif %}
+          · {{ c.who }} · <span class="font-mono">{{ c.sent_at }}</span>
+          · คะแนน {{ c.score }}
+          {% if c.containers %}<span class="bg-emerald-100 text-emerald-700 rounded px-1.5">ตู้ {{ c.containers | join(', ') }}</span>{% endif %}
+        </div>
+        <div class="text-sm whitespace-pre-wrap">{{ c.text | truncate(400) }}</div>
+      </div>
+      <div class="flex gap-2 items-center">
+        <form method="post" action="/line/inbox/mark" class="flex gap-1 items-center">
+          <input type="hidden" name="msg_id" value="{{ c.msg_id }}">
+          <input type="hidden" name="action" value="accept">
+          <input type="hidden" name="site" value="{{ c.site_code }}">
+          <input type="date" name="work_date" value="{{ c.work_date }}" class="border rounded px-1 py-1 text-xs">
+          <button class="bg-emerald-600 text-white px-3 py-1.5 rounded text-sm hover:bg-emerald-500">✓ รับเป็นงาน</button>
+        </form>
+        <form method="post" action="/line/inbox/mark">
+          <input type="hidden" name="msg_id" value="{{ c.msg_id }}">
+          <input type="hidden" name="action" value="dismiss">
+          <button class="border px-3 py-1.5 rounded text-sm text-slate-500 hover:bg-slate-100">ไม่ใช่งาน</button>
+        </form>
+      </div>
+    </div>
+    {% else %}
+    <div class="px-4 py-8 text-center text-slate-400 text-sm">
+      ไม่มี candidate — ยัง mark กลุ่มลูกค้าไม่ครบ? (ตารางล่าง) หรือช่วงนี้ไม่มีข้อความเข้าเงื่อนไข
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<details class="bg-white rounded-lg border p-4" {% if candidates | length == 0 %}open{% endif %}>
+  <summary class="font-semibold text-sm cursor-pointer">⚙️ ตั้งชนิดกลุ่ม (กลุ่มไหนคือลูกค้า)</summary>
+  <div class="overflow-x-auto mt-3">
+    <table class="w-full text-xs">
+      <thead class="bg-slate-50 text-slate-600"><tr>
+        <th class="px-2 py-1 text-left">กลุ่ม</th><th class="px-2 py-1 text-left">ชนิด</th>
+        <th class="px-2 py-1 text-left">ลูกค้า</th><th class="px-2 py-1 text-left">ไซท์</th><th></th>
+      </tr></thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for g in groups %}
+        {# form อยู่นอก tr (HTML ห้าม form คร่อม td) — input ผูกด้วย form="..." #}
+        <tr class="{% if g.kind == 'customer' %}bg-indigo-50/50{% endif %}">
+          <td class="px-2 py-1.5">{{ g.name }}
+            <form id="gm-{{ loop.index }}" method="post" action="/line/inbox/map" class="hidden">
+              <input type="hidden" name="group_id" value="{{ g.group_id }}">
+              <input type="hidden" name="label" value="{{ g.name }}">
+            </form></td>
+          <td class="px-2 py-1.5">
+            <select name="kind" form="gm-{{ loop.index }}" class="border rounded px-1 py-0.5">
+              {% for k, v in [('other','—'),('customer','ลูกค้า'),('station','ปั๊ม/น้ำมัน'),('internal','ภายใน')] %}
+              <option value="{{ k }}" {% if g.kind==k %}selected{% endif %}>{{ v }}</option>
+              {% endfor %}
+            </select></td>
+          <td class="px-2 py-1.5"><input name="customer_name" form="gm-{{ loop.index }}" value="{{ g.customer_name }}" placeholder="เช่น KLND" class="border rounded px-1 py-0.5 w-24"></td>
+          <td class="px-2 py-1.5">
+            <select name="site_code" form="gm-{{ loop.index }}" class="border rounded px-1 py-0.5">
+              <option value="">—</option>
+              {% for sc in ['LCB','AYU','BIGC'] %}<option value="{{ sc }}" {% if g.site_code==sc %}selected{% endif %}>{{ sc }}</option>{% endfor %}
+            </select></td>
+          <td class="px-2 py-1.5"><button form="gm-{{ loop.index }}" class="text-indigo-600 underline">บันทึก</button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</details>
+
+{% endblock %}

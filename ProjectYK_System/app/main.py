@@ -94,7 +94,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 39  # v39: PartPermission (P1 สิทธิ์รายชิ้นส่วน); v38: DebtAccount (D2); v37: AuditLog (P2) — create_all ทั้งหมด ไม่ต้อง ALTER
+SCHEMA_VERSION = 40  # v40: LineGroupMap+LineJobSeen (F2); v39: PartPermission (P1); v38: DebtAccount (D2); v37: AuditLog (P2) — create_all ทั้งหมด ไม่ต้อง ALTER
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -9225,6 +9225,94 @@ def line_digest(request: Request, d: str = ""):
             error = f"อ่านคลังแชทไม่สำเร็จ: {e}"
     ctx.update({"day": day, "data": data, "error": error})
     return templates.TemplateResponse("line_digest.html", ctx)
+
+
+@app.get("/line/inbox", response_class=HTMLResponse)
+def line_inbox(request: Request, days: int = 7):
+    """F2: กล่องงานเข้าจากกลุ่มลูกค้า — candidate จาก pattern, คนกดรับ/ปัดเสมอ."""
+    from services import line_archive as la
+    from services import line_inbox as li
+
+    days = max(1, min(days, 30))
+    ctx = base_context(request)
+    error, candidates = None, []
+    with Session(engine) as s:
+        maps = {m.group_id: m for m in s.exec(select(models.LineGroupMap)).all()}
+        seen = {v.line_message_pk: v.status
+                for v in s.exec(select(models.LineJobSeen)).all()}
+    groups: list = []
+    if la.db_path() is None:
+        error = "ไม่พบคลังแชทบนเครื่องนี้ (line_archive.db) — ใช้ได้บนเครื่อง server"
+    else:
+        try:
+            groups = la.groups_by_activity()
+            cust_ids = [g["group_id"] for g in groups
+                        if maps.get(g["group_id"])
+                        and maps[g["group_id"]].kind == "customer"
+                        and maps[g["group_id"]].active]
+            candidates = li.scan_candidates(cust_ids, days=days,
+                                            exclude_ids=set(seen))
+            for c in candidates:
+                mp = maps.get(c["group_id"])
+                c["customer_name"] = mp.customer_name if mp else ""
+                c["site_code"] = (mp.site_code if mp else "") or "LCB"
+        except Exception as e:
+            error = f"อ่านคลังแชทไม่สำเร็จ: {e}"
+    for g in groups:
+        mp = maps.get(g["group_id"])
+        g["kind"] = mp.kind if mp else ""
+        g["customer_name"] = mp.customer_name if mp else ""
+        g["site_code"] = mp.site_code if mp else ""
+    ctx.update({"groups": groups, "candidates": candidates, "days": days,
+                "error": error, "n_seen": len(seen)})
+    return templates.TemplateResponse("line_inbox.html", ctx)
+
+
+@app.post("/line/inbox/map")
+def line_inbox_map(request: Request, group_id: str = Form(...), label: str = Form(""),
+                   kind: str = Form("other"), customer_name: str = Form(""),
+                   site_code: str = Form("")):
+    """ตั้งชนิดกลุ่ม (ลูกค้า/ปั๊ม/ภายใน) — เก็บฝั่ง app.db ไม่แตะ DB archiver."""
+    if kind not in ("customer", "station", "internal", "other"):
+        raise HTTPException(400, "ชนิดกลุ่มไม่ถูกต้อง")
+    with Session(engine) as s:
+        m = s.exec(select(models.LineGroupMap)
+                   .where(models.LineGroupMap.group_id == group_id.strip())).first()
+        if m is None:
+            m = models.LineGroupMap(group_id=group_id.strip())
+        m.label = label.strip() or m.label
+        m.kind = kind
+        m.customer_name = customer_name.strip()
+        m.site_code = site_code.strip().upper()
+        m.updated_at = datetime.utcnow()
+        s.add(m)
+        s.commit()
+    return RedirectResponse("/line/inbox", status_code=303)
+
+
+@app.post("/line/inbox/mark")
+def line_inbox_mark(request: Request, msg_id: int = Form(...),
+                    action: str = Form(...), site: str = Form("LCB"),
+                    work_date: str = Form("")):
+    """รับเป็นงาน (accepted → เปิด planner prefill) หรือ ไม่ใช่งาน (dismissed) — กันเด้งซ้ำ."""
+    if action not in ("accept", "dismiss"):
+        raise HTTPException(400, "action ไม่ถูกต้อง")
+    u = current_user(request)
+    with Session(engine) as s:
+        existing = s.exec(select(models.LineJobSeen)
+                          .where(models.LineJobSeen.line_message_pk == msg_id)).first()
+        if existing is None:
+            s.add(models.LineJobSeen(
+                line_message_pk=msg_id,
+                status="accepted" if action == "accept" else "dismissed",
+                by_user=u.username if u else ""))
+            s.commit()
+    if action == "accept":
+        q = f"site={site.strip().upper() or 'LCB'}"
+        if work_date.strip():
+            q += f"&plan_date={work_date.strip()}"
+        return RedirectResponse(f"/dispatch/planner/new?{q}", status_code=303)
+    return RedirectResponse("/line/inbox", status_code=303)
 
 
 @app.get("/line/media/{msg_id}")

@@ -1438,6 +1438,28 @@ class DepositAudit(SQLModel, table=True):
     reason: str = ""
 
 
+class LineGroupMap(SQLModel, table=True):
+    """F2 (v40): จับคู่กลุ่มไลน์ ↔ ลูกค้า/ไซท์/ชนิด — เก็บฝั่ง app.db เท่านั้น
+    (**ห้ามเขียน line_archive.db ของ service 8020**)."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    group_id: str = Field(index=True, unique=True)
+    label: str = ""                 # ชื่อกลุ่ม snapshot ไว้อ่านง่าย
+    kind: str = "other"             # customer | station | internal | other
+    customer_name: str = ""         # ลูกค้าที่กลุ่มนี้เป็นของ (ถ้า kind=customer)
+    site_code: str = ""
+    active: bool = True
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class LineJobSeen(SQLModel, table=True):
+    """F2 (v40): ข้อความที่กดรับเป็นงาน/ไม่ใช่งานแล้ว — กันเด้งซ้ำใน inbox."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    line_message_pk: int = Field(index=True, unique=True)  # line_message.id ใน archive
+    status: str = ""                # accepted | dismissed
+    by_user: str = ""
+    at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class PartPermission(SQLModel, table=True):
     """P1 (v39): สิทธิ์ระดับ "ชิ้นส่วนในหน้า" ละเอียดกว่าเมนู — โอปรับเองที่ /admin/permissions.
 
