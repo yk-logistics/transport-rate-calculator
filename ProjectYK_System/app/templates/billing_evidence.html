@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}ชุดหลักฐานวางบิล{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-xl font-bold">🗂️ ชุดหลักฐานวางบิล (รูปผูกเดลี่)</h1>
+  <div class="flex gap-2 text-sm">
+    <a href="/line/pod" class="border px-3 py-1.5 rounded bg-white hover:bg-slate-50">📎 ไปผูกรูป</a>
+    <a href="/billing/invoice" class="border px-3 py-1.5 rounded bg-white hover:bg-slate-50">🧾 ออกใบวางบิล</a>
+  </div>
+</div>
+
+<form method="get" class="flex gap-2 mb-4 flex-wrap items-center text-sm">
+  <select name="series" class="border rounded px-2 py-1.5">
+    <option value="">— เลือกลูกค้า —</option>
+    {% for k, c in registry.items() %}
+    <option value="{{ k }}" {% if series==k %}selected{% endif %}>{{ c.label }}</option>
+    {% endfor %}
+  </select>
+  <input type="month" name="month" value="{{ month }}" class="border rounded px-2 py-1.5">
+  <button class="bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-500">ดู</button>
+  {% if cfg and n_media %}
+  <a href="/billing/evidence?series={{ series }}&month={{ month }}&download=zip"
+     class="bg-emerald-600 text-white px-3 py-1.5 rounded hover:bg-emerald-500">⬇️ ZIP รูปทั้งชุด ({{ n_media }})</a>
+  {% endif %}
+</form>
+
+{% if cfg %}
+<div class="bg-white rounded-lg border overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-600 text-xs uppercase"><tr>
+      <th class="px-3 py-2 text-left">วันที่</th>
+      <th class="px-3 py-2 text-left">เลขใบ</th>
+      <th class="px-3 py-2 text-left">ตู้</th>
+      <th class="px-3 py-2 text-left">ทะเบียน</th>
+      <th class="px-3 py-2 text-left">ปลายทาง</th>
+      <th class="px-3 py-2 text-left">รูปหลักฐาน</th>
+    </tr></thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for r in rows %}
+      <tr class="hover:bg-slate-50 {% if not r.media_ids %}bg-amber-50/40{% endif %}">
+        <td class="px-3 py-1.5">{{ r.job.work_date | dmy }}</td>
+        <td class="px-3 py-1.5 font-mono">{{ r.job.invoice_no or '—' }}</td>
+        <td class="px-3 py-1.5 font-mono">{{ r.job.container_no or '—' }}</td>
+        <td class="px-3 py-1.5 font-mono">{{ r.job.plate_no_raw }}</td>
+        <td class="px-3 py-1.5">{{ (r.job.destination or r.job.pickup_location) | truncate(28) }}</td>
+        <td class="px-3 py-1.5">
+          {% for mid in r.media_ids %}
+          <a href="/line/media/{{ mid }}" target="_blank">
+            <img src="/line/media/{{ mid }}" class="inline-block h-10 rounded border" alt="รูป"></a>
+          {% else %}<span class="text-amber-600 text-xs">ยังไม่มีรูป</span>{% endfor %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="px-4 py-8 text-center text-slate-400">ไม่มีแถวเดลี่ของลูกค้านี้ในเดือนนี้</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="text-xs text-slate-400 mt-2">แถวเหลือง = ยังไม่มีรูปหลักฐาน — ไปผูกที่ 📎 หรือรอทีมส่งรูปเข้ากลุ่ม</div>
+{% endif %}
+
+{% endblock %}

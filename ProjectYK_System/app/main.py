@@ -94,7 +94,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 40  # v40: LineGroupMap+LineJobSeen (F2); v39: PartPermission (P1); v38: DebtAccount (D2); v37: AuditLog (P2) — create_all ทั้งหมด ไม่ต้อง ALTER
+SCHEMA_VERSION = 41  # v41: JobMedia (F3); v40: LineGroupMap+LineJobSeen (F2); v39: PartPermission (P1); v38: DebtAccount (D2); v37: AuditLog (P2) — create_all ทั้งหมด ไม่ต้อง ALTER
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -9313,6 +9313,129 @@ def line_inbox_mark(request: Request, msg_id: int = Form(...),
             q += f"&plan_date={work_date.strip()}"
         return RedirectResponse(f"/dispatch/planner/new?{q}", status_code=303)
     return RedirectResponse("/line/inbox", status_code=303)
+
+
+@app.get("/line/pod", response_class=HTMLResponse)
+def line_pod(request: Request, days: int = 7):
+    """F3: รีวิวผูกรูปจากกลุ่มลูกค้าเข้ากับแถวเดลี่ (POD) — คนยืนยันเสมอ."""
+    from services import line_archive as la
+    from services import line_pod as lp
+
+    days = max(1, min(days, 30))
+    ctx = base_context(request)
+    error, cards = None, []
+    with Session(engine) as s:
+        maps = {m.group_id: m for m in s.exec(
+            select(models.LineGroupMap)
+            .where(models.LineGroupMap.kind == "customer",
+                   models.LineGroupMap.active == True)).all()}  # noqa: E712
+        seen = {jm.line_message_pk for jm in s.exec(select(models.JobMedia)).all()}
+        if la.db_path() is None:
+            error = "ไม่พบคลังแชทบนเครื่องนี้ (line_archive.db) — ใช้ได้บนเครื่อง server"
+        else:
+            try:
+                cands = lp.photo_candidates(list(maps), days=days, exclude_ids=seen)
+                for c in cands:
+                    mp = maps.get(c["group_id"])
+                    codes = tuple(x.strip() for x in
+                                  (mp.customer_name or "").split(",") if x.strip()) if mp else ()
+                    c["matches"] = lp.match_daily_jobs(s, c, codes)
+                    cards.append(c)
+            except Exception as e:
+                error = f"อ่านคลังแชทไม่สำเร็จ: {e}"
+    n_linked = 0
+    with Session(engine) as s:
+        n_linked = len(s.exec(select(models.JobMedia)
+                              .where(models.JobMedia.status == "linked")).all())
+    ctx.update({"cards": cards, "days": days, "error": error, "n_linked": n_linked})
+    return templates.TemplateResponse("line_pod.html", ctx)
+
+
+@app.post("/line/pod/mark")
+def line_pod_mark(request: Request, msg_id: int = Form(...), action: str = Form(...),
+                  job_id: str = Form("")):
+    """ผูกรูปกับแถวเดลี่ (link) หรือข้าม (skip) — unique ต่อรูป กันซ้ำ."""
+    if action not in ("link", "skip"):
+        raise HTTPException(400, "action ไม่ถูกต้อง")
+    u = current_user(request)
+    with Session(engine) as s:
+        existing = s.exec(select(models.JobMedia)
+                          .where(models.JobMedia.line_message_pk == msg_id)).first()
+        if existing is None:
+            jid = _parse_int(job_id) if action == "link" else None
+            if action == "link" and not jid:
+                raise HTTPException(400, "เลือกแถวงานก่อน")
+            if jid and s.get(DailyJob, jid) is None:
+                raise HTTPException(404, "ไม่พบแถวเดลี่")
+            s.add(models.JobMedia(
+                line_message_pk=msg_id, daily_job_id=jid,
+                status="linked" if action == "link" else "skipped",
+                by_user=u.username if u else ""))
+            s.commit()
+    return RedirectResponse("/line/pod", status_code=303)
+
+
+@app.get("/billing/evidence")
+def billing_evidence(request: Request, series: str = "", month: str = "",
+                     download: str = ""):
+    """F3: ชุดหลักฐานต่อลูกค้า+เดือน — แถวเดลี่ + รูปที่ผูกแล้ว; download=zip ได้."""
+    from services import invoice_builder as ib
+    from services import line_archive as la
+
+    today = date.today()
+    if not month:
+        month = f"{today.year:04d}-{today.month:02d}"
+    try:
+        y, m = [int(x) for x in month.split("-")]
+        d1, d2 = _month_bounds(y, m)
+    except ValueError:
+        y, m = today.year, today.month
+        d1, d2 = _month_bounds(y, m)
+        month = f"{y:04d}-{m:02d}"
+
+    rows, media_by_job = [], {}
+    cfg = ib.REGISTRY.get(series)
+    if cfg:
+        with Session(engine) as s:
+            billed, unbilled = ib.daily_rows_for_series(s, cfg, d1, d2)
+            jobs = [j for js in billed.values() for j in js] + unbilled
+            job_ids = [j.id for j in jobs]
+            if job_ids:
+                for jm in s.exec(select(models.JobMedia).where(
+                        models.JobMedia.status == "linked",
+                        models.JobMedia.daily_job_id.in_(job_ids))).all():  # type: ignore[union-attr]
+                    media_by_job.setdefault(jm.daily_job_id, []).append(jm.line_message_pk)
+            rows = [{"job": j, "media_ids": media_by_job.get(j.id, [])} for j in jobs]
+
+    if download == "zip" and cfg:
+        import io as _io
+        import zipfile
+        buf = _io.BytesIO()
+        n_files = 0
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for r in rows:
+                j = r["job"]
+                for msg_id in r["media_ids"]:
+                    p = la.media_file(msg_id)
+                    if p is None:
+                        continue
+                    label = j.invoice_no or f"job{j.id}"
+                    zf.writestr(f"{label}/{j.work_date}_{j.container_no or j.id}_{msg_id}{p.suffix}",
+                                p.read_bytes())
+                    n_files += 1
+        if n_files == 0:
+            raise HTTPException(404, "ยังไม่มีรูปที่ผูกไว้ในช่วงนี้ — ไปผูกที่ /line/pod ก่อน")
+        from urllib.parse import quote as _urlquote
+        fname = f"หลักฐาน_{series}_{month}.zip"
+        return Response(buf.getvalue(), media_type="application/zip",
+                        headers={"Content-Disposition":
+                                 f"attachment; filename*=UTF-8''{_urlquote(fname)}"})
+
+    ctx = base_context(request)
+    ctx.update({"series": series, "month": month, "cfg": cfg,
+                "registry": ib.REGISTRY, "rows": rows,
+                "n_media": sum(len(r["media_ids"]) for r in rows)})
+    return templates.TemplateResponse("billing_evidence.html", ctx)
 
 
 @app.get("/line/media/{msg_id}")

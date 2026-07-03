@@ -1460,6 +1460,20 @@ class LineJobSeen(SQLModel, table=True):
     at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class JobMedia(SQLModel, table=True):
+    """F3 (v41): รูปจากไลน์ผูกกับแถวเดลี่ (POD/หลักฐานวางบิล) — คนยืนยันเสมอ.
+
+    daily_job_id ว่าง + status=skipped = รูปที่คนกด "ข้าม" (ไม่เสนอซ้ำ).
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    line_message_pk: int = Field(index=True, unique=True)  # line_message.id ใน archive
+    daily_job_id: Optional[int] = Field(default=None, foreign_key="dailyjob.id", index=True)
+    kind: str = "pod"               # pod | doc | other
+    status: str = "linked"          # linked | skipped
+    by_user: str = ""
+    at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class PartPermission(SQLModel, table=True):
     """P1 (v39): สิทธิ์ระดับ "ชิ้นส่วนในหน้า" ละเอียดกว่าเมนู — โอปรับเองที่ /admin/permissions.
 

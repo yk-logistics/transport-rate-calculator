@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}ผูกรูปหลักฐาน (POD){% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-xl font-bold">📎 ผูกรูปหลักฐานเข้างาน (POD)</h1>
+  <div class="flex gap-2 text-sm">
+    <a href="/billing/evidence" class="border px-3 py-1.5 rounded bg-white hover:bg-slate-50">🗂️ ชุดหลักฐานวางบิล</a>
+    <a href="/line/inbox" class="border px-3 py-1.5 rounded bg-white hover:bg-slate-50">📥 กล่องงานเข้า</a>
+  </div>
+</div>
+
+<div class="mb-3 text-sm text-slate-500">
+  รูปจากกลุ่มลูกค้า (mark ที่กล่องงานเข้า) + ระบบเดางานจากเลขตู้/ทะเบียนในข้อความรอบรูป ±10 นาที
+  และวันวิ่ง ±1 วัน — <b>กดยืนยันเองทุกใบ</b>; ผูกแล้ว {{ n_linked }} รูป
+</div>
+
+{% if error %}<div class="bg-amber-50 border border-amber-300 text-amber-800 rounded p-3 text-sm mb-4">⚠️ {{ error }}</div>{% endif %}
+
+<form method="get" class="mb-4 flex gap-2 items-center text-sm">
+  <select name="days" class="border rounded px-2 py-1.5" onchange="this.form.submit()">
+    {% for d in [3, 7, 14, 30] %}<option value="{{ d }}" {% if days==d %}selected{% endif %}>ย้อนหลัง {{ d }} วัน</option>{% endfor %}
+  </select>
+</form>
+
+<div class="space-y-4">
+  {% for c in cards %}
+  <div class="bg-white rounded-lg border p-3 flex flex-wrap gap-4">
+    <div class="w-44">
+      <a href="/line/media/{{ c.msg_id }}" target="_blank">
+        <img src="/line/media/{{ c.msg_id }}" alt="รูป" class="rounded border max-h-40 object-cover w-full">
+      </a>
+      <div class="text-xs text-slate-500 mt-1">{{ c.group_name }}<br>{{ c.who }} · <span class="font-mono">{{ c.sent_at }}</span></div>
+      {% if c.containers %}<div class="text-xs mt-1"><span class="bg-emerald-100 text-emerald-700 rounded px-1">ตู้ {{ c.containers | join(', ') }}</span></div>{% endif %}
+      {% if c.plates %}<div class="text-xs mt-1"><span class="bg-sky-100 text-sky-700 rounded px-1">ทะเบียน {{ c.plates | join(', ') }}</span></div>{% endif %}
+    </div>
+    <div class="flex-1 min-w-[300px]">
+      <form method="post" action="/line/pod/mark">
+        <input type="hidden" name="msg_id" value="{{ c.msg_id }}">
+        <input type="hidden" name="action" value="link">
+        {% if c.matches %}
+        <table class="w-full text-xs mb-2">
+          <thead class="text-slate-500"><tr>
+            <th></th><th class="text-left py-1">วันที่</th><th class="text-left">ลูกค้า</th>
+            <th class="text-left">ตู้</th><th class="text-left">ทะเบียน</th>
+            <th class="text-left">ปลายทาง</th><th class="text-left">เลขใบ</th><th class="text-right">คะแนน</th>
+          </tr></thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for m in c.matches %}
+            <tr class="{% if loop.first %}bg-emerald-50{% endif %}">
+              <td class="py-1"><input type="radio" name="job_id" value="{{ m.job_id }}" {% if loop.first %}checked{% endif %}></td>
+              <td>{{ m.work_date | dmy }}</td>
+              <td>{{ m.customer }}</td>
+              <td class="font-mono">{{ m.container or '—' }}</td>
+              <td class="font-mono">{{ m.plate or '—' }}</td>
+              <td>{{ m.destination | truncate(24) }}</td>
+              <td class="font-mono">{{ m.invoice_no or '—' }}</td>
+              <td class="text-right font-semibold">{{ m.score }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <button class="bg-emerald-600 text-white px-3 py-1.5 rounded text-sm hover:bg-emerald-500">✓ ผูกกับแถวที่เลือก</button>
+        {% else %}
+        <div class="text-sm text-slate-400 mb-2">ไม่เจอแถวเดลี่เข้าเค้า (วัน ±1 + ตู้/ทะเบียน) — ข้ามหรือไปคีย์เดลี่ก่อน</div>
+        {% endif %}
+      </form>
+      <form method="post" action="/line/pod/mark" class="inline">
+        <input type="hidden" name="msg_id" value="{{ c.msg_id }}">
+        <input type="hidden" name="action" value="skip">
+        <button class="border px-3 py-1.5 rounded text-sm text-slate-500 hover:bg-slate-100 mt-1">ข้าม (ไม่ใช่หลักฐาน)</button>
+      </form>
+    </div>
+  </div>
+  {% else %}
+  <div class="bg-white rounded-lg border px-4 py-10 text-center text-slate-400 text-sm">
+    ไม่มีรูปรอรีวิว — ยัง mark กลุ่มลูกค้าไม่ครบ (📥 กล่องงานเข้า) หรือรีวิวหมดแล้ว
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}
