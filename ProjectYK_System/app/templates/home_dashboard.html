@@ -90,14 +90,36 @@
   </a>
   {% endif %}
 
-  {# ---- เงินหมุน (ผู้บริหาร) ---- #}
+  {# ---- เงินเข้า (AR) — ผู้บริหาร/บัญชี ---- #}
   {% if can_see(request, "/finance") %}
+  <a href="/finance/receivables" class="bg-white border rounded-xl p-4 hover:shadow-md transition block">
+    <div class="text-sm font-semibold mb-2">💵 เงินรอเข้า (ทะเบียนรับเช็ค)</div>
+    <div class="flex gap-6">
+      <div><div class="text-2xl font-bold font-mono {% if ar_overdue %}text-rose-600{% else %}text-slate-300{% endif %}">
+        {{ '{:,.0f}'.format(ar_overdue) if ar_overdue is not none else '—' }}</div>
+        <div class="text-xs text-slate-500">เลยกำหนดแล้ว</div></div>
+      <div><div class="text-2xl font-bold font-mono {% if ar_week %}text-emerald-700{% else %}text-slate-300{% endif %}">
+        {{ '{:,.0f}'.format(ar_week) if ar_week is not none else '—' }}</div>
+        <div class="text-xs text-slate-500">ครบกำหนดใน 7 วัน</div></div>
+    </div>
+    {% if ar_overdue is none %}<div class="text-xs text-slate-400 mt-2">— = อ่าน Drive ไม่ได้/ยังไม่เคยโหลด (ลองเปิดหน้ารอรับเงิน)</div>{% endif %}
+  </a>
+
+  {# ---- เงินหมุน (ผู้บริหาร) ---- #}
   <a href="/finance/cashflow" class="bg-white border rounded-xl p-4 hover:shadow-md transition block">
     <div class="text-sm font-semibold mb-2">💧 เงินหมุน 8 สัปดาห์</div>
     <div class="text-sm text-slate-500">ดูสัปดาห์ไหนตึง · เข้า (AR) − ออก (เงินเดือน/งวดหนี้)</div>
     <div class="text-xs text-slate-400 mt-2">อย่าลืมกรอกหนี้/วงเงิน + เงินสดตั้งต้น ให้เลขเป็นจริง</div>
   </a>
   {% endif %}
+
+  {# ---- น้ำมันผิดปกติ 7 วัน ---- #}
+  <a href="/fuel/anomaly" class="bg-white border rounded-xl p-4 hover:shadow-md transition block">
+    <div class="text-sm font-semibold mb-2">⛽🚩 น้ำมันผิดปกติ (7 วันหลังสุด)</div>
+    <div class="text-2xl font-bold font-mono {% if fuel_flags %}text-rose-600{% else %}text-emerald-600{% endif %}">
+      {{ fuel_flags if fuel_flags is not none else '—' }}</div>
+    <div class="text-xs text-slate-500 mt-1">เติมถี่ / ลิตรเกินถัง / เติมวันไม่มีงาน — คลิกดูรายงาน</div>
+  </a>
 
   {# ---- แผนงาน MVP (admin) ---- #}
   {% if can_see(request, "/admin/users") and plan %}

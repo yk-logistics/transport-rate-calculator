@@ -905,8 +905,34 @@ def base_context(request: Request) -> dict:
 
 
 # P5.2: หน้าแรก = การ์ดงานที่ต้องทำวันนี้ (การ์ดโชว์ตามสิทธิ์ role) — ต้องเร็ว:
-# query แบบ count เฉพาะช่วง + นับจาก line archive ผ่าน cache 5 นาที; ห้ามเรียก Drive
+# query แบบ count เฉพาะช่วง + นับจาก line archive ผ่าน cache 5 นาที;
+# AR จาก Drive = cache 10 นาที (พลาด/ช้า = โชว์ "—" ไม่บล็อกหน้า)
 _HOME_LINE_CACHE: dict = {"at": None, "inbox": None, "pod": None}
+_HOME_AR_CACHE: dict = {"at": None, "overdue": None, "week": None}
+
+
+def _home_ar_summary() -> dict:
+    from datetime import datetime as _dt
+
+    now = _dt.utcnow()
+    if _HOME_AR_CACHE["at"] and (now - _HOME_AR_CACHE["at"]).total_seconds() < 600:
+        return _HOME_AR_CACHE
+    overdue = week = None
+    try:
+        from services import receivables as ar
+        rows, _missing = ar.load_all()
+        with Session(engine) as s:
+            settled_keys = {a.inv_key for a in s.exec(select(ArSettle)).all()}
+        for r in rows:
+            key = f"{r['site']}:{r['inv']}" if r["inv"] else ""
+            if key and key in settled_keys:
+                r["received"] = True
+        summ = ar.summarize(rows)
+        overdue, week = summ["overdue_net"], summ["week_net"]
+    except Exception:
+        pass
+    _HOME_AR_CACHE.update({"at": now, "overdue": overdue, "week": week})
+    return _HOME_AR_CACHE
 
 
 def _home_line_counts(s: Session) -> dict:
@@ -973,6 +999,14 @@ def home(request: Request):
         pending_adj = len(s.exec(select(PayAdjustment).where(
             PayAdjustment.status == "pending")).all())
         line_counts = _home_line_counts(s)
+        # น้ำมันผิดปกติ 7 วันหลังสุด (สแกน local เร็ว)
+        try:
+            from services import fuel_anomaly as fa
+            fuel_flags = len(fa.scan(s, today - timedelta(days=7), today)["rows"])
+        except Exception:
+            fuel_flags = None
+    ar_sum = _home_ar_summary() if perm_check(u.role, "/finance", "GET") != "deny" \
+        else {"overdue": None, "week": None}
 
     # แผนงาน MVP % (อ่านไฟล์ — เร็ว)
     plan = None
@@ -991,6 +1025,8 @@ def home(request: Request):
         "sites": sites, "no_price": no_price, "runs": runs,
         "pending_adj": pending_adj, "plan": plan,
         "inbox_count": line_counts["inbox"], "pod_count": line_counts["pod"],
+        "fuel_flags": fuel_flags,
+        "ar_overdue": ar_sum["overdue"], "ar_week": ar_sum["week"],
         "today_d": today,
     })
     return templates.TemplateResponse("home_dashboard.html", ctx)
