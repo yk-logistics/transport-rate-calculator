@@ -8990,6 +8990,51 @@ async def api_billing_fill_price(request: Request):
         return {"ok": True, "value": j.revenue_customer}
 
 
+@app.post("/api/billing/fill-price-bulk")
+async def api_billing_fill_price_bulk(request: Request):
+    """รับเรทที่ระบบจำ "ทั้งชุดตามหน้าที่เห็น" (site+month) — ตัด 700 คลิกเหลือคลิกเดียว.
+
+    server ไล่หาแถวเอง (ไม่เชื่อ list จากหน้าเว็บ): เฉพาะแถวงานราคาว่าง + มีเรทจำ ณ ตอนกด;
+    ไม่ทับราคาเดิม; audit ต่อแถว (action=rate_apply_bulk) ย้อนดู/ย้อนแก้ได้เหมือนกดทีละแถว.
+    """
+    body = await request.json()
+    site = (body.get("site") or "").strip()
+    month = (body.get("month") or "").strip()
+    try:
+        y, m = [int(x) for x in month.split("-")]
+        d1, d2 = _month_bounds(y, m)
+    except (ValueError, AttributeError):
+        raise HTTPException(400, "month ไม่ถูกต้อง (YYYY-MM)")
+    u = current_user(request)
+    applied, skipped = 0, 0
+    with Session(engine) as s:
+        stmt = select(DailyJob).where(
+            DailyJob.work_date >= d1, DailyJob.work_date <= d2)
+        if site:
+            stmt = stmt.where(DailyJob.site_code == site)
+        jobs = [j for j in s.exec(stmt.order_by(DailyJob.work_date, DailyJob.id)).all()
+                if _daily_row_kind(j) == "job" and not (j.revenue_customer or 0)]
+        for j in jobs:
+            card = rate_find(s, "revenue_customer", _rate_ctx_from_daily(s, j))
+            if card is None:
+                skipped += 1
+                continue
+            j.revenue_customer = float(card.rate_value)
+            j.updated_at = datetime.utcnow()
+            card.use_count += 1
+            card.last_used_at = datetime.utcnow()
+            card.last_seen_job_id = j.id
+            s.add(models.DailyJobAudit(
+                daily_job_id=j.id, changed_by=(u.username if u else ""),
+                action="rate_apply_bulk", field_name="revenue_customer",
+                old_value="0", new_value=str(j.revenue_customer)))
+            s.add(j)
+            s.add(card)
+            applied += 1
+        s.commit()
+    return {"ok": True, "applied": applied, "no_rate": skipped}
+
+
 # =========================================================================
 # C2: ออกใบวางบิลจากระบบ /billing/invoice — เติมฟอร์ม xlsx จาก template ไฟล์จริง
 # (สำเนาใบจริงใน app/invoice_templates/) แถวตู้จากเดลี่; ช่องที่ DB ไม่มี

@@ -20,7 +20,18 @@
   <input type="month" name="month" value="{{ month }}" class="border rounded px-2 py-1.5">
   <button class="bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-500">ดู</button>
   <span class="text-xs text-slate-400">ราคาว่าง {{ rows | length }} แถว · มีเรทเสนอ {{ n_suggest }} แถว</span>
+  {% if n_suggest > 1 %}
+  <button type="button" onclick="applyAll(this)"
+          class="bg-emerald-700 text-white px-3 py-1.5 rounded hover:bg-emerald-600 font-semibold">
+    ⚡ รับเรทที่เสนอทั้งชุด ({{ n_suggest }} แถว)</button>
+  {% endif %}
 </form>
+{% if n_suggest > 1 %}
+<div class="mb-3 text-xs text-slate-400">
+  ปุ่ม "รับทั้งชุด" = กดรับแทนทีละแถวตามตารางด้านล่างเป๊ะๆ (เฉพาะแถวที่มีเรทเสนอ ไม่ทับราคาเดิม
+  จดประวัติทุกแถว) — <b>ไล่ดูเรทในตารางก่อนกด</b> แถวไหนไม่แน่ใจให้เว้นแล้วไปคีย์ใน grid เอง
+</div>
+{% endif %}
 
 <div class="bg-white rounded-lg border overflow-x-auto">
   <table class="w-full text-sm">
@@ -64,6 +75,30 @@
 </div>
 
 <script>
+async function applyAll(btn) {
+  if (!confirm('รับเรทที่เสนอทั้งชุดตามตาราง {{ n_suggest }} แถว?\n(เฉพาะแถวราคาว่างที่มีเรทเสนอ — ไม่ทับราคาเดิม จดประวัติทุกแถว)')) return;
+  btn.disabled = true;
+  btn.textContent = '⏳ กำลังเติม…';
+  try {
+    const r = await fetch('/api/billing/fill-price-bulk', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({site: {{ site | tojson }}, month: {{ month | tojson }}})});
+    const j = await r.json();
+    if (r.ok) {
+      alert('เติมแล้ว ' + j.applied + ' แถว' + (j.no_rate ? ' · ไม่มีเรทเสนอ ' + j.no_rate + ' แถว (เติมใน grid)' : ''));
+      location.reload();
+    } else {
+      alert(j.detail || 'ไม่สำเร็จ');
+      btn.disabled = false;
+      btn.textContent = '⚡ รับเรทที่เสนอทั้งชุด';
+    }
+  } catch (e) {
+    alert('เชื่อมต่อไม่ได้');
+    btn.disabled = false;
+    btn.textContent = '⚡ รับเรทที่เสนอทั้งชุด';
+  }
+}
+
 async function applyRate(jobId, btn) {
   btn.disabled = true;
   btn.textContent = '…';

@@ -80,3 +80,35 @@ def test_apply_no_match_409(client):
     assert r.status_code == 409
     with Session(engine) as s:
         assert s.get(DailyJob, jid).revenue_customer == 0.0
+
+
+def test_bulk_apply_only_suggested_rows(client):
+    """รับทั้งชุด: เติมเฉพาะแถวราคาว่างที่มีเรท, แถวไม่มีเรทข้าม, แถวมีราคาไม่แตะ, audit ต่อแถว."""
+    with Session(engine) as s:
+        # เพิ่มอีกแถวที่ match เรท — bulk ต้องเก็บ 2 แถวรวด
+        s.add(DailyJob(work_date=D, site_code="LCB", status_code="KAO",
+                       destination="CNC2", revenue_customer=0.0))
+        s.commit()
+    r = client.post("/api/billing/fill-price-bulk",
+                    json={"site": "LCB", "month": "2026-07"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["applied"] == 2 and body["no_rate"] == 1
+    with Session(engine) as s:
+        rows = s.exec(select(DailyJob)).all()
+        assert sorted(r_.revenue_customer for r_ in rows) == [0.0, 4900.0, 4900.0, 5000.0]
+        audits = s.exec(select(DailyJobAudit).where(
+            DailyJobAudit.action == "rate_apply_bulk")).all()
+        assert len(audits) == 2
+        assert all(a.new_value == "4900.0" for a in audits)
+        card = s.exec(select(RateCard)).first()
+        assert card.use_count == 2
+    # ยิงซ้ำ = ไม่มีอะไรให้เติมแล้ว (idempotent)
+    r = client.post("/api/billing/fill-price-bulk",
+                    json={"site": "LCB", "month": "2026-07"})
+    assert r.json()["applied"] == 0
+
+
+def test_bulk_bad_month_400(client):
+    assert client.post("/api/billing/fill-price-bulk",
+                       json={"site": "", "month": "ผิด"}).status_code == 400
