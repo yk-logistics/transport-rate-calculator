@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}ความสะอาดข้อมูล{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-xl font-bold">🧹 ความสะอาดข้อมูล</h1>
+  <div class="text-xs text-slate-400">ตอนนี้เช็คเลขใบวางบิลสกปรก · เกณฑ์อื่นดูที่แถบ "พร้อมวางบิล?" ใน Billing</div>
+</div>
+
+<div class="mb-3 text-sm text-slate-500">
+  เลขใบที่มีขยะติดท้าย (แท็บ/วันที่ปนมา — เคยทำระบบจับกลุ่มใบพลาด) —
+  ระบบเสนอค่าที่ล้างแล้วให้ดูก่อน กดยืนยันถึงแก้ (จดประวัติทุกแถว) ·
+  ที่คีย์ใหม่ในกริดระบบล้างให้อัตโนมัติแล้ว
+</div>
+
+{% if request.query_params.get('fixed') %}
+<div class="mb-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded p-3 text-sm">
+  ✅ ล้างแล้ว {{ request.query_params.get('fixed') }} แถว (ดูประวัติได้ใน audit ของแต่ละแถว)
+</div>
+{% endif %}
+
+{% if dirty %}
+<form method="post" action="/admin/data-clean/fix-invoices" class="mb-3"
+      onsubmit="return confirm('ล้างเลขใบ {{ dirty | length }} แถวตามคอลัมน์ หลังล้าง ?');">
+  <button class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-500 font-semibold">
+    🧹 ล้างทั้งหมด ({{ dirty | length }} แถว)</button>
+</form>
+<div class="bg-white rounded-lg border overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-600 text-xs uppercase"><tr>
+      <th class="px-3 py-2 text-left">วันที่</th>
+      <th class="px-3 py-2 text-left">ไซท์</th>
+      <th class="px-3 py-2 text-left">ก่อนล้าง (เห็นขยะ)</th>
+      <th class="px-3 py-2 text-left">หลังล้าง</th>
+    </tr></thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for d in dirty %}
+      <tr class="hover:bg-slate-50">
+        <td class="px-3 py-1.5">{{ d.date | dmy }}</td>
+        <td class="px-3 py-1.5">{{ d.site }}</td>
+        <td class="px-3 py-1.5 font-mono text-xs text-rose-600 whitespace-pre">{{ d.raw }}</td>
+        <td class="px-3 py-1.5 font-mono text-xs text-emerald-700">{{ d.fixed }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="bg-white rounded-lg border px-4 py-10 text-center text-slate-400">✅ เลขใบสะอาดทุกแถว</div>
+{% endif %}
+
+{% endblock %}

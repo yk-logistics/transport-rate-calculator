@@ -2154,6 +2154,10 @@ async def daily_grid_save(request: Request):
                         continue
                     row.invoice_date = parsed
                     continue
+                if key == "invoice_no":
+                    # กันเลขใบสกปรก (เคยเจอ 'KTIV2606-035\t19/6/2026' ทำจับกลุ่มพลาด)
+                    row.invoice_no = _normalize_invoice_no(str(val or ""))
+                    continue
                 if key == "fuel_date":
                     text = (str(val) if val is not None else "").strip()
                     if not text:
@@ -2214,6 +2218,56 @@ async def daily_grid_save(request: Request):
     return {"ok": True, "updated": updated, "saved_ids": saved_ids,
             "errors": errors, "audited": len(audits),
             "adjustments": adjustments_created}
+
+
+def _normalize_invoice_no(raw: str) -> str:
+    """เลขใบเข้ารูปแบบ → canonical 'PREFIXYYMM-###'; ไม่เข้ารูปแบบ = strip เฉยๆ.
+
+    ใช้ตอนเซฟ grid + ปุ่มล้างใน /admin/data-clean — กันขยะท้ายช่อง (แท็บ/วันที่ปน).
+    """
+    from services.invoice_builder import parse_invoice_no
+
+    p = parse_invoice_no(raw)
+    if p:
+        return f"{p[0]}{p[1]}-{p[2]:03d}"
+    return (raw or "").strip()
+
+
+@app.get("/admin/data-clean", response_class=HTMLResponse)
+def admin_data_clean(request: Request):
+    """🧹 ความสะอาดข้อมูล: เลขใบสกปรก (มีขยะท้ายช่อง) — โชว์ก่อน ล้างเมื่อกดยืนยัน."""
+    with Session(engine) as s:
+        dirty = [j for j in s.exec(select(DailyJob).where(
+            DailyJob.invoice_no != "")).all()
+            if j.invoice_no != _normalize_invoice_no(j.invoice_no)]
+    ctx = base_context(request)
+    ctx.update({"dirty": [{
+        "id": j.id, "date": j.work_date, "site": j.site_code,
+        "raw": j.invoice_no, "fixed": _normalize_invoice_no(j.invoice_no),
+    } for j in dirty]})
+    return templates.TemplateResponse("admin_data_clean.html", ctx)
+
+
+@app.post("/admin/data-clean/fix-invoices")
+def admin_data_clean_fix(request: Request):
+    """ล้างเลขใบสกปรกทั้งหมด — audit ต่อแถว (DailyJobAudit) ย้อนดูได้."""
+    u = current_user(request)
+    n = 0
+    with Session(engine) as s:
+        for j in s.exec(select(DailyJob).where(DailyJob.invoice_no != "")).all():
+            fixed = _normalize_invoice_no(j.invoice_no)
+            if fixed == j.invoice_no:
+                continue
+            s.add(models.DailyJobAudit(
+                daily_job_id=j.id, changed_by=(u.username if u else ""),
+                action="data_clean", field_name="invoice_no",
+                old_value=j.invoice_no, new_value=fixed))
+            j.invoice_no = fixed
+            j.updated_at = datetime.utcnow()
+            s.add(j)
+            n += 1
+        s.commit()
+    return RedirectResponse(f"/admin/data-clean?fixed={n}", status_code=303)
 
 
 @app.get("/api/daily/{job_id}/media")
