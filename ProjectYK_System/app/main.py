@@ -10480,6 +10480,159 @@ async def driver_alcohol_submit(request: Request):
     return RedirectResponse(f"/driver?submitted=alcohol#sub-{sub_id}", status_code=303)
 
 
+# ---- E1: เช็คอิน 3 จุด + รูปตู้ 4 ด้าน + ปิดงาน (ย้ายของที่รกไลน์เข้าฟอร์ม) ----
+
+def _driver_todays_jobs(s: Session, emp) -> list:
+    return s.exec(select(DailyJob).where(
+        DailyJob.driver_id == emp.id,
+        DailyJob.work_date == date.today()).order_by(DailyJob.id)).all()
+
+
+async def _driver_photos(form, emp_id: int, kind: str, field: str = "photos") -> list[str]:
+    paths = []
+    for photo in (form.getlist(field) if hasattr(form, "getlist") else []):
+        if hasattr(photo, "read"):
+            data = await photo.read()
+            if data and len(data) > 100:
+                paths.append(drv.save_photo(emp_id, kind, data, ext="jpg"))
+    return paths
+
+
+@app.get("/driver/checkin", response_class=HTMLResponse)
+def driver_checkin_page(request: Request):
+    with Session(engine) as s:
+        emp = drv.get_current_driver(request, s)
+        if not emp:
+            return RedirectResponse("/driver/login", status_code=303)
+        jobs = _driver_todays_jobs(s, emp)
+    ctx = _driver_base_context(request, emp)
+    ctx.update({"jobs": jobs, "points": models.CHECKIN_POINTS})
+    return templates.TemplateResponse("driver_checkin.html", ctx)
+
+
+@app.post("/driver/checkin")
+async def driver_checkin_submit(request: Request):
+    with Session(engine) as s:
+        emp = drv.get_current_driver(request, s)
+        if not emp:
+            return RedirectResponse("/driver/login", status_code=303)
+        form = await request.form()
+        point = (form.get("point", "") or "").strip()
+        if point not in {k for k, _ in models.CHECKIN_POINTS}:
+            raise HTTPException(400, "จุดเช็คอินไม่ถูกต้อง")
+        job_id = _parse_int(form.get("daily_job_id", ""))
+        photo_paths = await _driver_photos(form, emp.id, "checkin")
+        sub = DriverSubmission(
+            employee_id=emp.id, kind="checkin", daily_job_id=job_id,
+            gps_lat=_parse_float(form.get("gps_lat", "") or "0") or None,
+            gps_lng=_parse_float(form.get("gps_lng", "") or "0") or None,
+            gps_accuracy_m=_parse_float(form.get("gps_acc", "") or "0") or None,
+            photo_paths=",".join(photo_paths),
+            data_json=_json.dumps({"point": point,
+                                   "note": (form.get("note", "") or "").strip()},
+                                  ensure_ascii=False),
+            device_info=request.headers.get("user-agent", "")[:200],
+        )
+        s.add(sub)
+        s.commit()
+        sub_id = sub.id
+    return RedirectResponse(f"/driver?submitted=checkin#sub-{sub_id}", status_code=303)
+
+
+@app.get("/driver/container", response_class=HTMLResponse)
+def driver_container_page(request: Request):
+    with Session(engine) as s:
+        emp = drv.get_current_driver(request, s)
+        if not emp:
+            return RedirectResponse("/driver/login", status_code=303)
+        jobs = _driver_todays_jobs(s, emp)
+    ctx = _driver_base_context(request, emp)
+    ctx["jobs"] = jobs
+    return templates.TemplateResponse("driver_container.html", ctx)
+
+
+_CONTAINER_SIDES = (("front", "หน้าตู้ (เห็นเบอร์ตู้)"), ("back", "หลังตู้/ประตู"),
+                    ("left", "ข้างซ้าย"), ("right", "ข้างขวา"))
+
+
+@app.post("/driver/container")
+async def driver_container_submit(request: Request):
+    with Session(engine) as s:
+        emp = drv.get_current_driver(request, s)
+        if not emp:
+            return RedirectResponse("/driver/login", status_code=303)
+        form = await request.form()
+        job_id = _parse_int(form.get("daily_job_id", ""))
+        sides: dict[str, str] = {}
+        paths = []
+        for side, _label in _CONTAINER_SIDES:
+            photo = form.get(f"photo_{side}")
+            if photo and hasattr(photo, "read"):
+                data = await photo.read()
+                if data and len(data) > 100:
+                    rel = drv.save_photo(emp.id, "container_photo", data, ext="jpg")
+                    sides[side] = rel
+                    paths.append(rel)
+        if not paths:
+            raise HTTPException(400, "ต้องมีรูปอย่างน้อย 1 ด้าน")
+        sub = DriverSubmission(
+            employee_id=emp.id, kind="container_photo", daily_job_id=job_id,
+            gps_lat=_parse_float(form.get("gps_lat", "") or "0") or None,
+            gps_lng=_parse_float(form.get("gps_lng", "") or "0") or None,
+            gps_accuracy_m=_parse_float(form.get("gps_acc", "") or "0") or None,
+            photo_paths=",".join(paths),
+            data_json=_json.dumps({"sides": sides,
+                                   "container_no": (form.get("container_no", "") or "").strip(),
+                                   "note": (form.get("note", "") or "").strip(),
+                                   "complete_4_sides": len(sides) == 4},
+                                  ensure_ascii=False),
+            device_info=request.headers.get("user-agent", "")[:200],
+            # ไม่ครบ 4 ด้าน = flagged ให้ออฟฟิศเห็นชัด (คนตัดสินเองว่ารับได้ไหม)
+            review_status="pending" if len(sides) == 4 else "flagged",
+        )
+        s.add(sub)
+        s.commit()
+        sub_id = sub.id
+    return RedirectResponse(f"/driver?submitted=container#sub-{sub_id}", status_code=303)
+
+
+@app.get("/driver/done", response_class=HTMLResponse)
+def driver_done_page(request: Request):
+    with Session(engine) as s:
+        emp = drv.get_current_driver(request, s)
+        if not emp:
+            return RedirectResponse("/driver/login", status_code=303)
+        jobs = _driver_todays_jobs(s, emp)
+    ctx = _driver_base_context(request, emp)
+    ctx["jobs"] = jobs
+    return templates.TemplateResponse("driver_done.html", ctx)
+
+
+@app.post("/driver/done")
+async def driver_done_submit(request: Request):
+    with Session(engine) as s:
+        emp = drv.get_current_driver(request, s)
+        if not emp:
+            return RedirectResponse("/driver/login", status_code=303)
+        form = await request.form()
+        job_id = _parse_int(form.get("daily_job_id", ""))
+        photo_paths = await _driver_photos(form, emp.id, "job_done")
+        sub = DriverSubmission(
+            employee_id=emp.id, kind="job_done", daily_job_id=job_id,
+            gps_lat=_parse_float(form.get("gps_lat", "") or "0") or None,
+            gps_lng=_parse_float(form.get("gps_lng", "") or "0") or None,
+            gps_accuracy_m=_parse_float(form.get("gps_acc", "") or "0") or None,
+            photo_paths=",".join(photo_paths),
+            data_json=_json.dumps({"note": (form.get("note", "") or "").strip()},
+                                  ensure_ascii=False),
+            device_info=request.headers.get("user-agent", "")[:200],
+        )
+        s.add(sub)
+        s.commit()
+        sub_id = sub.id
+    return RedirectResponse(f"/driver?submitted=done#sub-{sub_id}", status_code=303)
+
+
 @app.get("/driver/history", response_class=HTMLResponse)
 def driver_history(request: Request, kind: str = ""):
     with Session(engine) as s:

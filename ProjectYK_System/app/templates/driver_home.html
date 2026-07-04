@@ -28,6 +28,25 @@
   </a>
 </div>
 
+{# E1: ระหว่างงาน — เช็คอิน / รูปตู้ / ปิดงาน (ย้ายของที่เคยรกไลน์เข้าฟอร์ม) #}
+<div class="grid grid-cols-3 gap-3 mb-5">
+  <a href="/driver/checkin" class="tile text-center bg-sky-50 border-sky-300">
+    <div class="text-3xl mb-1">📍</div>
+    <div class="font-semibold text-sm">เช็คอิน</div>
+    <div class="text-xs mt-1 text-slate-500">รับตู้/ถึงงาน/คืนตู้</div>
+  </a>
+  <a href="/driver/container" class="tile text-center bg-sky-50 border-sky-300">
+    <div class="text-3xl mb-1">📷</div>
+    <div class="font-semibold text-sm">รูปตู้ 4 ด้าน</div>
+    <div class="text-xs mt-1 text-slate-500">ตอนรับตู้</div>
+  </a>
+  <a href="/driver/done" class="tile text-center bg-sky-50 border-sky-300">
+    <div class="text-3xl mb-1">✅</div>
+    <div class="font-semibold text-sm">ปิดงาน</div>
+    <div class="text-xs mt-1 text-slate-500">เสร็จ+แนบรูป</div>
+  </a>
+</div>
+
 {# TODAY'S JOBS #}
 <div class="mb-3 flex items-center justify-between">
   <div class="font-semibold">งานวันนี้ ({{ todays_jobs|length }})</div>

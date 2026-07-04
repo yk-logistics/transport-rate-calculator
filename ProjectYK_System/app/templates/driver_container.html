@@ -1,0 +1,97 @@
+{% extends "driver_base.html" %}
+{% set active = 'container' %}
+{% block title %}รูปตู้ 4 ด้าน · YK Driver{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <div class="text-xl font-bold">📷 รูปตู้ 4 ด้าน</div>
+  <div class="text-sm text-slate-500">ถ่ายตอนรับตู้ กันโดนเคลมตู้บุบ/ซีลขาด — ครบ 4 ด้านดีสุด</div>
+</div>
+
+<form method="post" action="/driver/container" enctype="multipart/form-data" class="space-y-3">
+
+  <div class="bg-white rounded-xl p-4 border space-y-2">
+    <div>
+      <label class="text-sm text-slate-600">งานของวันนี้ (ถ้ามีในระบบ)</label>
+      <select name="daily_job_id" class="w-full border rounded-xl px-3 py-2.5 mt-1">
+        <option value="">-- ไม่ระบุ --</option>
+        {% for j in jobs %}
+        <option value="{{ j.id }}">{{ j.status_code }} {{ j.destination or j.pickup_location }} {{ j.container_no }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="text-sm text-slate-600">เบอร์ตู้ (พิมพ์เองถ้าไม่มีในระบบ)</label>
+      <input type="text" name="container_no" class="w-full border rounded-xl px-3 py-2.5 mt-1"
+             placeholder="เช่น TEXU1234567" autocapitalize="characters" />
+    </div>
+  </div>
+
+  {% for side, label in [('front','หน้าตู้ (เห็นเบอร์ตู้)'), ('back','หลังตู้/ประตู+ซีล'), ('left','ข้างซ้าย'), ('right','ข้างขวา')] %}
+  <div class="bg-white rounded-xl p-4 border">
+    <label class="text-sm font-medium">{{ loop.index }}. {{ label }}</label>
+    <input type="file" name="photo_{{ side }}" accept="image/*" capture="environment"
+           class="w-full mt-2 text-sm side-photo" data-side="{{ side }}" />
+    <img id="prev-{{ side }}" class="w-full h-28 object-cover rounded-lg mt-2 hidden" alt="">
+  </div>
+  {% endfor %}
+
+  <div class="bg-white rounded-xl p-4 border">
+    <label class="text-sm font-medium">หมายเหตุ (ตู้บุบ/สนิม/ซีลผิดปกติ บอกตรงนี้)</label>
+    <textarea name="note" rows="2" class="w-full border rounded-xl px-3 py-2 mt-1"></textarea>
+  </div>
+
+  <input type="hidden" name="gps_lat" id="gps_lat" />
+  <input type="hidden" name="gps_lng" id="gps_lng" />
+  <input type="hidden" name="gps_acc" id="gps_acc" />
+
+  <button type="submit" class="btn-lg bg-blue-600 text-white">✓ ส่งรูปตู้</button>
+  <div class="text-xs text-slate-400 text-center">ส่งไม่ครบ 4 ด้านได้ แต่ออฟฟิศจะเห็นธงเตือน</div>
+</form>
+
+<script>
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      document.getElementById('gps_lat').value = pos.coords.latitude;
+      document.getElementById('gps_lng').value = pos.coords.longitude;
+      document.getElementById('gps_acc').value = pos.coords.accuracy;
+    }, null, { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 });
+}
+document.querySelectorAll('.side-photo').forEach(inp => {
+  inp.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const c = await compressImage(file, 1280, 0.75);
+      const dt = new DataTransfer(); dt.items.add(c);
+      e.target.files = dt.files;
+      const img = document.getElementById('prev-' + e.target.dataset.side);
+      img.src = URL.createObjectURL(c);
+      img.classList.remove('hidden');
+    } catch (err) {}
+  });
+});
+async function compressImage(file, maxDim, quality) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > maxDim || h > maxDim) {
+        if (w > h) { h = h * (maxDim / w); w = maxDim; } else { w = w * (maxDim / h); h = maxDim; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob((blob) => {
+        if (!blob) return reject();
+        resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'),
+                { type: 'image/jpeg', lastModified: Date.now() }));
+      }, 'image/jpeg', quality);
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}
+</script>
+{% endblock %}

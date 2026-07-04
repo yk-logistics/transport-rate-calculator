@@ -1160,10 +1160,21 @@ class AppSetting(SQLModel, table=True):
 SUBMISSION_KINDS = (
     ("vehicle_check", "ตรวจรถก่อนวิ่ง"),
     ("alcohol_test",  "เป่าแอลกอฮอล์"),
+    # E1 (4ก.ค.): เช็คอิน 3 จุด + รูปตู้ 4 ด้าน + ปิดงาน
+    ("checkin",         "เช็คอิน (รับตู้/ถึงงาน/คืนตู้)"),
+    ("container_photo", "รูปตู้ 4 ด้าน"),
+    ("job_done",        "ปิดงาน"),
     ("job_photo",     "รูปเอกสาร/ตู้/หลักฐานงาน"),
     ("fuel_receipt",  "ใบเสร็จน้ำมัน"),
     ("signature",     "ลายเซ็น"),
     ("other",         "อื่น ๆ"),
+)
+
+# จุดเช็คอิน (E1) — เก็บใน data_json.point ของ kind=checkin
+CHECKIN_POINTS = (
+    ("pickup", "📦 รับตู้"),
+    ("arrive", "🏭 ถึงหน้างาน"),
+    ("return", "↩️ คืนตู้"),
 )
 
 REVIEW_STATUS = (
