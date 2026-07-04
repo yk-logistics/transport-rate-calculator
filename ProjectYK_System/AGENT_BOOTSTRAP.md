@@ -6,8 +6,8 @@
 1. `ProjectYK_System/AGENT_BOOTSTRAP.md` (ไฟล์นี้)
 2. `ProjectYK_System/MODULE_REGISTRY.md`
 3. `ProjectYK_System/CHANGELOG_MASTER.md` — **เฉพาะหัวข้อล่าสุดไม่เกิน 3 หัวข้อ** (รายละเอียดนโยบาย: `ProjectYK_System/docs/CHANGELOG_POLICY.md`)
-4. `ProjectYK_System/TransportRateCalculator/docs/CONTEXT_LOG.md` — **ท้ายไฟล์** 2–3 session ล่าสุด
-5. `ProjectYK_System/TransportRateCalculator/docs/NEXT_ACTION_PLAN.md`
+4. **แผนงานปัจจุบัน (ก.ค. 2026):** `ProjectYK_System/docs/PLAN_STATUS.json` (สถานะรายการงาน — หน้า /admin/plan อ่านไฟล์นี้) + สเปคต่องาน `ProjectYK_System/docs/MVP_TASK_SPECS.md`
+5. เฉพาะงานโมดูลเครื่องคิดเรท/Oatside: `TransportRateCalculator/docs/CONTEXT_LOG.md` (ท้ายไฟล์) + `NEXT_ACTION_PLAN.md` — **ไฟล์ legacy** แผนหลักคือข้อ 4
 6. อ่านไฟล์ของโมดูลที่ผู้ใช้กำลังทำงานอยู่ (ตาม registry)
 7. ถ้างานเกี่ยวกับ **เครื่องมือ AI / ประหยัดโทเค็น / ส่งต่อ Claude Code** → อ่าน **`ProjectYK_System/AI_CURSOR_CLAUDE_WORKFLOW.md`**
 8. ถ้างานเกี่ยว **ทิศทางธุรกิจ / workflow บริษัทยาว / รายละเอียดที่ไม่อยากพิมพ์ซ้ำ** → อ่าน **`ProjectYK_System/docs/DOMAIN_AND_DIRECTION.md`**
