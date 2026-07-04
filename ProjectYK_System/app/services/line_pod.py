@@ -113,7 +113,10 @@ def match_daily_jobs(session, cand: dict, customer_status_codes: tuple) -> list[
         dn = (j.doc_no or "").strip().strip('"').split("/")[0].strip().upper()
         if len(dn) >= 8 and dn in ctx_text:
             score += 4
-        if cand["containers"] and (j.container_no or "").upper() in cand["containers"]:
+        # เดลี่ตู้คู่คีย์เป็น "AAAA1234567/BBBB7654321" (2 ตู้เที่ยวเดียว — เจอจริง 12 แถว/ไตรมาส)
+        # → แยกเทียบทีละตู้ ไม่งั้นแถวตู้คู่ไม่มีวัน match รูป
+        j_conts = [x.strip().upper() for x in (j.container_no or "").split("/") if x.strip()]
+        if cand["containers"] and any(c in cand["containers"] for c in j_conts):
             score += 3
         if cand["plates"] and (j.plate_no_raw or "").strip() in cand["plates"]:
             score += 2

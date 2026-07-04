@@ -130,6 +130,19 @@ def test_jobref_and_docno_reverse_match(client):
         assert m[0]["job_id"] == j2.id and m[0]["score"] >= 4
 
 
+def test_dual_container_row_matches_either(client):
+    """แถวตู้คู่ 'AAAA/BBBB' ต้อง match รูปที่อ้างตู้ใดตู้หนึ่ง (เจอจริงในเดลี่ 12 แถว/ไตรมาส)."""
+    from services import line_pod as lp
+    with Session(engine) as s:
+        s.add(DailyJob(work_date=D, site_code="LCB", status_code="KLND",
+                       container_no="TWCU2324417/TWCU2138876", plate_no_raw="71-0003"))
+        s.commit()
+        j = s.exec(select(DailyJob).where(DailyJob.plate_no_raw == "71-0003")).first()
+        cand = {"sent_date": D, "containers": ["TWCU2138876"], "plates": [], "ctx_text": ""}
+        m = lp.match_daily_jobs(s, cand, ("KLND",))
+        assert m and m[0]["job_id"] == j.id and m[0]["score"] >= 3
+
+
 def test_zip_empty_404(client):
     month = D.strftime("%Y-%m")
     assert client.get(f"/billing/evidence?series=KMMT&month={month}&download=zip").status_code == 404
