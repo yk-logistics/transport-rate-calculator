@@ -16,3 +16,5 @@ metadata:
 - Hide the how (commands, code, paths, step-by-step tool logs) unless he asks "show me" or needs to run something himself.
 - Still ask before money/import/payroll-affecting actions per [[feedback-test-data-cleanup-safety]].
 - This applies to ALL projects, not just Project YK.
+
+**Reinforced 2026-07-02:** โอสั่งซ้ำตรงๆ "ไม่ต้องโชว์พวกโค้ด อธิบายภาษาคนพอ" — กฎนี้ยังไม่ถูกทำตามดีพอ ให้เข้มขึ้น: ห้ามมี code block/ชื่อฟังก์ชัน/ชื่อไฟล์ในคำตอบหาโอ เว้นแต่โอขอดูเอง.

@@ -1,62 +1,142 @@
 # Memory Index
 
-- [BigC daily import (Goal 2 DONE)](project-bigc-daily-import.md) — DONE 29มิ.ย. merged main (ยังไม่ deploy): import เดลี่รายเที่ยว BIGC 6 เดือน (2025-12..2026-05)=2,381 DailyJob+810 FuelTxn(exclude_from_driver) ผ่าน import_bigc_daily.py(TDD); GUARD OK net 6 รอบเท่าเดิม+LCB ไม่แตะ; CFO เห็น BIGC แล้ว; **เป็น prerequisite ของ [[project-bigc-may-payroll]] (engine bigc_monthly คิดจาก DailyJob ได้เมื่อ import+link)**; ค้าง 3 ชื่อ unlinked(ชรินทร์/วิทัศน์/โกสินทร์ น่าจะคนใหม่ พ.ค.); GOTCHA r0 totals cell stale; มิ.ย.รอไฟล์
-- [BigC พ.ค. payroll (=เดือน มิ.ย.)](project-bigc-may-payroll.md) — IN PROGRESS 29มิ.ย.: "BigC เดือน มิ.ย."=วิ่ง พ.ค.1-31 จ่าย1ก.ค. (payrun#4 net 110,613.81 ลอกชีท); โอสั่งให้ engine คิดจากเดลี่จริง+คิดค่าขนส่งจากสถานะงาน(E); **engine bigc_monthly มีอยู่แล้ว คิดจาก DailyJob ได้เลยเมื่อ import+link**; ของใหม่จริง=costing-from-status(ฝั่งบิล)+ตารางเรท(โอ defer); **อีก session รันคู่ขนานทำ import (feat/bigc-daily-import) — เติมกันไม่ซ้ำ ห้ามแย่งเขียน app.db**; พบ bug: เขา map E→origin ผิด (E=สถานะงาน)
-- [Deposit installment "งวดที่ X/Y"](project-deposit-installment-number.md) — DONE+deployed 28มิ.ย.: เงินประกันตนโชว์งวดที่ X/Y (filter dep_install, balance//1000 / target//1000, ตรงชีต SSO) ทุกหน้า /deposits+สลิป+payroll+PDF; แค่แสดงผลไม่แตะเงิน; deploy code-only ผ่าน Tailscale; ตัวแปร employee ต่างชื่อต่อ template
-- [Deposits overview page](project-deposits-overview-page.md) — DONE+deployed 28มิ.ย.: /deposits ดูเงินประกันตนทุกคน+แก้ inline(DepositAudit v28)+ประวัติ+เตือนยอดยกมา; +filter คนออกแล้ว(default ซ่อน inactive, ปุ่มสลับ 18 active/84 resigned/102 all); บทเรียน: session อื่นแก้ payroll พร้อมกัน → git add ดูดโค้ดเขาติด, ต้อง stage เฉพาะ hunk+verify diff
-- [Concise, no code dump](feedback-concise-no-code-dump.md) — EVERY session, all projects: short plain-language summaries, hide commands/code/paths unless โอ asks
-- [Window-warm routines](reference-window-warm-routines.md) — 4 cloud routines ping "Hi" daily to pre-open 5h usage window; fire times now 06:00/11:00/16:00/21:00 BKT (revised 28มิ.ย., actual clock times not shifted); old 5-set disabled; manage at claude.ai/code/routines
-- [Keep working autonomously](feedback-keep-working-autonomously.md) — keep going step-to-step; when a clarifying Q would block, answer AS โอ would and proceed (state assumption); STOP only for money/destructive/outward/spend/true-fork
-- [Merge+deploy without preview](feedback-merge-and-deploy-without-preview.md) — display/UI work: finish → merge to main → deploy live in same session; don't stop for dev preview (wastes tokens); still gate money/payroll/destructive
-- [Windows vs Linux stack choice](reference-windows-vs-linux-stack-choice.md) — โอ's Windows dev+server, no-tmux, no-Docker setup is RIGHT for him; rebuttal to "use Linux/tmux" advice + 3-question new-tool test
-- [Google Sheets access](reference-google-sheets-access.md) — Claude reads/edits โอ's Sheets via service account + gspread (key at repo root, gitignored); open_by_key only, 60 reads/min limit, UTF-8 rule
-- [Daily LCB sheet](project-daily-lcb-sheet.md) — เดลี่แหลม sheet structure + driver-name validation fix (range A23→A2); find cols by header not letter; old tabs left as-is
-- [LCB payroll 16/5–15/6](project-lcb-payroll-may-jun-2026.md) — payrun #2 (2026-06) draft: petty deducted, ปกรณ์/วราวุฒิ→mao, net 298,275; NOT finalized (waiting พชร/สุรเดช mixed-mode)
-- [LCB mixed mode](project-lcb-mixed-mode.md) — new lcb_mixed pay_mode (per-day เหมา/เที่ยว, ratio 60% rule); design approved, implementing TDD on branch; spec in docs/superpowers/specs/
-- [MVP test plan](project-mvp-test-plan.md) — โอทดสอบ MVP end-to-end (เริ่ม 2026-06-10); เปิดด้วย `MVP S<n> ทำต่อ` → อ่าน docs/MVP_TEST_PLAN.md; ground truth ที่ Work\Salary\2026\5.May\LCB
-- [Audit LCB May2026](project-audit-lcb-may2026.md) — ผลตรวจเงินเดือน LCB พ.ค. (Excel vs ระบบ): payrun draft ล้าสมัยต้อง recompute, เหมาน้ำมัน gross=0, 5 findings; รายงานเต็ม docs/AUDIT_LCB_MAY2026.md
-- [Test-data cleanup safety](feedback-test-data-cleanup-safety.md) — ลบ test row ที่ POST เข้า app.db จริง ต้องลบด้วย id ที่ได้คืน ห้ามลบด้วย filter (work_date/...) เพราะชนข้อมูลจริง — เคยลบงานจริง 3 แถวต้องกู้จาก backup
-- [Claude Code multiple installs](claude-code-multiple-installs.md) — which `claude` actually runs on โอ's machine + how updates / model-picker versions work
-- [Qwen subagent pattern](reference-qwen-subagent.md) — offload read-only recon/summarize to cheap Qwen via _Claude Tools/qwen.ps1; safety is by discipline (no technical guardrail)
-- [Delegation preference](feedback-qwen-and-subagent-cost.md) — keep MAIN context small first; delegate bulky reads aggressively (free Qwen preferred, native subagents OK), keep synthesis/decisions in main
-- [Delegation ladder: Qwen→Haiku](feedback-delegation-qwen-then-haiku.md) — read-only recon/summarize: try free Qwen first, fall back to Haiku subagent if it stalls/errors; Opus keeps money/decisions/code (confirmed 2026-06-17)
-- [Auto-resume system](reference-auto-resume-system.md) — overnight resume-after-limit: SessionStart hook + ~/.claude watcher; cap/log/arm files; UTF-8 BOM rule
-- [Oatside billing recon](project-oatside-billing-recon.md) — monthly daily↔GPS: BH/ตีเปล่า=manual_return 50%, demurrage system≥keyer rule, no_finish uses waiting-day rate; scripts + file layout
-- [Oatside report UI edits](project-oatside-report-ui-edits.md) — change report HTML without moving billing numbers: edit builder + patch existing HTML (rebuild re-picks newest GPS → numbers shift)
-- [Superpowers + 9arm models](project-superpowers-9arm-models.md) — install superpowers in main Claude (auto+confirm, subagents→Sonnet); 9arm free-Qwen is a SEPARATE config dir w/ no plugins, can't host superpowers, never run money work on it
-- [Makcu macro_engine.py](reference-makcu-macro-engine.md) — โอ's personal KM-macro tool at `_NonYK_Projects\makcu\` (NOT in YK repo); migrating Makcu→Waveshare RP2350-USB-A via same km.* serial protocol
-- [LINE archiver](reference-line-archiver.md) — เก็บข้อความ+รูปกลุ่ม LINE ลง SQLite/Discord; service แยก port 8020; start_all.bat; tunnel = Cloudflare (quick→named line.yklogistics.com)
-- [yklogistics.com DNS](reference-yklogistics-dns.md) — DNS snapshot ก่อนย้าย Cloudflare; A/MX/SPF ที่ห้ามหาย (อีเมลใช้จริง ห้ามล่ม)
-- [SSH to YK machine](reference-ssh-to-yk-machine.md) — passwordless SSH from Home/.178 → YK/.197 (user yklog); admin keys file; LAN-only, plan Tailscale for off-LAN
-- [MVP server deploy](reference-mvp-server-deploy.md) — MVP live at app.yklogistics.uk (copy-folder deploy, Py3.12 venv, unattended boot tasks, RBAC login yk1/changeme1); deploy_mvp_to_server.sh; runbook MVP_SERVER_DEPLOY.md
-- [Branch flips mid-session](reference-branch-switch-during-session.md) — git branch can change under you (external `git checkout`); commits land on wrong branch → verify `git branch --show-current` before each git mutation; cherry-pick can drag whole contaminated files (grep other-task symbols = 0)
-- [MVP deploy restart gotcha](reference-mvp-deploy-restart-gotcha.md) — deploy script copies code OK but its restart leaves OLD code serving (app runs under GLOBAL python, not venv; kill-filter misses it); fix = .ps1-by-path kill of main.py procs + restart task; out-of-proc token mint won't verify
-- [Server has no GPU for LLM](reference-server-no-gpu-llm.md) — .197 = i5-14400/32GB/Intel UHD only, no NVIDIA; don't self-host an LLM on it (worse than free Qwen + risks the live MVP); only ever on a separate GPU box
-- [AI watch LINE group](project-ai-watch-line-group.md) — future idea: AI summarize/alert on LINE chat; start cheap API on existing archiver, defer self-host until proven + volume justifies
-- [Summarize YouTube in Thai](reference-yt-summarize.md) — Claude can't watch YT directly; yt-dlp pulls captions → free Qwen summarizes to Thai (0 Claude tokens); `_Claude Tools/yt-summarize/yt_summary.py`; needs captions to exist
-- [LCB daily↔fuel cross-check](project-lcb-daily-fuel-crosscheck.md) — read-only tool: flags LCB daily rows where keyed driver ≠ who reported fueling in Caltex LINE group; built+19 tests pass, but archive data-starved (10 msgs/1 day vs 609 daily rows) until archiver collects more; rule-based parser (free), API last-resort
-- [LCB fuel cross-check domain rules](project-lcb-fuel-crosscheck-domain-rules.md) — โอ-confirmed truths: drivers cross-site fuel at Caltex (71-5042=BIG-C person → not an error, go check if BIG-C logged it), plate typos in fuel msgs (72-1200=typo of 72-1220), unparseable msgs usually just pump chatter (lowest priority)
-- [LCB slip-reader](project-lcb-slip-reader.md) — AI reads LINE transfer slips → draft → human approve in MVP /petty/review; proof done (OCR 100%), code merged to main, awaiting API key for live dry-run; follow slip_reader/RUNBOOK.md
-- [UPS power-alert LIVE](project-ups-power-alert.md) — DONE 24 Jun: ZIRCON UPS (generic VID_0001, no Win battery) → NUT for Windows (upsc reads ups.status OL/OB) → scheduled task YK_UPS_Watch polls 15s → Discord + 2min wait + real shutdown; armed & boot-persistent; pull-plug test passed
-- [Daily grid edit UX](project-daily-grid-edit-ux.md) — DONE+deployed: /daily ได้ Undo/Redo, Fullscreen, แบ่งหน้า/แสดงทั้งหมด, edit-log (DailyJobAudit schema24, ปุ่มประวัติต่อแถว); "เริ่ม 25/5"=limit400 ไม่ใช่ข้อมูลหาย
-- [Merge Daily + Daily Grid](project-merge-daily-grid.md) — ยุบ 2 หน้าเป็นหน้าเดียวที่ /daily (grid base + linked-name cols + /daily/grid redirect 301); merged main + deployed live 2026-06-24
-- [LCB driver extra fees](project-lcb-driver-extra-fees.md) — DONE+deployed: พิเศษจากชีท(เลิก100/เที่ยว)+OT+รับตู้แทน; คนเหมาไม่ได้พิเศษ(ยืนยัน); recompute เฉพาะ run2(มิ.ย.); run1(พ.ค.)ไม่แตะ-มี stale gross=0 ถ้า recompute จะเด้ง+661k (แยกตัดสิน)
-- [KB + ราคาคำนวณคนขับ](project-kb-driver-calc-price.md) — DONE 27มิ.ย.: แยกราคาวางบิล vs ราคาคิดเงินคนขับ; KB(ใต้โต๊ะ)+ราคากลาง override ต่อแถว(key=status_code), driver_calc_price=(override??rev)−kb; merged main+backfill(NHL160)+recompute พ.ค./มิ.ย.; มิ.ย.−3,716(KBจริง 7คน), พ.ค.−327k→+334k(staleness-fix เก่าไม่ใช่KB); CY 23แถวเว้นกรอก; ยังไม่ deploy server
-- [LCB mixed idle-days fix](project-lcb-mixed-idle-days.md) — วันรถจอดต้องได้ฐาน: ตัวหาร lcb_mixed=(trip+idle)/days + จับ อุบัติเหตุ/ซ่อม/DHL=idle (substring match!) + banner วันรอลงราคา; พชร/สุรเดช net เพิ่ม, อีก16คนเท่าเดิม; ขึ้น server 2026-06-25 (full-file overwrite app.db)
-- [LCB Jun xlsx reimport](project-lcb-jun-xlsx-reimport.md) — โอ's edits live in LOCAL .xlsx (sheet "Daily") NOT gsheet (gsheet STALE); reimport via import_lcb_may_jun2026_xlsx.py + first-name→id map from backup; payrun#2 net 259,888→287,091 (draft); ชีท↔ระบบ fuel ตรง, Caltex archive too sparse (only 12–19 มิ.ย.)
-- [Fuel exclude-from-driver + สุภาพ→mao](project-fuel-exclude-from-driver.md) — DONE+deployed 27มิ.ย.: ปุ่มติ๊ก "ไม่หักน้ำมันบิลนี้" ต่อบิล (FuelTxn.exclude_from_driver schema v26) สำหรับน้ำมันก่อนเริ่มวิ่ง/ถังเต็มแรกเหมา; สุภาพ lcb_trip→lcb_mao+ติ๊ก2บิล net 63,561→23,691; regression 9คนเท่าเดิม; SSH ต้องใช้ -EncodedCommand; ค้าง=พัฒิยะ net ติดลบ −1,478 (แยกตรวจ)
-- [Driver pay breakdown เดลี่+สลิป](project-driver-pay-breakdown-daily-slip.md) — DONE+deployed 28มิ.ย.: (1) แยกโชว์ ค่าเที่ยว/พิเศษ/OT/รับตู้คืนตู้ คนขับ (helper classify_driver_fee=single source engine+grid; ค่าเสียเวลา=บริษัทไม่โชว์); (2) สลิปโชว์ "—" = ข้อมูลค้าง→recompute LCB run2 net ไม่ขยับ (พ.ค.finalized+BIGC copied-net ปล่อยไว้); (3) เพิ่มทุกช่องเดลี่ schema v30 (ค่าบริษัท read-only + ช่องอ้างอิงแก้ได้ phone/gps/fuel_date/...); GOTCHA: resolve_database_url คืน IS_SQLITE=False เมื่อตั้ง env→ tests ข้าม migration; deploy kill-filter \.venv กว้างไปโดน LINE archiver→kill by 8010-PID+YK_MVP path
-- [Payroll bank + print page](project-payroll-bank-print.md) — DONE+deployed: หน้า /payroll/{run}/print (สรุป+โอนเงิน+สลิป page-break, น้ำมันลบก่อนรายได้สุทธิ) + เลขบัญชีคนขับ DB (schema v27, backfill 21 คนจากภาพ BANK, วราวุฒิ101 ยังไม่มี) + หมายเหตุ auto(ออก/เหมาน้ำมัน)+แก้มือ; ปุ่ม "พิมพ์ทั้งหมด"; net ไม่เปลี่ยน
-- [DHL Overflow rate](project-dhl-overflow-rate.md) — DHL Overflow=ลูกค้าเดียวกับ Oatside; เรทวางบิลผูกราคาน้ำมัน (สูตร trip_rate_baht ใน Oatside builder, base×(1+floor(น้ำมัน−base_fuel_min)×1.5%)); ใส่ราคา 16–31/5 19แถว(เนื้อ id87 เที่ยว) rev=7,264–7,456 override=5,500; net ไม่ขยับ; deployed
-- [Mao fuel: วัดถัง 2 กฎ](project-mao-fuel-tank-measure.md) — โอบอกจำไว้: คนเหมาน้ำมัน 2 แบบ (A=ไม่เต็มถัง→วัดถังหักคนขับ ลิตร×ราคาบิลล่าสุดวันนั้น + ตัดรอบ/ลงรถบริษัทซื้อคืน; B=เต็มถังแรกไม่หัก แต่ลงรถต้องเติมคืนเต็มถัง); ลงเป็น FuelTxn บิลพิเศษ source=mao_tank_measure; DONE+deployed มิ.ย.: สุรเดช−1,329 พชร−1,988 วราวุฒิ+3,920(เต็มถังแรก) ปกรณ์ไม่แตะ(นอกรอบ); net run2 +602.95, 14คนไม่ขยับ
-- [Fuel handover-measure BACKLOG](project-fuel-handover-measure-backlog.md) — ยังไม่เริ่ม: feature วัดน้ำมันขึ้น/ลงตอนคนอื่นมาขับรถเหมาชั่วคราว; ระบบยังไม่มี mechanism (ไม่มี field น้ำมันเหลือตอนส่งมอบ); ตอนนี้ใช้ workaround "คนเติม=คนรับผิดชอบบิล"
-- [Fuel pump reconcile tool](project-fuel-pump-reconcile.md) — CLI เทียบ PDF ปั๊ม↔FuelTxn ต่อรอบ LCB (TDD 15 tests, branch feat/fuel-pump-reconcile ยังไม่ merge); รอบ 16/5-15/6 Δ−6.9% ระบบสูงกว่า แต่ส่วนใหญ่=PDF ปั๊มเจ้าเดียว(ไม่รวม ปตท.)+รถใช้ร่วม ไม่ใช่หักเกิน
-- [HOME pwsh+terminal setup](reference-home-pwsh-terminal-setup.md) — เครื่อง HOME/.178: Desktop "Claude (Admin)" shortcut → Windows Terminal(Admin)+pwsh 7.6.3; Thai tone-marks drop in old conhost (fix=use WT, not font); don't Remove-AppxPackage the pwsh the session runs on
-- [CFO revenue drill-down](project-cfo-revenue-drilldown.md) — DONE+deployed 28มิ.ย.: /finance/revenue รายได้ซ้อน ไซต์→ลูกค้า→รถ เลือกช่วงวัน; ลูกค้า=status_code, รถ=plate_no_raw(ครบ ต่างจาก head_vehicle_id ลิงก์ครึ่งเดียว), รายได้=revenue_customer; ข้อมูลรายเที่ยวมีแต่ LCB(BIGC/AYU ไม่มี); verify total=Σทุกชั้น=direct SUM (มิ.ย. 1,967,425/608); ราคาที่ขาด259แถวส่วนใหญ่ปกติ(ลา/รถจอด) ลืมจริง~2 อยู่ เม.ย.-พ.ค.ปิดแล้ว
-- [CFO cycle vs calendar](project-cfo-cycle-vs-calendar.md) — DONE+deployed: /finance มีปุ่มสลับ เดือนปฏิทิน↔รอบจ่าย(ตามไซต์); monthly_pnl รับ period= override (ปฏิทินเดิมไม่ขยับ), cycle LCB=16/5–15/6 608เที่ยว ตรง /daily; /finance/pnl+vehicles ยังเป็นปฏิทิน (นอก scope)
-- [LCB พ.ค. lock ตาม PDF](project-lcb-may-lock-pdf.md) — DONE+deployed: ปิดเดือน5 ลอกยอดจ่ายจริง 21คน net 378,939 จาก PDF(ตกหล่นค่าเที่ยวิชาญ) ลง payrun#1+finalize; payroll.compute_pay_run เพิ่ม force= กัน recompute ทับ finalized; deploy server แล้ว(backup+stop+scp DB+restart); SSH ผ่าน ssh ต้อง scp .py/.ps1 ไปรัน เลี่ยง quote ซ้อน
-- [Multi-site payroll onboard](project-multisite-payroll-onboard.md) — Night-run 27มิ.ย.: LCB reconcile ตรงเงินจ่ายจริง(พ.ค.378,939 final/มิ.ย.257,497 draft); BIGC+AYU onboard ใหม่โดย**ลอก net จากชีทโอน/แบงค์**(engine คำนวณเองไม่ได้-ไม่มีสูตร base/route); BIGC #3,#4(118k/110k) AYU #5(267k) draft; COPY-LOCK guard กัน recompute ทับ; ANCHOR=แบงค์.pdf
-- [รถร่วม บุญนาม TODO](project-rojruam-bunnam-todo.md) — ยังไม่ onboard: รถร่วมหักน้ำมัน 13% ไม่มีชีทโอนให้ลอก+โมเดลไม่มีในระบบ+ไม่มียอดเทียบ → รอ โอ ยืนยันสูตรคิดเงินก่อน
-- [git add -A อันตราย](feedback-git-add-all-danger.md) — ห้าม git add -A/. ในrepo นี้: ลาก app.db.bak_* 30+ไฟล์(~1.7GB)+tmp_uploads เข้า commit; stage เฉพาะ path ที่ตั้งใจ; .gitignore เพิ่ม app.db+*.db.bak_* แล้ว
-- [Deploy ผ่าน Tailscale](reference-deploy-via-tailscale.md) — เครื่อง HOME ย้ายวงแลน→ LAN .197 unreachable แต่ deploy ได้ผ่าน Tailscale (yk=100.97.150.114, ssh yklog@); SSH→PowerShell ใช้ ; ไม่ใช่ &&, quote ซ้อนพัง→scp .ps1/.py ไปรัน; deploy DB=stop+scp+restart; verified 28มิ.ย. 17 payruns ขึ้น server
-- [Multi-site ครบทุกเดือน DEPLOYED](project-multisite-payroll-onboard.md) — UPDATE 28มิ.ย.: ทุกไซท์ครบทุกเดือน 17 payruns (LCB ม.ค.-มิ.ย./BIGC ธ.ค.-พ.ค./AYU ม.ค.-พ.ค.) ลอกยอดทั้งหมด+COPY-LOCK; deploy ขึ้น server จริงผ่าน Tailscale สำเร็จ (161 emps, public 200)
+## กฎยืน (อ่านก่อนทุกงาน)
+- [🟢 มอบอำนาจเต็มแพลน MVP](project-jul3-session-close.md) — โอ 3ก.ค.: ลุยทุกงานในแพลนไม่ต้องรออนุมัติ ทำก่อนแก้ทีหลัง จดข้อสมมติ; กฎเงิน/ทำลายล้างยึดเดิม
+- [⚠️ Fable ถึง 7/7 + เฟส P](project-fable-deadline-and-phase-p.md) — งานเงิน/ออกแบบยากให้ Fable ก่อน 7ก.ค. + ทิ้ง runbook ให้ Opus
+- [แพลน MVP](project-master-plan-jul26.md) — docs/MASTER_PLAN_2026-07.md + MVP_TASK_SPECS.md + PLAN_STATUS.json (อัปเดต%+scp ทุกครั้งที่จบงาน)
+- [กฎ: ใช้เวลาจริง](feedback-use-real-clock.md) — Get-Date ก่อนพูดถึงเวลาเสมอ ห้ามเดา
+- [กฎ: คู่มือส่งต่อโมเดลเล็ก](feedback-handoff-for-smaller-models.md) — ทุกงานทิ้ง runbook ให้ Haiku/Sonnet ทำต่อได้
+- [กฎ: gsheet ถามก่อน+note ทุกช่อง](feedback-gsheet-edit-ask-and-comment.md) — ห้ามแก้ Sheet พลการ
+- [กฎ: สลิป mao น้ำมันต้อง reconcile](feedback-slip-fuel-must-reconcile.md) — fuel_slip_reconcile.py; ย้ายน้ำมันแก้ 2 ที่
+- [Concise, no code dump](feedback-concise-no-code-dump.md) — สรุปสั้นภาษาคน ซ่อนคำสั่ง/โค้ด/path เว้นแต่โอขอ
+- [Keep working autonomously](feedback-keep-working-autonomously.md) — ตอบแทนโอแล้วไปต่อ; หยุดเฉพาะ เงิน/ทำลายล้าง/ออกนอก/จ่ายเงิน/ทางแยกจริง
+- [Merge+deploy without preview](feedback-merge-and-deploy-without-preview.md) — งาน display จบ→merge→deploy ในเซสชันเดียว
+- [git add -A อันตราย](feedback-git-add-all-danger.md) — stage เฉพาะ path ที่ตั้งใจ (เคยลาก DB backup 1.7GB)
+- [Test-data cleanup safety](feedback-test-data-cleanup-safety.md) — ลบ test row ด้วย id ที่ได้คืนเท่านั้น ห้าม filter
+- [Delegation ladder](feedback-delegation-qwen-then-haiku.md) — recon อ่านเยอะ→Qwen ฟรีก่อน→Haiku; เงิน/ตัดสินใจอยู่ตัวหลัก ([พื้นฐาน](feedback-qwen-and-subagent-cost.md))
+
+## สถานะเงิน/รอบปัจจุบัน
+- [ปิดรอบ มิ.ย. 3 ไซท์แล้ว](project-jun-close-3sites.md) — 3ก.ค. finalize LCB#2 287,711.37 / AYU#18 263,793.34 / BIGC#4 132,031.03; **รอบ finalized ห้าม recompute (สดย่อยหาย)**; ราคาแก้ทีหลัง→กลไกตกหล่น C4
+- [ปิดเซสชัน 2-3ก.ค.](project-jul3-session-close.md) — deploy 11 อย่าง; ค้างถามโอ: ตัวอย่างใบเสร็จ/ใบหัก (A2) + Editor Drive (S1)
+- [ปิดเซสชัน 1ก.ค.](project-jul1-session-close.md) — LCB#2/BigC#4 บน server; **local DB stale ห้าม push**; สลิป template uncommitted ของ session อื่น (.c-extra/.k-tag) อย่าทับ
+- [LCB+BigC มิ.ย. review](project-lcb-bigc-jun-payroll-review.md) — reconcile เป๊ะ; server LCB#2 ahead ของ local; เกศศักดิ์/ธนวัฒน์ = HR ไม่ใช่บั๊ก
+- [LCB CY KB กติกาสุดท้าย](project-lcb-cy-kb-fulls.md) — คนขับคิดจากราคาคีย์ (kb=5000−คีย์) ส่วนต่างเข้าบริษัท; KB เจ้าของงาน=จากไฟล์
+- [BigC มิ.ย. deposit/ภาษี/น้ำมัน](project-bigc-jun-deposit-tax-fuel.md) — ภาษี BigC รอโอตัดสิน
+
+## งานเสร็จล่าสุด (ก.ค.)
+- [☀️ เซสชันกลางวัน 4ก.ค.](project-jul4-day-run.md) — G2/S3/F0/S5 done + F3 จูน + doc_no clean 208 + CVE multipart อุดแล้ว → แพลน 34/38; **สลิป template: server=HEAD แล้ว ที่ค้างคือ working tree local ของ session สลิป ห้ามทับ**; starlette CVE ติด pin = งาน migration แยก
+- [🌙 คืน 3→4ก.ค. มาราธอน 22 งาน → แพลน 31/38 (82%) deploy v42](project-jul4-night-run.md) — C2 (9/10)/P1/P2/P3/P5 (เมนู 5 หมวด+หน้าแรกการ์ด)/D2/D3/E1 (PWA เช็คอิน/รูปตู้/ปิดงาน)/E2 (น้ำมันผิดปกติ)/F2 (วัดจริง 1,256 ข้อความ+จูน)/F3/F5/S2/S4/S5/A5 ปุ่ม/B1.1; **7 งานเหลือติดเงื่อนไขภายนอกหมด**; **สลิป template server≠local (session อื่นยังไม่จบ) ห้าม deploy ทั้ง dir**; รอโอ: วันจ่ายเงินเดือน+หนี้+ยืนยัน mapping ไลน์+ตัวอย่างใบเสร็จ+NHL ฟอร์ม+F4 OCR+/uploads public
+- [G2 ย้ายรูปลงแผ่น External](project-g2-media-archive.md) — DONE 4ก.ค. v44: copy→hash→ลบ + ป้าย EXT-xx บน /line; รอโอเสียบแผ่นจริง; ครบกำหนดแรก มิ.ย. 2028
+- S3 DONE 4ก.ค. — docs/SECRETS_INVENTORY.md ทะเบียน 7 secret + หมุน SLIP_INGEST_TOKEN จริงแล้ว (token เก่าตายแล้ว); rotate LINE/Discord/Anthropic/SA รอ console โอ
+- [F3 POD วัดจริง+จูนแล้ว](project-f3-pod-measured-tuned.md) — 4ก.ค.: reverse-match เลข Job deploy แล้ว (strong 57→80); LineGroupMap 38 กลุ่มลง server; รอเดลี่ ก.ค. import ค่อยวัด ≥90% (measure_pod2.py บน server); NHL ต้อง OCR
+- [C2 ออกใบวางบิล](project-c2-invoice-builder.md) — /billing/invoice CY+KMMT+CJ verified 6 ใบจริงเลขตรงทุกช่อง; เหลือ vendor template เจ้าอื่น (runbook INVOICE_BUILDER_SPEC.md); ไม่เขียน invoice_no กลับเดลี่; NHL 2 เลย์เอาต์รอถามทีม
+- [C4 ค่าเที่ยวตกหล่น](project-c4-pay-adjustment.md) — DONE 3ก.ค.: แก้ tfd รอบปิดใน grid→ตั้งยอดอัตโนมัติ→บวก/หักรอบถัดไป idempotent (v36); เคสจริงแรก=ราคา AYU ดู runbook
+- [B3 ราคาใบเสนอ→เดลี่](project-b3-quote-to-daily.md) — DONE 3ก.ค.: ปุ่ม 💡 ใน grid กดรับต่อแถว (ไม่ทับ+audit) + /billing เตือนราคา≠ใบเสนอ; รอโอมีใบ "ตกลงแล้ว" ใบแรก
+- [S1 สำรอง 3 ชั้น](project-s1-backup-3tier.md) — DONE 3ก.ค.: nightly zip→D: + ปุ่ม External + Dev mirror + Discord + ซ้อมกู้; **GOTCHA: Google ตัด SA quota — อัป Drive ต้อง OAuth โอ (รอเคาะ)**
+- [C1 พร้อมวางบิล?](project-c1-billing-ready.md) — DONE 3ก.ค.: แถบเช็คใน /billing (ราคาว่าง/ไม่มีเลขใบงาน/ตู้ซ้ำ, deep-link ไป grid); helper _daily_row_kind ใช้ร่วมปฏิทิน; BigC พ.ค. 340 แถวราคาว่าง
+- [B2 เซฟใบเสนอราคา](project-b2-quote-save.md) — DONE 3ก.ค.: /quote/sync พูดโปรโตคอล Drive-sync เดิม (ไม่แก้ไฟล์เครื่องคิด) + /quote/list v35; รอโอลองกดจริง 1 ครั้ง
+- [B4 ปฏิทินกำลังรถ /calendar](project-b4-fleet-calendar.md) — DONE 3ก.ค.: ว่าง=รวม−จอง/วิ่ง−ซ่อม−ลา + ลงลา; GOTCHA เดลี่ไม่มี vehicle link ต้อง match ทะเบียนข้อความ; AYU/BIGC รอเพิ่มรถใน /vehicles
+- [KB payout /kb-payout](project-cy-kb-payout-calculator.md) — LIVE: จับคู่ยอดโอน 4 เจ้า + ติ๊กรับ (KbSettle v32); ค้างใบเสร็จ/ใบหัก; runbook docs/KB_PAYOUT_RUNBOOK.md
+- [หน้ารอรับเงินลูกค้า AR](project-receivables-page.md) — LIVE: /finance/receivables อ่านทะเบียนรับเช็คจาก Drive แท็บ 2026+
+- [สลิป 3 surface + คอลัมน์พิเศษ/OT](project-slip-surfaces-consistency.md) — รายคน/ZIP=payroll_slip, /print=print_all (คนละไฟล์+style)
+- [สลิปคนเหมา KB reconcile](project-slip-mao-kb-reconcile.md) — KB dispatch ตาม pay_mode ทุก surface; P&L หัก KB แยกบรรทัด
+- [เครื่องมือกู้รหัส MVP](project-mvp-reset-password-tool.md) — RESET_PASSWORD.bat บน server; runbook docs/MVP_ADMIN_RECOVERY_RUNBOOK.md
+- [DB swap ทับรหัสผ่าน](project-mvp-password-db-swap-gotcha.md) — swap DB ต้อง preserve appuser hash จาก server ก่อน
+- [ย้ายข้อมูลพี่หวาน xlsx→ชีท AYU](project-ayu-sync-wan-xlsx.md) — runbook+สคริปต์ tools/wan_sheet_sync/; รอบ ก.ค. ยังไม่ import DB
+
+## งานเสร็จ 29-30 มิ.ย. (payroll มิ.ย. + สลิป)
+- [Daily grid Save ไม่ติด](project-daily-grid-save-auth-redirect.md) — commitOpenEditor ก่อน Save + 401 JSON แทน redirect เงียบ
+- [แก้บัญชีโอน+ป้าไก่+คืนประกันเรืองฤทธิ์](project-transfer-bank-fix-paikai-ruangrit.md)
+- [ยอดโอนรวม=net>0 เท่านั้น](project-transfer-total-positive-only.md)
+- [LCB เหมา จ่ายต่อเที่ยว](project-lcb-mao-pertrip-pay.md) — lcb_mao=Σtrip_fee_driver (เลิก revenue×60%)
+- [AYU เหมา จ่ายต่อเที่ยว](project-ayu-mao-pertrip-pay.md) — ayu_mao=Σtrip_fee_driver
+- [AYU deposit มิ.ย.+พิมพ์สลิป](project-ayu-deposit-installments.md)
+- [น้ำมัน 23/6 ย้าย 0556→0560](project-fuel-move-0556-0560.md)
+- [ปรีชา สดย่อย 4,095](project-preecha-petty.md) — คนใหม่ onboard หลัง petty import ต้องดึงตาม
+- [สลิป handover_manual offtable](project-slip-handover-manual-offtable.md)
+- [AYU office reconcile ตามรูป](project-ayu-office-reconcile-rup.md) — รูปเงินเดือน=ground truth
+- [AYU office SS 9 คน](project-ayu-office-ss.md) — ค้าง onboard ซองอู/พร/จอมิน/เก้า + แม่บ้านใหม่
+- [AYU office ช่างน้อย+ศราวุธ](project-ayu-office-changnoi-sarawut.md)
+- [AYU คนใหม่ 4 คน](project-ayu-jun-new-drivers.md)
+- [ชัชวาล การันตี 15,000](project-chatchawal-guarantee.md)
+- [สดย่อยสมัย แยก AYU/BIGC](project-samai-petty-split-ayu-bigc.md)
+- [ธัชชนพล deposit 2,000+พักหัก](project-thach-deposit-2000-hold.md)
+- [ธัชชนพล น้ำมัน +2 ยอด](project-thach-fuel-jun.md) — ยอดติดลบ=คืนน้ำมัน
+- [เรวัตร น้ำมัน handover 1/6](project-rewat-handover-fuel-jun.md) — probe_db.py เทียบ local↔server ก่อน push (โอกำชับ)
+- [ออฟฟิสไม่หักเงินประกันตน](project-office-no-deposit.md)
+- [สลิปรวมน้ำมันเติมรอบเดียว B7+B20](project-slip-merge-fuel-same-fill.md) — display-only key=FuelTxn.txn_date
+- [สลิปน้ำมันตามวันเติมจริง](project-slip-fuel-fill-date.md)
+- [BigC วันหยุด+อนุโลม](project-bigc-holiday-anuloom.md)
+- [Jun payroll AYU+BIGC status](project-jun-payroll-ayu-bigc-status.md)
+- [fix grid header filter](project-grid-header-filter-fix.md) — Tabulator ต้อง refreshFilter() หลัง success()
+- [สลิปโชว์น้ำมันนอกตาราง](project-slip-offtable-fuel-display.md)
+- [สลิปงานยกเลิกไม่รั่ว remark](project-slip-cancel-remark-leak.md)
+- [LCB deposit reconcile screenshot](project-lcb-deposit-jun-screenshot-reconcile.md)
+- [LCB deposit sync SSO](project-lcb-deposit-sso-resync.md) — "X/10"=จ่ายครบ X งวด → balance=X×1000
+- [LCB มิ.ย. audit รอบ 2](project-lcb-jun-audit-round2.md)
+- [AYU-Yusen 60% (PAUSED)](project-ayu-yusen-charter-pay.md)
+- [น้ำมัน B7/B20 เกรด](project-fuel-b7b20-grade.md)
+- [สลิป 1 คน = 1 หน้า](project-slip-one-page-per-driver.md)
+- [สลิปลิตร+หักจริง/ไม่หัก](project-slip-fuel-deduct-clarity.md)
+- [AYU มิ.ย. payroll](project-ayu-jun-payroll.md) — recompute ลบ office copy ต้อง re-copy
+- [AYU daily import](project-ayu-daily-import.md) — รอบ 26→25
+- [สลิป route เต็ม](project-slip-route-display.md)
+- [สลิปแจกแจงสดย่อย](project-payroll-slip-petty-itemize.md)
+- [สลิป ZIP แยกคน](project-payroll-slip-zip-per-driver.md)
+- [LCB driver extra fees](project-lcb-driver-extra-fees.md)
+
+## เครื่องมือ/อ้างอิงเทคนิค
+- [Deploy MVP self-verify](reference-deploy-mvp-selfverify.md) — DEFAULT: deploy_mvp.sh --markers "<ascii>" (แต่ copy ทั้ง dir — มีไฟล์ session อื่นค้างให้ surgical scp แทน)
+- [net_guard ทุกไซต์](reference-net-guard.md) — net_guard.py before/after --allow <ids> พิสูจน์รอบอื่นนิ่ง
+- [Chrome headless PDF](reference-chrome-headless-pdf.md) — --user-data-dir + poll ไฟล์ + ห้าม TemporaryDirectory; ตัดสินไทยด้วย screenshot
+- [Google Drive access](reference-google-drive-access.md) — service acct + Drive API; list ทีละชั้น; UTF-8 file
+- [Google Sheets access](reference-google-sheets-access.md) — gspread service account; open_by_key เท่านั้น; 60 reads/min
+- [Deploy ผ่าน Tailscale](reference-deploy-via-tailscale.md) — yklog@100.97.150.114; quote ซ้อนพัง→scp .ps1 ไปรัน
+- [MVP server deploy](reference-mvp-server-deploy.md) — app.yklogistics.uk; runbook MVP_SERVER_DEPLOY.md
+- [MVP deploy restart gotcha](reference-mvp-deploy-restart-gotcha.md) — kill by 8010-PID ไม่ใช่ filter .venv (โดน archiver)
+- [Branch flips mid-session](reference-branch-switch-during-session.md) — เช็ค git branch --show-current ก่อน mutation
+- [LINE archiver](reference-line-archiver.md) — service แยก port 8020; line_archive.db + line_media/
+- [yklogistics.com DNS](reference-yklogistics-dns.md) — A/MX/SPF ห้ามหาย
+- [SSH to YK machine](reference-ssh-to-yk-machine.md) — passwordless yklog; LAN+Tailscale
+- [Server no GPU](reference-server-no-gpu-llm.md) — ห้าม self-host LLM บน .197
+- [Window-warm routines](reference-window-warm-routines.md) — 4 routines เปิด usage window 06/11/16/21 BKT
+- [Windows vs Linux stack](reference-windows-vs-linux-stack-choice.md) — setup ของโอถูกแล้ว อย่าเสนอย้าย
+- [Auto-resume system](reference-auto-resume-system.md) — resume-after-limit hook+watcher
+- [Qwen subagent](reference-qwen-subagent.md) — qwen.ps1 recon ฟรี read-only
+- [HOME pwsh setup](reference-home-pwsh-terminal-setup.md) — ใช้ Windows Terminal กันวรรณยุกต์หาย
+- [Makcu macro_engine](reference-makcu-macro-engine.md) — ของส่วนตัวโอ นอก repo YK
+- [YT summarize](reference-yt-summarize.md) — yt-dlp captions → Qwen สรุปไทย
+- [Claude Code installs](claude-code-multiple-installs.md) — ตัวไหนรันจริงบนเครื่องโอ
+- [Superpowers + 9arm](project-superpowers-9arm-models.md) — 9arm Qwen แยก config ห้ามงานเงิน
+
+## ประวัติ/โดเมน (มิ.ย. และก่อนหน้า)
+- [KB + ราคาคำนวณคนขับ](project-kb-driver-calc-price.md) — driver_calc_price=(override??rev)−kb
+- [BigC คอลัมน์ E = ลูกค้า](project-bigc-column-e-customers.md) — 1/2+BH/DV/++=บิ๊กซี
+- [BigC daily import](project-bigc-daily-import.md)
+- [BigC พ.ค. payroll](project-bigc-may-payroll.md) — เดือน มิ.ย.=วิ่ง พ.ค.
+- [Deposit งวด X/Y](project-deposit-installment-number.md)
+- [Deposits overview /deposits](project-deposits-overview-page.md)
+- [Daily LCB sheet](project-daily-lcb-sheet.md)
+- [LCB mixed mode](project-lcb-mixed-mode.md)
+- [LCB mixed idle-days](project-lcb-mixed-idle-days.md)
+- [LCB Jun xlsx reimport](project-lcb-jun-xlsx-reimport.md)
+- [Fuel exclude-from-driver](project-fuel-exclude-from-driver.md)
+- [Driver pay breakdown](project-driver-pay-breakdown-daily-slip.md)
+- [Payroll bank + print](project-payroll-bank-print.md)
+- [DHL Overflow rate](project-dhl-overflow-rate.md)
+- [Mao fuel วัดถัง 2 กฎ](project-mao-fuel-tank-measure.md)
+- [Fuel handover-measure BACKLOG](project-fuel-handover-measure-backlog.md)
+- [Fuel pump reconcile](project-fuel-pump-reconcile.md)
+- [CFO revenue drill-down](project-cfo-revenue-drilldown.md)
+- [CFO cycle vs calendar](project-cfo-cycle-vs-calendar.md) — /finance สลับ เดือน↔รอบจ่าย
+- [LCB พ.ค. lock ตาม PDF](project-lcb-may-lock-pdf.md)
+- [Multi-site payroll onboard](project-multisite-payroll-onboard.md)
+- [รถร่วม บุญนาม TODO](project-rojruam-bunnam-todo.md) — รอโอยืนยันสูตร 13%
+- [Oatside billing recon](project-oatside-billing-recon.md)
+- [Oatside report UI edits](project-oatside-report-ui-edits.md)
+- [LCB daily↔fuel cross-check](project-lcb-daily-fuel-crosscheck.md) — tool พร้อม รอ archive สะสมข้อมูล
+- [LCB fuel cross-check rules](project-lcb-fuel-crosscheck-domain-rules.md) — เติมข้ามไซท์=ปกติ
+- [LCB slip-reader](project-lcb-slip-reader.md)
+- [UPS power-alert](project-ups-power-alert.md)
+- [Daily grid edit UX](project-daily-grid-edit-ux.md)
+- [Merge Daily + Grid](project-merge-daily-grid.md)
