@@ -1,4 +1,16 @@
-# แผนอัป fastapi/starlette หลุด pin (ปิด CVE ชุด starlette 0.38.6)
+# ✅ ทำแล้ว 4 ก.ค. 2026 (เย็น) — อัป fastapi 0.139.0 / starlette 1.3.1 ปิด CVE ครบ
+
+**ผลจริง:** ทำแบบ 2 จังหวะ — (A) rewrite TemplateResponse 130 จุดเป็น signature ใหม่
+(เข้ากันได้ทั้ง 0.38.6/1.3.1 — starlette 0.29+ รับแบบใหม่แล้ว) + AST ยืนยัน request ใน scope ครบ
+→ เทสต์ 428 ผ่าน**ทั้งสอง stack** → deploy โค้ดก่อน (server ยังเวอร์ชันเดิม = เสี่ยงศูนย์);
+(B) pip อัป server+dev → restart → /login render จริง + /health + ไม่มี error ใน log;
+pip-audit เหลือศูนย์ CVE runtime (pytest dev-only อัปเป็น 9.x แล้วด้วย); uvicorn คง 0.34 (ไม่จำเป็นต้องอัป);
+`@app.on_event("startup")` ยัง deprecated-but-working บน fastapi 0.139 — ค่อยย้ายเข้า lifespan เมื่อสะดวก
+**กติกาโค้ดใหม่:** route ใหม่ต้องเรียก `templates.TemplateResponse(request, "x.html", ctx)` เสมอ
+
+---
+
+# (แผนเดิม — เก็บไว้อ้างอิง) อัป fastapi/starlette หลุด pin (ปิด CVE ชุด starlette 0.38.6)
 
 > ที่มา: S5 รอบแรก 4 ก.ค. 2026 — pip-audit เจอ starlette 0.38.6 มี CVE 6 รายการ
 > (รวม CVE-2024-47874 multipart DoS — จุดรับ pre-auth คือฟอร์ม /login) แต่ติด pin

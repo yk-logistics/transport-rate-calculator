@@ -71,9 +71,11 @@ templates/       — Jinja2 HTML (HTMX + Tailwind CDN, ไม่มี Node buil
 ### Version pins (ห้ามอัปเกรดโดยไม่ทดสอบ)
 
 ```
-fastapi<0.115   # fastapi 0.115+ ดึง starlette 1.0 ซึ่งทำ Jinja2 globals พัง
-starlette<0.40
+fastapi>=0.139,<1    # migrate แล้ว 4 ก.ค. 2026 — TemplateResponse ใช้ signature ใหม่
+starlette>=1.3,<2    # (request, name, ctx) ทั้ง 130 จุด; ดู docs/STARLETTE_MIGRATION_NOTES.md
 ```
+
+pin เก่า (fastapi<0.115/starlette<0.40 เรื่อง Jinja2 globals) **ปลดแล้ว** — ถ้าเขียน route ใหม่ให้เรียก `templates.TemplateResponse(request, "x.html", ctx)` เสมอ (แบบเก่า `("x.html", ctx)` จะพังบน starlette 1.x)
 
 ## Memory ถาวร (อ่านเมื่อเริ่ม session ใหม่)
 
@@ -123,6 +125,22 @@ starlette<0.40
 2. **subagent ใช้โมเดลถูกก่อน** — งาน mechanical (1–2 ไฟล์ สเปคชัด) → Haiku/Sonnet; integration → Sonnet; เก็บ Opus เฉพาะ design + final review (ตรงกับหัวข้อ *Model Selection* ของสกิลเอง)
 3. **ห้ามรันบน `main`** — สกิล commit ทีละ task ต้องอยู่บน worktree/branch แยกก่อน (สกิลบังคับ `using-git-worktrees`) ปัจจุบัน repo มักอยู่ `main` + มีไฟล์ค้าง → จัดการ branch ให้เรียบร้อยก่อน
 4. **งานเงิน (payroll/billing) ยังต้องผ่าน preflight ตามปกติ** — subagent ไม่ข้ามกฎ "กฎเงิน" ด้านบน
+
+## Model routing — "ผู้ใหญ่คิด เด็กเขียน" (ออโต้ ตัวหลักเลือกเอง)
+
+โอสั่ง 2 ก.ค. 2026: ตัวหลัก (Fable/Opus) **ประเมินก่อนเขียนโค้ดทุกครั้ง** แล้วเลือกเส้นทางเองโดยไม่ต้องถาม — แจ้งโอสั้นๆ บรรทัดเดียวว่าเลือกทางไหนเพราะอะไร
+
+| เงื่อนไขงาน | เส้นทาง |
+|---|---|
+| แก้เล็ก: ≤2 ไฟล์, รู้จุดแก้ชัด, ราวไม่กี่สิบบรรทัด | ตัวหลักทำเองเลย (dispatch ไม่คุ้ม overhead — เด็กต้องอ่านบริบทใหม่หมด) |
+| โค้ดก้อนใหญ่: หลายไฟล์ / โค้ดยาว / mechanical ตามสเปคได้ | เขียนสเปคละเอียด (ไฟล์ไหน แก้ตรงไหน เกณฑ์ผ่าน gotcha) → dispatch subagent **Sonnet** ทำ + ให้มัน self-verify → ตัวหลักตรวจแค่ diff + ผลเทสต์ |
+| อ่าน/สำรวจ/สรุปเยอะ | Explore/Haiku subagent (หรือ Qwen ตาม delegation ladder) |
+| **งานเงิน payroll/billing/แก้ DB** | **ตัวหลักทำเองเสมอ ห้าม delegate** (กฎเงินด้านบนใช้เต็ม) |
+| subagent แก้ตามรีวิวแล้ว 1 รอบยังไม่ผ่าน | ตัวหลักยึดงานมาทำเองต่อ — อย่าวนสั่งแก้รอบ 3 (แพงกว่าทำเองแล้ว) |
+
+- ถ้าตัวหลักของเซสชันเป็น **Sonnet อยู่แล้ว**: ทำเองทั้งหมด ไม่ต้อง delegate — ยกเว้นเจองานเงิน/ออกแบบ ให้หยุดแล้วเตือนโอสลับ `/model` เป็น Opus ก่อน
+- ตัวหลักสลับโมเดลตัวเองไม่ได้ — ถ้างานทั้งเซสชันไม่จำเป็นต้องใช้โมเดลแพง ให้บอกโอตอนจบว่า "งานแบบนี้ครั้งหน้าเปิดด้วย Sonnet พอ"
+- กฎนี้คือ default รายวัน; `subagent-driven-development` (หัวข้อถัดไป) ใช้เฉพาะงานใหญ่แตกหลาย task และยังต้องถามก่อนเริ่มตามเดิม
 
 ## ทำงานกับ Cursor vs Claude Code
 

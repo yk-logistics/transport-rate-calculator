@@ -24,6 +24,7 @@
 - [BigC มิ.ย. deposit/ภาษี/น้ำมัน](project-bigc-jun-deposit-tax-fuel.md) — ภาษี BigC รอโอตัดสิน
 
 ## งานเสร็จล่าสุด (ก.ค.)
+- [🚀 Starlette migrated](project-starlette-migrated.md) — 4ก.ค.: fastapi 0.139/starlette 1.3.1 บน server+dev, 0 CVE; **route ใหม่ต้อง TemplateResponse(request, name, ctx)**
 - [F4 น้ำมันไลน์↔ระบบ](project-f4-fuel-line-compare.md) — DONE 4ก.ค. ไม่ใช้ OCR: /fuel/line-compare parse ข้อความแจ้งเติม; ตกหล่นจริง 7 รายการรอทีม; "รอ import" เทียบ per-site
 - [☀️ เซสชันกลางวัน 4ก.ค.](project-jul4-day-run.md) — G2/S3/F0/S5 done + F3 จูน + doc_no clean 208 + CVE multipart อุดแล้ว → แพลน 34/38; **สลิป template: server=HEAD แล้ว ที่ค้างคือ working tree local ของ session สลิป ห้ามทับ**; starlette CVE ติด pin = งาน migration แยก
 - [🌙 คืน 3→4ก.ค. มาราธอน 22 งาน → แพลน 31/38 (82%) deploy v42](project-jul4-night-run.md) — C2 (9/10)/P1/P2/P3/P5 (เมนู 5 หมวด+หน้าแรกการ์ด)/D2/D3/E1 (PWA เช็คอิน/รูปตู้/ปิดงาน)/E2 (น้ำมันผิดปกติ)/F2 (วัดจริง 1,256 ข้อความ+จูน)/F3/F5/S2/S4/S5/A5 ปุ่ม/B1.1; **7 งานเหลือติดเงื่อนไขภายนอกหมด**; **สลิป template server≠local (session อื่นยังไม่จบ) ห้าม deploy ทั้ง dir**; รอโอ: วันจ่ายเงินเดือน+หนี้+ยืนยัน mapping ไลน์+ตัวอย่างใบเสร็จ+NHL ฟอร์ม+F4 OCR+/uploads public

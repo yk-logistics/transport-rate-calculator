@@ -12,6 +12,7 @@
 - **F0 ✅:** deploy จัดหมวด Discord ไป archiver + พบต้นตอห้องไม่เข้าหมวด (backfill 12มิ.ย. จัดห้องชุด dev แต่ server สร้างห้องใหม่) → `fix_orphan_channels.py` จัด 44/44
 - **F3 🔶:** วัด POD กับรูปจริง server + จูน **reverse-match เลข Job** (strong 57→80/340; KLND 0→22) + mark LineGroupMap 38 กลุ่ม; วัดรอบเต็ม ≥90% รอเดลี่ ก.ค. import (`measure_pod2.py` บน server)
 - **data-clean:** ขยายครอบ `doc_no` (CSV artifact `"` นำหน้า) + ล้างจริง 208 แถว (audit); **D1 วัดจริง:** LCB 97-100% จบแล้ว เหลือ BIGC เม.ย./พ.ค. + AYU มิ.ย.
+- **🚀 อัปเฟรมเวิร์คปิด CVE (เย็น):** fastapi 0.114→0.139 / starlette 0.38.6→**1.3.1** บน server+dev — ทำ 2 จังหวะ (rewrite TemplateResponse 130 จุดเป็น signature ใหม่ที่เข้ากันได้สองทาง → เทสต์ 428 ผ่านทั้งสอง stack → deploy โค้ด → ค่อยอัป venv); pip-audit runtime = 0 CVE; **pin เก่าใน CLAUDE.md ปลดแล้ว — route ใหม่ต้องใช้ `TemplateResponse(request, name, ctx)`**
 - **F4 ✅ (เย็น):** `/fuel/line-compare` เทียบน้ำมันไลน์↔ระบบ **แบบไม่ใช้ OCR** — กลุ่มปั๊มโพสต์แจ้งเติมมีทะเบียน+ลิตรอยู่แล้ว; แยก "รอ import" ตามความสดต่อไซท์; วัดจริง: ตกหล่นจริง 7 รายการ + เติมทะเบียนรถ AYU 16/BIGC 11 เข้า master (ปฏิทิน B4 ครบ 3 ไซท์)
 - **gotcha สลิป:** server template = HEAD แล้ว — ที่ค้างคือแก้ใน working tree local ของ session สลิป (.k-tag/.c-extra) ห้าม commit/ทับ; งานค้างครึ่งทางจริง (CSS k-tag มาแล้ว markup ยังไม่มา)
 

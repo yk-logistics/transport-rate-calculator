@@ -1,10 +1,10 @@
 # Project YK — One Platform
-# Locked versions known to work together (Apr 2026).
-# IMPORTANT: starlette 1.0+ broke Jinja2 globals → we MUST pin starlette<0.40
-# fastapi 0.115+ pulls starlette 1.0, so we pin fastapi<0.115 too.
+# Migrated 4 ก.ค. 2026 (STARLETTE_MIGRATION_NOTES.md): TemplateResponse ทั้ง 130 จุด
+# ใช้ signature ใหม่ (request, name, ctx) แล้ว — pin เดิม (<0.115/<0.40 เรื่อง Jinja2 globals)
+# ปลดได้; เทสต์เต็ม 428 ผ่านทั้งสอง stack ก่อนอัป
 
-fastapi>=0.110,<0.115
-starlette>=0.36,<0.40
+fastapi>=0.139,<1
+starlette>=1.3,<2
 uvicorn[standard]>=0.27,<0.35
 sqlmodel>=0.0.16,<0.1
 SQLAlchemy>=2.0,<2.1
