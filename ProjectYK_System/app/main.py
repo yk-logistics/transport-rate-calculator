@@ -728,7 +728,7 @@ def _client_ip(request: Request) -> str:
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+    return templates.TemplateResponse(request, "login.html", {"request": request, "error": None})
 
 
 @app.post("/login")
@@ -739,7 +739,7 @@ async def login_submit(request: Request, username: str = Form(...), password: st
     # Brute-force guards (fail closed before touching the DB).
     if login_guard.is_ip_blocked(ip) or login_guard.is_username_locked(uname):
         return templates.TemplateResponse(
-            "login.html",
+            request, "login.html",
             {"request": request,
              "error": "พยายามเข้าสู่ระบบบ่อยเกินไป — โปรดลองใหม่อีกครั้งในภายหลัง"},
             status_code=429,
@@ -749,7 +749,7 @@ async def login_submit(request: Request, username: str = Form(...), password: st
     if u is None or u.status != "active" or not verify_password(password, u.password_hash):
         login_guard.record_failure(username=uname, ip=ip)
         return templates.TemplateResponse(
-            "login.html",
+            request, "login.html",
             {"request": request, "error": "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"},
             status_code=401,
         )
@@ -772,7 +772,7 @@ from auth import hash_password  # noqa: E402
 @app.get("/account/password", response_class=HTMLResponse)
 async def password_page(request: Request):
     u = current_user(request)
-    return templates.TemplateResponse("account_password.html",
+    return templates.TemplateResponse(request, "account_password.html",
                                       {"request": request, "error": None, "user": u})
 
 
@@ -785,7 +785,7 @@ async def password_submit(request: Request,
 
     def fail(msg):
         return templates.TemplateResponse(
-            "account_password.html",
+            request, "account_password.html",
             {"request": request, "error": msg, "user": u}, status_code=400)
 
     if not verify_password(old_password, u.password_hash):
@@ -811,7 +811,7 @@ from permissions import ROLES  # noqa: E402
 async def admin_users_list(request: Request):
     with Session(engine) as s:
         users = s.exec(select(AppUser).order_by(AppUser.username)).all()
-    return templates.TemplateResponse("admin_users.html",
+    return templates.TemplateResponse(request, "admin_users.html",
                                       {"request": request, "users": users, "roles": ROLES})
 
 
@@ -1073,7 +1073,7 @@ def home(request: Request):
         "ar_overdue": ar_sum["overdue"], "ar_week": ar_sum["week"],
         "today_d": today,
     })
-    return templates.TemplateResponse("home_dashboard.html", ctx)
+    return templates.TemplateResponse(request, "home_dashboard.html", ctx)
 
 
 @app.get("/health")
@@ -1097,7 +1097,7 @@ def employees_list(request: Request, site: str = "", q: str = ""):
                     or ql in (r.code or "").lower()]
     ctx = base_context(request)
     ctx.update({"rows": rows, "site": site, "q": q})
-    return templates.TemplateResponse("employees_list.html", ctx)
+    return templates.TemplateResponse(request, "employees_list.html", ctx)
 
 
 # ---------------------------------------------------------------------
@@ -1147,7 +1147,7 @@ def deposits_list(request: Request, site: str = "", show: str = "active"):
     ctx = base_context(request)
     ctx.update({"rows": rows, "site": site, "show": show, "summary": summary,
                 "resigned_count": resigned_count, "site_codes": models.SITE_CODES})
-    return templates.TemplateResponse("deposits_list.html", ctx)
+    return templates.TemplateResponse(request, "deposits_list.html", ctx)
 
 
 @app.get("/deposits/{emp_id}/edit", response_class=HTMLResponse)
@@ -1157,7 +1157,7 @@ def deposits_edit_form(emp_id: int, request: Request):
         if not e:
             raise HTTPException(404)
     ctx = _deposit_row_ctx(request, e)
-    return templates.TemplateResponse("deposits_edit_row.html", ctx)
+    return templates.TemplateResponse(request, "deposits_edit_row.html", ctx)
 
 
 @app.post("/deposits/{emp_id}/edit", response_class=HTMLResponse)
@@ -1189,7 +1189,7 @@ def deposits_edit_submit(
         s.commit()
         s.refresh(e)
         ctx = _deposit_row_ctx(request, e)
-    return templates.TemplateResponse("deposits_row.html", ctx)
+    return templates.TemplateResponse(request, "deposits_row.html", ctx)
 
 
 @app.get("/deposits/{emp_id}/history", response_class=HTMLResponse)
@@ -1216,7 +1216,7 @@ def deposits_history(emp_id: int, request: Request):
     ctx = base_context(request)
     ctx.update({"emp": e, "hist": hist, "hist_total": hist_total,
                 "carried": carried, "edit_log": edit_log})
-    return templates.TemplateResponse("deposits_history.html", ctx)
+    return templates.TemplateResponse(request, "deposits_history.html", ctx)
 
 
 def _parse_custom_terms_safe(raw: str) -> dict:
@@ -1233,7 +1233,7 @@ def _parse_custom_terms_safe(raw: str) -> dict:
 def employees_new(request: Request):
     ctx = base_context(request)
     ctx.update({"row": None, "mode": "new", "custom_terms_obj": {}})
-    return templates.TemplateResponse("employee_form.html", ctx)
+    return templates.TemplateResponse(request, "employee_form.html", ctx)
 
 
 @app.get("/employees/{emp_id}/edit", response_class=HTMLResponse)
@@ -1248,7 +1248,7 @@ def employees_edit(emp_id: int, request: Request):
         "mode": "edit",
         "custom_terms_obj": _parse_custom_terms_safe(row.custom_terms or ""),
     })
-    return templates.TemplateResponse("employee_form.html", ctx)
+    return templates.TemplateResponse(request, "employee_form.html", ctx)
 
 
 @app.post("/employees/new")
@@ -1416,14 +1416,14 @@ def vehicles_list(request: Request, site: str = "", q: str = ""):
             rows = [r for r in rows if ql in (r.plate_no or "").lower()]
     ctx = base_context(request)
     ctx.update({"rows": rows, "site": site, "q": q})
-    return templates.TemplateResponse("vehicles_list.html", ctx)
+    return templates.TemplateResponse(request, "vehicles_list.html", ctx)
 
 
 @app.get("/vehicles/new", response_class=HTMLResponse)
 def vehicles_new(request: Request):
     ctx = base_context(request)
     ctx.update({"row": None, "mode": "new"})
-    return templates.TemplateResponse("vehicle_form.html", ctx)
+    return templates.TemplateResponse(request, "vehicle_form.html", ctx)
 
 
 @app.get("/vehicles/{veh_id}/edit", response_class=HTMLResponse)
@@ -1434,7 +1434,7 @@ def vehicles_edit(veh_id: int, request: Request):
             raise HTTPException(404)
     ctx = base_context(request)
     ctx.update({"row": row, "mode": "edit"})
-    return templates.TemplateResponse("vehicle_form.html", ctx)
+    return templates.TemplateResponse(request, "vehicle_form.html", ctx)
 
 
 @app.post("/vehicles/new")
@@ -1498,14 +1498,14 @@ def customers_list(request: Request, site: str = "", q: str = ""):
                     or ql in (r.code or "").lower()]
     ctx = base_context(request)
     ctx.update({"rows": rows, "site": site, "q": q})
-    return templates.TemplateResponse("customers_list.html", ctx)
+    return templates.TemplateResponse(request, "customers_list.html", ctx)
 
 
 @app.get("/customers/new", response_class=HTMLResponse)
 def customers_new(request: Request):
     ctx = base_context(request)
     ctx.update({"row": None, "mode": "new"})
-    return templates.TemplateResponse("customer_form.html", ctx)
+    return templates.TemplateResponse(request, "customer_form.html", ctx)
 
 
 @app.get("/customers/{cust_id}/edit", response_class=HTMLResponse)
@@ -1516,7 +1516,7 @@ def customers_edit(cust_id: int, request: Request):
             raise HTTPException(404)
     ctx = base_context(request)
     ctx.update({"row": row, "mode": "edit"})
-    return templates.TemplateResponse("customer_form.html", ctx)
+    return templates.TemplateResponse(request, "customer_form.html", ctx)
 
 
 @app.post("/customers/new")
@@ -1647,7 +1647,7 @@ def daily_list(
             "preset_cycles": preset_cycles,
         }
     )
-    return templates.TemplateResponse("daily_grid.html", ctx)
+    return templates.TemplateResponse(request, "daily_grid.html", ctx)
 
 
 def _apply_daily_fields(row: DailyJob, f: dict) -> None:
@@ -1699,7 +1699,7 @@ def daily_new_form(request: Request):
         ensure_ascii=False)
     ctx = base_context(request)
     ctx.update({"masters_json": masters_json, "trip_types_json": trip_types_json})
-    return templates.TemplateResponse("daily_batch.html", ctx)
+    return templates.TemplateResponse(request, "daily_batch.html", ctx)
 
 
 @app.get("/daily/{job_id}/edit", response_class=HTMLResponse)
@@ -1712,7 +1712,7 @@ def daily_edit_form(job_id: int, request: Request):
     ctx = base_context(request)
     ctx.update({"row": row, "mode": "edit",
                 "employees": employees, "vehicles": vehicles, "customers": customers})
-    return templates.TemplateResponse("daily_form.html", ctx)
+    return templates.TemplateResponse(request, "daily_form.html", ctx)
 
 
 @app.post("/daily/new")
@@ -2305,7 +2305,7 @@ def admin_data_clean(request: Request):
         "id": j.id, "date": j.work_date, "site": j.site_code,
         "raw": j.doc_no, "fixed": _normalize_doc_no(j.doc_no),
     } for j in dirty_doc]})
-    return templates.TemplateResponse("admin_data_clean.html", ctx)
+    return templates.TemplateResponse(request, "admin_data_clean.html", ctx)
 
 
 @app.post("/admin/data-clean/fix-docnos")
@@ -2462,7 +2462,7 @@ def email_inbox(
             "has_refresh_token": has_refresh_token,
         }
     )
-    return templates.TemplateResponse("email_inbox.html", ctx)
+    return templates.TemplateResponse(request, "email_inbox.html", ctx)
 
 
 @app.get("/email/oauth/start")
@@ -2544,7 +2544,7 @@ def email_inbox_draft_daily(mail_id: int, request: Request):
             "inbox_mail_id": mail.id,
         }
     )
-    return templates.TemplateResponse("daily_form.html", ctx)
+    return templates.TemplateResponse(request, "daily_form.html", ctx)
 
 
 @app.post("/email/inbox/sync")
@@ -2882,7 +2882,7 @@ def petty_list(
         "capped": capped,
         "current_cycle_tag": current_cycle_tag,
     })
-    return templates.TemplateResponse("petty_list.html", ctx)
+    return templates.TemplateResponse(request, "petty_list.html", ctx)
 
 
 @app.get("/petty-cash/new", response_class=HTMLResponse)
@@ -2892,7 +2892,7 @@ def petty_new(request: Request):
         vehicles = s.exec(select(Vehicle).order_by(Vehicle.plate_no)).all()
     ctx = base_context(request)
     ctx.update({"row": None, "mode": "new", "employees": employees, "vehicles": vehicles, "next_url": ""})
-    return templates.TemplateResponse("petty_form.html", ctx)
+    return templates.TemplateResponse(request, "petty_form.html", ctx)
 
 
 @app.get("/petty-cash/{txn_id}/edit", response_class=HTMLResponse)
@@ -2915,7 +2915,7 @@ def petty_edit(txn_id: int, request: Request):
             "next_url": next_safe,
         }
     )
-    return templates.TemplateResponse("petty_form.html", ctx)
+    return templates.TemplateResponse(request, "petty_form.html", ctx)
 
 
 @app.post("/petty-cash/new")
@@ -3161,7 +3161,7 @@ def petty_pending(request: Request, cycle: str = "", site: str = ""):
         "cycles_available": cycles_available,
         "grand_total": sum(g["total"] for g in summary) + sum(r.deduct_amount or 0.0 for r in unassigned),
     })
-    return templates.TemplateResponse("petty_pending.html", ctx)
+    return templates.TemplateResponse(request, "petty_pending.html", ctx)
 
 
 @app.get("/petty-cash/clearance", response_class=HTMLResponse)
@@ -3192,7 +3192,7 @@ def petty_clearance(request: Request, site: str = ""):
     total_pending = sum(d["pending_amount"] for d in display)
     ctx = base_context(request)
     ctx.update({"rows": display, "site": site, "total_pending": total_pending})
-    return templates.TemplateResponse("petty_clearance.html", ctx)
+    return templates.TemplateResponse(request, "petty_clearance.html", ctx)
 
 
 @app.get("/petty-cash/clearance/{txn_id}/clear")
@@ -3338,7 +3338,7 @@ def fuel_anomaly_page(request: Request, site: str = "", d_from: str = "", d_to: 
     ctx = base_context(request)
     ctx.update({"data": data, "site": site,
                 "d_from": d1.isoformat(), "d_to": d2.isoformat()})
-    return templates.TemplateResponse("fuel_anomaly.html", ctx)
+    return templates.TemplateResponse(request, "fuel_anomaly.html", ctx)
 
 
 @app.get("/fuel/line-compare", response_class=HTMLResponse)
@@ -3384,7 +3384,7 @@ def fuel_line_compare_page(request: Request, days: int = 21):
                 error = f"อ่านคลังแชทไม่สำเร็จ: {e}"
     ctx.update({"days": days, "error": error, "data": data,
                 "n_orders": len(orders)})
-    return templates.TemplateResponse("fuel_line_compare.html", ctx)
+    return templates.TemplateResponse(request, "fuel_line_compare.html", ctx)
 
 
 @app.get("/fuel", response_class=HTMLResponse)
@@ -3496,7 +3496,7 @@ def fuel_list(
         "current_month_end": month_end,
         "current_cycle_tag": current_cycle_tag,
     })
-    return templates.TemplateResponse("fuel_list.html", ctx)
+    return templates.TemplateResponse(request, "fuel_list.html", ctx)
 
 
 @app.get("/fuel/new", response_class=HTMLResponse)
@@ -3507,7 +3507,7 @@ def fuel_new(request: Request):
     ctx = base_context(request)
     ctx.update({"mode": "new", "row": None, "today": date.today().isoformat(),
                 "employees": employees, "vehicles": vehicles})
-    return templates.TemplateResponse("fuel_form.html", ctx)
+    return templates.TemplateResponse(request, "fuel_form.html", ctx)
 
 
 @app.get("/fuel/{txn_id}/edit", response_class=HTMLResponse)
@@ -3521,7 +3521,7 @@ def fuel_edit(request: Request, txn_id: int):
     ctx = base_context(request)
     ctx.update({"mode": "edit", "row": row, "today": date.today().isoformat(),
                 "employees": employees, "vehicles": vehicles})
-    return templates.TemplateResponse("fuel_form.html", ctx)
+    return templates.TemplateResponse(request, "fuel_form.html", ctx)
 
 
 @app.post("/fuel/new")
@@ -3750,7 +3750,7 @@ def petty_review(request: Request):
         ).order_by(PettyCashTxn.txn_date, PettyCashTxn.id)).all()
     ctx = base_context(request)
     ctx["rows"] = rows
-    return templates.TemplateResponse("petty_review.html", ctx)
+    return templates.TemplateResponse(request, "petty_review.html", ctx)
 
 
 @app.post("/petty/review/{pid}/approve")
@@ -3839,7 +3839,7 @@ def slip_control(request: Request):
     ctx["slip_run_now"] = get_setting(SLIP_RUNNOW_KEY, "0") == "1"
     ctx["slip_last_run"] = get_setting(SLIP_LASTRUN_KEY, "")
     ctx["slip_last_result"] = get_setting(SLIP_LASTRESULT_KEY, "")
-    return templates.TemplateResponse("slip_control.html", ctx)
+    return templates.TemplateResponse(request, "slip_control.html", ctx)
 
 
 @app.post("/petty/slip-control/toggle")
@@ -3902,7 +3902,7 @@ def admin_promote(request: Request, tab: str = "drivers"):
         # override pay_modes with (code, label) pairs; template now expects tuples
         "pay_modes": models.PAY_MODES,
     })
-    return templates.TemplateResponse("admin_promote.html", ctx)
+    return templates.TemplateResponse(request, "admin_promote.html", ctx)
 
 
 @app.post("/admin/promote/drivers")
@@ -4016,7 +4016,7 @@ def payroll_list(
             "current_cycle_tag": current_cycle_tag,
         }
     )
-    return templates.TemplateResponse("payroll_list.html", ctx)
+    return templates.TemplateResponse(request, "payroll_list.html", ctx)
 
 
 @app.get("/payroll/new", response_class=HTMLResponse)
@@ -4026,7 +4026,7 @@ def payroll_new_form(request: Request):
     today = _d.today()
     default_tag = f"{today.year:04d}-{today.month:02d}"
     ctx.update({"default_tag": default_tag})
-    return templates.TemplateResponse("payroll_new.html", ctx)
+    return templates.TemplateResponse(request, "payroll_new.html", ctx)
 
 
 @app.post("/payroll/new")
@@ -4329,7 +4329,7 @@ def payroll_detail(run_id: int, request: Request, err: str = ""):
         "adj_pending": [{"a": a, "name": (e.nickname or e.full_name)} for a, e in adj_pending],
         "salary_export_folder_month": salary_folder_month_tag(pr),
     })
-    return templates.TemplateResponse("payroll_detail.html", ctx)
+    return templates.TemplateResponse(request, "payroll_detail.html", ctx)
 
 
 @app.post("/payroll/adjustments/{adj_id}/cancel")
@@ -4481,7 +4481,7 @@ def payroll_employee_detail(run_id: int, emp_id: int, request: Request):
         "stale": stale,
         "petty_saved_hint": petty_saved_hint,
     })
-    return templates.TemplateResponse("payroll_employee_detail.html", ctx)
+    return templates.TemplateResponse(request, "payroll_employee_detail.html", ctx)
 
 
 @app.get("/payroll/{run_id}/employee/{emp_id}/slip", response_class=HTMLResponse)
@@ -4510,7 +4510,7 @@ def payroll_employee_slip(run_id: int, emp_id: int, request: Request):
         slip_ctx = build_payroll_slip_context(s, pr, emp, item)
 
     ctx.update(slip_ctx)
-    resp = templates.TemplateResponse("payroll_slip.html", ctx)
+    resp = templates.TemplateResponse(request, "payroll_slip.html", ctx)
     # กัน browser cache สลิปเก่าไว้หลัง deploy (โอเจอ "ยังเป็นแบบเก่า" = เบราว์เซอร์ cache)
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     return resp
@@ -4530,9 +4530,9 @@ def payroll_export_pdfs(run_id: int, request: Request):
             manifest = export_payroll_pdf_bundle(s, run_id, default_project_root())
         except FileNotFoundError as e:
             ctx.update({"run": pr, "run_id": run_id, "manifest": None, "export_error": str(e)})
-            return templates.TemplateResponse("payroll_export_done.html", ctx, status_code=500)
+            return templates.TemplateResponse(request, "payroll_export_done.html", ctx, status_code=500)
     ctx.update({"run": pr, "run_id": run_id, "manifest": manifest, "export_error": None})
-    return templates.TemplateResponse("payroll_export_done.html", ctx)
+    return templates.TemplateResponse(request, "payroll_export_done.html", ctx)
 
 
 @app.post("/payroll/{run_id}/export-zip")
@@ -4814,7 +4814,7 @@ def payroll_tax_page(run_id: int, request: Request):
         }
     ctx = base_context(request)
     ctx.update({"run": pr, "rows": rows, "totals": totals})
-    return templates.TemplateResponse("payroll_tax.html", ctx)
+    return templates.TemplateResponse(request, "payroll_tax.html", ctx)
 
 
 def _slip_daily_rows(s: Session, emp_id: int, pr: PayRun, pay_mode: str, is_boss: bool) -> list:
@@ -4932,7 +4932,7 @@ def payroll_print_all(run_id: int, request: Request):
             totals["boss"] = tb
     ctx = base_context(request)
     ctx.update({"run": pr, "rows": rows, "totals": totals, "is_boss": is_boss})
-    resp = templates.TemplateResponse("payroll_print_all.html", ctx)
+    resp = templates.TemplateResponse(request, "payroll_print_all.html", ctx)
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     return resp
 
@@ -4962,7 +4962,7 @@ def payroll_accounts(run_id: int, request: Request):
     ctx = base_context(request)
     ctx.update({"run": pr, "rows": rows,
                 "total": round(sum(r["net"] for r in rows), 2)})
-    return templates.TemplateResponse("payroll_accounts.html", ctx)
+    return templates.TemplateResponse(request, "payroll_accounts.html", ctx)
 
 
 @app.get("/payroll/{run_id}/accounts.csv")
@@ -5317,7 +5317,7 @@ def maint_dashboard(request: Request):
         "parts_low_stock": len(parts_low),
     }
     return templates.TemplateResponse(
-        "maint_dashboard.html",
+        request, "maint_dashboard.html",
         {
             "request": request,
             "stats": stats,
@@ -5344,7 +5344,7 @@ def maint_vendor_list(request: Request):
             if r.vendor_id:
                 usage[r.vendor_id] = usage.get(r.vendor_id, 0) + 1
     return templates.TemplateResponse(
-        "maint_vendor_list.html",
+        request, "maint_vendor_list.html",
         {
             "request": request,
             "vendors": vendors,
@@ -5400,7 +5400,7 @@ def maint_part_list(request: Request, q: Optional[str] = None, category: Optiona
         vendor_map = {v.id: v for v in vendors}
 
     return templates.TemplateResponse(
-        "maint_part_list.html",
+        request, "maint_part_list.html",
         {
             "request": request,
             "parts": parts,
@@ -5440,7 +5440,7 @@ def maint_part_detail(request: Request, part_id: int):
         vp_vendor_ids = {vp.vendor_id for vp in prices}
 
     return templates.TemplateResponse(
-        "maint_part_detail.html",
+        request, "maint_part_detail.html",
         {
             "request": request,
             "part": p,
@@ -5610,7 +5610,7 @@ def vendor_price_compare(request: Request, q: Optional[str] = None):
         vendors = s.exec(select(Vendor).order_by(Vendor.name)).all()
 
     return templates.TemplateResponse(
-        "vendor_price_compare.html",
+        request, "vendor_price_compare.html",
         {
             "request": request,
             "parts": parts,
@@ -5686,7 +5686,7 @@ def inspection_list(
                 d[it.status] = d.get(it.status, 0) + 1
                 d["total"] += 1
     return templates.TemplateResponse(
-        "inspection_list.html",
+        request, "inspection_list.html",
         {
             "request": request,
             "inspections": inspections,
@@ -5711,7 +5711,7 @@ def inspection_new(request: Request, vehicle_id: Optional[int] = None):
     with Session(engine) as s:
         vehicles = s.exec(select(Vehicle).order_by(Vehicle.plate_no)).all()
     return templates.TemplateResponse(
-        "inspection_form.html",
+        request, "inspection_form.html",
         {
             "request": request,
             "inspection": None,
@@ -5829,7 +5829,7 @@ def inspection_edit(request: Request, insp_id: int):
         ).all()
         vehicles = s.exec(select(Vehicle).order_by(Vehicle.plate_no)).all()
     return templates.TemplateResponse(
-        "inspection_form.html",
+        request, "inspection_form.html",
         {
             "request": request,
             "inspection": insp,
@@ -5919,7 +5919,7 @@ def maint_stock_view(request: Request):
         txns = s.exec(select(StockTxn).order_by(StockTxn.txn_date.desc(), StockTxn.id.desc()).limit(100)).all()
         stock_map = _stock_map_for_parts(s, [p.id for p in parts])
     return templates.TemplateResponse(
-        "maint_stock.html",
+        request, "maint_stock.html",
         {
             "request": request,
             "today": date.today().isoformat(),
@@ -6036,7 +6036,7 @@ def maint_record_list(
     sum_labor = sum(r.labor_cost or 0 for r in records)
 
     return templates.TemplateResponse(
-        "maint_record_list.html",
+        request, "maint_record_list.html",
         {
             "request": request,
             "records": records,
@@ -6091,7 +6091,7 @@ def maint_record_new(request: Request):
         ctx = _maint_form_context(s)
     ctx["request"] = request
     ctx["record"] = None
-    return templates.TemplateResponse("maint_record_form.html", ctx)
+    return templates.TemplateResponse(request, "maint_record_form.html", ctx)
 
 
 @app.get("/maint/records/{rec_id}", response_class=HTMLResponse)
@@ -6103,7 +6103,7 @@ def maint_record_edit(request: Request, rec_id: int):
         ctx = _maint_form_context(s, rec)
     ctx["request"] = request
     ctx["record"] = rec
-    return templates.TemplateResponse("maint_record_form.html", ctx)
+    return templates.TemplateResponse(request, "maint_record_form.html", ctx)
 
 
 def _apply_maint_form(rec: MaintRecord, form, s: Session) -> None:
@@ -6508,7 +6508,7 @@ def rate_list(
         by_kind[c.kind] = by_kind.get(c.kind, 0) + 1
         by_source[c.source] = by_source.get(c.source, 0) + 1
     return templates.TemplateResponse(
-        "rate_list.html",
+        request, "rate_list.html",
         {
             "request": request,
             "cards": cards,
@@ -6539,7 +6539,7 @@ def rate_new(request: Request):
     with Session(engine) as s:
         ctx = _rate_form_ctx(s)
     ctx["request"] = request
-    return templates.TemplateResponse("rate_form.html", ctx)
+    return templates.TemplateResponse(request, "rate_form.html", ctx)
 
 
 @app.get("/rates/{card_id}", response_class=HTMLResponse)
@@ -6550,7 +6550,7 @@ def rate_edit(request: Request, card_id: int):
             return RedirectResponse("/rates", status_code=303)
         ctx = _rate_form_ctx(s, card)
     ctx["request"] = request
-    return templates.TemplateResponse("rate_form.html", ctx)
+    return templates.TemplateResponse(request, "rate_form.html", ctx)
 
 
 def _apply_rate_form(card: RateCard, form) -> None:
@@ -6878,7 +6878,7 @@ def fuel_index_list(request: Request, region: Optional[str] = None):
             stmt = stmt.where(FuelPriceIndex.region == region)
         rows = s.exec(stmt.order_by(FuelPriceIndex.month.desc(), FuelPriceIndex.region)).all()
     return templates.TemplateResponse(
-        "fuel_index_list.html",
+        request, "fuel_index_list.html",
         {
             "request": request,
             "rows": rows,
@@ -6943,7 +6943,7 @@ def fuel_surcharge_list(request: Request, customer_id: Optional[int] = None):
         customers = s.exec(select(Customer).order_by(Customer.name)).all()
     customer_map = {c.id: c.name for c in customers}
     return templates.TemplateResponse(
-        "fuel_surcharge_list.html",
+        request, "fuel_surcharge_list.html",
         {
             "request": request,
             "rows": rows,
@@ -7124,7 +7124,7 @@ def maint_pm_list(request: Request, status_filter: str = "", fluid_filter: str =
             counts[r["st"]["status"]] += 1
 
     return templates.TemplateResponse(
-        "pm_list.html",
+        request, "pm_list.html",
         {
             "request": request,
             "rows": rows,
@@ -7145,7 +7145,7 @@ def maint_pm_new_form(request: Request, vehicle_id: Optional[int] = None):
     with Session(engine) as s:
         vehicles = s.exec(select(Vehicle).order_by(Vehicle.plate_no)).all()
     return templates.TemplateResponse(
-        "pm_form.html",
+        request, "pm_form.html",
         {
             "request": request,
             "plan": None,
@@ -7168,7 +7168,7 @@ def maint_pm_edit_form(request: Request, plan_id: int):
         # history: MaintRecords referencing this plan? we use last_maint_record_id
         last_rec = s.get(MaintRecord, plan.last_maint_record_id) if plan.last_maint_record_id else None
     return templates.TemplateResponse(
-        "pm_form.html",
+        request, "pm_form.html",
         {
             "request": request,
             "plan": plan,
@@ -7322,7 +7322,7 @@ def check_landing(request: Request):
         if not link:
             return HTMLResponse("ลิงก์ไม่ถูกต้องหรือหมดอายุ", status_code=403)
         role_th = dict(models.ACCESS_LINK_ROLES).get(link.role, link.role)
-    return templates.TemplateResponse("check_landing.html", {
+    return templates.TemplateResponse(request, "check_landing.html", {
         "request": request, "token": request.query_params.get("t"),
         "role": link.role, "role_th": role_th,
     })
@@ -7344,7 +7344,7 @@ def admin_check_links(request: Request):
     u = current_user(request)
     with Session(engine) as s:
         links = s.exec(select(AccessLink).order_by(AccessLink.created_at.desc()).limit(50)).all()
-    return templates.TemplateResponse("check_links_admin.html", {
+    return templates.TemplateResponse(request, "check_links_admin.html", {
         "request": request, "links": links, "roles": models.ACCESS_LINK_ROLES, "user": u,
     })
 
@@ -7413,7 +7413,7 @@ def check_driver_form(request: Request):
             trailers = s.exec(select(Vehicle).where(
                 Vehicle.vehicle_kind == "tail",
                 Vehicle.status == "active").order_by(Vehicle.plate_no)).all()
-    return templates.TemplateResponse("check_driver.html", {
+    return templates.TemplateResponse(request, "check_driver.html", {
         "request": request, "token": request.query_params.get("t"),
         "actor_name": request.query_params.get("actor_name", ""),
         "vehicles": vehicles, "vehicle": v, "axles": axles,
@@ -7528,7 +7528,7 @@ def check_mechanic_form(request: Request):
         insp_v = s.get(Vehicle, vid) if vid else None
         positions = _tire_positions_for_vehicle(insp_v) if insp_v else ()
         axles = tire_view.axle_layout(positions) if positions else []
-    return templates.TemplateResponse("check_mechanic.html", {
+    return templates.TemplateResponse(request, "check_mechanic.html", {
         "request": request, "token": request.query_params.get("t"),
         "queue": rows, "tires": tires, "vehicles": vehicles,
         "event_types": models.TIRE_EVENT_TYPES,
@@ -7721,7 +7721,7 @@ async def check_mechanic_edit_vehicles(request: Request):
 def maint_tire_setup_form(request: Request):
     with Session(engine) as s:
         vehicles = s.exec(select(Vehicle).order_by(Vehicle.plate_no)).all()
-    return templates.TemplateResponse("tire_setup.html", {
+    return templates.TemplateResponse(request, "tire_setup.html", {
         "request": request,
         "vehicles": vehicles,
         "today": date.today().isoformat(),
@@ -7733,7 +7733,7 @@ def maint_tire_setup_grid(request: Request, vehicle_id: int = 0):
     with Session(engine) as s:
         v = s.get(Vehicle, vehicle_id) if vehicle_id else None
     positions = _tire_positions_for_vehicle(v) if v else ()
-    return templates.TemplateResponse("tire_setup_grid.html", {
+    return templates.TemplateResponse(request, "tire_setup_grid.html", {
         "request": request,
         "vehicle": v,
         "positions": positions,
@@ -7848,7 +7848,7 @@ def maint_tire_list(request: Request, status_filter: str = "", vehicle_filter: s
             counts[t.status] = counts.get(t.status, 0) + 1
 
     return templates.TemplateResponse(
-        "tire_list.html",
+        request, "tire_list.html",
         {
             "request": request,
             "tires": rows,
@@ -7868,7 +7868,7 @@ def maint_tire_list(request: Request, status_filter: str = "", vehicle_filter: s
 def maint_tire_new_form(request: Request):
     with Session(engine) as s:
         vendors = s.exec(select(Vendor).order_by(Vendor.name)).all()
-    return templates.TemplateResponse("tire_form.html", {
+    return templates.TemplateResponse(request, "tire_form.html", {
         "request": request,
         "tire": None,
         "vendors": vendors,
@@ -7899,7 +7899,7 @@ def maint_tire_by_vehicle(request: Request, vehicle_id: int):
         spare_tires = s.exec(select(Tire).where(Tire.status.in_(["new", "stored"]))).all()
         vehicles = s.exec(select(Vehicle).order_by(Vehicle.plate_no)).all()
 
-    return templates.TemplateResponse("tire_by_vehicle.html", {
+    return templates.TemplateResponse(request, "tire_by_vehicle.html", {
         "request": request,
         "vehicle": v,
         "positions": positions,
@@ -7924,7 +7924,7 @@ def maint_tire_edit_form(request: Request, tire_id: int):
         events = s.exec(
             select(TireEvent).where(TireEvent.tire_id == tire_id).order_by(TireEvent.event_date.desc(), TireEvent.id.desc())
         ).all()
-    return templates.TemplateResponse("tire_form.html", {
+    return templates.TemplateResponse(request, "tire_form.html", {
         "request": request,
         "tire": tire,
         "vendors": vendors,
@@ -8275,7 +8275,7 @@ def billing_page(
         "current_billing_month": current_billing_month,
         "ready_issues": ready_issues,
     })
-    return templates.TemplateResponse("billing_page.html", ctx)
+    return templates.TemplateResponse(request, "billing_page.html", ctx)
 
 
 @app.get("/billing/export.csv")
@@ -8441,7 +8441,7 @@ def finance_dashboard(
             "include_other": include_other_flag,
             "rows": rows, "totals": totals,
         })
-        return templates.TemplateResponse("finance_dashboard.html", ctx)
+        return templates.TemplateResponse(request, "finance_dashboard.html", ctx)
 
     def _period_for(tag: str) -> Optional[tuple[date, date, str]]:
         return _cycle_period_for_tag(site, tag) if cycle_mode else None
@@ -8484,7 +8484,7 @@ def finance_dashboard(
         "loans_info": loans_info, "health": health,
         "vehicle_costs": veh_costs,
     })
-    return templates.TemplateResponse("finance_dashboard.html", ctx)
+    return templates.TemplateResponse(request, "finance_dashboard.html", ctx)
 
 
 @app.get("/finance/loans", response_class=HTMLResponse)
@@ -8515,7 +8515,7 @@ def loans_list(request: Request, show: str = "active"):
         "total_balance": total_bal, "total_monthly": total_monthly,
         "loan_kinds": models.LOAN_KINDS,
     })
-    return templates.TemplateResponse("loans_list.html", ctx)
+    return templates.TemplateResponse(request, "loans_list.html", ctx)
 
 
 @app.get("/finance/loans/new", response_class=HTMLResponse)
@@ -8527,7 +8527,7 @@ def loan_new(request: Request):
         "loan": None, "vehicles": vehicles,
         "loan_kinds": models.LOAN_KINDS, "loan_status_opts": models.LOAN_STATUS,
     })
-    return templates.TemplateResponse("loan_form.html", ctx)
+    return templates.TemplateResponse(request, "loan_form.html", ctx)
 
 
 @app.get("/finance/loans/{loan_id:int}", response_class=HTMLResponse)
@@ -8547,7 +8547,7 @@ def loan_edit(loan_id: int, request: Request):
         "loan": loan, "vehicles": vehicles, "schedule": schedule, "payments": payments,
         "loan_kinds": models.LOAN_KINDS, "loan_status_opts": models.LOAN_STATUS,
     })
-    return templates.TemplateResponse("loan_form.html", ctx)
+    return templates.TemplateResponse(request, "loan_form.html", ctx)
 
 
 @app.post("/finance/loans/new")
@@ -8734,7 +8734,7 @@ def finance_pnl_detail(request: Request, year: int = 0, site: str = ""):
     }
     ctx = base_context(request)
     ctx.update({"year": year, "site": site, "months": months, "totals": totals})
-    return templates.TemplateResponse("finance_pnl.html", ctx)
+    return templates.TemplateResponse(request, "finance_pnl.html", ctx)
 
 
 @app.get("/finance/receivables", response_class=HTMLResponse)
@@ -8774,7 +8774,7 @@ def finance_receivables(request: Request):
         "sys_settled": sys_settled[:40],
         "today": date.today(),
     })
-    return templates.TemplateResponse("finance_receivables.html", ctx)
+    return templates.TemplateResponse(request, "finance_receivables.html", ctx)
 
 
 @app.post("/finance/receivables/settle")
@@ -8895,7 +8895,7 @@ def global_search(request: Request, q: str = ""):
     ctx = base_context(request)
     ctx.update({"q": needle, "sections": sections,
                 "n_total": sum(len(x["items"]) for x in sections)})
-    return templates.TemplateResponse("search_results.html", ctx)
+    return templates.TemplateResponse(request, "search_results.html", ctx)
 
 
 # =========================================================================
@@ -8948,7 +8948,7 @@ def billing_fill_prices(request: Request, site: str = "", month: str = ""):
     n_suggest = sum(1 for r in rows if r["card"])
     ctx = base_context(request)
     ctx.update({"rows": rows, "site": site, "month": month, "n_suggest": n_suggest})
-    return templates.TemplateResponse("billing_fill_prices.html", ctx)
+    return templates.TemplateResponse(request, "billing_fill_prices.html", ctx)
 
 
 @app.post("/api/billing/fill-price")
@@ -9033,7 +9033,7 @@ def invoice_builder_page(request: Request, series: str = "", month: str = ""):
         "billed_json": json.dumps(billed_groups, ensure_ascii=False, default=str),
         "unbilled_json": json.dumps(unbilled, ensure_ascii=False, default=str),
     })
-    return templates.TemplateResponse("invoice_builder.html", ctx)
+    return templates.TemplateResponse(request, "invoice_builder.html", ctx)
 
 
 @app.post("/billing/invoice/build")
@@ -9161,7 +9161,7 @@ def admin_permissions(request: Request):
     ctx.update({"matrix": matrix, "roles": ROLES, "user_over": user_over,
                 "usernames": [u.username for u in users],
                 "part_keys": list(_parts.PART_DEFAULTS)})
-    return templates.TemplateResponse("admin_permissions.html", ctx)
+    return templates.TemplateResponse(request, "admin_permissions.html", ctx)
 
 
 @app.post("/admin/permissions/save")
@@ -9268,7 +9268,7 @@ def admin_audit(request: Request, user: str = "", table: str = "",
     ctx = base_context(request)
     ctx.update({"rows": rows, "user_q": user, "table_q": table, "days": days,
                 "q": q, "table_th": _AUDIT_TABLE_TH, "users": users})
-    return templates.TemplateResponse("admin_audit.html", ctx)
+    return templates.TemplateResponse(request, "admin_audit.html", ctx)
 
 
 # =========================================================================
@@ -9470,7 +9470,7 @@ def quote_list(request: Request, q: str = "", status: str = ""):
     ctx = base_context(request)
     ctx.update({"rows": rows, "q": q, "status": status,
                 "status_th": _QUOTE_STATUS_TH})
-    return templates.TemplateResponse("quote_list.html", ctx)
+    return templates.TemplateResponse(request, "quote_list.html", ctx)
 
 
 @app.get("/quote/{qid}", response_class=HTMLResponse)
@@ -9486,7 +9486,7 @@ def quote_detail(qid: int, request: Request):
         ).all()
     ctx = base_context(request)
     ctx.update({"row": row, "audits": audits, "status_th": _QUOTE_STATUS_TH})
-    return templates.TemplateResponse("quote_detail.html", ctx)
+    return templates.TemplateResponse(request, "quote_detail.html", ctx)
 
 
 @app.post("/quote/{qid}/status")
@@ -9645,7 +9645,7 @@ def oatside_page(request: Request):
         "has_report": _first_existing(*_OATSIDE_REPORT_DIRS) is not None,
         "has_xlsx": orun.XLSX_OUT.exists(),
     })
-    return templates.TemplateResponse("oatside.html", ctx)
+    return templates.TemplateResponse(request, "oatside.html", ctx)
 
 
 @app.post("/oatside/run")
@@ -9697,7 +9697,7 @@ def oatside_settings(request: Request, err: str = "", ok: str = ""):
         "raw_overrides": json.dumps(ovr, ensure_ascii=False, indent=2),
         "err": err, "ok": ok,
     })
-    return templates.TemplateResponse("oatside_settings.html", ctx)
+    return templates.TemplateResponse(request, "oatside_settings.html", ctx)
 
 
 @app.post("/oatside/settings/{section}")
@@ -9786,7 +9786,7 @@ def line_search_page(request: Request, q: str = "", group: str = "", page: int =
             error = f"อ่านคลังแชทไม่สำเร็จ: {e}"
     ctx.update({"groups": groups, "results": results, "q": q, "group": group,
                 "page": max(page, 0), "error": error})
-    return templates.TemplateResponse("line_search.html", ctx)
+    return templates.TemplateResponse(request, "line_search.html", ctx)
 
 
 @app.get("/line/digest", response_class=HTMLResponse)
@@ -9809,7 +9809,7 @@ def line_digest(request: Request, d: str = ""):
         except Exception as e:
             error = f"อ่านคลังแชทไม่สำเร็จ: {e}"
     ctx.update({"day": day, "data": data, "error": error})
-    return templates.TemplateResponse("line_digest.html", ctx)
+    return templates.TemplateResponse(request, "line_digest.html", ctx)
 
 
 @app.get("/line/inbox", response_class=HTMLResponse)
@@ -9857,7 +9857,7 @@ def line_inbox(request: Request, days: int = 7):
             g["guessed"] = g["kind"] != "other"
     ctx.update({"groups": groups, "candidates": candidates, "days": days,
                 "error": error, "n_seen": len(seen)})
-    return templates.TemplateResponse("line_inbox.html", ctx)
+    return templates.TemplateResponse(request, "line_inbox.html", ctx)
 
 
 @app.post("/line/inbox/map")
@@ -9940,7 +9940,7 @@ def line_pod(request: Request, days: int = 7):
         n_linked = len(s.exec(select(models.JobMedia)
                               .where(models.JobMedia.status == "linked")).all())
     ctx.update({"cards": cards, "days": days, "error": error, "n_linked": n_linked})
-    return templates.TemplateResponse("line_pod.html", ctx)
+    return templates.TemplateResponse(request, "line_pod.html", ctx)
 
 
 @app.post("/line/pod/mark")
@@ -10030,7 +10030,7 @@ def billing_evidence(request: Request, series: str = "", month: str = "",
     ctx.update({"series": series, "month": month, "cfg": cfg,
                 "registry": ib.REGISTRY, "rows": rows,
                 "n_media": sum(len(r["media_ids"]) for r in rows)})
-    return templates.TemplateResponse("billing_evidence.html", ctx)
+    return templates.TemplateResponse(request, "billing_evidence.html", ctx)
 
 
 def _archived_media_path(s: Session, msg_id: int) -> tuple[Path | None, str]:
@@ -10133,7 +10133,7 @@ def todo_page(request: Request, q: str = "", cat: str = ""):
         "n_open": len(open_items),
         "media_of": lambda t: [m for m in (t.media_json or "").split(",") if m],
     })
-    return templates.TemplateResponse("todo.html", ctx)
+    return templates.TemplateResponse(request, "todo.html", ctx)
 
 
 @app.post("/todo/add")
@@ -10488,7 +10488,7 @@ def admin_server_health(request: Request):
                 "disk_tight": data["free_pct"] < ma.DISK_WARN_FREE_PCT,
                 "recent_errors": recent_errors,
                 "log_file": str(LOG_FILE)})
-    return templates.TemplateResponse("admin_server_health.html", ctx)
+    return templates.TemplateResponse(request, "admin_server_health.html", ctx)
 
 
 @app.get("/admin/plan", response_class=HTMLResponse)
@@ -10536,7 +10536,7 @@ def admin_plan(request: Request):
         "md_plan": _read("MASTER_PLAN_2026-07.md"),
         "md_specs": _read("MVP_TASK_SPECS.md"),
     })
-    return templates.TemplateResponse("admin_plan.html", ctx)
+    return templates.TemplateResponse(request, "admin_plan.html", ctx)
 
 
 @app.get("/kb-payout", response_class=HTMLResponse)
@@ -10590,7 +10590,7 @@ def kb_payout_page(request: Request, amount: str = "", cust: str = "CY"):
         "match": match, "amount": amt, "amount_raw": amount_raw,
         "owner": kbp.KB_OWNERS[cust], "error": error,
     })
-    return templates.TemplateResponse("kb_payout.html", ctx)
+    return templates.TemplateResponse(request, "kb_payout.html", ctx)
 
 
 @app.post("/kb-payout/settle")
@@ -10682,7 +10682,7 @@ def kb_receipt(request: Request, invs: str = ""):
         ]
     ctx = base_context(request)
     ctx.update({"pages": pages, "invs": invs})
-    return templates.TemplateResponse("doc_print.html", ctx)
+    return templates.TemplateResponse(request, "doc_print.html", ctx)
 
 
 @app.get("/admin/doc-designer", response_class=HTMLResponse)
@@ -10701,7 +10701,7 @@ def doc_designer(request: Request, key: str = "kb_receipt"):
                 "placeholders": dt.PLACEHOLDER_DOC.get(key, ""),
                 "all_keys": list(dt.DEFAULT_TEMPLATES),
                 "has_override": has_override})
-    return templates.TemplateResponse("doc_designer.html", ctx)
+    return templates.TemplateResponse(request, "doc_designer.html", ctx)
 
 
 @app.post("/admin/doc-designer/save")
@@ -10777,7 +10777,7 @@ def finance_vehicles(request: Request, month: str = "", site: str = ""):
     }
     ctx = base_context(request)
     ctx.update({"month": month, "site": site, "rows": rows, "totals": totals})
-    return templates.TemplateResponse("finance_vehicles.html", ctx)
+    return templates.TemplateResponse(request, "finance_vehicles.html", ctx)
 
 
 @app.get("/finance/revenue", response_class=HTMLResponse)
@@ -10802,7 +10802,7 @@ def finance_revenue(request: Request):
         "sites": data["sites"], "totals": data["totals"],
         "has_other_sites": data["has_other_sites"],
     })
-    return templates.TemplateResponse("finance_revenue.html", ctx)
+    return templates.TemplateResponse(request, "finance_revenue.html", ctx)
 
 
 # D2: เงินหมุน/งบดุลย่อ 8 สัปดาห์ — เข้า (AR ตาม DUE จริงจากทะเบียนรับเช็ค) −
@@ -10837,7 +10837,7 @@ def finance_cashflow_weeks(request: Request, opening: str = ""):
     ctx = base_context(request)
     ctx.update({"data": data, "opening": opening, "ar_error": ar_error,
                 "n_debts": n_debts, "today": date.today()})
-    return templates.TemplateResponse("finance_cashflow_weeks.html", ctx)
+    return templates.TemplateResponse(request, "finance_cashflow_weeks.html", ctx)
 
 
 @app.get("/finance/debts", response_class=HTMLResponse)
@@ -10851,7 +10851,7 @@ def finance_debts(request: Request):
     ctx.update({"rows": rows,
                 "total_balance": sum(r.balance for r in rows if r.active),
                 "total_monthly": sum(r.monthly_payment for r in rows if r.active)})
-    return templates.TemplateResponse("finance_debts.html", ctx)
+    return templates.TemplateResponse(request, "finance_debts.html", ctx)
 
 
 @app.post("/finance/debts/save")
@@ -10940,7 +10940,7 @@ def finance_cashflow(request: Request, days: int = 90):
         "total_in": total_in, "total_out": total_out,
         "net": total_in - total_out,
     })
-    return templates.TemplateResponse("finance_cashflow.html", ctx)
+    return templates.TemplateResponse(request, "finance_cashflow.html", ctx)
 
 
 # ==========================================================================
@@ -10979,7 +10979,7 @@ def driver_login_page(request: Request, err: str = ""):
             return RedirectResponse("/driver", status_code=303)
     ctx = _driver_base_context(request, None)
     ctx["err"] = err
-    return templates.TemplateResponse("driver_login.html", ctx)
+    return templates.TemplateResponse(request, "driver_login.html", ctx)
 
 
 @app.post("/driver/login")
@@ -11060,7 +11060,7 @@ def driver_home(request: Request):
         "done_check": done_check is not None,
         "done_alcohol": done_alcohol is not None,
     })
-    return templates.TemplateResponse("driver_home.html", ctx)
+    return templates.TemplateResponse(request, "driver_home.html", ctx)
 
 
 @app.get("/driver/today", response_class=HTMLResponse)
@@ -11087,7 +11087,7 @@ def driver_today(request: Request, day: str = ""):
 
     ctx = _driver_base_context(request, emp)
     ctx.update({"wd": wd, "jobs": jobs, "ahead": ahead})
-    return templates.TemplateResponse("driver_today.html", ctx)
+    return templates.TemplateResponse(request, "driver_today.html", ctx)
 
 
 @app.get("/driver/check", response_class=HTMLResponse)
@@ -11099,7 +11099,7 @@ def driver_check_page(request: Request):
         vehicles = s.exec(select(Vehicle).where(Vehicle.status == "active").order_by(Vehicle.plate_no)).all()
     ctx = _driver_base_context(request, emp)
     ctx["vehicles"] = vehicles
-    return templates.TemplateResponse("driver_check.html", ctx)
+    return templates.TemplateResponse(request, "driver_check.html", ctx)
 
 
 @app.post("/driver/check")
@@ -11161,7 +11161,7 @@ def driver_alcohol_page(request: Request):
         if not emp:
             return RedirectResponse("/driver/login", status_code=303)
     ctx = _driver_base_context(request, emp)
-    return templates.TemplateResponse("driver_alcohol.html", ctx)
+    return templates.TemplateResponse(request, "driver_alcohol.html", ctx)
 
 
 @app.post("/driver/alcohol")
@@ -11234,7 +11234,7 @@ def driver_checkin_page(request: Request):
         jobs = _driver_todays_jobs(s, emp)
     ctx = _driver_base_context(request, emp)
     ctx.update({"jobs": jobs, "points": models.CHECKIN_POINTS})
-    return templates.TemplateResponse("driver_checkin.html", ctx)
+    return templates.TemplateResponse(request, "driver_checkin.html", ctx)
 
 
 @app.post("/driver/checkin")
@@ -11275,7 +11275,7 @@ def driver_container_page(request: Request):
         jobs = _driver_todays_jobs(s, emp)
     ctx = _driver_base_context(request, emp)
     ctx["jobs"] = jobs
-    return templates.TemplateResponse("driver_container.html", ctx)
+    return templates.TemplateResponse(request, "driver_container.html", ctx)
 
 
 _CONTAINER_SIDES = (("front", "หน้าตู้ (เห็นเบอร์ตู้)"), ("back", "หลังตู้/ประตู"),
@@ -11332,7 +11332,7 @@ def driver_done_page(request: Request):
         jobs = _driver_todays_jobs(s, emp)
     ctx = _driver_base_context(request, emp)
     ctx["jobs"] = jobs
-    return templates.TemplateResponse("driver_done.html", ctx)
+    return templates.TemplateResponse(request, "driver_done.html", ctx)
 
 
 @app.post("/driver/done")
@@ -11373,7 +11373,7 @@ def driver_history(request: Request, kind: str = ""):
 
     ctx = _driver_base_context(request, emp)
     ctx.update({"subs": subs, "kind_filter": kind, "kinds": models.SUBMISSION_KINDS})
-    return templates.TemplateResponse("driver_history.html", ctx)
+    return templates.TemplateResponse(request, "driver_history.html", ctx)
 
 
 # --------------------------------------------------------------------------
@@ -11388,7 +11388,7 @@ def admin_driver_pins(request: Request):
         ).all()
     ctx = base_context(request)
     ctx["emps"] = emps
-    return templates.TemplateResponse("admin_driver_pins.html", ctx)
+    return templates.TemplateResponse(request, "admin_driver_pins.html", ctx)
 
 
 @app.post("/admin/drivers/{emp_id:int}/set-pin")
@@ -11486,7 +11486,7 @@ def admin_submissions(
         "kinds": models.SUBMISSION_KINDS,
         "review_statuses": models.REVIEW_STATUS,
     })
-    return templates.TemplateResponse("admin_submissions.html", ctx)
+    return templates.TemplateResponse(request, "admin_submissions.html", ctx)
 
 
 @app.post("/admin/submissions/{sub_id:int}/review")
@@ -11592,7 +11592,7 @@ async def import_hub(request: Request):
         logs = s.exec(
             select(ImportLog).order_by(ImportLog.created_at.desc()).limit(50)  # type: ignore[arg-type]
         ).all()
-    return templates.TemplateResponse("import_hub.html", {
+    return templates.TemplateResponse(request, "import_hub.html", {
         "request": request,
         "logs": logs,
     })
@@ -11830,7 +11830,7 @@ async def import_rollback(request: Request, log_id: int):
         logs = s.exec(
             select(ImportLog).order_by(ImportLog.created_at.desc()).limit(50)  # type: ignore[arg-type]
         ).all()
-    return templates.TemplateResponse("import_history_rows.html", {
+    return templates.TemplateResponse(request, "import_history_rows.html", {
         "request": request,
         "logs": logs,
     })
@@ -11842,7 +11842,7 @@ async def import_history_partial(request: Request):
         logs = s.exec(
             select(ImportLog).order_by(ImportLog.created_at.desc()).limit(50)  # type: ignore[arg-type]
         ).all()
-    return templates.TemplateResponse("import_history_rows.html", {
+    return templates.TemplateResponse(request, "import_history_rows.html", {
         "request": request,
         "logs": logs,
     })
@@ -11917,7 +11917,7 @@ def dispatch_planner_list(request: Request, site: str = ""):
         plans = s.exec(q).all()
     ctx = base_context(request)
     ctx.update({"plans": plans, "site": site, "sites": _DISPATCH_SITES})
-    return templates.TemplateResponse("dispatch_planner_list.html", ctx)
+    return templates.TemplateResponse(request, "dispatch_planner_list.html", ctx)
 
 
 @app.get("/dispatch/planner/new", response_class=HTMLResponse)
@@ -11937,7 +11937,7 @@ def dispatch_planner_new_form(request: Request, site: str = "LCB", plan_date: st
         "default_site": site.upper(),
         "l_per_trip_json": json.dumps(_DISPATCH_L_PER_TRIP),
     })
-    return templates.TemplateResponse("dispatch_planner_form.html", ctx)
+    return templates.TemplateResponse(request, "dispatch_planner_form.html", ctx)
 
 
 @app.post("/dispatch/planner/new")
@@ -12001,7 +12001,7 @@ def dispatch_planner_detail(plan_id: int, request: Request):
         "veh_map": veh_map,
         "drv_map": drv_map,
     })
-    return templates.TemplateResponse("dispatch_planner_detail.html", ctx)
+    return templates.TemplateResponse(request, "dispatch_planner_detail.html", ctx)
 
 
 @app.post("/dispatch/planner/{plan_id}/lines/add")
@@ -12455,7 +12455,7 @@ def fleet_calendar(request: Request, site: str = "LCB", month: str = ""):
         "drivers": drivers,
         "can_edit": bool(u) and perm_check(u.role, "/calendar", "POST") == "edit",
     })
-    return templates.TemplateResponse("calendar.html", ctx)
+    return templates.TemplateResponse(request, "calendar.html", ctx)
 
 
 @app.post("/calendar/leave")
