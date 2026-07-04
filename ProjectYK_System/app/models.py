@@ -1487,6 +1487,36 @@ class JobMedia(SQLModel, table=True):
     at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class DocTemplate(SQLModel, table=True):
+    """A2 (v43): แบบฟอร์มเอกสารที่ user ออกแบบ/ปรับเองได้ (Doc Designer).
+
+    elements_json = [{id,type:'text'|'box'|'line', x,y,w,h(mm), size(pt), bold,
+    align, text}] — text ใส่ {{placeholder}} ได้; ไม่มีแถว DB = ใช้ default
+    มาตรฐานในโค้ด (services/doc_templates.DEFAULT_TEMPLATES — pattern เดียว P1).
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    key: str = Field(index=True, unique=True)   # kb_receipt | kb_wht | ...
+    name: str = ""
+    paper: str = "A4"
+    elements_json: str = ""
+    updated_by: str = ""
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class DocIssue(SQLModel, table=True):
+    """A2 (v43): เลขที่เอกสารรันอัตโนมัติ — idempotent ต่อ (ชนิด, อ้างอิงชุดเดิม).
+
+    ออกซ้ำชุดเดิม = ได้เลขเดิม (ไม่เปลืองเลข ไม่มีเลขซ้ำ); ref = invs ที่ sort แล้ว.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    doc_type: str = Field(index=True)           # kb_receipt | kb_wht
+    year: int = Field(index=True)               # ค.ศ.
+    no: int = 0                                 # ลำดับในปีนั้น
+    ref: str = Field(default="", index=True)    # เช่น "CYIV2606-023,CYIV2606-026"
+    issued_at: datetime = Field(default_factory=datetime.utcnow)
+    issued_by: str = ""
+
+
 class PartPermission(SQLModel, table=True):
     """P1 (v39): สิทธิ์ระดับ "ชิ้นส่วนในหน้า" ละเอียดกว่าเมนู — โอปรับเองที่ /admin/permissions.
 

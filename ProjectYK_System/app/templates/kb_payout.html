@@ -3,6 +3,11 @@
 {% block content %}
 <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
   <h1 class="text-2xl font-bold">🤝 KB จ่ายคืนเจ้าของงาน</h1>
+  <form action="/kb-payout/receipt" method="get" target="_blank" class="flex gap-1 items-center text-sm">
+    <input name="invs" placeholder="พิมพ์ใบเสร็จหลายใบ: CYIV2606-023,CYIV2606-026"
+           class="border rounded px-2 py-1 w-72 font-mono text-xs">
+    <button class="bg-indigo-600 text-white px-3 py-1 rounded" title="ออกใบเสร็จ+ใบหัก ณ ที่จ่าย ของชุดที่ติ๊กรับแล้ว">🧾 ใบเสร็จ+ใบหัก</button>
+  </form>
   <form method="get" class="flex gap-2 items-center text-sm">
     <label class="text-slate-500">ลูกค้าที่โอนมา</label>
     <select name="cust" class="border rounded px-2 py-1">
@@ -106,6 +111,8 @@
             <span class="text-emerald-600">✓ {{ r.settled.settled_on | dmy }}</span>
             <button class="text-xs text-slate-400 underline ml-1" title="ยกเลิกติ๊ก">ยกเลิก</button>
           </form>
+          <a href="/kb-payout/receipt?invs={{ r.inv }}" target="_blank"
+             class="text-xs text-indigo-600 underline ml-1" title="พิมพ์ใบเสร็จ+ใบหัก ณ ที่จ่าย">🧾</a>
           {% else %}
           <form method="post" action="/kb-payout/settle" class="inline">
             <input type="hidden" name="inv_no" value="{{ r.inv }}">

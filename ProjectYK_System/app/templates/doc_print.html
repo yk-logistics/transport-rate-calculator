@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <title>พิมพ์เอกสาร</title>
+  <style>
+    body { font-family: -apple-system, "Segoe UI", Tahoma, sans-serif; background: #e2e8f0; margin: 0; }
+    .toolbar { padding: 10px 16px; background: #0f172a; color: #fff; font-size: 14px;
+               display: flex; gap: 16px; align-items: center; }
+    .toolbar a { color: #cbd5e1; }
+    .page { width: 210mm; height: 297mm; background: #fff; position: relative;
+            margin: 10px auto; box-shadow: 0 2px 8px rgba(0,0,0,.2); overflow: hidden; }
+    .el { position: absolute; line-height: 1.25; white-space: pre-wrap; }
+    .el.box { border: 0.4mm solid #000; }
+    .el.line { border-top: 0.4mm solid #000; }
+    @media print {
+      body { background: #fff; }
+      .toolbar { display: none; }
+      .page { margin: 0; box-shadow: none; page-break-after: always; }
+      @page { size: A4; margin: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button onclick="window.print()" style="padding:6px 16px; border-radius:6px; border:0; background:#4f46e5; color:#fff; cursor:pointer;">🖨 พิมพ์ / เซฟ PDF</button>
+    <span>ปรับหน้าตาฟอร์มได้ที่ <a href="/admin/doc-designer?key=kb_receipt">🎨 Doc Designer</a></span>
+    <a href="/kb-payout">← กลับหน้า KB</a>
+  </div>
+  {% for p in pages %}
+  <div class="page">
+    {% for el in p.elements %}
+    {% if el.type == 'text' %}
+    <div class="el" style="left: {{ el.x }}mm; top: {{ el.y }}mm; width: {{ el.w }}mm;
+         font-size: {{ el.size or 11 }}pt; {% if el.bold %}font-weight: 700;{% endif %}
+         text-align: {{ el.align or 'left' }};">{{ el.text }}</div>
+    {% elif el.type == 'box' %}
+    <div class="el box" style="left: {{ el.x }}mm; top: {{ el.y }}mm; width: {{ el.w }}mm; height: {{ el.h }}mm;"></div>
+    {% elif el.type == 'line' %}
+    <div class="el line" style="left: {{ el.x }}mm; top: {{ el.y }}mm; width: {{ el.w }}mm;"></div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% endfor %}
+</body>
+</html>

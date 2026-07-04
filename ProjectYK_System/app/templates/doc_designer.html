@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Doc Designer{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+  <h1 class="text-xl font-bold">🎨 ออกแบบฟอร์มเอกสาร — {{ tpl_name }}</h1>
+  <form method="get" class="flex gap-2 items-center text-sm">
+    <select name="key" onchange="this.form.submit()" class="border rounded px-2 py-1.5">
+      {% for k in all_keys %}<option value="{{ k }}" {% if k == key %}selected{% endif %}>{{ k }}</option>{% endfor %}
+    </select>
+  </form>
+</div>
+
+<div class="mb-3 text-sm text-slate-500">
+  ลากย้ายได้ · มุมขวาล่างลากเพื่อขยาย/หด · ดับเบิลคลิกแก้ข้อความ · ตัวแปรที่ใช้ได้ (พิมพ์ในข้อความ):
+  <span class="font-mono text-xs bg-slate-100 rounded px-1">{{ placeholders }}</span>
+  {% if has_override %}<span class="text-amber-600 ml-2">● ฟอร์มนี้ถูกแก้จากมาตรฐานแล้ว</span>{% endif %}
+</div>
+
+<div class="flex gap-2 mb-3 flex-wrap items-center text-sm">
+  <button onclick="addText()" class="border px-3 py-1.5 rounded bg-white hover:bg-slate-50">+ ข้อความ</button>
+  <button onclick="addEl('box')" class="border px-3 py-1.5 rounded bg-white hover:bg-slate-50">+ กรอบ</button>
+  <button onclick="addEl('line')" class="border px-3 py-1.5 rounded bg-white hover:bg-slate-50">+ เส้น</button>
+  <span class="border-l h-6 mx-1"></span>
+  <button onclick="fontSize(1)" class="border px-3 py-1.5 rounded bg-white hover:bg-slate-50">A+</button>
+  <button onclick="fontSize(-1)" class="border px-3 py-1.5 rounded bg-white hover:bg-slate-50">A−</button>
+  <button onclick="toggleBold()" class="border px-3 py-1.5 rounded bg-white hover:bg-slate-50 font-bold">B</button>
+  <button onclick="cycleAlign()" class="border px-3 py-1.5 rounded bg-white hover:bg-slate-50">⇤⇥ จัดแนว</button>
+  <button onclick="delSelected()" class="border border-rose-300 text-rose-600 px-3 py-1.5 rounded bg-white hover:bg-rose-50">🗑 ลบชิ้นที่เลือก</button>
+  <span class="border-l h-6 mx-1"></span>
+  <button onclick="save()" class="bg-indigo-600 text-white px-4 py-1.5 rounded hover:bg-indigo-500 font-semibold">💾 บันทึกฟอร์ม</button>
+  <button onclick="resetDefault()" class="border px-3 py-1.5 rounded bg-white hover:bg-slate-50 text-slate-500">↺ กลับฟอร์มมาตรฐาน</button>
+  <span id="status" class="text-xs text-slate-400"></span>
+</div>
+
+<div class="overflow-auto border rounded-lg bg-slate-200 p-4" style="max-height: 75vh;">
+  <div id="canvas" style="width: 210mm; height: 297mm; background: #fff; position: relative;
+       box-shadow: 0 2px 8px rgba(0,0,0,.25); margin: 0 auto;"></div>
+</div>
+
+<script>
+const KEY = {{ key | tojson }};
+let ELS = {{ elements_json | safe }};
+let selected = -1;
+const canvas = document.getElementById('canvas');
+const MM = canvas.getBoundingClientRect().width / 210;   // px ต่อ mm ตามจอจริง
+
+function renderAll() {
+  canvas.innerHTML = '';
+  ELS.forEach((el, i) => {
+    const d = document.createElement('div');
+    d.dataset.i = i;
+    d.style.cssText = `position:absolute; left:${el.x}mm; top:${el.y}mm; width:${el.w}mm;` +
+      `cursor:move; line-height:1.25; white-space:pre-wrap; user-select:none;`;
+    if (el.type === 'text') {
+      d.textContent = el.text;
+      d.style.fontSize = (el.size || 11) + 'pt';
+      if (el.bold) d.style.fontWeight = '700';
+      d.style.textAlign = el.align || 'left';
+      d.style.minHeight = (el.h || 6) + 'mm';
+    } else if (el.type === 'box') {
+      d.style.height = el.h + 'mm';
+      d.style.border = '0.4mm solid #000';
+    } else if (el.type === 'line') {
+      d.style.borderTop = '0.4mm solid #000';
+      d.style.height = '3mm';
+    }
+    if (i === selected) d.style.outline = '2px dashed #4f46e5';
+    // resize handle
+    const h = document.createElement('div');
+    h.className = 'rs';
+    h.style.cssText = 'position:absolute; right:-4px; bottom:-4px; width:10px; height:10px;' +
+      'background:#4f46e5; border-radius:2px; cursor:nwse-resize;' +
+      (i === selected ? '' : 'display:none;');
+    d.appendChild(h);
+    canvas.appendChild(d);
+  });
+}
+
+let drag = null;
+canvas.addEventListener('mousedown', (e) => {
+  const host = e.target.closest('[data-i]');
+  if (!host) { selected = -1; renderAll(); return; }
+  selected = +host.dataset.i;
+  const el = ELS[selected];
+  drag = {
+    resize: e.target.classList.contains('rs'),
+    sx: e.clientX, sy: e.clientY, ox: el.x, oy: el.y, ow: el.w, oh: el.h || 6,
+  };
+  renderAll();
+  e.preventDefault();
+});
+document.addEventListener('mousemove', (e) => {
+  if (!drag || selected < 0) return;
+  const el = ELS[selected];
+  const dx = (e.clientX - drag.sx) / MM, dy = (e.clientY - drag.sy) / MM;
+  if (drag.resize) {
+    el.w = Math.max(5, Math.round((drag.ow + dx) * 2) / 2);
+    el.h = Math.max(3, Math.round((drag.oh + dy) * 2) / 2);
+  } else {
+    el.x = Math.max(0, Math.round((drag.ox + dx) * 2) / 2);
+    el.y = Math.max(0, Math.round((drag.oy + dy) * 2) / 2);
+  }
+  renderAll();
+});
+document.addEventListener('mouseup', () => { drag = null; });
+
+canvas.addEventListener('dblclick', (e) => {
+  const host = e.target.closest('[data-i]');
+  if (!host) return;
+  const el = ELS[+host.dataset.i];
+  if (el.type !== 'text') return;
+  const t = prompt('แก้ข้อความ (ใช้ {{ '{{' }}ตัวแปร{{ '}}' }} ได้):', el.text);
+  if (t !== null) { el.text = t; renderAll(); }
+});
+
+function addText() {
+  ELS.push({type: 'text', x: 20, y: 20, w: 60, h: 6, size: 11, bold: false, align: 'left', text: 'ข้อความใหม่'});
+  selected = ELS.length - 1;
+  renderAll();
+}
+function addEl(kind) {
+  ELS.push({type: kind, x: 20, y: 30, w: 60, h: kind === 'box' ? 20 : 0});
+  selected = ELS.length - 1;
+  renderAll();
+}
+function fontSize(d) {
+  if (selected < 0 || ELS[selected].type !== 'text') return;
+  ELS[selected].size = Math.max(6, (ELS[selected].size || 11) + d);
+  renderAll();
+}
+function toggleBold() {
+  if (selected < 0 || ELS[selected].type !== 'text') return;
+  ELS[selected].bold = !ELS[selected].bold;
+  renderAll();
+}
+function cycleAlign() {
+  if (selected < 0 || ELS[selected].type !== 'text') return;
+  const order = ['left', 'center', 'right'];
+  const cur = ELS[selected].align || 'left';
+  ELS[selected].align = order[(order.indexOf(cur) + 1) % 3];
+  renderAll();
+}
+function delSelected() {
+  if (selected < 0) return;
+  ELS.splice(selected, 1);
+  selected = -1;
+  renderAll();
+}
+async function save() {
+  const r = await fetch('/admin/doc-designer/save', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({key: KEY, elements: ELS})});
+  document.getElementById('status').textContent = r.ok ? '✓ บันทึกแล้ว ' + new Date().toLocaleTimeString() : '❌ บันทึกไม่สำเร็จ';
+  if (r.ok) setTimeout(() => location.reload(), 600);
+}
+async function resetDefault() {
+  if (!confirm('ทิ้งที่แก้ไว้ กลับฟอร์มมาตรฐาน?')) return;
+  await fetch('/admin/doc-designer/save', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({key: KEY, elements: [], reset: true})});
+  location.reload();
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Delete' && selected >= 0 && document.activeElement.tagName !== 'INPUT') delSelected();
+});
+renderAll();
+</script>
+
+{% endblock %}

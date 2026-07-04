@@ -94,7 +94,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 42  # v42: Vehicle.tank_liters (E2 — ALTER ใน _apply_additive_migrations); v41: JobMedia (F3); v40: LineGroupMap+LineJobSeen (F2); v39: PartPermission; v38: DebtAccount; v37: AuditLog
+SCHEMA_VERSION = 43  # v43: DocTemplate+DocIssue (A2 — create_all); v42: Vehicle.tank_liters (ALTER); v41: JobMedia; v40: LineGroupMap+LineJobSeen; v39: PartPermission; v38: DebtAccount; v37: AuditLog
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -10007,6 +10007,120 @@ def kb_payout_settle(request: Request, inv_no: str = Form(...), kb_amount: str =
                                transfer_amount=_f(transfer_amount)))
         s.commit()
     return RedirectResponse("/kb-payout", status_code=303)
+
+
+# A2: ใบเสร็จรับเงิน + หนังสือรับรองหัก ณ ที่จ่าย 50 ทวิ จากชุด KB ที่ติ๊กรับแล้ว
+# ฟอร์มมาตรฐาน (โอเคาะ 4ก.ค.) — user ปรับ layout เองได้ที่ /admin/doc-designer
+_KB_PREFIX_CUSTOMER = {"CYIV": "CY", "NHIV": "NHL", "MLIV": "MOL", "SIIV": "SIAM i"}
+
+
+@app.get("/kb-payout/receipt", response_class=HTMLResponse)
+def kb_receipt(request: Request, invs: str = ""):
+    from services import doc_templates as dt
+    from services.kb_payout import KB_OWNERS, KB_WHT
+
+    inv_list = sorted({x.strip().upper() for x in invs.split(",") if x.strip()})
+    if not inv_list:
+        raise HTTPException(400, "ระบุ ?invs=เลขอินวอยคั่นด้วย ,")
+    with Session(engine) as s:
+        settles = s.exec(select(KbSettle).where(
+            KbSettle.inv_no.in_(inv_list))).all()  # type: ignore[attr-defined]
+        found = {x.inv_no for x in settles}
+        missing = [i for i in inv_list if i not in found]
+        if missing:
+            raise HTTPException(400, f"ยังไม่ติ๊กรับ KB: {', '.join(missing)} — ติ๊กก่อนออกใบ")
+        cust_keys = {_KB_PREFIX_CUSTOMER.get(i[:4], "?") for i in inv_list}
+        if len(cust_keys) != 1 or "?" in cust_keys:
+            raise HTTPException(400, "ชุดเดียวต้องเป็นเจ้าของงานรายเดียว (prefix อินวอยต้องชุดเดียวกัน)")
+        owner = KB_OWNERS[cust_keys.pop()]
+
+        kb_total = round(sum(x.kb_amount or 0 for x in settles), 2)
+        wht = round(kb_total * KB_WHT, 2)
+        transfer = round(kb_total * 0.9, 2)
+        ref = ",".join(inv_list)
+        u = current_user(request)
+        by = u.username if u else ""
+        no_receipt = dt.next_doc_no(s, "kb_receipt", ref, by=by)
+        no_wht = dt.next_doc_no(s, "kb_wht", ref, by=by)
+        today_th = date.today().strftime("%d/%m/%Y")
+        ctx_receipt = {
+            "doc_no": f"RC{no_receipt}", "doc_date": today_th,
+            "payer_name": owner["owner"],
+            "description": f"ค่าบริการดำเนินงานขนส่งตู้คอนเทนเนอร์ (KB) ชุดอินวอย {len(inv_list)} ใบ",
+            "amount": f"{kb_total:,.2f}", "amount_text": dt.baht_text(kb_total),
+            "invs": ", ".join(inv_list),
+            "receiver_name": dt.COMPANY["name_en"],
+            "note": f"โอนคืนเจ้าของงาน 90% = {transfer:,.2f} บาท ({owner['bank']})",
+        }
+        ctx_wht = {
+            "doc_no": f"WT{no_wht}", "doc_date": today_th,
+            "payee_name": owner["owner"],
+            "payee_tax_id": "……………………………", "payee_address": "……………………………",
+            "income_type": "ค่าบริการ/ค่านายหน้า (มาตรา 40(2))",
+            "pay_date": today_th,
+            "amount": f"{kb_total:,.2f}", "wht": f"{wht:,.2f}",
+            "wht_text": dt.baht_text(wht),
+        }
+        pages = [
+            {"title": "ใบเสร็จรับเงิน",
+             "elements": dt.render_elements(dt.get_template(s, "kb_receipt"), ctx_receipt)},
+            {"title": "หนังสือรับรองหัก ณ ที่จ่าย",
+             "elements": dt.render_elements(dt.get_template(s, "kb_wht"), ctx_wht)},
+        ]
+    ctx = base_context(request)
+    ctx.update({"pages": pages, "invs": invs})
+    return templates.TemplateResponse("doc_print.html", ctx)
+
+
+@app.get("/admin/doc-designer", response_class=HTMLResponse)
+def doc_designer(request: Request, key: str = "kb_receipt"):
+    from services import doc_templates as dt
+
+    if key not in dt.DEFAULT_TEMPLATES:
+        raise HTTPException(404, "ไม่รู้จักฟอร์มนี้")
+    with Session(engine) as s:
+        tpl = dt.get_template(s, key)
+        has_override = s.exec(select(models.DocTemplate)
+                              .where(models.DocTemplate.key == key)).first() is not None
+    ctx = base_context(request)
+    ctx.update({"key": key, "tpl_name": tpl["name"],
+                "elements_json": json.dumps(tpl["elements"], ensure_ascii=False),
+                "placeholders": dt.PLACEHOLDER_DOC.get(key, ""),
+                "all_keys": list(dt.DEFAULT_TEMPLATES),
+                "has_override": has_override})
+    return templates.TemplateResponse("doc_designer.html", ctx)
+
+
+@app.post("/admin/doc-designer/save")
+async def doc_designer_save(request: Request):
+    from services import doc_templates as dt
+
+    payload = await request.json()
+    key = str(payload.get("key") or "")
+    elements = payload.get("elements")
+    if key not in dt.DEFAULT_TEMPLATES:
+        raise HTTPException(404, "ไม่รู้จักฟอร์มนี้")
+    if not isinstance(elements, list):
+        raise HTTPException(400, "elements ต้องเป็น list")
+    u = current_user(request)
+    with Session(engine) as s:
+        row = s.exec(select(models.DocTemplate)
+                     .where(models.DocTemplate.key == key)).first()
+        if payload.get("reset"):
+            if row:
+                s.delete(row)
+                audit_log(s, request, "doctemplate", row.id or 0, "reset", key, "default")
+                s.commit()
+            return JSONResponse({"ok": True, "reset": True})
+        if row is None:
+            row = models.DocTemplate(key=key, name=dt.DEFAULT_TEMPLATES[key]["name"])
+        row.elements_json = json.dumps(elements, ensure_ascii=False)
+        row.updated_by = u.username if u else ""
+        row.updated_at = datetime.utcnow()
+        s.add(row)
+        audit_log(s, request, "doctemplate", row.id or 0, "layout", "", f"{len(elements)} ชิ้น", note=key)
+        s.commit()
+    return JSONResponse({"ok": True})
 
 
 @app.get("/finance/vehicles", response_class=HTMLResponse)
