@@ -46,7 +46,9 @@ def client(tmp_path, monkeypatch):
             user_id TEXT, msg_type TEXT, text TEXT, media_path TEXT, sent_at TEXT, received_at TEXT, discord_forwarded INT);
     """)
     con.execute("INSERT INTO line_group VALUES ('st1','ปั๊ม Caltex','','2026-06-01',1)")
+    ARCH0 = OLD - timedelta(days=2)   # วันแรกสุดของ archive (ขอบ — sys_only วันนี้ถูกข้าม)
     msgs = [
+        (0, f"{ARCH0} 07:00", "71-3333 นายซี เติมดีเซล [20L] แจ้งเติมCaltex"),
         # จับคู่ได้ (มี FuelTxn 20L + 80L วันเดียวกัน)
         (1, f"{OLD} 08:00", "71-8967 นายณัฐวุฒิ เติมดีเซล [20L]+B20 [80L] แจ้งเติมCaltex"),
         (2, f"{OLD} 08:01", "71-8967 นายณัฐวุฒิ เติมดีเซล [20L]+B20 [80L] แจ้งเติมCaltex"),  # โพสต์ซ้ำ → dedupe

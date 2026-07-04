@@ -147,7 +147,9 @@ def compare(orders: list[dict], txns: list,
     if arch_min is not None:
         order_pd = {(o["plate"], o["date"]) for o in orders}
         for t in txns:
-            if (t.liter or 0) <= 0 or t.id in used or t.txn_date < arch_min:
+            # ข้ามวันขอบแรกของ archive ด้วย (<=) — เติมวันนั้นมักถูกแจ้งใน
+            # ข้อความก่อน archive เริ่มเก็บ (วัดจริง: noise 44 แถวที่ 12 มิ.ย.)
+            if (t.liter or 0) <= 0 or t.id in used or t.txn_date <= arch_min:
                 continue
             plate = (t.plate_no_raw or "").strip()
             if any((plate, t.txn_date + timedelta(days=dd)) in order_pd
