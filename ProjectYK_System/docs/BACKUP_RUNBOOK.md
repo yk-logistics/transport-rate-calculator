@@ -37,7 +37,7 @@
 ## ตรวจสุขภาพ backup (ทำเดือนละครั้ง / เมื่อสงสัย)
 1. เปิด /admin/server-health — การ์ดชั้น 1 ต้องเขียว + ไม่เกิน 26 ชม.
 2. `D:\YK_BACKUPS\last_run.json` ต้อง `"ok": true`
-3. ซ้อมกู้: แตก zip ล่าสุดลงโฟลเดอร์ทดสอบ + `pragma integrity_check` (ขั้น 2-3 ด้านบน) — **backup ที่ไม่เคยซ้อมกู้ = ไม่มี backup**
+3. ซ้อมกู้: รันคำสั่งเดียว `python ProjectYK_System/tools/server_backup/restore_drill.py` (หา zip ล่าสุดเอง mirror→D:, แตกลง temp, integrity_check ทั้ง 2 DB, นับแถวเทียบขั้นต่ำ, ลบ temp เอง — read-only ทั้งหมด; รันจริงผ่านแล้ว 4 ก.ค. 2026) — **backup ที่ไม่เคยซ้อมกู้ = ไม่มี backup**
 4. เครื่อง Dev: `C:\Users\guole\YK_BACKUPS_MIRROR\pull.log` ต้องมี OK ล่าสุดไม่เกิน ~2-3 วัน (เครื่องปิด = ข้ามได้ ไม่ผิด)
 
 ## แก้ปัญหา
