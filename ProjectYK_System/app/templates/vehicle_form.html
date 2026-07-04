@@ -54,6 +54,12 @@
     <label class="block text-sm mb-1">สิ้นสุด</label>
     <input type="date" name="end_date" value="{{ row.end_date if row and row.end_date else '' }}" class="w-full border rounded px-3 py-2" />
   </div>
+  <div>
+    <label class="block text-sm mb-1">ขนาดถังน้ำมัน (ลิตร)</label>
+    <input type="number" step="1" name="tank_liters" value="{{ row.tank_liters if row and row.tank_liters else '' }}"
+           placeholder="ว่าง = ใช้ค่ามาตรฐานตามชนิดรถ" class="w-full border rounded px-3 py-2" />
+    <div class="text-xs text-slate-400 mt-1">ใช้ตรวจ "ลิตรเกินถัง" ในรายงานน้ำมันผิดปกติ</div>
+  </div>
   <div class="md:col-span-2">
     <label class="block text-sm mb-1">หมายเหตุ</label>
     <textarea name="notes" rows="2" class="w-full border rounded px-3 py-2">{{ row.notes if row else '' }}</textarea>

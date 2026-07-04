@@ -94,7 +94,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 41  # v41: JobMedia (F3); v40: LineGroupMap+LineJobSeen (F2); v39: PartPermission (P1); v38: DebtAccount (D2); v37: AuditLog (P2) — create_all ทั้งหมด ไม่ต้อง ALTER
+SCHEMA_VERSION = 42  # v42: Vehicle.tank_liters (E2 — ALTER ใน _apply_additive_migrations); v41: JobMedia (F3); v40: LineGroupMap+LineJobSeen (F2); v39: PartPermission; v38: DebtAccount; v37: AuditLog
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -386,6 +386,9 @@ def _apply_additive_migrations() -> None:
     """Non-destructive migrations run every startup. Safe to re-run."""
     # v5 → v6: Employee.role — default 'driver' keeps existing rows as drivers.
     _ensure_column("employee", "role", "TEXT", default="driver")
+
+    # v41 → v42 (E2): ขนาดถังน้ำมันต่อคัน (0 = ใช้ default ตามชนิดรถ)
+    _ensure_column("vehicle", "tank_liters", "REAL", default="0")
 
     # v6 → v7: PayRunItem BIGC audit columns + PayRunAdjust table (created via
     # SQLModel.metadata.create_all; nothing ALTER-wise needed for new table).
@@ -1366,6 +1369,7 @@ def vehicles_save(
     start_date: str = Form(""),
     end_date: str = Form(""),
     notes: str = Form(""),
+    tank_liters: str = Form("0"),
 ):
     with Session(engine) as s:
         if veh_id is None:
@@ -1382,6 +1386,7 @@ def vehicles_save(
         row.start_date = _parse_date(start_date)
         row.end_date = _parse_date(end_date)
         row.notes = notes
+        row.tank_liters = _parse_float(tank_liters) or 0.0
         row.updated_at = datetime.utcnow()
         s.add(row)
         s.commit()
@@ -3118,6 +3123,22 @@ def api_daily_jobs_suggest(
 # ============================================================
 #  FUEL MODULE
 # ============================================================
+
+@app.get("/fuel/anomaly", response_class=HTMLResponse)
+def fuel_anomaly_page(request: Request, site: str = "", d_from: str = "", d_to: str = ""):
+    """E2: รายงานน้ำมันผิดปกติ — read-only ไม่แก้เงินอัตโนมัติ (default = 30 วันหลังสุด)."""
+    from services import fuel_anomaly as fa
+
+    today = date.today()
+    d2 = _parse_date(d_to) or today
+    d1 = _parse_date(d_from) or (d2 - timedelta(days=30))
+    with Session(engine) as s:
+        data = fa.scan(s, d1, d2, site=site)
+    ctx = base_context(request)
+    ctx.update({"data": data, "site": site,
+                "d_from": d1.isoformat(), "d_to": d2.isoformat()})
+    return templates.TemplateResponse("fuel_anomaly.html", ctx)
+
 
 @app.get("/fuel", response_class=HTMLResponse)
 def fuel_list(

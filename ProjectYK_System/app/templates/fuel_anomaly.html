@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}น้ำมันผิดปกติ{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-xl font-bold">⛽🚩 รายงานน้ำมันผิดปกติ</h1>
+  <a href="/fuel" class="text-sm text-indigo-600 hover:underline">← รายการน้ำมัน</a>
+</div>
+
+<div class="mb-3 text-sm text-slate-500">
+  รายงานอย่างเดียว <b>ไม่แก้เงินอัตโนมัติ</b> — เจออะไรแปลกให้ไปตรวจที่รายการจริง ·
+  ขนาดถังตั้งได้ต่อคันที่หน้า <a href="/vehicles" class="text-indigo-500 hover:underline">รถ</a> (ยังไม่ตั้ง = ใช้ค่ามาตรฐานตามชนิดรถ)
+</div>
+
+<form method="get" class="flex gap-2 mb-4 flex-wrap items-center text-sm">
+  <select name="site" class="border rounded px-2 py-1.5">
+    <option value="">ทุกไซท์</option>
+    {% for sc in ['LCB','AYU','BIGC'] %}<option value="{{ sc }}" {% if site==sc %}selected{% endif %}>{{ sc }}</option>{% endfor %}
+  </select>
+  <input type="date" name="d_from" value="{{ d_from }}" class="border rounded px-2 py-1.5">
+  <span class="text-slate-400">→</span>
+  <input type="date" name="d_to" value="{{ d_to }}" class="border rounded px-2 py-1.5">
+  <button class="bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-500">ตรวจ</button>
+</form>
+
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 text-sm">
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">เติมทั้งหมดในช่วง</div>
+    <div class="text-xl font-bold font-mono">{{ data.n_fills }}</div></div>
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">🟠 เติมถี่ผิดปกติ</div>
+    <div class="text-xl font-bold font-mono {% if data.n_r1 %}text-amber-600{% endif %}">{{ data.n_r1 }}</div></div>
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">🔴 ลิตรเกินถัง</div>
+    <div class="text-xl font-bold font-mono {% if data.n_r2 %}text-rose-600{% endif %}">{{ data.n_r2 }}</div></div>
+  <div class="bg-white border rounded-lg p-3"><div class="text-xs text-slate-500">🔵 เติมวันไม่มีงาน</div>
+    <div class="text-xl font-bold font-mono {% if data.n_r3 %}text-sky-600{% endif %}">{{ data.n_r3 }}</div></div>
+</div>
+
+<div class="bg-white rounded-lg border overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-600 text-xs uppercase"><tr>
+      <th class="px-3 py-2 text-left">วันที่</th>
+      <th class="px-3 py-2 text-left">ไซท์</th>
+      <th class="px-3 py-2 text-left">ทะเบียน</th>
+      <th class="px-3 py-2 text-left">คนขับ</th>
+      <th class="px-3 py-2 text-right">ลิตร</th>
+      <th class="px-3 py-2 text-right">บาท</th>
+      <th class="px-3 py-2 text-left">ปั๊ม</th>
+      <th class="px-3 py-2 text-left">ธง</th>
+    </tr></thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for r in data.rows %}
+      <tr class="{% if r.worst == 'rose' %}bg-rose-50{% elif r.worst == 'amber' %}bg-amber-50/60{% endif %} hover:bg-slate-50">
+        <td class="px-3 py-1.5 whitespace-nowrap">{{ r.date | dmy }}</td>
+        <td class="px-3 py-1.5">{{ r.site }}</td>
+        <td class="px-3 py-1.5 font-mono font-semibold">{{ r.plate }}</td>
+        <td class="px-3 py-1.5">{{ r.driver }}</td>
+        <td class="px-3 py-1.5 text-right font-mono">{{ '{:,.0f}'.format(r.liter) }}</td>
+        <td class="px-3 py-1.5 text-right font-mono">{{ '{:,.0f}'.format(r.amount) }}</td>
+        <td class="px-3 py-1.5 text-xs">{{ r.station | truncate(20) }}</td>
+        <td class="px-3 py-1.5">
+          {% for f in r.flags %}
+          <span class="inline-block text-xs rounded px-1.5 py-0.5 mb-0.5
+            {% if f.level == 'rose' %}bg-rose-100 text-rose-700
+            {% elif f.level == 'amber' %}bg-amber-100 text-amber-700
+            {% else %}bg-sky-100 text-sky-700{% endif %}">{{ f.text }}</span>
+          {% endfor %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">✅ ไม่พบรายการเข้าเงื่อนไขผิดปกติในช่วงนี้</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="text-xs text-slate-400 mt-2">
+  กติกา: เติม ≥2 ครั้ง/วัน/คัน · ลิตรครั้งเดียวเกินถัง (default หัวลาก 500 / สิบล้อ 400 ลิตร) ·
+  เติมวันที่ทะเบียนไม่มีแถวเดลี่ทุกไซท์ (เติมข้ามไซท์ = ปกติ ไม่ธง)
+</div>
+
+{% endblock %}

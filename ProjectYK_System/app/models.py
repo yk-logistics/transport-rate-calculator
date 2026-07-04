@@ -90,6 +90,8 @@ class Vehicle(SQLModel, table=True):
     engine_no: str = ""
     chassis_no: str = ""
     current_mile: float = 0.0    # latest known odometer reading — updated by PM/MaintRecord
+    # v42 (E2): ขนาดถังน้ำมัน (ลิตร) — 0 = ยังไม่กรอก ใช้ default ตามชนิดรถตอนตรวจผิดปกติ
+    tank_liters: float = 0.0
 
     notes: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
