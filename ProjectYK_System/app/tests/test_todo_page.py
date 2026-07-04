@@ -37,6 +37,30 @@ def test_add_and_list(client):
     assert "ด่วน" in b
 
 
+def test_add_with_photo_saved_and_served(client):
+    """บั๊กจริง 4ก.ค.: ปุ่มแนบรูปเดิมลบ <input> ทิ้งตอนเลือกไฟล์ (innerText ทับ parent)
+    → รูปไม่เคยถูกส่ง; เทสต์นี้ยืนยันเส้นทาง server ทั้งสาย อัปโหลด→เซฟ→เปิดดู."""
+    import io
+    fake_jpg = b"\xff\xd8\xff" + b"y" * 300
+    client.post("/todo/add", data={"text": "โน้ตมีรูป"},
+                files=[("photos", ("a.jpg", io.BytesIO(fake_jpg), "image/jpeg")),
+                       ("photos", ("b.png", io.BytesIO(fake_jpg), "image/png"))])
+    with Session(engine) as s:
+        t = s.exec(select(TodoItem).where(TodoItem.text == "โน้ตมีรูป")).first()
+        assert t.media_json and len(t.media_json.split(",")) == 2
+        names = t.media_json.split(",")
+    b = client.get("/todo", follow_redirects=True).text
+    assert f"/todo/media/{t.id}/{names[0]}" in b            # thumbnail โผล่ในหน้า
+    r = client.get(f"/todo/media/{t.id}/{names[0]}")
+    assert r.status_code == 200 and r.content == fake_jpg   # เปิดรูปได้จริง
+    # นามสกุลนอก whitelist ต้องถูกข้าม (ไม่พัง)
+    client.post("/todo/add", data={"text": "โน้ตไฟล์แปลก"},
+                files=[("photos", ("x.exe", io.BytesIO(b"MZ" + b"z" * 200), "application/octet-stream"))])
+    with Session(engine) as s:
+        t2 = s.exec(select(TodoItem).where(TodoItem.text == "โน้ตไฟล์แปลก")).first()
+        assert not t2.media_json
+
+
 def test_toggle_done_and_reopen(client):
     client.post("/todo/add", data={"text": "งานทดสอบเสร็จ"})
     with Session(engine) as s:
