@@ -57,6 +57,11 @@
   {% endfor %}
 </div>
 
+<details class="bg-white rounded-xl shadow mb-4" open>
+  <summary class="px-4 py-3 cursor-pointer font-semibold">📥 คิวรอโอตัดสิน (WAITING_ON_OAT.md) — เปิดดูก่อน</summary>
+  <div class="p-5 prose prose-sm max-w-none border-t" id="md-waiting"></div>
+</details>
+
 <details class="bg-white rounded-xl shadow mb-4">
   <summary class="px-4 py-3 cursor-pointer font-semibold">📖 แผนแม่บทฉบับเต็ม (MASTER_PLAN_2026-07.md)</summary>
   <div class="p-5 prose prose-sm max-w-none border-t" id="md-plan"></div>
@@ -69,11 +74,13 @@
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script id="raw-plan" type="text/plain">{{ md_plan }}</script>
 <script id="raw-specs" type="text/plain">{{ md_specs }}</script>
+<script id="raw-waiting" type="text/plain">{{ md_waiting }}</script>
 <script>
   document.getElementById("md-plan").innerHTML = marked.parse(document.getElementById("raw-plan").textContent);
   document.getElementById("md-specs").innerHTML = marked.parse(document.getElementById("raw-specs").textContent);
+  document.getElementById("md-waiting").innerHTML = marked.parse(document.getElementById("raw-waiting").textContent);
   /* ตารางใน markdown ให้เลื่อนแนวนอนได้บนจอเล็ก */
-  document.querySelectorAll("#md-plan table, #md-specs table").forEach(t => {
+  document.querySelectorAll("#md-plan table, #md-specs table, #md-waiting table").forEach(t => {
     t.classList.add("text-xs"); t.style.display = "block"; t.style.overflowX = "auto";
   });
 </script>

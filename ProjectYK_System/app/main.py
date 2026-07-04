@@ -10613,6 +10613,7 @@ def admin_plan(request: Request):
         "remain_weeks": max(1, round(remain / 5)),
         "md_plan": _read("MASTER_PLAN_2026-07.md"),
         "md_specs": _read("MVP_TASK_SPECS.md"),
+        "md_waiting": _read("WAITING_ON_OAT.md"),
     })
     return templates.TemplateResponse(request, "admin_plan.html", ctx)
 
