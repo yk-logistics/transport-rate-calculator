@@ -195,8 +195,9 @@ Start-Sleep 1; Start-ScheduledTask -TaskName YK_MVP_APP; Start-Sleep 6
 สเปคเดิม (อ้างอิง): — โมเดล: Sonnet (~ครึ่งวัน หลัง F1)
 สรุปต่อกลุ่มสำคัญ (ลิสต์กลุ่มจาก LineGroupMap): จำนวนข้อความ/รูปเมื่อวาน + ข้อความแรก-สุดท้าย + กลุ่มเงียบ >3 วัน → หน้า /line/digest + (ถ้าโอต้องการ) ยิงเข้า Discord ช่องสรุป (มี discord_api ใน line_archiver แต่**ห้าม import ข้าม service** — copy ฟังก์ชัน post เดียวพอ)
 
-### F0 (เลือกได้ ปลอดภัย) จัดหมวด Discord ให้กลุ่มใหม่อัตโนมัติ — Sonnet (~1 ชม.)
-สาเหตุที่ห้องใหม่ไม่เข้าหมวด: โค้ดจัดหมวดอยู่ใน branch `feat/line-archiver-discord-categories` **ยังไม่ merge + ยังไม่ deploy ไป archiver บน server** — งาน: merge → scp ไฟล์ที่เปลี่ยน (archiver.py, categories.py, discord_api.py, db.py) ไป `C:\Users\yklog\YK_LINE_ARCHIVER` → `nssm restart YKLineBot` → ทดสอบด้วยกลุ่มทดสอบใหม่ 1 กลุ่ม; ความเสี่ยงต่ำ (จัดหมวด best-effort พังก็แค่ไม่จัด ไม่กระทบเก็บข้อความ — มี retry + DB เก็บก่อน forward เสมอ)
+### F0 ✅ deploy แล้ว 4ก.ค. — จัดหมวด Discord ให้กลุ่มใหม่อัตโนมัติ
+**ของจริง:** โค้ดอยู่ใน HEAD แล้ว (สเปคเดิมเข้าใจผิดว่ายังไม่ merge); 4ก.ค. เทียบไฟล์ server = pre-categories เป๊ะ (ไม่ drift) → scp 5 ไฟล์ (archiver/db/discord_api/categories/backfill_categories) + backup เดิมไว้ `YK_LINE_ARCHIVER\bak_f0\` → Restart-Service YKLineBot → ยืนยัน: health 200, คอลัมน์ `line_group.category` migrate แล้ว, webhook LINE รับข้อความต่อทันที; เทสต์ local 34 ผ่าน
+**เหลือ (ไม่บังคับ):** กลุ่มไลน์**ใหม่**จะเข้าหมวดเอง; ห้องเก่าที่ค้างนอกหมวดต้องรัน `backfill_categories.py` — จะย้ายห้อง Discord ทั้งเซิร์ฟเวอร์ ให้โอสั่งเองตอนสะดวก (นั่งดูผลด้วยกัน)
 
 ---
 
