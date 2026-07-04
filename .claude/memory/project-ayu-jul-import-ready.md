@@ -1,0 +1,19 @@
+---
+name: project-ayu-jul-import-ready
+description: "AYU รอบ 2026-07 พร้อม import (231 งาน dry-run ผ่าน, server ไม่มี dupe) — รอโอเคาะ: import กลางรอบ vs รอจบรอบ 25 ก.ค. (กัน re-import ทับ grid)"
+metadata: 
+  node_type: memory
+  type: project
+  originSessionId: d4a29959-9dce-4e25-82a7-9d031c3c20be
+---
+
+Preflight 4 ก.ค. 2026 (read-only ทั้งหมด — ยังไม่ import):
+
+- **ต้นทางพร้อม:** xlsx พี่หวาน (Drive id 1vQ0l2Rt…) มีแท็บ **Jul 26 = 103 แถว คีย์ถึง 5 ก.ค.** + Jun 26 ครบถึง 30 มิ.ย.; **ชีทจริง** (1F5eJlYs…) มีแท็บ Jul 26 แล้ว 123 แถว = มีคน sync/คีย์ตรงแล้ว
+- **เครื่องมือพร้อม (commit แล้ว):** `tools/import_ayu_daily.py` รองรับ `--cycle 2026-07` (อ่าน 2 แท็บ: ท้าย Jun 26 สำหรับ 26-30 มิ.ย. + Jul 26; window 26 มิ.ย.–25 ก.ค.) + env `YK_AYU_XLSX` ชี้ไฟล์เอง; **dry-run: jobs=231 fuel=35 ค่าขนส่ง 28,338 ค่าเที่ยว 29,379** (ยอดต่ำเพราะราคายังไม่คีย์เยอะ — งาน D1)
+- **server ปลอด dupe:** AYU ใน DB จบ 25 มิ.ย. (ไม่มีใครคีย์รอบใหม่ใน grid)
+- **ทางแยกที่หยุดรอโอ (กฎเงิน — workflow ambiguity จริง):** รอบ มิ.ย. import ตอน*จบรอบ* ครั้งเดียวแล้วแก้ต่อใน grid; ถ้า import **กลางรอบ**ตอนนี้จะปลดล็อค F3 (วัด POD)/D1/fuel line-compare ทันที **แต่**ต้องตกลงว่าจากนั้นข้อมูลรอบ ก.ค. แก้ใน grid เท่านั้น — ห้ามใครรัน re-import `--wipe-prior` ทับ (จะกินราคาที่ทีมเติมใน grid — บั๊กตระกูลเดียวกับ C4)
+
+**Why:** เดลี่ ก.ค. คือตัวปลดล็อคงานแพลนที่เหลือ (F3 วัดรอบเต็ม, D1, fuel compare) — เตรียมครบเหลือโอพยักหน้า
+
+**How to apply:** โอเคาะ "import เลย" → รันบน server: scp xlsx สด + tools 2 ไฟล์ → `YK_AYU_XLSX=<path> python import_ayu_daily.py --cycle 2026-07` (ไม่ dry-run) → แจ้งทีมกติกาห้าม re-import; โอเคาะ "รอจบรอบ" → รัน 26 ก.ค. แบบเดิม ดู [[project-ayu-daily-import]] [[project-f3-pod-measured-tuned]]
