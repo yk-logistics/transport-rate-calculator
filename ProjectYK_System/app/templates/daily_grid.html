@@ -927,6 +927,28 @@
   // ── P3: คลิกขวาบนเซลล์ → เมนู (ผ่าน YKCtx framework ใน base) ──────────────
   window.ykCtxDailyAudit = (d) => openAuditModal(d.id);
   window.ykCtxDailyAuditField = (d) => openAuditModal(d.id, d.field);
+  // E1/F3: รูปที่ผูกกับแถวนี้ (จากไลน์ + มือถือคนขับ) — โชว์ใน modal audit เดิม
+  window.ykCtxJobMedia = async (d) => {
+    auditJob.textContent = "#" + d.id + " · รูปงานนี้";
+    auditBody.innerHTML = '<div class="text-slate-400 py-4 text-center">กำลังโหลด…</div>';
+    auditModal.classList.remove("hidden");
+    try {
+      const r = await fetch(`/api/daily/${d.id}/media`);
+      const j = await r.json();
+      if (!j.items || !j.items.length) {
+        auditBody.innerHTML = '<div class="text-slate-400 py-4 text-center">ยังไม่มีรูปผูกกับงานนี้ — ' +
+          'รูปมาจาก 📎 ผูกรูปหลักฐาน (ไลน์) หรือมือถือคนขับ (เช็คอิน/รูปตู้/ปิดงาน)</div>';
+        return;
+      }
+      auditBody.innerHTML = '<div class="grid grid-cols-3 gap-2">' + j.items.map(it =>
+        `<a href="${it.src}" target="_blank" class="block">
+           <img src="${it.src}" class="w-full h-28 object-cover rounded border" loading="lazy">
+           <div class="text-xs text-slate-500 mt-0.5">${it.kind} · ${it.at}</div></a>`).join("")
+        + '</div>';
+    } catch (err) {
+      auditBody.innerHTML = '<div class="text-rose-500 py-4 text-center">โหลดรูปไม่สำเร็จ</div>';
+    }
+  };
   table.on("cellContext", function(e, cell) {
     if (!window.YKCtx) return;
     e.preventDefault();

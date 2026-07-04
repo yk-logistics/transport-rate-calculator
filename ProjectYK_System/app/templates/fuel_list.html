@@ -19,6 +19,13 @@
 </div>
 {% endif %}
 
+{% if anomaly_n %}
+<a href="/fuel/anomaly?site={{ site }}&d_from={{ anomaly_from }}&d_to={{ anomaly_to }}"
+   class="block bg-rose-50 border border-rose-200 text-rose-800 rounded-lg p-2.5 text-sm mb-3 hover:bg-rose-100">
+  🚩 พบการเติมเข้าเงื่อนไขผิดปกติ <b>{{ anomaly_n }}</b> รายการในช่วงที่ดู (เติมถี่/เกินถัง/วันไม่มีงาน) — คลิกดูรายงาน →
+</a>
+{% endif %}
+
 <div id="saveFuelDetails" class="hidden rounded-lg border p-3 text-xs mb-3"></div>
 
 <form method="get" class="bg-white rounded-lg border p-4 mb-4 grid md:grid-cols-6 gap-3 items-end">

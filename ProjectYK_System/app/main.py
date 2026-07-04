@@ -2179,6 +2179,34 @@ async def daily_grid_save(request: Request):
             "adjustments": adjustments_created}
 
 
+@app.get("/api/daily/{job_id}/media")
+def daily_job_media(job_id: int):
+    """รูปทั้งหมดที่ผูกกับแถวเดลี่: จากไลน์ (JobMedia/F3) + จากมือถือคนขับ (E1).
+
+    ใช้กับเมนูคลิกขวา "ดูรูปงานนี้" ใน grid (P3).
+    """
+    items = []
+    with Session(engine) as s:
+        for jm in s.exec(select(models.JobMedia).where(
+                models.JobMedia.daily_job_id == job_id,
+                models.JobMedia.status == "linked")).all():
+            items.append({"src": f"/line/media/{jm.line_message_pk}",
+                          "kind": "ไลน์", "at": jm.at.strftime("%d/%m %H:%M"),
+                          "by": jm.by_user})
+        subs = s.exec(select(DriverSubmission).where(
+            DriverSubmission.daily_job_id == job_id)).all()
+        kind_th = dict(models.SUBMISSION_KINDS)
+        for sub in subs:
+            for p in (sub.photo_paths or "").split(","):
+                p = p.strip()
+                if p:
+                    items.append({"src": f"/uploads/{p}",
+                                  "kind": kind_th.get(sub.kind, sub.kind),
+                                  "at": sub.submitted_at.strftime("%d/%m %H:%M"),
+                                  "by": ""})
+    return {"ok": True, "job_id": job_id, "items": items}
+
+
 def audit_log(s: Session, request: Optional[Request], table_name: str, row_id: int,
               field: str, old, new, note: str = "") -> None:
     """P2: บันทึกจุดเขียนสำคัญที่ยังไม่มีตาราง audit เฉพาะ — INSERT-only.
@@ -3222,8 +3250,21 @@ def fuel_list(
     month_start = today.replace(day=1).isoformat()
     month_end = today.replace(day=calendar.monthrange(today.year, today.month)[1]).isoformat()
     current_cycle_tag = f"{today.year:04d}-{today.month:02d}"
+    # E2: นับธงผิดปกติของช่วงที่ดูอยู่ → แบนเนอร์ลิงก์ไปรายงาน (ไม่กระทบเงิน)
+    anomaly_n = 0
+    try:
+        from services import fuel_anomaly as fa
+        _a_d2 = _parse_date(d_to) or today
+        _a_d1 = _parse_date(d_from) or (_a_d2 - timedelta(days=30))
+        with Session(engine) as s:
+            anomaly_n = len(fa.scan(s, _a_d1, _a_d2, site=site)["rows"])
+        anomaly_from, anomaly_to = _a_d1.isoformat(), _a_d2.isoformat()
+    except Exception:
+        anomaly_from = anomaly_to = ""
     ctx = base_context(request)
     ctx.update({
+        "anomaly_n": anomaly_n,
+        "anomaly_from": anomaly_from, "anomaly_to": anomaly_to,
         "rows": rows,
         "rows_json": rows_json,
         "site": site, "d_from": d_from, "d_to": d_to,
@@ -8705,6 +8746,7 @@ CTX_MENUS: dict = {
     "daily-cell": [
         {"label": "📜 ประวัติช่องนี้", "kind": "call", "fn": "ykCtxDailyAuditField"},
         {"label": "📜 ประวัติทั้งแถว", "kind": "call", "fn": "ykCtxDailyAudit"},
+        {"label": "📷 ดูรูปงานนี้", "kind": "call", "fn": "ykCtxJobMedia"},
         {"label": "📋 คัดลอกค่าในช่อง", "kind": "copy", "key": "value"},
         {"label": "📋 คัดลอกเบอร์ตู้", "kind": "copy", "key": "container"},
         {"label": "💬 หาตู้นี้ในแชทไลน์", "kind": "link",
