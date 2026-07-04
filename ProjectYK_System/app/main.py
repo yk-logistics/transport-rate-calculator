@@ -4783,6 +4783,38 @@ def payroll_accounts(run_id: int, request: Request):
     return templates.TemplateResponse("payroll_accounts.html", ctx)
 
 
+@app.get("/payroll/{run_id}/accounts.csv")
+def payroll_accounts_csv(run_id: int):
+    """CSV โอนชุด: ธนาคาร,เลขบัญชี,ชื่อ,ยอด (net>0 เรียงตามธนาคาร) — เปิดใน Excel/
+    วางใน portal ธนาคารได้ (BOM ให้ไทยไม่เพี้ยน); read-only."""
+    import csv
+    import io as _io
+
+    with Session(engine) as s:
+        pr = s.get(PayRun, run_id)
+        if pr is None:
+            raise HTTPException(404)
+        items = s.exec(select(PayRunItem).where(PayRunItem.pay_run_id == run_id)).all()
+        emps = {e.id: e for e in s.exec(select(Employee).where(
+            Employee.id.in_([i.employee_id for i in items]))).all()}
+    rows = [(emps[i.employee_id], i.net_pay) for i in items
+            if (i.net_pay or 0) > 0 and i.employee_id in emps]
+    rows.sort(key=lambda r: ((r[0].bank_name or "ไม่ระบุ"), -(r[1] or 0)))
+    buf = _io.StringIO()
+    buf.write("﻿")  # BOM ให้ Excel เปิดไทยไม่เพี้ยน
+    w = csv.writer(buf)
+    w.writerow(["ธนาคาร", "เลขบัญชี", "ชื่อบัญชี", "ยอดโอน"])
+    for e, net in rows:
+        w.writerow([e.bank_name or "", e.account_no or "", e.full_name, f"{net:.2f}"])
+    w.writerow([])
+    w.writerow(["รวม", "", f"{len(rows)} คน", f"{sum(n for _, n in rows):.2f}"])
+    from urllib.parse import quote as _urlquote
+    fname = f"โอนชุด_{pr.site_code}_{pr.pay_cycle_tag}.csv"
+    return Response(buf.getvalue(), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition":
+                             f"attachment; filename*=UTF-8''{_urlquote(fname)}"})
+
+
 @app.post("/payroll/{run_id}/accounts/save")
 def payroll_accounts_save(run_id: int, request: Request, emp_id: int = Form(...),
                           bank_name: str = Form(""), account_no: str = Form("")):
@@ -8893,6 +8925,8 @@ CTX_MENUS: dict = {
         {"label": "📋 คัดลอกชื่อ", "kind": "copy", "key": "name"},
         {"label": "👤 เปิดหน้าพนักงาน", "kind": "link",
          "href": "/employees?q={name}", "perm": "/employees"},
+        {"label": "📜 ประวัติแก้บัญชีคนนี้", "kind": "link",
+         "href": "/admin/audit?table=employee&q={name}&days=90", "perm": "/admin/users"},
     ],
     "ar-row": [
         {"label": "📋 คัดลอกเลข INV", "kind": "copy", "key": "inv"},
