@@ -180,6 +180,12 @@
           </div>
         </div>
 
+        {# ---- 🔍 ค้นหากลาง: ตู้/ทะเบียน/คนขับ/เลขใบ/แชท ---- #}
+        <form action="/search" method="get" class="flex items-center">
+          <input name="q" placeholder="🔍 ตู้/ทะเบียน/คนขับ/เลขใบ"
+                 class="bg-slate-800 text-white placeholder-slate-400 border border-slate-700 rounded-lg px-3 py-1.5 text-sm w-44 focus:w-64 focus:bg-white focus:text-slate-900 transition-all outline-none">
+        </form>
+
         {# ---- โน้ตส่วนตัว: ปุ่มตรง 1 คลิก (โอจดบ่อย) ---- #}
         {% if can_see(request, "/todo") %}<a href="/todo" class="px-3 py-1.5 rounded hover:bg-slate-700" title="สิ่งที่ต้องทำ">📝</a>{% endif %}
 

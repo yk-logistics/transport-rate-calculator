@@ -41,6 +41,8 @@ MENUS = {
     "line": ["/line"],
     # เมนูคลิกขวา (P3) — GET รายการเมนูเท่านั้น item กรองสิทธิ์รายตัวใน handler
     "ctxmenu": ["/api/ctxmenu"],
+    # ค้นหากลาง — ทุก role ใช้ได้ (ผล section กรองตามสิทธิ์รายเมนูใน handler)
+    "search": ["/search"],
 }
 
 # menu -> role -> "edit" | "view" | "deny"
@@ -65,6 +67,7 @@ MATRIX = {
     "quote":     {"admin": "edit", "office": "deny", "accountant": "deny", "viewer": "deny"},
     "line":      {"admin": "edit", "office": "view", "accountant": "view", "viewer": "deny"},
     "ctxmenu":   {"admin": "view", "office": "view", "accountant": "view", "viewer": "view"},
+    "search":    {"admin": "view", "office": "view", "accountant": "view", "viewer": "view"},
 }
 
 

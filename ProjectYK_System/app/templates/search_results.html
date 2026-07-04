@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}ค้นหา: {{ q }}{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-xl font-bold">🔍 ค้นหาทั้งระบบ</h1>
+</div>
+
+<form method="get" action="/search" class="mb-4 flex gap-2">
+  <input name="q" value="{{ q }}" autofocus
+         placeholder="เลขตู้ / ทะเบียน / ชื่อคนขับ / เลขใบ / BL / ลูกค้า / ปั๊ม / คำในแชท"
+         class="border rounded-lg px-4 py-2.5 w-full max-w-xl text-base">
+  <button class="bg-indigo-600 text-white px-5 py-2.5 rounded-lg hover:bg-indigo-500 font-semibold">ค้นหา</button>
+</form>
+
+{% if q and q | length < 2 %}
+<div class="text-sm text-slate-400">พิมพ์อย่างน้อย 2 ตัวอักษร</div>
+{% elif q %}
+<div class="text-sm text-slate-500 mb-4">เจอ {{ n_total }} รายการ สำหรับ "<b>{{ q }}</b>"
+  <span class="text-xs text-slate-400">(โชว์เฉพาะส่วนที่บัญชีคุณมีสิทธิ์เห็น)</span></div>
+
+{% for sec in sections %}
+<div class="bg-white rounded-lg border mb-4">
+  <div class="px-4 py-2 font-semibold text-sm border-b bg-slate-50">{{ sec.title }} ({{ sec['items'] | length }})</div>
+  <div class="divide-y divide-slate-100">
+    {% for it in sec['items'] %}
+    <a href="{{ it.href }}" class="block px-4 py-2 text-sm hover:bg-indigo-50">{{ it.label }} <span class="text-indigo-400 text-xs">→</span></a>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<div class="bg-white rounded-lg border px-4 py-10 text-center text-slate-400">
+  ไม่เจอ "<b>{{ q }}</b>" ในระบบ — ลองคำสั้นลง หรือเช็คตัวสะกด/เลขทะเบียนมีขีดไหม
+</div>
+{% endfor %}
+{% endif %}
+
+{% endblock %}

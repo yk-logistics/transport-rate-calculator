@@ -25,6 +25,7 @@ from fastapi.responses import (
 )
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import or_
 from sqlmodel import Session, SQLModel, select
 
 from db_config import APP_DIR, DB_PATH, engine, resolve_database_url
@@ -8551,6 +8552,103 @@ def finance_receivables_settle(request: Request, inv_key: str = Form(...), undo:
     return RedirectResponse("/finance/receivables", status_code=303)
 
 
+# 🔍 ค้นหากลาง — พิมพ์ตู้/ทะเบียน/คนขับ/เลขใบ ที่ช่องเดียว เจอทุกแหล่งที่มีสิทธิ์เห็น
+# =========================================================================
+
+
+@app.get("/search", response_class=HTMLResponse)
+def global_search(request: Request, q: str = ""):
+    needle = q.strip()
+    u = current_user(request)
+    role = u.role if u else ""
+
+    def allowed(path: str) -> bool:
+        return perm_check(role, path, "GET") != "deny"
+
+    sections: list[dict] = []
+    if len(needle) >= 2:
+        like = f"%{needle}%"
+        with Session(engine) as s:
+            # เดลี่ — สนามที่คนตามหาบ่อยสุด (ตู้/ทะเบียน/เลขใบ/BL/คนขับ)
+            if allowed("/daily"):
+                jobs = s.exec(select(DailyJob).where(or_(
+                    DailyJob.container_no.like(like),      # type: ignore[attr-defined]
+                    DailyJob.plate_no_raw.like(like),      # type: ignore[attr-defined]
+                    DailyJob.doc_no.like(like),            # type: ignore[attr-defined]
+                    DailyJob.job_ref.like(like),           # type: ignore[attr-defined]
+                    DailyJob.invoice_no.like(like),        # type: ignore[attr-defined]
+                    DailyJob.bl_booking.like(like),        # type: ignore[attr-defined]
+                    DailyJob.driver_raw_name.like(like),   # type: ignore[attr-defined]
+                    DailyJob.status_code.like(like),       # type: ignore[attr-defined]
+                )).order_by(DailyJob.work_date.desc()).limit(40)).all()  # type: ignore[union-attr,arg-type]
+                if jobs:
+                    sections.append({"title": "🚚 เดลี่ (งานรายวัน)", "items": [{
+                        "label": f"{j.work_date:%d/%m/%y} · {j.site_code} · {j.status_code or j.customer_name_raw}"
+                                 f" · {j.plate_no_raw} · ตู้ {j.container_no or '—'}"
+                                 f"{' · ใบ ' + j.invoice_no if j.invoice_no else ''}",
+                        "href": f"/daily?site={j.site_code}&d_from={j.work_date.isoformat()}"
+                                f"&d_to={j.work_date.isoformat()}&q={needle}",
+                    } for j in jobs]})
+            if allowed("/employees"):
+                emps = [e for e in s.exec(select(Employee)).all()
+                        if needle.lower() in f"{e.full_name} {e.nickname or ''} {e.code} {e.phone or ''}".lower()][:15]
+                if emps:
+                    sections.append({"title": "👤 พนักงาน", "items": [{
+                        "label": f"{e.full_name} ({e.nickname or e.code}) · {e.home_site_code}"
+                                 f" · {e.status}",
+                        "href": f"/employees?q={e.full_name}"} for e in emps]})
+                vehs = [v for v in s.exec(select(Vehicle)).all()
+                        if needle.lower() in f"{v.plate_no} {v.nickname or ''} {v.old_plate_no or ''}".lower()][:15]
+                if vehs:
+                    sections.append({"title": "🚛 รถ", "items": [{
+                        "label": f"{v.plate_no} ({v.nickname or v.truck_type}) · {v.home_site_code} · {v.status}",
+                        "href": "/vehicles"} for v in vehs]})
+            if allowed("/customers"):
+                custs = [c for c in s.exec(select(Customer)).all()
+                         if needle.lower() in f"{c.name} {c.code}".lower()][:10]
+                if custs:
+                    sections.append({"title": "🏢 ลูกค้า", "items": [{
+                        "label": f"{c.name} ({c.code})", "href": "/customers"} for c in custs]})
+            if allowed("/fuel"):
+                fuels = s.exec(select(FuelTxn).where(or_(
+                    FuelTxn.plate_no_raw.like(like),       # type: ignore[attr-defined]
+                    FuelTxn.driver_raw_name.like(like),    # type: ignore[attr-defined]
+                    FuelTxn.station.like(like),            # type: ignore[attr-defined]
+                )).order_by(FuelTxn.txn_date.desc()).limit(15)).all()  # type: ignore[union-attr,arg-type]
+                if fuels:
+                    sections.append({"title": "⛽ น้ำมัน", "items": [{
+                        "label": f"{f.txn_date:%d/%m/%y} · {f.plate_no_raw} · {f.liter:,.0f} ลิตร"
+                                 f" · {f.amount:,.0f} บาท · {f.station}",
+                        "href": f"/fuel?plate={f.plate_no_raw}"} for f in fuels]})
+            if allowed("/quote"):
+                quotes = [x for x in s.exec(select(Quotation)).all()
+                          if needle.lower() in f"{x.customer_name} {x.factory_name} {x.tags} {x.note}".lower()][:10]
+                if quotes:
+                    sections.append({"title": "📄 ใบเสนอราคา", "items": [{
+                        "label": f"{x.customer_name} · {x.factory_name} · {x.price_offered:,.0f}"
+                                 f" · {_QUOTE_STATUS_TH.get(x.status, x.status)}",
+                        "href": f"/quote/{x.id}"} for x in quotes]})
+        # คลังแชทไลน์ (นอก session DB หลัก — read-only + กันพังถ้าเครื่องไม่มีไฟล์)
+        if allowed("/line"):
+            try:
+                from services import line_archive as la
+                if la.db_path() is not None:
+                    hits = la.search(needle, limit=8)
+                    if hits:
+                        sections.append({"title": "💬 แชทไลน์", "items": [{
+                            "label": f"{h['group_name']} · {h['who'] or ''} · "
+                                     f"{str(h['sent_at'])[:16]} · {(h['text'] or '['+h['msg_type']+']')[:80]}",
+                            "href": f"/line?q={needle}"} for h in hits]})
+            except Exception:
+                pass
+
+    ctx = base_context(request)
+    ctx.update({"q": needle, "sections": sections,
+                "n_total": sum(len(x["items"]) for x in sections)})
+    return templates.TemplateResponse("search_results.html", ctx)
+
+
+# =========================================================================
 # D1: เติมราคาเร็ว — แถวงานราคาว่าง + เรทที่ระบบจำ (RateCard) → คนกดรับต่อแถว
 # pattern เดียว B3 apply-quote: server ตรวจซ้ำเอง, เฉพาะแถวราคาว่าง, audit ทุกครั้ง
 # =========================================================================
