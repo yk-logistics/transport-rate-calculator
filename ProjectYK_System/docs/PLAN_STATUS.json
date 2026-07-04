@@ -152,7 +152,7 @@
         },
         {
           "id": "F3",
-          "name": "ชุดหลักฐานวางบิล — 🔶 /line/pod ผูกรูป↔เดลี่ (ตู้/ทะเบียนรอบรูป±10นาที + วัน±1) + /billing/evidence ZIP ตามเลขใบ (v41); เหลือวัด ≥90% กับรูปจริงบน server",
+          "name": "ชุดหลักฐานวางบิล — 🔶 /line/pod ผูกรูป↔เดลี่ + /billing/evidence ZIP (v41); วัดจริง 4ก.ค.+จูน reverse-match เลข Job (strong 57→80/340, KLND 0→22) + mark กลุ่มลูกค้า 19 กลุ่มบน server; เกณฑ์ ≥90% ต่อรอบเต็มรอเดลี่ ก.ค. import (archive เริ่ม 12มิ.ย. — measure_pod2.py บน server วัดซ้ำได้)",
           "days": 1.5,
           "status": "doing"
         },
