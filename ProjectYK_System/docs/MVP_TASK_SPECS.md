@@ -197,7 +197,8 @@ Start-Sleep 1; Start-ScheduledTask -TaskName YK_MVP_APP; Start-Sleep 6
 
 ### F0 ✅ deploy แล้ว 4ก.ค. — จัดหมวด Discord ให้กลุ่มใหม่อัตโนมัติ
 **ของจริง:** โค้ดอยู่ใน HEAD แล้ว (สเปคเดิมเข้าใจผิดว่ายังไม่ merge); 4ก.ค. เทียบไฟล์ server = pre-categories เป๊ะ (ไม่ drift) → scp 5 ไฟล์ (archiver/db/discord_api/categories/backfill_categories) + backup เดิมไว้ `YK_LINE_ARCHIVER\bak_f0\` → Restart-Service YKLineBot → ยืนยัน: health 200, คอลัมน์ `line_group.category` migrate แล้ว, webhook LINE รับข้อความต่อทันที; เทสต์ local 34 ผ่าน
-**เหลือ (ไม่บังคับ):** กลุ่มไลน์**ใหม่**จะเข้าหมวดเอง; ห้องเก่าที่ค้างนอกหมวดต้องรัน `backfill_categories.py` — จะย้ายห้อง Discord ทั้งเซิร์ฟเวอร์ ให้โอสั่งเองตอนสะดวก (นั่งดูผลด้วยกัน)
+**จัดห้องค้างแล้วด้วย (4ก.ค.):** พบต้นตอที่ห้องไม่เข้าหมวด — backfill 12มิ.ย. จัด**ห้องชุดเก่าจากเครื่อง dev** แต่ server สร้างห้องชุดใหม่ของตัวเองตอน deploy (13มิ.ย.) เลยไร้หมวดทั้ง 44 ห้อง → เขียน `fix_orphan_channels.py` (ทิ้งไว้บน server) ย้าย**เฉพาะห้องที่ parent ว่าง** (ไม่ลากห้องที่โอย้ายมือ) apply แล้ว 44/44 + fill คอลัมน์ category ใน DB; dry-run ซ้ำ = 0 ค้าง ✅
+**หมายเหตุให้โอ:** guild มี text channel 118 ห้อง แต่ DB track 44 — ที่เหลือเป็น line-* ชุดเก่า/ซ้ำจากยุค dev (ข้อความจริงอยู่ใน line_archive.db ครบ) ถ้าอยากลบห้องซ้ำให้สั่งเอง — ไม่ลบอัตโนมัติ
 
 ---
 
