@@ -71,12 +71,17 @@ def photo_candidates(group_ids: list[str], days: int = 7,
                 WHERE group_id = ? AND msg_type = 'text'
                   AND replace(substr(sent_at, 1, 16), 'T', ' ') BETWEEN ? AND ?
                 ORDER BY sent_at""", (ph["group_id"], lo, hi)).fetchall()
-            containers, plates = _extract_refs([r["text"] for r in ctx])
+            texts = [r["text"] for r in ctx]
+            containers, plates = _extract_refs(texts)
             out.append({
                 "msg_id": ph["id"], "group_id": ph["group_id"],
                 "group_name": ph["group_name"] or "", "who": ph["who"] or "",
                 "sent_at": str(ph["sent_at"])[:16], "sent_date": sent.date(),
                 "containers": sorted(containers), "plates": sorted(plates),
+                # ข้อความรอบรูปทั้งก้อน — ใช้ reverse-match เลข Job ของเดลี่
+                # (วัดจริง 4ก.ค.: KLND โพสต์ "Job. KLND26-015737" ตรง job_ref เดลี่ 100%
+                #  ส่วนเลขตู้อยู่ในรูปเอง อ่านจาก text ไม่ได้)
+                "ctx_text": " ".join(t or "" for t in texts).upper(),
             })
             if len(out) >= limit:
                 break
@@ -97,9 +102,17 @@ def match_daily_jobs(session, cand: dict, customer_status_codes: tuple) -> list[
     if customer_status_codes:
         q = q.where(DailyJob.status_code.in_(customer_status_codes))  # type: ignore[attr-defined]
     jobs = session.exec(q).all()
+    ctx_text = cand.get("ctx_text", "")
     out = []
     for j in jobs:
         score = 0
+        # เลข Job ของเดลี่โผล่ในข้อความรอบรูป = สัญญาณแรงสุด (reverse-match)
+        jr = (j.job_ref or "").strip().upper()
+        if len(jr) >= 6 and jr in ctx_text:
+            score += 4
+        dn = (j.doc_no or "").strip().strip('"').split("/")[0].strip().upper()
+        if len(dn) >= 8 and dn in ctx_text:
+            score += 4
         if cand["containers"] and (j.container_no or "").upper() in cand["containers"]:
             score += 3
         if cand["plates"] and (j.plate_no_raw or "").strip() in cand["plates"]:

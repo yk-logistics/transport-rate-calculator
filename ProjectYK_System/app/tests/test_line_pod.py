@@ -107,6 +107,29 @@ def test_evidence_page_and_zip(client):
     assert zf.read(names[0]) == b"podjpg"
 
 
+def test_jobref_and_docno_reverse_match(client):
+    """เลข Job/doc ของเดลี่โผล่ในข้อความรอบรูป = match แรงสุด (วัดจริง 4ก.ค.: KLND/DHL)."""
+    from services import line_pod as lp
+    with Session(engine) as s:
+        s.add(DailyJob(work_date=D, site_code="LCB", status_code="KLND",
+                       plate_no_raw="71-0001", job_ref="KLND26-015737"))
+        s.add(DailyJob(work_date=D, site_code="LCB", status_code="KLND",
+                       plate_no_raw="71-0002", doc_no='"66144000327274/316'))
+        s.commit()
+        j1 = s.exec(select(DailyJob).where(DailyJob.job_ref == "KLND26-015737")).first()
+        j2 = s.exec(select(DailyJob).where(DailyJob.plate_no_raw == "71-0002")).first()
+
+        cand = {"sent_date": D, "containers": [], "plates": [],
+                "ctx_text": "เช็คตู้หน่อยค่ะ JOB. KLND26-015737 AGENT. ONE"}
+        m = lp.match_daily_jobs(s, cand, ("KLND",))
+        assert m[0]["job_id"] == j1.id and m[0]["score"] >= 4
+
+        cand = {"sent_date": D, "containers": [], "plates": [],
+                "ctx_text": "ส่งงาน 66144000327274 เรียบร้อย"}
+        m = lp.match_daily_jobs(s, cand, ("KLND",))
+        assert m[0]["job_id"] == j2.id and m[0]["score"] >= 4
+
+
 def test_zip_empty_404(client):
     month = D.strftime("%Y-%m")
     assert client.get(f"/billing/evidence?series=KMMT&month={month}&download=zip").status_code == 404
