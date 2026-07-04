@@ -20,7 +20,9 @@ def resolve_database_url() -> tuple[str, bool]:
         url = "postgresql://" + url[len("postgres://") :]
     if url.startswith("postgresql://") and "+psycopg2" not in url.split("://", 1)[0]:
         url = "postgresql+psycopg2://" + url[len("postgresql://") :]
-    return url, False
+    # DATABASE_URL ตั้งเป็น sqlite ก็ได้ (เทสต์ตั้งแบบนี้ทุกไฟล์) — เดิมเหมาว่า
+    # postgres เสมอ ทำป้าย /health เพี้ยน + เทสต์ข้าม additive migrations
+    return url, url.startswith("sqlite")
 
 
 DATABASE_URL, IS_SQLITE = resolve_database_url()

@@ -596,7 +596,18 @@ def _setup_file_logging() -> None:
 _setup_file_logging()
 _APP_LOG = logging.getLogger("yk.app")
 
-app = FastAPI(title="Project YK - One Platform")
+from contextlib import asynccontextmanager  # noqa: E402
+
+
+@asynccontextmanager
+async def _lifespan(app_):
+    # init_db (create_all + additive migrations) นิยามอยู่ด้านล่าง — resolve ตอนรัน
+    # เดิมใช้ @app.on_event("startup") ซึ่ง deprecated ตั้งแต่ fastapi 0.109
+    init_db()
+    yield
+
+
+app = FastAPI(title="Project YK - One Platform", lifespan=_lifespan)
 
 
 @app.exception_handler(Exception)
@@ -697,11 +708,6 @@ app.add_middleware(
     https_only=_secure_cookies,   # Secure flag: cookie never sent over plain HTTP
     max_age=8 * 60 * 60,          # session expires after 8h (limits stolen-cookie window)
 )
-
-
-@app.on_event("startup")
-def on_startup() -> None:
-    init_db()
 
 
 # ---- Auth: login / logout ----
