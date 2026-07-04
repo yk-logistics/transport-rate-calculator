@@ -1464,6 +1464,20 @@ class LineGroupMap(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class MediaArchive(SQLModel, table=True):
+    """G2 (v44): รูปไลน์ที่ย้ายลงแผ่น External แล้ว — จดตำแหน่งใหม่ฝั่ง app.db
+    (**ห้ามเขียน line_archive.db ของ service 8020**)."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    line_message_pk: int = Field(index=True, unique=True)
+    disk_label: str = ""            # เช่น EXT-01 (จาก YK_ARCHIVE.txt บนแผ่น)
+    archive_path: str = ""          # path เต็มบนแผ่น
+    orig_path: str = ""             # path เดิมใน line_media (ไว้ย้อนรอย)
+    size_bytes: int = 0
+    sha256: str = ""
+    moved_at: datetime = Field(default_factory=datetime.utcnow)
+    by_user: str = ""
+
+
 class LineJobSeen(SQLModel, table=True):
     """F2 (v40): ข้อความที่กดรับเป็นงาน/ไม่ใช่งานแล้ว — กันเด้งซ้ำใน inbox."""
     id: Optional[int] = Field(default=None, primary_key=True)

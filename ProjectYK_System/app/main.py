@@ -95,7 +95,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 43  # v43: DocTemplate+DocIssue (A2 — create_all); v42: Vehicle.tank_liters (ALTER); v41: JobMedia; v40: LineGroupMap+LineJobSeen; v39: PartPermission; v38: DebtAccount; v37: AuditLog
+SCHEMA_VERSION = 44  # v44: MediaArchive (G2 — create_all); v43: DocTemplate+DocIssue (A2 — create_all); v42: Vehicle.tank_liters (ALTER); v41: JobMedia; v40: LineGroupMap+LineJobSeen; v39: PartPermission; v38: DebtAccount; v37: AuditLog
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -9925,6 +9925,9 @@ def billing_evidence(request: Request, series: str = "", month: str = "",
                 j = r["job"]
                 for msg_id in r["media_ids"]:
                     p = la.media_file(msg_id)
+                    if p is None:  # อาจถูกย้ายลงแผ่น External แล้ว (G2)
+                        with Session(engine) as s:
+                            p, _ = _archived_media_path(s, msg_id)
                     if p is None:
                         continue
                     label = j.invoice_no or f"job{j.id}"
@@ -9946,14 +9949,49 @@ def billing_evidence(request: Request, series: str = "", month: str = "",
     return templates.TemplateResponse("billing_evidence.html", ctx)
 
 
+def _archived_media_path(s: Session, msg_id: int) -> tuple[Path | None, str]:
+    """(path บนแผ่นถ้าเสียบอยู่, disk_label) ของรูปที่ถูกย้ายแล้ว — ไม่เคยย้าย = (None, '')."""
+    from services import media_archive as ma
+
+    row = s.exec(select(models.MediaArchive)
+                 .where(models.MediaArchive.line_message_pk == msg_id)).first()
+    if row is None:
+        return None, ""
+    p = Path(row.archive_path)
+    if p.exists():
+        return p, row.disk_label
+    # แผ่นอาจโผล่คนละอักษรไดรฟ์ — ตามหาแผ่นจาก label แล้วประกอบ path ใหม่
+    disk = ma.find_disk(row.disk_label, _ext_backup_targets())
+    if disk is not None:
+        parts = Path(row.archive_path).parts
+        if "YK_MEDIA" in parts:
+            alt = disk.joinpath(*parts[parts.index("YK_MEDIA"):])
+            if alt.exists():
+                return alt, row.disk_label
+    return None, row.disk_label
+
+
 @app.get("/line/media/{msg_id}")
 def line_media_serve(msg_id: int):
     from services import line_archive as la
 
     p = la.media_file(msg_id)
-    if p is None:
-        raise HTTPException(404)
-    return FileResponse(p)
+    if p is not None:
+        return FileResponse(p)
+    with Session(engine) as s:
+        ap, label = _archived_media_path(s, msg_id)
+    if ap is not None:
+        return FileResponse(ap)
+    if label:
+        # รูปถูกย้ายลงแผ่นแล้วและแผ่นไม่ได้เสียบ — โชว์ป้ายแทน (ระบบไม่พัง)
+        svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200">'
+               f'<rect width="100%" height="100%" fill="#f3f4f6"/>'
+               f'<text x="50%" y="45%" text-anchor="middle" font-size="18" fill="#374151">'
+               f'📦 รูปอยู่แผ่น {label}</text>'
+               f'<text x="50%" y="62%" text-anchor="middle" font-size="13" fill="#6b7280">'
+               f'เสียบแผ่นที่เครื่อง server แล้วรีเฟรช</text></svg>')
+        return Response(svg, media_type="image/svg+xml")
+    raise HTTPException(404)
 
 
 # =========================================================================
@@ -10190,6 +10228,72 @@ def admin_backup_external(target: str = Form(...)):
     return RedirectResponse("/admin/server-health", status_code=303)
 
 
+# ---- G2: ย้ายรูปเก่าลงแผ่น External (copy → hash → ลบ → จด MediaArchive) ----
+_MEDIA_ARCH: dict = {"running": False, "ok": None, "log": "", "ts": None}
+
+
+def _media_archive_worker(target: str, mode: str, username: str) -> None:
+    from datetime import date as _d, datetime as _dt, timedelta as _td
+
+    from services import media_archive as ma
+
+    logs: list[str] = []
+    ok = True
+    try:
+        with Session(engine) as s:
+            archived = {r.line_message_pk
+                        for r in s.exec(select(models.MediaArchive)).all()}
+            label = ma.read_label(target)
+            if label is None:
+                seq = int(get_setting("media_archive_disk_seq") or "0") + 1
+                set_setting("media_archive_disk_seq", str(seq))
+                label = ma.ensure_label(target, seq)
+                logs.append(f"แผ่นใหม่ — ตั้งชื่อ {label} (สร้าง {ma.MARKER} ที่รากแผ่น)")
+            if mode == "oldest-month":
+                allp = ma.scan_photos(archived, limit=200000)
+                if not allp:
+                    raise ValueError("ไม่มีรูปให้ย้าย")
+                month = allp[0]["sent"][:7]
+                photos = [p for p in allp if p["sent"][:7] == month]
+                logs.append(f"โหมดเดือนเก่าสุด: {month} — {len(photos)} ไฟล์")
+            else:
+                before = _d.today() - _td(days=ma.RETENTION_DAYS)
+                photos = ma.scan_photos(archived, before=before, limit=200000)
+                logs.append(f"ครบกำหนด (เก่ากว่า {before}): {len(photos)} ไฟล์")
+            res = ma.move_files(s, target, label, photos, by_user=username)
+        import shutil as _sh
+        du = _sh.disk_usage(str(Path(target)))
+        logs.append(f"ย้ายสำเร็จ {res['ok']} ไฟล์ ({res['gb']} GB) · พลาด {res['fail']}")
+        logs += res["errors"]
+        logs.append(f"แผ่น {label} เหลือที่ว่าง {round(du.free / 1e9, 1)} GB")
+        ok = res["fail"] == 0
+        _HEALTH_CACHE["at"] = None   # ตัวเลขดิสก์/รูปบนหน้า health อัปเดตทันที
+    except Exception as e:  # noqa: BLE001 — โชว์เหตุบนหน้า ไม่ให้ thread ตายเงียบ
+        ok = False
+        logs.append(f"{type(e).__name__}: {e}")
+    _MEDIA_ARCH.update({"running": False, "ok": ok, "log": "\n".join(logs),
+                        "ts": _dt.now().strftime("%d/%m/%Y %H:%M")})
+
+
+@app.post("/admin/media-archive/move")
+def admin_media_archive_move(request: Request, target: str = Form(...),
+                             mode: str = Form("due")):
+    import threading
+
+    if _MEDIA_ARCH["running"]:
+        return RedirectResponse("/admin/server-health", status_code=303)
+    if target not in _ext_backup_targets():
+        raise HTTPException(400, "ไม่พบไดรฟ์ที่เลือก — เสียบ External แล้วรีเฟรชหน้า")
+    if mode not in ("due", "oldest-month"):
+        raise HTTPException(400, "mode ไม่ถูกต้อง")
+    u = current_user(request)
+    _MEDIA_ARCH.update({"running": True, "ok": None, "log": "", "ts": None})
+    threading.Thread(target=_media_archive_worker,
+                     args=(target, mode, u.username if u else ""),
+                     daemon=True).start()
+    return RedirectResponse("/admin/server-health", status_code=303)
+
+
 @app.get("/admin/server-health", response_class=HTMLResponse)
 def admin_server_health(request: Request):
     """สุขภาพเครื่อง (G1): ดิสก์/ขนาดข้อมูล/backup ล่าสุด/พอร์ต — เตือนเหลือ <20%=เหลือง <10%=แดง.
@@ -10235,6 +10339,18 @@ def admin_server_health(request: Request):
             "line_bot_up": _port_up(8020),
             "checked_at": _dt.now().strftime("%d/%m/%Y %H:%M"),
         }
+        # G2: รูปเก่าสุดที่ยังไม่ย้าย + จำนวนที่ครบกำหนดย้าย (>2 ปี)
+        from services import media_archive as ma
+        with Session(engine) as s:
+            _archived = {r.line_message_pk
+                         for r in s.exec(select(models.MediaArchive)).all()}
+        _oldest = ma.scan_photos(_archived, limit=1)
+        data["media_oldest"] = _oldest[0]["sent"] if _oldest else None
+        data["media_due_date"] = (ma.due_date_of(_oldest[0]["sent"]).isoformat()
+                                  if _oldest else None)
+        data["media_n_due"] = len(ma.scan_photos(
+            _archived, before=_dt.now().date() - _td(days=ma.RETENTION_DAYS),
+            limit=200000))
         _HEALTH_CACHE["at"] = _dt.now()
         _HEALTH_CACHE["data"] = data
     level = "red" if data["free_pct"] < 10 else ("yellow" if data["free_pct"] < 20 else "ok")
@@ -10275,11 +10391,17 @@ def admin_server_health(request: Request):
     except OSError:
         pass
 
+    from services import media_archive as ma
+    arch_targets = [{"target": t, "label": ma.read_label(t)}
+                    for t in _ext_backup_targets()]
+
     ctx = base_context(request)
     ctx.update({"h": data, "level": level,
                 "hot": hot, "hot_age_h": hot_age_h, "hot_level": hot_level,
                 "ext_days": ext_days, "ext_drive": ext_drive,
                 "ext_state": _EXT_BACKUP, "ext_targets": _ext_backup_targets(),
+                "arch_targets": arch_targets, "arch_state": _MEDIA_ARCH,
+                "disk_tight": data["free_pct"] < ma.DISK_WARN_FREE_PCT,
                 "recent_errors": recent_errors,
                 "log_file": str(LOG_FILE)})
     return templates.TemplateResponse("admin_server_health.html", ctx)
