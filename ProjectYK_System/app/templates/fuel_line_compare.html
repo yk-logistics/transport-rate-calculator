@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}น้ำมันไลน์ ↔ ระบบ{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-1 flex-wrap gap-2">
+  <h1 class="text-xl font-bold">⛽💬 เทียบแจ้งเติมในไลน์ ↔ น้ำมันในระบบ</h1>
+  <form method="get" class="flex items-center gap-2 text-sm">
+    <label>ย้อนหลัง</label>
+    <select name="days" class="border rounded px-2 py-1" onchange="this.form.submit()">
+      {% for d in (7, 14, 21, 30, 45, 60) %}
+      <option value="{{ d }}" {% if days == d %}selected{% endif %}>{{ d }} วัน</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+<div class="text-xs text-slate-400 mb-4">
+  อ่าน "ข้อความแจ้งเติม" จากกลุ่มไลน์ปั๊ม (ทะเบียน + ลิตรต่อเกรด) เทียบกับรายการน้ำมันในระบบ
+  (ทะเบียนตรง + วัน ±1 + ลิตร ±5) — รายงานอย่างเดียว ไม่แก้ข้อมูลอัตโนมัติ
+</div>
+
+{% if error %}
+<div class="bg-amber-50 border border-amber-300 text-amber-800 rounded-xl p-4">{{ error }}</div>
+{% elif data %}
+
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+  <div class="bg-white rounded-xl shadow p-3 text-center">
+    <div class="text-2xl font-bold text-emerald-700">{{ data.matched | length }}</div>
+    <div class="text-xs text-slate-500">จับคู่ได้</div>
+  </div>
+  <div class="bg-white rounded-xl shadow p-3 text-center">
+    <div class="text-2xl font-bold {% if data.line_only %}text-rose-600{% else %}text-slate-300{% endif %}">{{ data.line_only | length }}</div>
+    <div class="text-xs text-slate-500">ไลน์แจ้งเติม แต่ระบบไม่มี</div>
+  </div>
+  <div class="bg-white rounded-xl shadow p-3 text-center">
+    <div class="text-2xl font-bold {% if data.sys_only %}text-amber-600{% else %}text-slate-300{% endif %}">{{ data.sys_only | length }}</div>
+    <div class="text-xs text-slate-500">ระบบมี แต่ไลน์ไม่แจ้ง</div>
+  </div>
+  <div class="bg-white rounded-xl shadow p-3 text-center">
+    <div class="text-2xl font-bold text-slate-400">{{ data.awaiting_import | length }}</div>
+    <div class="text-xs text-slate-500">รอ import น้ำมัน{% if data.fuel_max_date %} (ระบบมีถึง {{ data.fuel_max_date | dmy }}){% endif %}</div>
+  </div>
+</div>
+
+{% if data.line_only %}
+<div class="text-sm font-semibold mb-1 text-rose-700">🚩 ไลน์แจ้งเติม แต่ไม่พบในระบบ (ช่วงที่ระบบมีข้อมูลแล้ว)</div>
+<div class="bg-white rounded-lg border overflow-x-auto mb-5">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-600 text-xs uppercase"><tr>
+      <th class="px-3 py-2 text-left">วัน</th><th class="px-3 py-2 text-left">ทะเบียน</th>
+      <th class="px-3 py-2 text-right">B7 (ลิตร)</th><th class="px-3 py-2 text-right">B20 (ลิตร)</th>
+      <th class="px-3 py-2 text-left">ข้อความ</th>
+    </tr></thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for o in data.line_only %}
+      <tr class="hover:bg-rose-50">
+        <td class="px-3 py-1.5 whitespace-nowrap">{{ o.date | dmy }}</td>
+        <td class="px-3 py-1.5 font-mono">
+          <a class="text-indigo-600 hover:underline" href="/fuel?plate={{ o.plate }}&d_from={{ o.date }}&d_to={{ o.date }}">{{ o.plate }}</a></td>
+        <td class="px-3 py-1.5 text-right font-mono">{{ o.b7 or '' }}</td>
+        <td class="px-3 py-1.5 text-right font-mono">{{ o.b20 or ('เต็มถัง' if o.full_tank else '') }}</td>
+        <td class="px-3 py-1.5 text-xs text-slate-500">{{ o.text | truncate(90) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if data.sys_only %}
+<div class="text-sm font-semibold mb-1 text-amber-700">⚠ ระบบมีรายการน้ำมัน แต่ไม่เจอแจ้งเติมในไลน์ (ช่วงที่คลังแชทมีข้อมูล)</div>
+<div class="text-xs text-slate-400 mb-1">ปกติได้ถ้าเติมปั๊มอื่น/เติมข้ามไซท์/แจ้งช่องทางอื่น — ไว้ไล่เช็คตอน reconcile</div>
+<div class="bg-white rounded-lg border overflow-x-auto mb-5">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-600 text-xs uppercase"><tr>
+      <th class="px-3 py-2 text-left">วัน</th><th class="px-3 py-2 text-left">ทะเบียน</th>
+      <th class="px-3 py-2 text-right">ลิตร</th><th class="px-3 py-2 text-right">บาท</th>
+      <th class="px-3 py-2 text-left">เกรด</th><th class="px-3 py-2 text-left">ปั๊ม</th><th class="px-3 py-2 text-left">ไซท์</th>
+    </tr></thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for t in data.sys_only %}
+      <tr class="hover:bg-amber-50">
+        <td class="px-3 py-1.5 whitespace-nowrap">{{ t.txn_date | dmy }}</td>
+        <td class="px-3 py-1.5 font-mono">{{ t.plate_no_raw }}</td>
+        <td class="px-3 py-1.5 text-right font-mono">{{ '%.0f' | format(t.liter) }}</td>
+        <td class="px-3 py-1.5 text-right font-mono">{{ '{:,.0f}'.format(t.amount) }}</td>
+        <td class="px-3 py-1.5">{{ t.fuel_grade }}</td>
+        <td class="px-3 py-1.5 text-xs">{{ t.station }}</td>
+        <td class="px-3 py-1.5">{{ t.site_code }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<details class="mb-4">
+  <summary class="text-sm font-semibold text-emerald-700 cursor-pointer">✅ จับคู่ได้ {{ data.matched | length }} รายการ (กดดู)</summary>
+  <div class="bg-white rounded-lg border overflow-x-auto mt-2">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-slate-600 text-xs uppercase"><tr>
+        <th class="px-3 py-2 text-left">วัน</th><th class="px-3 py-2 text-left">ทะเบียน</th>
+        <th class="px-3 py-2 text-left">แจ้งในไลน์</th><th class="px-3 py-2 text-left">ในระบบ</th>
+      </tr></thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for m in data.matched %}
+        <tr>
+          <td class="px-3 py-1.5 whitespace-nowrap">{{ m.order.date | dmy }}</td>
+          <td class="px-3 py-1.5 font-mono">{{ m.order.plate }}</td>
+          <td class="px-3 py-1.5 text-xs">B7 {{ m.order.b7 or '—' }} / B20 {{ m.order.b20 or ('เต็มถัง' if m.order.full_tank else '—') }}
+            {% if m.partial %}<span class="text-amber-600">(เจอบางส่วน)</span>{% endif %}</td>
+          <td class="px-3 py-1.5 text-xs font-mono">
+            {% for t in m.txns %}{{ '%.0f' | format(t.liter) }}L ({{ '{:,.0f}'.format(t.amount) }}฿){% if not loop.last %} + {% endif %}{% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</details>
+
+{% if data.awaiting_import %}
+<details>
+  <summary class="text-sm text-slate-500 cursor-pointer">⏳ แจ้งเติมใหม่กว่าข้อมูลน้ำมันในระบบ — รอ import ({{ data.awaiting_import | length }})</summary>
+  <div class="text-xs text-slate-400 mt-1">พอ import น้ำมันรอบถัดไปแล้วรายการพวกนี้จะจับคู่เอง — ยังไม่ใช่ของหาย</div>
+</details>
+{% endif %}
+
+{% endif %}
+{% endblock %}

@@ -3341,6 +3341,41 @@ def fuel_anomaly_page(request: Request, site: str = "", d_from: str = "", d_to: 
     return templates.TemplateResponse("fuel_anomaly.html", ctx)
 
 
+@app.get("/fuel/line-compare", response_class=HTMLResponse)
+def fuel_line_compare_page(request: Request, days: int = 21):
+    """F4 (ไม่ใช้ OCR): เทียบข้อความแจ้งเติมจากกลุ่มไลน์ปั๊ม ↔ FuelTxn — read-only.
+
+    กลุ่มปั๊ม = LineGroupMap kind=station; คำสั่งเติมที่ใหม่กว่าข้อมูลน้ำมัน
+    ในระบบขึ้นเป็น "รอ import" ไม่ใช่ตกหล่น (กันเตือนหลอกช่วง import ตามหลัง)."""
+    from services import fuel_line_compare as flc
+    from services import line_archive as la
+
+    days = max(3, min(days, 60))
+    ctx = base_context(request)
+    error, data, orders = None, None, []
+    with Session(engine) as s:
+        station_groups = [m.group_id for m in s.exec(
+            select(models.LineGroupMap)
+            .where(models.LineGroupMap.kind == "station",
+                   models.LineGroupMap.active == True)).all()]  # noqa: E712
+        if la.db_path() is None:
+            error = "ไม่พบคลังแชทบนเครื่องนี้ (line_archive.db) — ใช้ได้บนเครื่อง server"
+        elif not station_groups:
+            error = "ยังไม่มีกลุ่มปั๊มใน mapping — ไปตั้งชนิดกลุ่ม (ปั๊มน้ำมัน) ที่ /line/inbox ก่อน"
+        else:
+            try:
+                orders = flc.fill_orders(station_groups, days=days)
+                since = date.today() - timedelta(days=days + 1)
+                txns = s.exec(select(FuelTxn)
+                              .where(FuelTxn.txn_date >= since)).all()
+                data = flc.compare(orders, txns)
+            except Exception as e:  # noqa: BLE001 — โชว์เหตุบนหน้า
+                error = f"อ่านคลังแชทไม่สำเร็จ: {e}"
+    ctx.update({"days": days, "error": error, "data": data,
+                "n_orders": len(orders)})
+    return templates.TemplateResponse("fuel_line_compare.html", ctx)
+
+
 @app.get("/fuel", response_class=HTMLResponse)
 def fuel_list(
     request: Request,
