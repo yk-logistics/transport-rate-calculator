@@ -175,6 +175,7 @@
             <a href="/admin/doc-designer" class="block px-4 py-2 hover:bg-slate-100">🎨 ออกแบบฟอร์มเอกสาร</a>
             {% endif %}
             <div class="border-t border-slate-100 my-1"></div>
+            <button type="button" onclick="ykToggleMenuEdit()" class="block w-full text-left px-4 py-2 hover:bg-slate-100">↔️ จัดเรียงเมนูเอง (ลากซ้าย-ขวา)</button>
             <a href="/logout" class="block px-4 py-2 hover:bg-slate-100 text-rose-600">ออกจากระบบ</a>
           </div>
         </div>
@@ -237,6 +238,55 @@
         });
       });
       document.addEventListener('click', () => closeAll(null));
+
+      // ── P5.1: ลากเรียงหมวดเมนูเอง — จำต่อเครื่องใน localStorage (ต่อ browser) ──
+      const bar = menus.length ? menus[0].parentElement : null;
+      const keyOf = (m) => (m.querySelector('.yk-menu-btn') || {}).textContent || '';
+      function applyOrder() {
+        if (!bar) return;
+        let order;
+        try { order = JSON.parse(localStorage.getItem('yk-menu-order') || 'null'); } catch (e) {}
+        if (!Array.isArray(order) || !order.length) return;
+        const all = [...bar.querySelectorAll('.yk-menu')];
+        const sorted = order.map(l => all.find(x => keyOf(x) === l)).filter(Boolean);
+        all.forEach(m => { if (!sorted.includes(m)) sorted.push(m); });  // หมวดใหม่ = ต่อท้าย
+        // วางเรียงตามลำดับ ก่อน element แรกที่ไม่ใช่เมนู (ปุ่ม 📝/🌙 อยู่ท้ายเสมอ)
+        const ref = [...bar.children].find(c => !c.classList.contains('yk-menu')) || null;
+        sorted.forEach(m => bar.insertBefore(m, ref));
+      }
+      applyOrder();
+
+      window.ykToggleMenuEdit = function () {
+        if (!bar) return;
+        const on = !bar.dataset.menuEdit;
+        bar.dataset.menuEdit = on ? '1' : '';
+        [...bar.querySelectorAll('.yk-menu')].forEach(m => {
+          m.draggable = on;
+          m.style.outline = on ? '1px dashed #f59e0b' : '';
+          m.style.cursor = on ? 'grab' : '';
+        });
+        if (on) alert('โหมดจัดเมนู: ลากหมวดสลับตำแหน่งได้เลย เสร็จแล้วกดเมนูนี้ซ้ำเพื่อปิด (จำเฉพาะเครื่องนี้)');
+      };
+      let dragging = null;
+      document.addEventListener('dragstart', (e) => {
+        const m = e.target.closest && e.target.closest('.yk-menu');
+        if (m && bar && bar.dataset.menuEdit) dragging = m;
+      });
+      document.addEventListener('dragover', (e) => {
+        if (!dragging) return;
+        const over = e.target.closest && e.target.closest('.yk-menu');
+        if (over && over !== dragging) {
+          e.preventDefault();
+          const r = over.getBoundingClientRect();
+          bar.insertBefore(dragging, e.clientX < r.left + r.width / 2 ? over : over.nextSibling);
+        }
+      });
+      document.addEventListener('dragend', () => {
+        if (!dragging) return;
+        dragging = null;
+        const order = [...bar.querySelectorAll('.yk-menu')].map(keyOf);
+        try { localStorage.setItem('yk-menu-order', JSON.stringify(order)); } catch (e) {}
+      });
     })();
   </script>
 
