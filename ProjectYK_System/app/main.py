@@ -900,9 +900,96 @@ def base_context(request: Request) -> dict:
     }
 
 
+# P5.2: หน้าแรก = การ์ดงานที่ต้องทำวันนี้ (การ์ดโชว์ตามสิทธิ์ role) — ต้องเร็ว:
+# query แบบ count เฉพาะช่วง + นับจาก line archive ผ่าน cache 5 นาที; ห้ามเรียก Drive
+_HOME_LINE_CACHE: dict = {"at": None, "inbox": None, "pod": None}
+
+
+def _home_line_counts(s: Session) -> dict:
+    from datetime import datetime as _dt
+
+    now = _dt.utcnow()
+    if _HOME_LINE_CACHE["at"] and (now - _HOME_LINE_CACHE["at"]).total_seconds() < 300:
+        return _HOME_LINE_CACHE
+    from services import line_archive as la
+    from services import line_inbox as li
+    from services import line_pod as lp
+
+    inbox = pod = None
+    if la.db_path() is not None:
+        try:
+            maps = {m.group_id: m for m in s.exec(
+                select(models.LineGroupMap).where(
+                    models.LineGroupMap.kind == "customer",
+                    models.LineGroupMap.active == True)).all()}  # noqa: E712
+            if maps:
+                seen = {v.line_message_pk for v in s.exec(select(models.LineJobSeen)).all()}
+                inbox = len(li.scan_candidates(list(maps), days=7, exclude_ids=seen))
+                media_seen = {jm.line_message_pk for jm in s.exec(select(models.JobMedia)).all()}
+                pod = len(lp.photo_candidates(list(maps), days=7, exclude_ids=media_seen))
+        except Exception:
+            pass
+    _HOME_LINE_CACHE.update({"at": now, "inbox": inbox, "pod": pod})
+    return _HOME_LINE_CACHE
+
+
 @app.get("/", response_class=HTMLResponse)
-def home():
-    return RedirectResponse(url="/daily", status_code=303)
+def home(request: Request):
+    u = current_user(request)
+    if u is None:
+        return RedirectResponse(url="/login", status_code=303)
+
+    today = date.today()
+    m_start, m_end = _month_bounds(today.year, today.month)
+    with Session(engine) as s:
+        # งานวันนี้ต่อไซท์ (แยกชนิดแถวด้วย helper เดียวกับปฏิทิน/billing)
+        today_rows = s.exec(select(DailyJob).where(DailyJob.work_date == today)).all()
+        sites: dict[str, dict] = {}
+        for j in today_rows:
+            g = sites.setdefault(j.site_code or "?", {"run": 0, "idle": 0, "leave": 0, "repair": 0})
+            kind = _daily_row_kind(j)
+            key = {"job": "run", "idle": "idle", "leave": "leave", "repair": "repair"}.get(kind)
+            if key:
+                g[key] += 1
+        # แถวราคาว่างเดือนนี้ (เฉพาะแถวงานจริง) ต่อไซท์
+        month_rows = s.exec(select(DailyJob).where(
+            DailyJob.work_date >= m_start, DailyJob.work_date <= m_end)).all()
+        no_price: dict[str, int] = {}
+        for j in month_rows:
+            if _daily_row_kind(j) == "job" and not (j.revenue_customer or 0):
+                no_price[j.site_code or "?"] = no_price.get(j.site_code or "?", 0) + 1
+        # payroll รอบล่าสุดต่อไซท์
+        runs = []
+        for site in ("LCB", "AYU", "BIGC"):
+            pr = s.exec(select(PayRun).where(PayRun.site_code == site)
+                        .order_by(PayRun.id.desc())).first()  # type: ignore[union-attr]
+            if pr:
+                runs.append(pr)
+        # ยอดตกหล่นค้างดูด (C4)
+        pending_adj = len(s.exec(select(PayAdjustment).where(
+            PayAdjustment.status == "pending")).all())
+        line_counts = _home_line_counts(s)
+
+    # แผนงาน MVP % (อ่านไฟล์ — เร็ว)
+    plan = None
+    try:
+        pf = APP_DIR.parent / "docs" / "PLAN_STATUS.json"
+        data = json.loads(pf.read_text(encoding="utf-8"))
+        tasks = [t for ph in data.get("phases", []) for t in ph.get("tasks", [])]
+        done = sum(1 for t in tasks if t.get("status") == "done")
+        plan = {"done": done, "total": len(tasks),
+                "pct": round(done / len(tasks) * 100) if tasks else 0}
+    except Exception:
+        pass
+
+    ctx = base_context(request)
+    ctx.update({
+        "sites": sites, "no_price": no_price, "runs": runs,
+        "pending_adj": pending_adj, "plan": plan,
+        "inbox_count": line_counts["inbox"], "pod_count": line_counts["pod"],
+        "today_d": today,
+    })
+    return templates.TemplateResponse("home_dashboard.html", ctx)
 
 
 @app.get("/health")

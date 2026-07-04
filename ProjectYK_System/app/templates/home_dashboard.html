@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}หน้าแรก · Project YK{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-xl font-bold">🏠 วันนี้ ({{ today_d | dmy }})</h1>
+  <div class="text-xs text-slate-400">การ์ดโชว์ตามสิทธิ์ของแต่ละคน · กดการ์ดเพื่อไปหน้างาน</div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+  {# ---- งานวันนี้ต่อไซท์ ---- #}
+  <a href="/daily" class="bg-white border rounded-xl p-4 hover:shadow-md transition block">
+    <div class="text-sm font-semibold mb-2">🚚 งานวันนี้</div>
+    {% if sites %}
+    <table class="w-full text-sm">
+      <thead class="text-xs text-slate-400"><tr>
+        <th class="text-left">ไซท์</th><th class="text-right">วิ่ง</th>
+        <th class="text-right">จอด</th><th class="text-right">ลา</th><th class="text-right">ซ่อม</th>
+      </tr></thead>
+      <tbody>
+        {% for site, g in sites.items() %}
+        <tr class="border-t border-slate-100">
+          <td class="py-1 font-medium">{{ site }}</td>
+          <td class="text-right font-mono text-emerald-700 font-semibold">{{ g.run }}</td>
+          <td class="text-right font-mono text-slate-500">{{ g.idle }}</td>
+          <td class="text-right font-mono {% if g.leave %}text-amber-600{% else %}text-slate-400{% endif %}">{{ g.leave }}</td>
+          <td class="text-right font-mono {% if g.repair %}text-rose-600{% else %}text-slate-400{% endif %}">{{ g.repair }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="text-sm text-slate-400 py-3">ยังไม่มีแถวเดลี่ของวันนี้ (ทีมยังไม่คีย์)</div>{% endif %}
+  </a>
+
+  {# ---- ราคาว่างเดือนนี้ ---- #}
+  <a href="/billing" class="bg-white border rounded-xl p-4 hover:shadow-md transition block">
+    <div class="text-sm font-semibold mb-2">🧾 แถวงานราคาว่าง (เดือนนี้)</div>
+    {% if no_price %}
+    <div class="flex gap-4 flex-wrap">
+      {% for site, n in no_price.items() %}
+      <div><div class="text-2xl font-bold font-mono text-amber-600">{{ n }}</div>
+        <div class="text-xs text-slate-500">{{ site }}</div></div>
+      {% endfor %}
+    </div>
+    <div class="text-xs text-slate-400 mt-2">เติมราคาก่อนวางบิล — กดเข้า Billing ดูรายลูกค้า</div>
+    {% else %}
+    <div class="text-2xl">✅</div><div class="text-sm text-slate-500">ราคาครบทุกแถวงานเดือนนี้</div>
+    {% endif %}
+  </a>
+
+  {# ---- กล่องงานเข้า + รูปรอผูก ---- #}
+  {% if can_see(request, "/line") %}
+  <div class="bg-white border rounded-xl p-4">
+    <div class="text-sm font-semibold mb-2">💬 จากไลน์ลูกค้า (7 วันหลังสุด)</div>
+    <div class="flex gap-6">
+      <a href="/line/inbox" class="block hover:underline">
+        <div class="text-2xl font-bold font-mono {% if inbox_count %}text-indigo-600{% else %}text-slate-300{% endif %}">{{ inbox_count if inbox_count is not none else '—' }}</div>
+        <div class="text-xs text-slate-500">📥 งานเข้ารอรับ</div></a>
+      <a href="/line/pod" class="block hover:underline">
+        <div class="text-2xl font-bold font-mono {% if pod_count %}text-amber-600{% else %}text-slate-300{% endif %}">{{ pod_count if pod_count is not none else '—' }}</div>
+        <div class="text-xs text-slate-500">📎 รูปรอผูกงาน</div></a>
+    </div>
+    {% if inbox_count is none %}<div class="text-xs text-slate-400 mt-2">— = ยังไม่ mark กลุ่มลูกค้า (กดเข้ากล่องงานเข้า) หรือเครื่องนี้ไม่มีคลังแชท</div>{% endif %}
+  </div>
+  {% endif %}
+
+  {# ---- Payroll ---- #}
+  {% if can_see(request, "/payroll") %}
+  <a href="/payroll" class="bg-white border rounded-xl p-4 hover:shadow-md transition block">
+    <div class="text-sm font-semibold mb-2">💰 เงินเดือน — รอบล่าสุด</div>
+    <table class="w-full text-sm">
+      <tbody>
+        {% for pr in runs %}
+        <tr class="border-t border-slate-100">
+          <td class="py-1 font-medium">{{ pr.site_code }}</td>
+          <td class="text-slate-500 text-xs">{{ pr.pay_cycle_tag }}</td>
+          <td class="text-right">
+            {% if pr.status == 'finalized' %}<span class="text-emerald-700 text-xs font-semibold">✅ ปิดรอบแล้ว</span>
+            {% else %}<span class="text-amber-600 text-xs font-semibold">✏️ ยังไม่ปิด</span>{% endif %}
+          </td>
+        </tr>
+        {% else %}<tr><td class="text-slate-400 text-sm py-2">ยังไม่มีรอบ</td></tr>{% endfor %}
+      </tbody>
+    </table>
+    {% if pending_adj %}
+    <div class="mt-2 text-xs bg-sky-50 border border-sky-200 text-sky-800 rounded px-2 py-1">
+      💧 ค่าเที่ยวตกหล่นรอดูดเข้ารอบใหม่ {{ pending_adj }} รายการ</div>
+    {% endif %}
+  </a>
+  {% endif %}
+
+  {# ---- เงินหมุน (ผู้บริหาร) ---- #}
+  {% if can_see(request, "/finance") %}
+  <a href="/finance/cashflow" class="bg-white border rounded-xl p-4 hover:shadow-md transition block">
+    <div class="text-sm font-semibold mb-2">💧 เงินหมุน 8 สัปดาห์</div>
+    <div class="text-sm text-slate-500">ดูสัปดาห์ไหนตึง · เข้า (AR) − ออก (เงินเดือน/งวดหนี้)</div>
+    <div class="text-xs text-slate-400 mt-2">อย่าลืมกรอกหนี้/วงเงิน + เงินสดตั้งต้น ให้เลขเป็นจริง</div>
+  </a>
+  {% endif %}
+
+  {# ---- แผนงาน MVP (admin) ---- #}
+  {% if can_see(request, "/admin/users") and plan %}
+  <a href="/admin/plan" class="bg-white border rounded-xl p-4 hover:shadow-md transition block">
+    <div class="text-sm font-semibold mb-2">🗺️ แผนงาน MVP</div>
+    <div class="flex items-center gap-3">
+      <div class="text-2xl font-bold font-mono">{{ plan.pct }}%</div>
+      <div class="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+        <div class="bg-emerald-500 h-2" style="width: {{ plan.pct }}%"></div>
+      </div>
+    </div>
+    <div class="text-xs text-slate-500 mt-1">เสร็จ {{ plan.done }} จาก {{ plan.total }} งาน</div>
+  </a>
+  {% endif %}
+
+</div>
+
+{% endblock %}
