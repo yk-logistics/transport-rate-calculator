@@ -8510,6 +8510,91 @@ def finance_receivables_settle(request: Request, inv_key: str = Form(...), undo:
     return RedirectResponse("/finance/receivables", status_code=303)
 
 
+# D1: เติมราคาเร็ว — แถวงานราคาว่าง + เรทที่ระบบจำ (RateCard) → คนกดรับต่อแถว
+# pattern เดียว B3 apply-quote: server ตรวจซ้ำเอง, เฉพาะแถวราคาว่าง, audit ทุกครั้ง
+# =========================================================================
+
+
+def _rate_ctx_from_daily(s: Session, j: DailyJob) -> dict:
+    vk = ""
+    if j.head_vehicle_id:
+        v = s.get(Vehicle, j.head_vehicle_id)
+        if v:
+            vk = (v.truck_type or "").strip()
+    return {
+        "site_code": j.site_code or "*",
+        "customer_id": j.customer_id,
+        "vehicle_kind": vk or (j.truck_type_raw or "").strip() or "*",
+        "trip_type_code": j.trip_type_code or "*",
+        "origin": j.origin or "*",
+        "destination": j.destination or "*",
+        "pickup_location": j.pickup_location or "*",
+        "work_date": j.work_date,
+    }
+
+
+@app.get("/billing/fill-prices", response_class=HTMLResponse)
+def billing_fill_prices(request: Request, site: str = "", month: str = ""):
+    today = date.today()
+    if not month:
+        month = f"{today.year:04d}-{today.month:02d}"
+    try:
+        y, m = [int(x) for x in month.split("-")]
+        d1, d2 = _month_bounds(y, m)
+    except ValueError:
+        y, m = today.year, today.month
+        d1, d2 = _month_bounds(y, m)
+        month = f"{y:04d}-{m:02d}"
+    with Session(engine) as s:
+        stmt = select(DailyJob).where(
+            DailyJob.work_date >= d1, DailyJob.work_date <= d2)
+        if site:
+            stmt = stmt.where(DailyJob.site_code == site)
+        jobs = [j for j in s.exec(stmt.order_by(DailyJob.work_date, DailyJob.id)).all()
+                if _daily_row_kind(j) == "job" and not (j.revenue_customer or 0)]
+        rows = []
+        for j in jobs:
+            card = rate_find(s, "revenue_customer", _rate_ctx_from_daily(s, j))
+            rows.append({"j": j, "card": card})
+    n_suggest = sum(1 for r in rows if r["card"])
+    ctx = base_context(request)
+    ctx.update({"rows": rows, "site": site, "month": month, "n_suggest": n_suggest})
+    return templates.TemplateResponse("billing_fill_prices.html", ctx)
+
+
+@app.post("/api/billing/fill-price")
+async def api_billing_fill_price(request: Request):
+    """กดรับเรทที่ระบบจำ 1 แถว — server หาเรทซ้ำเอง ไม่เชื่อค่าจากหน้าเว็บ."""
+    body = await request.json()
+    try:
+        job_id = int(body.get("job_id"))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "job_id ไม่ถูกต้อง")
+    u = current_user(request)
+    with Session(engine) as s:
+        j = s.get(DailyJob, job_id)
+        if not j:
+            raise HTTPException(404)
+        if (j.revenue_customer or 0) > 0:
+            raise HTTPException(409, "แถวนี้มีราคาแล้ว — ระบบไม่ทับราคาเดิม")
+        card = rate_find(s, "revenue_customer", _rate_ctx_from_daily(s, j))
+        if card is None:
+            raise HTTPException(409, "ไม่มีเรทที่ระบบจำสำหรับแถวนี้แล้ว")
+        j.revenue_customer = float(card.rate_value)
+        j.updated_at = datetime.utcnow()
+        card.use_count += 1
+        card.last_used_at = datetime.utcnow()
+        card.last_seen_job_id = j.id
+        s.add(models.DailyJobAudit(
+            daily_job_id=j.id, changed_by=(u.username if u else ""),
+            action="rate_apply", field_name="revenue_customer",
+            old_value="0", new_value=str(j.revenue_customer)))
+        s.add(j)
+        s.add(card)
+        s.commit()
+        return {"ok": True, "value": j.revenue_customer}
+
+
 # =========================================================================
 # C2: ออกใบวางบิลจากระบบ /billing/invoice — เติมฟอร์ม xlsx จาก template ไฟล์จริง
 # (สำเนาใบจริงใน app/invoice_templates/) แถวตู้จากเดลี่; ช่องที่ DB ไม่มี

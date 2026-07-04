@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}เติมราคาเร็ว{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-xl font-bold">⚡ เติมราคาเร็ว (แถวงานราคาว่าง)</h1>
+  <a href="/billing" class="text-sm text-indigo-600 hover:underline">← Billing</a>
+</div>
+
+<div class="mb-3 text-sm text-slate-500">
+  ระบบเทียบกับ<b>เรทที่เคยคีย์จริง</b> (Rate Book) แล้วเสนอ — <b>คนกดรับต่อแถวเสมอ ระบบไม่เขียนเอง</b>
+  ไม่ทับราคาที่มีอยู่; แถวที่ไม่มีเรทจำ ไปเติมใน <a href="/daily" class="text-indigo-500 hover:underline">grid</a> ตามปกติ (คีย์แล้วระบบจะจำเป็นเรทให้รอบหน้า)
+</div>
+
+<form method="get" class="flex gap-2 mb-4 flex-wrap items-center text-sm">
+  <select name="site" class="border rounded px-2 py-1.5">
+    <option value="">ทุกไซท์</option>
+    {% for sc in ['LCB','AYU','BIGC'] %}<option value="{{ sc }}" {% if site==sc %}selected{% endif %}>{{ sc }}</option>{% endfor %}
+  </select>
+  <input type="month" name="month" value="{{ month }}" class="border rounded px-2 py-1.5">
+  <button class="bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-500">ดู</button>
+  <span class="text-xs text-slate-400">ราคาว่าง {{ rows | length }} แถว · มีเรทเสนอ {{ n_suggest }} แถว</span>
+</form>
+
+<div class="bg-white rounded-lg border overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-600 text-xs uppercase"><tr>
+      <th class="px-3 py-2 text-left">วันที่</th>
+      <th class="px-3 py-2 text-left">ไซท์</th>
+      <th class="px-3 py-2 text-left">ลูกค้า</th>
+      <th class="px-3 py-2 text-left">เส้นทาง</th>
+      <th class="px-3 py-2 text-left">ตู้</th>
+      <th class="px-3 py-2 text-right">เรทที่ระบบจำ</th>
+      <th class="px-3 py-2 text-left">ความมั่นใจ</th>
+      <th class="px-3 py-2"></th>
+    </tr></thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for r in rows %}
+      <tr class="hover:bg-slate-50" id="row-{{ r.j.id }}">
+        <td class="px-3 py-1.5 whitespace-nowrap">{{ r.j.work_date | dmy }}</td>
+        <td class="px-3 py-1.5">{{ r.j.site_code }}</td>
+        <td class="px-3 py-1.5">{{ r.j.status_code or r.j.customer_name_raw }}</td>
+        <td class="px-3 py-1.5 text-xs">{{ (r.j.origin or '') | truncate(14) }} → {{ (r.j.destination or r.j.pickup_location or '') | truncate(18) }}</td>
+        <td class="px-3 py-1.5 font-mono text-xs">{{ r.j.container_no or '—' }}</td>
+        <td class="px-3 py-1.5 text-right font-mono font-semibold">
+          {% if r.card %}{{ '{:,.0f}'.format(r.card.rate_value) }}{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
+        <td class="px-3 py-1.5 text-xs text-slate-500">
+          {% if r.card %}{{ 'ตั้งเอง' if r.card.source == 'manual' else 'จำจากที่คีย์' }} · ใช้แล้ว {{ r.card.use_count }} ครั้ง{% endif %}</td>
+        <td class="px-3 py-1.5 text-right">
+          {% if r.card %}
+          <button onclick="applyRate({{ r.j.id }}, this)"
+                  class="text-xs bg-emerald-600 text-white rounded px-3 py-1 hover:bg-emerald-500">✓ รับ</button>
+          {% else %}
+          <a href="/daily?d_from={{ r.j.work_date.isoformat() }}&d_to={{ r.j.work_date.isoformat() }}&site={{ r.j.site_code }}"
+             class="text-xs text-indigo-500 hover:underline">เติมใน grid →</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">✅ ไม่มีแถวงานราคาว่างในช่วงนี้</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<script>
+async function applyRate(jobId, btn) {
+  btn.disabled = true;
+  btn.textContent = '…';
+  try {
+    const r = await fetch('/api/billing/fill-price', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({job_id: jobId})});
+    const j = await r.json();
+    if (r.ok) {
+      const row = document.getElementById('row-' + jobId);
+      row.style.opacity = '0.45';
+      btn.textContent = '✓ ' + Number(j.value).toLocaleString();
+      btn.classList.remove('bg-emerald-600');
+      btn.classList.add('bg-slate-300');
+    } else {
+      alert(j.detail || 'ไม่สำเร็จ');
+      btn.disabled = false;
+      btn.textContent = '✓ รับ';
+    }
+  } catch (e) {
+    alert('เชื่อมต่อไม่ได้');
+    btn.disabled = false;
+    btn.textContent = '✓ รับ';
+  }
+}
+</script>
+
+{% endblock %}
