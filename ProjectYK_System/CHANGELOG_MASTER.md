@@ -4,6 +4,16 @@
 
 > **Agent bootstrap:** อ่านเฉพาะ **3 หัวข้อ `##` แรกจากด้านบนลงมา** (ไม่รวมบรรทัดนี้) — **ห้าม**อ่านทั้งไฟล์ทุกแชต. นโยบาย/การย้าย archive: [`ProjectYK_System/docs/CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md)
 
+## 2026-07-04 (เซสชันกลางวัน — แพลน MVP 34/38: G2/S3/S5/F0 จบ + จูน POD + อุด CVE)
+
+- **G2 ✅ (v44):** ย้ายรูปไลน์เก่าลงแผ่น External — ตาราง `MediaArchive` + `services/media_archive.py` (copy→sha256→ค่อยลบ), การ์ด+ปุ่มบน /admin/server-health, `/line/media` fallback ป้าย "อยู่แผ่น EXT-xx"; นโยบายเก็บ 2 ปี เตือนดิสก์ <25%
+- **S3 ✅:** `docs/SECRETS_INVENTORY.md` (7 secrets, ไม่มีหลุดใน git) + **rotate `YK_SLIP_INGEST_TOKEN` จริง** (สร้างบน server, ยืนยัน 200)
+- **S5 ✅ รอบแรก:** checklist ไตรมาส — ผ่าน 5/7; **อุด CVE จริง python-multipart→0.0.32 บน server**; starlette 0.38.6 ติด pin → แผน migration จาก recon จริงใน `docs/STARLETTE_MIGRATION_NOTES.md` (พังสาเหตุเดียว: TemplateResponse 129 จุด)
+- **F0 ✅:** deploy จัดหมวด Discord ไป archiver + พบต้นตอห้องไม่เข้าหมวด (backfill 12มิ.ย. จัดห้องชุด dev แต่ server สร้างห้องใหม่) → `fix_orphan_channels.py` จัด 44/44
+- **F3 🔶:** วัด POD กับรูปจริง server + จูน **reverse-match เลข Job** (strong 57→80/340; KLND 0→22) + mark LineGroupMap 38 กลุ่ม; วัดรอบเต็ม ≥90% รอเดลี่ ก.ค. import (`measure_pod2.py` บน server)
+- **data-clean:** ขยายครอบ `doc_no` (CSV artifact `"` นำหน้า) + ล้างจริง 208 แถว (audit); **D1 วัดจริง:** LCB 97-100% จบแล้ว เหลือ BIGC เม.ย./พ.ค. + AYU มิ.ย.
+- **gotcha สลิป:** server template = HEAD แล้ว — ที่ค้างคือแก้ใน working tree local ของ session สลิป (.k-tag/.c-extra) ห้าม commit/ทับ
+
 ## 2026-06-11 (line_archiver — บอทเก็บข้อความ+รูปจากกลุ่ม LINE ลง SQLite/Discord)
 
 - service ใหม่แยกขาด `ProjectYK_System/line_archiver/` (port 8020, DB แยก `line_archive.db`)
