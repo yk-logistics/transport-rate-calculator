@@ -30,6 +30,8 @@ def client():
                        invoice_no="KTIV2606-035\t19/6/2026", revenue_customer=100))
         s.add(DailyJob(work_date=date(2026, 6, 15), site_code="LCB", status_code="KLND",
                        invoice_no="KTIV2606-036", revenue_customer=100))
+        s.add(DailyJob(work_date=date(2026, 6, 15), site_code="BIGC", status_code="DHL",
+                       doc_no='"66144000327274/316', revenue_customer=100))
         s.commit()
     with TestClient(appmod.app) as c:
         c.post("/login", data={"username": "yk1", "password": "changeme1"})
@@ -59,8 +61,38 @@ def test_clean_page_and_fix(client):
     client.post("/admin/data-clean/fix-invoices")
     with Session(engine) as s:
         rows = s.exec(select(DailyJob)).all()
-        assert {r.invoice_no for r in rows} == {"KTIV2606-035", "KTIV2606-036"}
+        assert {r.invoice_no for r in rows if r.invoice_no} == {"KTIV2606-035", "KTIV2606-036"}
         a = s.exec(select(DailyJobAudit).where(
             DailyJobAudit.action == "data_clean")).all()
         assert len(a) == 1 and a[0].old_value.startswith("KTIV2606-035\t")
-    assert "สะอาดทุกแถว" in client.get("/admin/data-clean").text
+    assert "เลขใบสะอาดทุกแถว" in client.get("/admin/data-clean").text
+
+
+def test_normalize_doc_no_helper():
+    assert appmod._normalize_doc_no('"66144000327274/316') == "66144000327274/316"
+    assert appmod._normalize_doc_no('="12345"') == "12345"
+    assert appmod._normalize_doc_no("  ปกติ-001  ") == "ปกติ-001"
+    assert appmod._normalize_doc_no("") == ""
+
+
+def test_doc_no_clean_page_and_fix(client):
+    b = client.get("/admin/data-clean").text
+    assert "66144000327274/316" in b and "เลขเอกสาร" in b
+    client.post("/admin/data-clean/fix-docnos")
+    with Session(engine) as s:
+        row = s.exec(select(DailyJob).where(DailyJob.status_code == "DHL")).first()
+        assert row.doc_no == "66144000327274/316"
+        a = s.exec(select(DailyJobAudit).where(
+            DailyJobAudit.field_name == "doc_no")).all()
+        assert len(a) == 1 and a[0].old_value.startswith('"')
+    assert "เลขเอกสารสะอาดทุกแถว" in client.get("/admin/data-clean").text
+
+
+def test_grid_save_normalizes_doc_no(client):
+    with Session(engine) as s:
+        rid = s.exec(select(DailyJob).where(
+            DailyJob.invoice_no == "KTIV2606-036")).first().id
+    client.post("/api/daily/grid-save",
+                json={"rows": [{"id": rid, "doc_no": '"99999/1'}]})
+    with Session(engine) as s:
+        assert s.get(DailyJob, rid).doc_no == "99999/1"

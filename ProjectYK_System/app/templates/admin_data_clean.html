@@ -49,4 +49,39 @@
 <div class="bg-white rounded-lg border px-4 py-10 text-center text-slate-400">✅ เลขใบสะอาดทุกแถว</div>
 {% endif %}
 
+<h2 class="text-lg font-bold mt-8 mb-2">เลขเอกสาร/ใบส่งสินค้า (doc no.) สกปรก</h2>
+<div class="mb-3 text-sm text-slate-500">
+  เศษจากไฟล์ CSV/Excel ติดหัว-ท้าย เช่น เครื่องหมายคำพูด (เคยเจอ DHL ติด " นำหน้าทั้งชุด) —
+  ล้างเฉพาะหัว-ท้าย เนื้อเลขไม่แตะ
+</div>
+{% if dirty_doc %}
+<form method="post" action="/admin/data-clean/fix-docnos" class="mb-3"
+      onsubmit="return confirm('ล้างเลขเอกสาร {{ dirty_doc | length }} แถวตามคอลัมน์ หลังล้าง ?');">
+  <button class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-500 font-semibold">
+    🧹 ล้างทั้งหมด ({{ dirty_doc | length }} แถว)</button>
+</form>
+<div class="bg-white rounded-lg border overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-600 text-xs uppercase"><tr>
+      <th class="px-3 py-2 text-left">วันที่</th>
+      <th class="px-3 py-2 text-left">ไซท์</th>
+      <th class="px-3 py-2 text-left">ก่อนล้าง (เห็นขยะ)</th>
+      <th class="px-3 py-2 text-left">หลังล้าง</th>
+    </tr></thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for d in dirty_doc %}
+      <tr class="hover:bg-slate-50">
+        <td class="px-3 py-1.5">{{ d.date | dmy }}</td>
+        <td class="px-3 py-1.5">{{ d.site }}</td>
+        <td class="px-3 py-1.5 font-mono text-xs text-rose-600 whitespace-pre">{{ d.raw }}</td>
+        <td class="px-3 py-1.5 font-mono text-xs text-emerald-700">{{ d.fixed }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="bg-white rounded-lg border px-4 py-10 text-center text-slate-400">✅ เลขเอกสารสะอาดทุกแถว</div>
+{% endif %}
+
 {% endblock %}

@@ -2202,6 +2202,10 @@ async def daily_grid_save(request: Request):
                     # กันเลขใบสกปรก (เคยเจอ 'KTIV2606-035\t19/6/2026' ทำจับกลุ่มพลาด)
                     row.invoice_no = _normalize_invoice_no(str(val or ""))
                     continue
+                if key == "doc_no":
+                    # กัน CSV artifact (เคยเจอ DHL doc_no ติด '\"' นำหน้าทั้งชุด)
+                    row.doc_no = _normalize_doc_no(str(val or ""))
+                    continue
                 if key == "fuel_date":
                     text = (str(val) if val is not None else "").strip()
                     if not text:
@@ -2277,19 +2281,53 @@ def _normalize_invoice_no(raw: str) -> str:
     return (raw or "").strip()
 
 
+def _normalize_doc_no(raw: str) -> str:
+    """ตัด CSV artifact หัว-ท้าย doc_no (เช่น DHL '\"66144000327274/316') — เนื้อเลขไม่แตะ."""
+    return (raw or "").strip().lstrip('="\'').rstrip('"\'').strip()
+
+
 @app.get("/admin/data-clean", response_class=HTMLResponse)
 def admin_data_clean(request: Request):
-    """🧹 ความสะอาดข้อมูล: เลขใบสกปรก (มีขยะท้ายช่อง) — โชว์ก่อน ล้างเมื่อกดยืนยัน."""
+    """🧹 ความสะอาดข้อมูล: เลขใบ/เลข doc สกปรก (มีขยะหัว-ท้ายช่อง) — โชว์ก่อน ล้างเมื่อกดยืนยัน."""
     with Session(engine) as s:
         dirty = [j for j in s.exec(select(DailyJob).where(
             DailyJob.invoice_no != "")).all()
             if j.invoice_no != _normalize_invoice_no(j.invoice_no)]
+        dirty_doc = [j for j in s.exec(select(DailyJob).where(
+            DailyJob.doc_no != "")).all()
+            if j.doc_no != _normalize_doc_no(j.doc_no)]
     ctx = base_context(request)
     ctx.update({"dirty": [{
         "id": j.id, "date": j.work_date, "site": j.site_code,
         "raw": j.invoice_no, "fixed": _normalize_invoice_no(j.invoice_no),
-    } for j in dirty]})
+    } for j in dirty],
+        "dirty_doc": [{
+        "id": j.id, "date": j.work_date, "site": j.site_code,
+        "raw": j.doc_no, "fixed": _normalize_doc_no(j.doc_no),
+    } for j in dirty_doc]})
     return templates.TemplateResponse("admin_data_clean.html", ctx)
+
+
+@app.post("/admin/data-clean/fix-docnos")
+def admin_data_clean_fix_docnos(request: Request):
+    """ล้าง doc_no สกปรกทั้งหมด — audit ต่อแถว (DailyJobAudit) ย้อนดูได้."""
+    u = current_user(request)
+    n = 0
+    with Session(engine) as s:
+        for j in s.exec(select(DailyJob).where(DailyJob.doc_no != "")).all():
+            fixed = _normalize_doc_no(j.doc_no)
+            if fixed == j.doc_no:
+                continue
+            s.add(models.DailyJobAudit(
+                daily_job_id=j.id, changed_by=(u.username if u else ""),
+                action="data_clean", field_name="doc_no",
+                old_value=j.doc_no, new_value=fixed))
+            j.doc_no = fixed
+            j.updated_at = datetime.utcnow()
+            s.add(j)
+            n += 1
+        s.commit()
+    return RedirectResponse(f"/admin/data-clean?fixed={n}", status_code=303)
 
 
 @app.post("/admin/data-clean/fix-invoices")
