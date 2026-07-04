@@ -53,4 +53,4 @@ cd C:\...\ProjectYK_System\app
 ## ประวัติการรัน
 | วันที่ | ผู้รัน | ผล/ประเด็น |
 |-------|-------|-----------|
-| (ยังไม่เคยรันตาม checklist นี้ — รอบแรก ก.ค. 2569) | | |
+| 4 ก.ค. 2569 | Claude (Fable) | **รอบแรก — ผ่าน 5/7 ข้อ, แก้จริง 1 เรื่อง:** ①พอร์ต: ครบตามคาด ไม่มี RDP/XAMPP; ⚠ พบ MSI.TerminalServer/CentralServer (ซอฟต์แวร์เมนบอร์ด MSI เปิดพอร์ตฟัง) + OneDrive — โอพิจารณาปิดถ้าไม่ใช้ ③pip-audit: **python-multipart 0.0.29 มี 3 CVE → อัป 0.0.32 + เทสต์ 424 ผ่าน + deploy server แล้ววันเดียวกัน**; starlette 0.38.6 มี CVE หลายตัวแต่ติด pin (<0.40) — ต้องวางแผน migration fastapi/starlette แยกงาน (Jinja2 globals พัง); pytest CVE = dev-only ④ไม่มี secret ใน git ⑤ชั้น1 03:00 วันนี้ ✓ / ชั้น3 dev ดูดวันนี้ ✓ / Drive ติด SA quota (รอ OAuth โอ) / ซ้อมกู้ทำแล้ว 3 ก.ค. (S1) ⑥cert หมด 9 ก.ย. 2026 (Cloudflare ต่อเอง) ⑦/admin ไม่ล็อกอิน→303 ✓, login ผิด 5 ครั้ง→429 ✓, SSH public IP→timeout ✓ · **ค้างให้โอ:** ②ไล่รายชื่อ user/role กับโอ + ⑦ทดสอบ role viewer (ไม่มีรหัส viewer ให้ทดสอบ) |
