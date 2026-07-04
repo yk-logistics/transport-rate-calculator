@@ -1,6 +1,6 @@
-# lib เฉพาะของ line_archiver (ตรึง version ตรงกับเครื่อง dev 2026-06-12)
-fastapi==0.114.2
-starlette==0.38.6
+# lib เฉพาะของ line_archiver — อัป fastapi/starlette 4 ก.ค. 2026 ปิด CVE (ตรงกับ server จริง)
+fastapi==0.139.0
+starlette==1.3.1
 uvicorn==0.34.3
 httpx==0.28.1
 httpcore==1.0.9
