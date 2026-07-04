@@ -25,8 +25,9 @@ cd C:\...\ProjectYK_System\app
 .venv\Scripts\pip list --outdated
 .venv\Scripts\pip install pip-audit && .venv\Scripts\pip-audit
 ```
-- เทียบ CVE ที่ขึ้น HIGH/CRITICAL — **ห้ามอัปเกรด fastapi/starlette เกิน pin**
-  (fastapi<0.115, starlette<0.40 — Jinja2 globals พัง ดู CLAUDE.md) นอกนั้นอัปได้หลังเทสต์
+- เทียบ CVE ที่ขึ้น HIGH/CRITICAL — อัปได้หลังเทสต์เต็มผ่าน (fastapi/starlette migrate เป็น
+  0.139/1.3.1 แล้ว 4 ก.ค. 2026 — pin เก่าปลดแล้ว ดู docs/STARLETTE_MIGRATION_NOTES.md)
+- อย่าลืม venv ที่สองของ **บอทไลน์** ด้วย: `C:\Users\yklog\YK_LINE_ARCHIVER\.venv\Scripts\pip list` (เปิดสู่เน็ตเหมือนกัน)
 
 ## 4. ไฟล์/สิทธิ์/ของลับ
 - ตรวจว่าไม่มี secret ใหม่หลุดเข้า git: `git log --diff-filter=A --name-only -20`
@@ -53,4 +54,4 @@ cd C:\...\ProjectYK_System\app
 ## ประวัติการรัน
 | วันที่ | ผู้รัน | ผล/ประเด็น |
 |-------|-------|-----------|
-| 4 ก.ค. 2569 | Claude (Fable) | **รอบแรก — ผ่าน 5/7 ข้อ, แก้จริง 1 เรื่อง:** ①พอร์ต: ครบตามคาด ไม่มี RDP/XAMPP; ⚠ พบ MSI.TerminalServer/CentralServer (ซอฟต์แวร์เมนบอร์ด MSI เปิดพอร์ตฟัง) + OneDrive — โอพิจารณาปิดถ้าไม่ใช้ ③pip-audit: **python-multipart 0.0.29 มี 3 CVE → อัป 0.0.32 + เทสต์ 424 ผ่าน + deploy server แล้ววันเดียวกัน**; starlette 0.38.6 มี CVE หลายตัวแต่ติด pin (<0.40) — ต้องวางแผน migration fastapi/starlette แยกงาน (Jinja2 globals พัง); pytest CVE = dev-only ④ไม่มี secret ใน git ⑤ชั้น1 03:00 วันนี้ ✓ / ชั้น3 dev ดูดวันนี้ ✓ / Drive ติด SA quota (รอ OAuth โอ) / ซ้อมกู้ทำแล้ว 3 ก.ค. (S1) ⑥cert หมด 9 ก.ย. 2026 (Cloudflare ต่อเอง) ⑦/admin ไม่ล็อกอิน→303 ✓, login ผิด 5 ครั้ง→429 ✓, SSH public IP→timeout ✓ · **ค้างให้โอ:** ②ไล่รายชื่อ user/role กับโอ + ⑦ทดสอบ role viewer (ไม่มีรหัส viewer ให้ทดสอบ) · **ข้อค้นพบ ② (รันเพิ่มเย็นวันเดียวกัน): ทั้งระบบมี user เดียว = yk1 (admin) — ทีมออฟฟิศแชร์บัญชี admin กันหมด** → audit แยกคนไม่ได้ + ทุกคนถือสิทธิ์เต็ม; แนะนำโอสร้างบัญชีรายคน (office/accountant) ที่ /admin/users แล้วเปลี่ยนรหัส yk1; ไม่มี override สิทธิ์รายคนตกค้าง (ศูนย์แถว) |
+| 4 ก.ค. 2569 | Claude (Fable) | **รอบแรก — ผ่าน 5/7 ข้อ, แก้จริง 1 เรื่อง:** ①พอร์ต: ครบตามคาด ไม่มี RDP/XAMPP; ⚠ พบ MSI.TerminalServer/CentralServer (ซอฟต์แวร์เมนบอร์ด MSI เปิดพอร์ตฟัง) + OneDrive — โอพิจารณาปิดถ้าไม่ใช้ ③pip-audit: **python-multipart 0.0.29 มี 3 CVE → อัป 0.0.32 + เทสต์ 424 ผ่าน + deploy server แล้ววันเดียวกัน**; starlette 0.38.6 มี CVE หลายตัวแต่ติด pin (<0.40) — ต้องวางแผน migration fastapi/starlette แยกงาน (Jinja2 globals พัง); pytest CVE = dev-only ④ไม่มี secret ใน git ⑤ชั้น1 03:00 วันนี้ ✓ / ชั้น3 dev ดูดวันนี้ ✓ / Drive ติด SA quota (รอ OAuth โอ) / ซ้อมกู้ทำแล้ว 3 ก.ค. (S1) ⑥cert หมด 9 ก.ย. 2026 (Cloudflare ต่อเอง) ⑦/admin ไม่ล็อกอิน→303 ✓, login ผิด 5 ครั้ง→429 ✓, SSH public IP→timeout ✓ · **ค้างให้โอ:** ②ไล่รายชื่อ user/role กับโอ + ⑦ทดสอบ role viewer (ไม่มีรหัส viewer ให้ทดสอบ) · **ข้อค้นพบ ② (รันเพิ่มเย็นวันเดียวกัน): ทั้งระบบมี user เดียว = yk1 (admin) — ทีมออฟฟิศแชร์บัญชี admin กันหมด** → audit แยกคนไม่ได้ + ทุกคนถือสิทธิ์เต็ม; แนะนำโอสร้างบัญชีรายคน (office/accountant) ที่ /admin/users แล้วเปลี่ยนรหัส yk1; ไม่มี override สิทธิ์รายคนตกค้าง (ศูนย์แถว) · **เพิ่มเติมเย็นวันเดียวกัน: อัป fastapi/starlette เป็น 0.139/1.3.1 ทั้งแอปหลัก + บอทไลน์ (8020 เปิดสู่เน็ต ใช้ชุดมีช่องโหว่เดิม) — pip-audit runtime เหลือ 0 CVE ทั้งสอง service; ตรวจซ้ำด้วยเทสต์ 428×3 + browser smoke 8 หน้า** |
