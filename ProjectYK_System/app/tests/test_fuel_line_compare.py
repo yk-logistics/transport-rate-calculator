@@ -75,6 +75,10 @@ def client(tmp_path, monkeypatch):
         # ระบบมีแต่ไลน์ไม่แจ้ง
         s.add(FuelTxn(site_code="LCB", txn_date=OLD, plate_no_raw="71-9999",
                       liter=100.0, amount=3200.0, fuel_grade="B20"))
+        # แถวน้ำมันวันใหม่กว่า order ทุกตัว → order วัน OLD อยู่ในช่วงข้อมูลครบ
+        # (ไม่โดนกันชนขอบ 1 วัน) — ส่วน order วัน D เท่ากับ max → รอ import
+        s.add(FuelTxn(site_code="LCB", txn_date=D, plate_no_raw="71-8888",
+                      liter=40.0, amount=1300.0, fuel_grade="B20"))
         s.commit()
     with TestClient(appmod.app) as c:
         c.post("/login", data={"username": "yk1", "password": "changeme1"})

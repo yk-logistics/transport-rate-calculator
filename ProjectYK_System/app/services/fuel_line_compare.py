@@ -132,7 +132,9 @@ def compare(orders: list[dict], txns: list,
         fresh = fresh_until(o["plate"])
         if got and len(got) >= need:
             matched.append({"order": o, "txns": got})
-        elif fresh is None or o["date"] > fresh:
+        elif fresh is None or o["date"] > fresh - timedelta(days=1):
+            # กันชนขอบ 1 วันให้เท่าหน้าต่างจับคู่ ±1 — เติมวันสุดท้ายของ import
+            # อาจลงบิลวันถัดไปที่ยังไม่เข้า อย่าเพิ่งธงจนข้อมูลรอบหน้ามา
             awaiting.append(o)          # น้ำมันไซท์นี้ยัง import ไม่ถึงวันนั้น
         elif got:
             matched.append({"order": o, "txns": got, "partial": True})
