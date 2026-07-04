@@ -63,6 +63,19 @@ Always pass a `--markers` string unique to the change you're shipping — that s
 The old `deploy_mvp_to_server.sh` is kept for reference but its restart is unreliable
 (its kill-filter misses the global-python process → old code keeps serving). Prefer `deploy_mvp.sh`.
 
+## Watchdog (added 2026-07-04)
+
+`YK_MVP_HEALTHPOLL` scheduled task (SYSTEM, every 5 min) runs
+`C:\Users\yklog\YK_MVP\mvp_health_poll.py` (source: `tools/server_watchdog/`):
+
+- Probes `127.0.0.1:8010/health` + `https://app.yklogistics.uk/health` (must send a
+  User-Agent — Cloudflare/Discord 403 the default `Python-urllib` UA).
+- On fresh DOWN: tries `schtasks /Run /TN YK_MVP_APP` **once per down-episode**, then
+  alerts Discord channel `#yk-mvp-alerts` (auto-created; token from the archiver `.env`,
+  read-only). Alerts on state CHANGE only — no spam. State: `mvp_health_state.json`.
+- App errors now also persist to `app/logs/app.log` (rotating 2MB×5) and surface on
+  `/admin/server-health` → "🐞 ข้อผิดพลาดล่าสุด" (previously stdout was lost — SYSTEM task).
+
 ## Daily DB backup
 
 `YK_MVP_DB_BACKUP` scheduled task copies `app.db` to `YK_MVP\backups\app-YYYYMMDD.db` daily, keeping the last 14.
