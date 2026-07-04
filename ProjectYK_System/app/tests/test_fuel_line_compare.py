@@ -92,6 +92,23 @@ def test_compare_buckets(client):
     assert "จับคู่ได้ 1 รายการ" in b
 
 
+def test_per_site_freshness():
+    """LCB import ถึงแค่ 15 มิ.ย. แต่ AYU ถึง 25 — แจ้งเติม LCB วัน 20 ต้อง 'รอ import' ไม่ใช่ตกหล่น."""
+    from services.fuel_line_compare import compare
+    d_lcb_max, d_ayu_max = date(2026, 6, 15), date(2026, 6, 25)
+    orders = [
+        {"msg_id": 1, "date": date(2026, 6, 20), "plate": "71-9999",
+         "b7": 20, "b20": 0, "full_tank": False, "text": "", "sent_at": "", "group_name": ""},
+        {"msg_id": 2, "date": date(2026, 6, 20), "plate": "71-1111",
+         "b7": 20, "b20": 0, "full_tank": False, "text": "", "sent_at": "", "group_name": ""},
+    ]
+    data = compare(orders, [],
+                   plate_site={"71-9999": "LCB", "71-1111": "AYU"},
+                   site_fuel_max={"LCB": d_lcb_max, "AYU": d_ayu_max})
+    assert [o["plate"] for o in data["awaiting_import"]] == ["71-9999"]
+    assert [o["plate"] for o in data["line_only"]] == ["71-1111"]
+
+
 def test_no_station_groups_message(client):
     with Session(engine) as s:
         m = s.exec(select(LineGroupMap)).first()

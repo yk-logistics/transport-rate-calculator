@@ -3368,7 +3368,18 @@ def fuel_line_compare_page(request: Request, days: int = 21):
                 since = date.today() - timedelta(days=days + 1)
                 txns = s.exec(select(FuelTxn)
                               .where(FuelTxn.txn_date >= since)).all()
-                data = flc.compare(orders, txns)
+                # ความสด import ต่างกันต่อไซท์ — ไซท์ของทะเบียนจาก Vehicle master
+                plate_site = {v.plate_no.strip(): v.home_site_code
+                              for v in s.exec(select(Vehicle)).all()}
+                from sqlalchemy import func as sa_func
+                site_fuel_max = {
+                    k: (date.fromisoformat(v) if isinstance(v, str) else v)
+                    for k, v in s.exec(
+                        select(FuelTxn.site_code,
+                               sa_func.max(FuelTxn.txn_date))
+                        .group_by(FuelTxn.site_code)).all()}
+                data = flc.compare(orders, txns, plate_site=plate_site,
+                                   site_fuel_max=site_fuel_max)
             except Exception as e:  # noqa: BLE001 — โชว์เหตุบนหน้า
                 error = f"อ่านคลังแชทไม่สำเร็จ: {e}"
     ctx.update({"days": days, "error": error, "data": data,

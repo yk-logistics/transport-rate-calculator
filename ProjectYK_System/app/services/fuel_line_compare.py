@@ -82,14 +82,24 @@ def fill_orders(group_ids: list[str], days: int = 21) -> list[dict]:
     return out
 
 
-def compare(orders: list[dict], txns: list) -> dict:
+def compare(orders: list[dict], txns: list,
+            plate_site: dict[str, str] | None = None,
+            site_fuel_max: dict[str, date] | None = None) -> dict:
     """จับคู่คำสั่งเติม ↔ FuelTxn (ทะเบียนตรง + วัน ±1 + ลิตร ±5 ต่อเกรด/เต็มถัง=ไม่เช็คลิตร).
 
     txns: FuelTxn rows (liter>0 เท่านั้น — ยอดติดลบ/คืนน้ำมันไม่ร่วมจับคู่).
     คืน {matched, line_only, awaiting_import, sys_only, fuel_max_date}
-    — คำสั่งเติมที่ใหม่กว่าข้อมูลน้ำมันในระบบ = "รอ import" ไม่ใช่ตกหล่น.
+    — คำสั่งเติมที่ใหม่กว่าข้อมูลน้ำมัน "ของไซท์ตัวเอง" = "รอ import" ไม่ใช่ตกหล่น
+    (วัดจริง 4ก.ค.: import ตามหลังไม่เท่ากันต่อไซท์ — LCB ถึง 15 มิ.ย. แต่ AYU ถึง 25 มิ.ย.
+    ใช้ max รวมจะธง LCB ผิด 100+ รายการ); ไซท์ของทะเบียนดูจาก plate_site (Vehicle master).
     """
+    plate_site = plate_site or {}
+    site_fuel_max = site_fuel_max or {}
     fuel_max = max((t.txn_date for t in txns), default=None)
+
+    def fresh_until(plate: str) -> date | None:
+        site = plate_site.get(plate, "")
+        return site_fuel_max.get(site, fuel_max)
     # index: (plate, date) -> [txn]
     by_pd: dict[tuple, list] = {}
     for t in txns:
@@ -119,10 +129,11 @@ def compare(orders: list[dict], txns: list) -> dict:
                 used.add(hit.id)
                 got.append(hit)
         need = len(want) + (1 if o["full_tank"] else 0)
+        fresh = fresh_until(o["plate"])
         if got and len(got) >= need:
             matched.append({"order": o, "txns": got})
-        elif fuel_max is None or o["date"] > fuel_max:
-            awaiting.append(o)          # ระบบยังไม่มีข้อมูลน้ำมันถึงวันนั้น
+        elif fresh is None or o["date"] > fresh:
+            awaiting.append(o)          # น้ำมันไซท์นี้ยัง import ไม่ถึงวันนั้น
         elif got:
             matched.append({"order": o, "txns": got, "partial": True})
         else:
