@@ -115,6 +115,14 @@ def test_per_site_freshness():
     assert [o["plate"] for o in data["line_only"]] == ["71-1111"]
 
 
+def test_home_card_shows_when_missing_fills(client):
+    """การ์ดหน้าแรกโผล่เมื่อมีแจ้งเติมที่ระบบไม่มี (fixture มี 71-1111 หนึ่งรายการ)."""
+    appmod._HOME_LINE_CACHE["at"] = None    # cache ข้ามเทสต์ — บังคับคำนวณใหม่
+    b = client.get("/").text
+    assert "ไลน์แจ้งเติม แต่ระบบไม่มี" in b
+    assert "/fuel/line-compare" in b
+
+
 def test_no_station_groups_message(client):
     with Session(engine) as s:
         m = s.exec(select(LineGroupMap)).first()

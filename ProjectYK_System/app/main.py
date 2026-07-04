@@ -957,7 +957,7 @@ def base_context(request: Request) -> dict:
 # P5.2: หน้าแรก = การ์ดงานที่ต้องทำวันนี้ (การ์ดโชว์ตามสิทธิ์ role) — ต้องเร็ว:
 # query แบบ count เฉพาะช่วง + นับจาก line archive ผ่าน cache 5 นาที;
 # AR จาก Drive = cache 10 นาที (พลาด/ช้า = โชว์ "—" ไม่บล็อกหน้า)
-_HOME_LINE_CACHE: dict = {"at": None, "inbox": None, "pod": None}
+_HOME_LINE_CACHE: dict = {"at": None, "inbox": None, "pod": None, "fuel_line": None}
 _HOME_AR_CACHE: dict = {"at": None, "overdue": None, "week": None}
 
 
@@ -995,7 +995,7 @@ def _home_line_counts(s: Session) -> dict:
     from services import line_inbox as li
     from services import line_pod as lp
 
-    inbox = pod = None
+    inbox = pod = fuel_line = None
     if la.db_path() is not None:
         try:
             maps = {m.group_id: m for m in s.exec(
@@ -1009,7 +1009,33 @@ def _home_line_counts(s: Session) -> dict:
                 pod = len(lp.photo_candidates(list(maps), days=7, exclude_ids=media_seen))
         except Exception:
             pass
-    _HOME_LINE_CACHE.update({"at": now, "inbox": inbox, "pod": pod})
+        # F4: แจ้งเติมในไลน์ที่ไม่เจอในระบบ (ช่วงข้อมูลครบ) 14 วันหลังสุด — โผล่เอง
+        try:
+            from sqlalchemy import func as sa_func
+
+            from services import fuel_line_compare as flc
+            station_groups = [m.group_id for m in s.exec(
+                select(models.LineGroupMap).where(
+                    models.LineGroupMap.kind == "station",
+                    models.LineGroupMap.active == True)).all()]  # noqa: E712
+            if station_groups:
+                orders = flc.fill_orders(station_groups, days=14)
+                since = date.today() - timedelta(days=15)
+                txns = s.exec(select(FuelTxn)
+                              .where(FuelTxn.txn_date >= since)).all()
+                plate_site = {v.plate_no.strip(): v.home_site_code
+                              for v in s.exec(select(Vehicle)).all()}
+                site_fuel_max = {
+                    k: (date.fromisoformat(v) if isinstance(v, str) else v)
+                    for k, v in s.exec(
+                        select(FuelTxn.site_code, sa_func.max(FuelTxn.txn_date))
+                        .group_by(FuelTxn.site_code)).all()}
+                fuel_line = len(flc.compare(orders, txns, plate_site=plate_site,
+                                            site_fuel_max=site_fuel_max)["line_only"])
+        except Exception:
+            pass
+    _HOME_LINE_CACHE.update({"at": now, "inbox": inbox, "pod": pod,
+                             "fuel_line": fuel_line})
     return _HOME_LINE_CACHE
 
 
@@ -1075,6 +1101,7 @@ def home(request: Request):
         "sites": sites, "no_price": no_price, "runs": runs,
         "pending_adj": pending_adj, "plan": plan,
         "inbox_count": line_counts["inbox"], "pod_count": line_counts["pod"],
+        "fuel_line_missing": line_counts.get("fuel_line"),
         "fuel_flags": fuel_flags,
         "ar_overdue": ar_sum["overdue"], "ar_week": ar_sum["week"],
         "today_d": today,

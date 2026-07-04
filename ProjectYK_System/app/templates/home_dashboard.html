@@ -121,6 +121,15 @@
     <div class="text-xs text-slate-500 mt-1">เติมถี่ / ลิตรเกินถัง / เติมวันไม่มีงาน — คลิกดูรายงาน</div>
   </a>
 
+  {# ---- F4: แจ้งเติมในไลน์แต่ระบบไม่มี — โผล่เฉพาะตอนมีตกหล่น ---- #}
+  {% if fuel_line_missing %}
+  <a href="/fuel/line-compare" class="bg-white border border-rose-200 rounded-xl p-4 hover:shadow-md transition block">
+    <div class="text-sm font-semibold mb-2">⛽💬 ไลน์แจ้งเติม แต่ระบบไม่มี (14 วัน)</div>
+    <div class="text-2xl font-bold font-mono text-rose-600">{{ fuel_line_missing }}</div>
+    <div class="text-xs text-slate-500 mt-1">เทียบข้อความกลุ่มปั๊ม ↔ น้ำมันในระบบ — คลิกไล่รายการ</div>
+  </a>
+  {% endif %}
+
   {# ---- แผนงาน MVP (admin) ---- #}
   {% if can_see(request, "/admin/users") and plan %}
   <a href="/admin/plan" class="bg-white border rounded-xl p-4 hover:shadow-md transition block">
