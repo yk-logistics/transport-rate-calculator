@@ -21,4 +21,6 @@ metadata:
 
 **Why:** เก็บสถานะรวมเซสชันนี้กันหลงว่าใครทำอะไร deploy อะไรไปแล้ว
 
-**How to apply:** งานแพลนที่เหลือ: A5 (รอ session สลิป), D1 (ทีมเติมราคา), F3 (รอ import เดลี่ ก.ค.), F4 (รอโอเคาะ OCR); server อยู่ v44 ทุก commit ถึง S5 deploy ครบ
+**How to apply:** งานแพลนที่เหลือ: A5 (รอ session สลิป), D1 (ทีมกดปุ่มรับเรททั้งชุด), F3 (รอ import เดลี่ ก.ค. — ดู [[project-ayu-jul-import-ready]]); server v44 + fastapi 0.139/starlette 1.3.1 ทั้งสอง service — คิวรอโอรวมที่ `docs/WAITING_ON_OAT.md`
+
+**ภาคค่ำ (เพิ่ม):** F4 done ไม่ใช้ OCR ([[project-f4-fuel-line-compare]]) + [[project-starlette-migrated]] + บอทไลน์อัป stack เดียวกัน + browser smoke 8 หน้า 0 error + ปุ่ม "รับเรทที่เสนอทั้งชุด" ใน fill-prices (bulk, audit ต่อแถว) + การ์ดหน้าแรก ⛽💬 ตกหล่นน้ำมัน + MODULE_REGISTRY/AGENT_BOOTSTRAP อัปสด + AYU ก.ค. import-ready — เทสต์จบวันที่ 431 ตัว
