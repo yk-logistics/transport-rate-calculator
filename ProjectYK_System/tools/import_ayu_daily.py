@@ -32,12 +32,19 @@ from import_bigc_daily import clean_float, clean_str, clean_date, make_engine  #
 SALARY_BASE = r"C:\Users\guole\Desktop\2026.5.28\Desktop\Work\Salary\2026"
 SOURCE_PREFIX = "ayu_"
 
-# cycle_tag → folder/file/sheet/window (AYU 26→25)
+# cycle_tag → folder/file/sheet(s)/window (AYU 26→25)
+# "sheets" หลายแท็บได้ — รอบ 2026-07 คร่อม 2 แท็บปฏิทิน (ท้าย Jun 26 + Jul 26)
+# override path ไฟล์ด้วย env YK_AYU_XLSX (เช่น dry-run บน server กับไฟล์สดจาก Drive)
 CYCLES = {
     "2026-06": {
         "file": rf"{SALARY_BASE}\6.Jun\AYU\Daily โฮมโปร-ทั่วไป.xlsx",
         "sheet": "Jun 26",
         "start": date(2026, 5, 26), "end": date(2026, 6, 25),
+    },
+    "2026-07": {
+        "file": rf"{SALARY_BASE}\7.Jul\AYU\Daily โฮมโปร-ทั่วไป.xlsx",
+        "sheets": ["Jun 26", "Jul 26"],
+        "start": date(2026, 6, 26), "end": date(2026, 7, 25),
     },
 }
 
@@ -101,8 +108,16 @@ def row_to_record(row: list, start: date, end: date) -> Optional[dict]:
 def parse_cycle(cycle_tag: str) -> dict:
     import openpyxl
     c = CYCLES[cycle_tag]
-    wb = openpyxl.load_workbook(c["file"], data_only=True, read_only=True)
-    rows = [list(r) for r in wb[c["sheet"]].iter_rows(values_only=True)]
+    path = os.environ.get("YK_AYU_XLSX", "").strip() or c["file"]
+    sheets = c.get("sheets") or [c["sheet"]]
+    wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+    rows = []
+    for sh_name in sheets:
+        if sh_name not in wb.sheetnames:
+            print(f"  (ข้ามแท็บ {sh_name!r} — ไม่มีในไฟล์)")
+            continue
+        rows += [list(r) for r in wb[sh_name].iter_rows(values_only=True)][1:]
+    rows = [None] + rows   # ให้ index [1:] เดิมทำงานเหมือนเดิม (ตัด header ต่อแท็บแล้ว)
     wb.close()
     records, sr, st, nf = [], 0.0, 0.0, 0
     for r in rows[1:]:
@@ -154,8 +169,10 @@ def main():
     ct = args.cycle
     if ct not in CYCLES:
         raise SystemExit(f"unknown cycle {ct}; valid {list(CYCLES)}")
-    if not os.path.exists(CYCLES[ct]["file"]):
-        raise SystemExit(f"file not found: {CYCLES[ct]['file']}")
+    src_file = os.environ.get("YK_AYU_XLSX", "").strip() or CYCLES[ct]["file"]
+    if not os.path.exists(src_file):
+        raise SystemExit(f"file not found: {src_file}")
+    print(f"  ไฟล์ต้นทาง: {src_file}")
     res = parse_cycle(ct)
     print(f"--- AYU {ct} (source={SOURCE_PREFIX}{ct}) ---")
     print(f"  jobs={res['n_jobs']}  fuel={res['n_fuel']}")
