@@ -248,9 +248,9 @@
         },
         {
           "id": "S3",
-          "name": "จัดระเบียบรหัสลับ + rotate token",
+          "name": "จัดระเบียบรหัสลับ — ✅ ทะเบียน docs/SECRETS_INVENTORY.md (7 รายการ ไม่มี secret ใน git) + ซ้อมหมุนจริง YK_SLIP_INGEST_TOKEN 4ก.ค. (สร้างบน server ไม่ผ่านหน้าจอ + ทดสอบผ่าน) + ตารางหมุนปีละครั้ง; เหลือชุดที่ต้อง console บัญชีโอ (LINE/Discord/Anthropic/SA — ขั้นตอนอยู่ใน runbook)",
           "days": 0.5,
-          "status": "pending"
+          "status": "done"
         },
         {
           "id": "S4",

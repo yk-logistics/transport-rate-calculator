@@ -306,8 +306,11 @@ app.db + line_archive.db + .env ทั้งสอง service + oatside_config �
 audit จุดเงินครบ 12 จุด (P2 ทำแกน + คืนนี้เก็บตก ยกเลิก PayAdjustment + เรทราคา สร้าง/แก้ rate_value/ลบ → AuditLog); upload 4 ช่องตรวจครบ (todo whitelist ext, import/oatside parse-validated + ชื่อไฟล์ปลอดภัย, driver ext บังคับ); traversal ทุก route เสิร์ฟไฟล์มี resolve+startswith; ไม่มี directory listing; **⚠️ พบ /uploads (รูปคนขับ) public ไม่ต้องล็อกอิน — เสนอวิธีแก้ในรายงาน รอเคาะ+ทดสอบกับมือถือคนขับจริงก่อน (อย่าแก้ blind)**
 
 สเปคเดิม (อ้างอิง): เพิ่ม audit log การกระทำเงิน (ใคร finalize/แก้ราคา/ติ๊ก KB เมื่อไหร่ — หลายจุดมีแล้ว: DepositAudit/DailyJob audit → เก็บให้ครบทุกจุดเงิน), เช็ค upload ทุกช่อง (นามสกุล+ขนาด+ห้าม execute), path traversal ทุก route ที่เสิร์ฟไฟล์ (F1 มีระบุแล้ว), ปิด directory listing
-### S3 ของลับ
-ย้าย token/secret ที่ยังอยู่ในไฟล์ .bat/.env กระจัดกระจาย → ไฟล์เดียว จำกัดสิทธิ์; หมุน (rotate) LINE/Discord token + รหัส service account ปีละครั้ง; ตรวจว่า key Google (yk-sheets-editor) มีสิทธิ์แค่ไฟล์ที่จำเป็น
+### S3 ✅ เสร็จ 4ก.ค. — ของลับ (ทะเบียน + ซ้อมหมุนจริง)
+**ของจริง:** `docs/SECRETS_INVENTORY.md` — ทะเบียน 7 รายการ (ไฟล์/key/ใครใช้/วิธีหมุน/หมุนล่าสุด) + ตรวจแล้ว**ไม่มี secret ฝังใน git** (Discord ทุกสคริปต์อ่านจาก archiver .env ตอนรัน) + **ซ้อมหมุนจริง `YK_SLIP_INGEST_TOKEN`** (สร้าง token บน server ไม่ผ่านหน้าจอ → แก้ 2 ไฟล์พร้อมกัน → restart → fetch_config() 200 ยืนยัน) + ตารางหมุนปีละครั้ง (ก.ค.); ตัดสินใจ**ไม่รวมไฟล์เดียว** — secret อยู่ข้างตัว consumer 3 ไฟล์ (start_mvp.bat / slip_reader\.env / archiver\.env) เข้าใจง่ายกว่าและไม่แตะ boot plumbing
+**เหลือ (ต้อง console บัญชีโอ):** หมุน LINE channel / Discord bot / Anthropic key / Google SA key — ขั้นตอนพร้อมแล้วใน SECRETS_INVENTORY.md โอแค่คลิกตาม
+
+สเปคเดิม (อ้างอิง): ย้าย token/secret ที่ยังอยู่ในไฟล์ .bat/.env กระจัดกระจาย → ไฟล์เดียว จำกัดสิทธิ์; หมุน (rotate) LINE/Discord token + รหัส service account ปีละครั้ง; ตรวจว่า key Google (yk-sheets-editor) มีสิทธิ์แค่ไฟล์ที่จำเป็น
 ### S4 ✅ เสร็จ 4ก.ค. — คน (ช่องโหว่ใหญ่สุดของจริง)
 **docs/SECURITY_TEAM_ONE_PAGER.md** — 13 ข้อภาษาคน (รหัส/เครื่อง/phishing/คนเข้า-ออก/เรื่องเงิน) พิมพ์แปะหรือส่งไลน์ทีมได้เลย — **รอโออ่าน 1 รอบแล้วแจกทีม**
 
