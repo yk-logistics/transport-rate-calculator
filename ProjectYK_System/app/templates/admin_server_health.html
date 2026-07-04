@@ -122,4 +122,21 @@
   </table>
 </div>
 <p class="text-xs text-slate-400 mt-3">💡 กติกามาตรฐาน: เตือนที่ใช้เกิน 80% (เหลือง) / 90% (แดง) · สำรองของร้อนรายวัน-ของเย็นรายสัปดาห์ · ย้ายของเก่าออกตามอายุ — รายละเอียดในแพลน MVP งาน G2/S1</p>
+
+{# ---- ข้อผิดพลาดล่าสุดของแอป (logs/app.log — เดิม 500 หายเงียบไม่มีร่องรอย) ---- #}
+<div class="bg-white rounded-xl border mt-4">
+  <div class="px-4 py-2 font-semibold text-sm border-b bg-slate-50 flex justify-between">
+    <span>🐞 ข้อผิดพลาดล่าสุดของระบบ ({{ recent_errors | length }})</span>
+    <span class="text-xs font-normal text-slate-400 font-mono">{{ log_file }}</span>
+  </div>
+  {% if recent_errors %}
+  <div class="divide-y divide-slate-100 max-h-72 overflow-y-auto">
+    {% for ln in recent_errors %}
+    <div class="px-4 py-1.5 text-xs font-mono {% if ' ERROR ' in ln or ' CRITICAL ' in ln %}text-rose-700{% else %}text-amber-700{% endif %}">{{ ln | truncate(220) }}</div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="px-4 py-6 text-center text-sm text-emerald-600">✅ ไม่มี error ในไฟล์ log (หรือเพิ่งเริ่มเก็บ — ระบบเริ่มเก็บ log ตั้งแต่ 4 ก.ค.)</div>
+  {% endif %}
+</div>
 {% endblock %}

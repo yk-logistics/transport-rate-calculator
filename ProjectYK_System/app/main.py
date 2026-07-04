@@ -565,7 +565,51 @@ def seed_initial_data(s: Session) -> None:
     seed_kb_rules(s)
 
 
+# ---- Error log ลงไฟล์ (บน server แอปรันเป็น SYSTEM task — stdout หายหมด ไม่มี
+# ร่องรอย 500 เลย) → logs/app.log หมุน 2MB×5 + โชว์ล่าสุดบน /admin/server-health
+import logging
+from logging.handlers import RotatingFileHandler
+
+LOG_DIR = Path(__file__).resolve().parent / "logs"
+LOG_FILE = LOG_DIR / "app.log"
+
+
+def _setup_file_logging() -> None:
+    try:
+        LOG_DIR.mkdir(exist_ok=True)
+        handler = RotatingFileHandler(LOG_FILE, maxBytes=2_000_000, backupCount=5,
+                                      encoding="utf-8", delay=True)
+        handler.setFormatter(logging.Formatter(
+            "%(asctime)s %(levelname)s %(name)s %(message)s", "%Y-%m-%d %H:%M:%S"))
+        handler.setLevel(logging.WARNING)   # เก็บ WARNING ขึ้นไป — ไม่ spam access log
+        for name in ("", "uvicorn.error", "yk.app"):
+            lg = logging.getLogger(name)
+            if not any(isinstance(h, RotatingFileHandler)
+                       and getattr(h, "baseFilename", "") == str(LOG_FILE)
+                       for h in lg.handlers):
+                lg.addHandler(handler)
+        logging.getLogger("yk.app").setLevel(logging.WARNING)
+    except Exception:
+        pass  # log ตั้งไม่ได้ต้องไม่ทำแอปพัง
+
+
+_setup_file_logging()
+_APP_LOG = logging.getLogger("yk.app")
+
 app = FastAPI(title="Project YK - One Platform")
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_logger(request: Request, exc: Exception):
+    """จับ 500 ทุกตัวลงไฟล์พร้อม traceback + หน้า error ภาษาคน (เดิมหายเงียบ)."""
+    import traceback
+    _APP_LOG.error("500 %s %s user=%s\n%s", request.method, request.url.path,
+                   getattr(getattr(request, "state", None), "user", "") or "",
+                   traceback.format_exc())
+    return PlainTextResponse(
+        "ระบบขัดข้องชั่วคราว — ทีมดูแลเห็นรายละเอียดแล้วใน log (🖥️ สุขภาพเครื่อง)\n"
+        f"หน้า: {request.url.path}",
+        status_code=500)
 app.mount("/static", StaticFiles(directory=str(APP_DIR / "static")), name="static")
 
 # Uploads folder (driver photos, etc.) — served for admin preview. Auto-created.
@@ -10219,11 +10263,25 @@ def admin_server_health(request: Request):
         except ValueError:
             pass
 
+    # error ล่าสุดจาก logs/app.log (อ่านท้ายไฟล์ — ไฟล์หมุน 2MB ไม่หนัก)
+    recent_errors: list[str] = []
+    try:
+        if LOG_FILE.exists():
+            lines = LOG_FILE.read_text(encoding="utf-8", errors="replace").splitlines()
+            # เอาเฉพาะบรรทัดหัว ERROR/WARNING (ตัด traceback ยาว) 20 รายการล่าสุด
+            heads = [ln for ln in lines
+                     if " ERROR " in ln or " WARNING " in ln or " CRITICAL " in ln]
+            recent_errors = heads[-20:][::-1]
+    except OSError:
+        pass
+
     ctx = base_context(request)
     ctx.update({"h": data, "level": level,
                 "hot": hot, "hot_age_h": hot_age_h, "hot_level": hot_level,
                 "ext_days": ext_days, "ext_drive": ext_drive,
-                "ext_state": _EXT_BACKUP, "ext_targets": _ext_backup_targets()})
+                "ext_state": _EXT_BACKUP, "ext_targets": _ext_backup_targets(),
+                "recent_errors": recent_errors,
+                "log_file": str(LOG_FILE)})
     return templates.TemplateResponse("admin_server_health.html", ctx)
 
 
