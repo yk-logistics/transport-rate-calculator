@@ -1640,6 +1640,21 @@ class TodoItem(SQLModel, table=True):
     media_json: str = ""
 
 
+class AiChatLog(SQLModel, table=True):
+    """log การใช้หน้า /ai (เฟส 3 — แชทถามระบบ) — ใครถาม โมเดลไหน ตอบว่าอะไร กี่ ms.
+
+    เก็บทั้งคำถาม+คำตอบเพื่อ audit การใช้ AI (กฎยืน: AI อ่านอย่างเดียว ห้ามเขียน DB
+    — ตารางนี้แอปเป็นคนเขียน ไม่ใช่ AI); ok=False = เรียกไม่สำเร็จ (answer เก็บ error)."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    username: str = Field(index=True)
+    model: str = ""                    # qwen | claude
+    question: str = ""
+    answer: str = ""
+    ok: bool = True
+    ms: int = 0
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class ArSettle(SQLModel, table=True):
     """ติ๊ก "รับเงินแล้ว" บนหน้ารอรับเงินลูกค้า (/finance/receivables) — เก็บในระบบ
     ไม่เขียนกลับ Google Sheet (โอ 3ก.ค.: แก้ในระบบ ไม่ใช่ใน Excel).

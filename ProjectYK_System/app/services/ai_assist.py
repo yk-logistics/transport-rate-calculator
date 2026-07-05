@@ -38,22 +38,17 @@ def _api_key() -> str:
     return key
 
 
-def rewrite_todo(text: str, categories: list[str]) -> dict:
-    """ส่งข้อความโน้ตให้ Qwen แก้คำผิด+จัดหมวด → {"text":..., "category":...}.
+def chat_qwen(messages: list[dict], max_tokens: int = 1000, temperature: float = 0) -> str:
+    """ยิง messages (ท่า OpenAI role/content) ไป Qwen ผ่าน 9arm → คืนข้อความตอบ.
 
-    พังทางไหนก็ตาม (คีย์หาย/เน็ต/ตอบไม่เป็น JSON) โยน RuntimeError
-    ข้อความภาษาคน — หน้าเว็บเอาไปโชว์ตรงๆ ได้.
-    """
-    # ใช้ท่า OpenAI /v1/chat/completions — ท่า Anthropic /v1/messages บน gateway นี้
-    # คืน content ว่าง (LiteLLM แปลงแล้วข้อความหาย — พิสูจน์สด 5ก.ค.)
+    ใช้ท่า OpenAI /v1/chat/completions — ท่า Anthropic /v1/messages บน gateway นี้
+    คืน content ว่าง (LiteLLM แปลงแล้วข้อความหาย — พิสูจน์สด 5ก.ค.).
+    พังทางไหนก็ตามโยน RuntimeError ข้อความภาษาคน — หน้าเว็บเอาไปโชว์ตรงๆ ได้."""
     body = json.dumps({
         "model": QWEN_MODEL,
-        "max_tokens": 1000,
-        "temperature": 0,  # งานพิสูจน์อักษร — ไม่ต้องการความสร้างสรรค์ (เคยเปลี่ยน 'พรุ่งนี้'→'บ่ายนี้')
-        "messages": [
-            {"role": "system", "content": _SYSTEM.format(cats=", ".join(categories) or "-")},
-            {"role": "user", "content": text},
-        ],
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "messages": messages,
     }).encode()
     req = urllib.request.Request(
         f"{QWEN_BASE}/v1/chat/completions", data=body, method="POST",
@@ -69,6 +64,18 @@ def rewrite_todo(text: str, categories: list[str]) -> dict:
     except Exception as e:
         raise RuntimeError(f"เรียก AI ไม่สำเร็จ ({e.__class__.__name__}) — ลองใหม่อีกครั้ง") from e
     raw = ((resp.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
+    if not raw.strip():
+        raise RuntimeError("AI ไม่ได้ส่งคำตอบกลับมา — ลองใหม่อีกครั้ง")
+    return raw
+
+
+def rewrite_todo(text: str, categories: list[str]) -> dict:
+    """ส่งข้อความโน้ตให้ Qwen แก้คำผิด+จัดหมวด → {"text":..., "category":...}."""
+    # temperature 0: งานพิสูจน์อักษร — ไม่ต้องการความสร้างสรรค์ (เคยเปลี่ยน 'พรุ่งนี้'→'บ่ายนี้')
+    raw = chat_qwen([
+        {"role": "system", "content": _SYSTEM.format(cats=", ".join(categories) or "-")},
+        {"role": "user", "content": text},
+    ])
     m = re.search(r"\{.*\}", raw, re.S)
     try:
         d = json.loads(m.group()) if m else {}
@@ -83,3 +90,52 @@ def rewrite_todo(text: str, categories: list[str]) -> dict:
         if s.startswith(("📱", "(⚠️")) and s not in draft:
             draft += "\n\n" + s
     return {"text": draft, "category": str(d.get("category") or "").strip()}
+
+
+# ---- Claude ผ่าน `claude -p` headless (เฟส 3 หน้า /ai) -------------------------
+# เอา token Max ยิง API ตรง = ผิด ToS; claude -p บนเครื่องที่ login ด้วย Max ของโอ = ได้
+# (โควต้าแชร์กับเซสชันทำงานของโอ). อ่านอย่างเดียวเป็น guard จริงผ่าน --allowedTools.
+
+def _claude_exe() -> str | None:
+    import shutil
+
+    exe = os.getenv("YK_CLAUDE_EXE", "").strip()
+    if exe and os.path.exists(exe):
+        return exe
+    exe = shutil.which("claude")
+    if exe:
+        return exe
+    p = os.path.expanduser(r"~\.local\bin\claude.exe")
+    return p if os.path.exists(p) else None
+
+
+def claude_available() -> bool:
+    return _claude_exe() is not None
+
+
+def chat_claude(prompt: str, cwd: str | None = None, timeout: int = 180) -> str:
+    """ถาม Claude ด้วย claude -p อ่านอย่างเดียว (Read,Grep,Glob) — คืนข้อความตอบ.
+
+    ตั้ง CLAUDE_CONFIG_DIR ชี้โปรไฟล์ที่ login ไว้ได้ผ่าน env YK_CLAUDE_CONFIG
+    (จำเป็นบน server: แอปรันเป็น SYSTEM แต่ Max login อยู่โปรไฟล์ yklog)."""
+    import subprocess
+
+    exe = _claude_exe()
+    if not exe:
+        raise RuntimeError("เครื่องนี้ยังไม่ได้ติดตั้ง/ล็อกอิน claude CLI — ใช้ Qwen ไปก่อน "
+                           "(วิธีติดตั้งอยู่ใน docs/AI_CHAT_RUNBOOK.md)")
+    env = dict(os.environ)
+    cfg = os.getenv("YK_CLAUDE_CONFIG", "").strip()
+    if cfg:
+        env["CLAUDE_CONFIG_DIR"] = cfg
+    try:
+        r = subprocess.run(
+            [exe, "-p", prompt, "--allowedTools", "Read,Grep,Glob"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=timeout, cwd=cwd, env=env)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("Claude ใช้เวลานานเกินไป — ลองถามสั้นลงหรือใช้ Qwen")
+    if r.returncode != 0 or not (r.stdout or "").strip():
+        tail = (r.stderr or r.stdout or "").strip()[-300:]
+        raise RuntimeError(f"เรียก Claude ไม่สำเร็จ: {tail or 'ไม่มีคำตอบ'}")
+    return r.stdout.strip()

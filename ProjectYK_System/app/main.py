@@ -55,6 +55,7 @@ from models import (
     ImportLog,
     InboxEmail,
     InboxSyncRun,
+    AiChatLog,
     ArSettle,
     KbRule,
     KbSettle,
@@ -95,7 +96,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 44  # v44: MediaArchive (G2 — create_all); v43: DocTemplate+DocIssue (A2 — create_all); v42: Vehicle.tank_liters (ALTER); v41: JobMedia; v40: LineGroupMap+LineJobSeen; v39: PartPermission; v38: DebtAccount; v37: AuditLog
+SCHEMA_VERSION = 45  # v45: AiChatLog (เฟส 3 /ai — create_all); v44: MediaArchive (G2 — create_all); v43: DocTemplate+DocIssue (A2 — create_all); v42: Vehicle.tank_liters (ALTER); v41: JobMedia; v40: LineGroupMap+LineJobSeen; v39: PartPermission; v38: DebtAccount; v37: AuditLog
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -10394,6 +10395,86 @@ def line_to_todo(msg_id: int, request: Request, q: str = Form(""), group: str = 
     return RedirectResponse(
         f"/line?q={quote(q)}&group={quote(group)}&page={page or 0}&saved={todo_id}",
         status_code=303)
+
+
+# =========================================================================
+# /ai — ผู้ช่วย AI ถามระบบ (เฟส 3) — เฉพาะ admin (RBAC เมนู "ai")
+# กฎยืน: AI อ่านอย่างเดียว — ตอบคำถามเท่านั้น ไม่มีทางเขียน DB
+# (Qwen = REST ไม่มี tool; Claude = claude -p จำกัด Read,Grep,Glob)
+# =========================================================================
+
+def _ai_system_prompt() -> str:
+    """บริบทระบบ + ตัวเลขคร่าวๆ สดจาก DB (นับอย่างเดียว — ถูกและพอให้ AI ตอบแม่น)."""
+    from sqlalchemy import func
+
+    with Session(engine) as s:
+        n_daily = s.exec(select(func.count()).select_from(DailyJob)).one()
+        n_emp = s.exec(select(func.count()).select_from(Employee)).one()
+        n_veh = s.exec(select(func.count()).select_from(Vehicle)).one()
+        cycles = s.exec(select(PayRun.site_code, PayRun.pay_cycle_tag, PayRun.status)
+                        .order_by(PayRun.id.desc()).limit(6)).all()
+    cyc = "; ".join(f"{c[0]} {c[1]} ({c[2]})" for c in cycles) or "-"
+    return (
+        "คุณคือผู้ช่วย AI ของระบบ Project YK (ระบบบริหารงานขนส่งหัวลาก 3 ไซท์: "
+        "LCB แหลมฉบัง, AYU อยุธยา, BIGC) ผู้ถามคือโอ ผู้จัดการบริษัท ตอบภาษาไทย กระชับ ตรงคำถาม\n"
+        "ขอบเขต: ตอบจากข้อมูลที่มี ถ้าไม่รู้ให้บอกตรงๆ ว่าไม่รู้ ห้ามเดาตัวเลขเงิน "
+        "และห้ามแนะนำให้แก้ไขฐานข้อมูลตรงๆ (ระบบมีหน้าจอสำหรับแก้อยู่แล้ว)\n"
+        f"สถานะระบบวันนี้ {date.today().isoformat()}: งานเดลี่ {n_daily} แถว, "
+        f"พนักงาน {n_emp}, รถ {n_veh}; รอบจ่ายล่าสุด: {cyc}\n"
+        "รอบจ่าย: BIGC 1→สิ้นเดือน, LCB 16→15, AYU 26→25 (cycle_tag = เดือนที่รอบจบ)")
+
+
+@app.get("/ai", response_class=HTMLResponse)
+def ai_page(request: Request):
+    from services import ai_assist
+
+    with Session(engine) as s:
+        logs = s.exec(select(AiChatLog).order_by(AiChatLog.id.desc()).limit(20)).all()
+    ctx = base_context(request)
+    ctx.update({"claude_ok": ai_assist.claude_available(), "logs": logs})
+    return templates.TemplateResponse(request, "ai.html", ctx)
+
+
+@app.post("/ai/ask")
+async def ai_ask(request: Request):
+    """แชทถามระบบ — body JSON {q, model, history:[{role,content}...]} → {ok, answer}.
+    ทุกครั้งลง AiChatLog (สำเร็จหรือพัง) — log การใช้ตามที่โอเคาะ."""
+    import time as _time
+
+    from auth import current_user
+    from services import ai_assist
+
+    user = current_user(request)
+    data = await request.json()
+    q = (data.get("q") or "").strip()
+    model = data.get("model") or "qwen"
+    if not q:
+        return JSONResponse({"ok": False, "answer": "พิมพ์คำถามก่อนครับ"})
+    history = [m for m in (data.get("history") or [])[-10:]
+               if m.get("role") in ("user", "assistant") and (m.get("content") or "").strip()]
+    t0 = _time.monotonic()
+    ok = True
+    try:
+        if model == "claude":
+            # claude -p ไม่รับ messages array — แบนประวัติเป็นข้อความเดียว
+            lines = [_ai_system_prompt(), ""]
+            for m in history:
+                lines.append(("โอ: " if m["role"] == "user" else "ผู้ช่วย: ") + m["content"])
+            lines.append("โอ: " + q)
+            answer = ai_assist.chat_claude("\n".join(lines), cwd=str(APP_DIR))
+        else:
+            model = "qwen"
+            msgs = ([{"role": "system", "content": _ai_system_prompt()}]
+                    + history + [{"role": "user", "content": q}])
+            answer = ai_assist.chat_qwen(msgs, max_tokens=2000, temperature=0.3)
+    except Exception as e:
+        ok, answer = False, str(e)
+    ms = int((_time.monotonic() - t0) * 1000)
+    with Session(engine) as s:
+        s.add(AiChatLog(username=user.username if user else "", model=model,
+                        question=q, answer=answer, ok=ok, ms=ms))
+        s.commit()
+    return JSONResponse({"ok": ok, "answer": answer})
 
 
 _HEALTH_CACHE: dict = {"at": None, "data": None}

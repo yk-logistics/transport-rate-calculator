@@ -159,6 +159,7 @@
             {% if can_see(request, "/finance") %}<a href="/finance/debts" class="block px-4 py-2 hover:bg-slate-100">💳 หนี้/วงเงิน</a>{% endif %}
             {% if can_see(request, "/finance") %}<a href="/finance/vehicles" class="block px-4 py-2 hover:bg-slate-100">🚛 ต้นทุน/กำไรต่อคัน</a>{% endif %}
             {% if can_see(request, "/admin/users") %}<a href="/admin/plan" class="block px-4 py-2 hover:bg-slate-100">🗺️ แผนงาน MVP</a>{% endif %}
+            {% if can_see(request, "/ai") %}<a href="/ai" class="block px-4 py-2 hover:bg-slate-100">🤖 ผู้ช่วย AI</a>{% endif %}
           </div>
         </div>
         {% endif %}

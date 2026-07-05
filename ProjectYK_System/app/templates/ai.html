@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}ผู้ช่วย AI{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
+    <h1 class="text-2xl font-bold">🤖 ผู้ช่วย AI <span class="text-base font-normal text-slate-500">(อ่านอย่างเดียว — ตอบคำถาม ไม่แตะข้อมูล)</span></h1>
+    <select id="ai-model" class="border rounded-lg px-3 py-1.5 text-sm bg-white">
+      <option value="qwen">Qwen (ฟรี — เร็ว)</option>
+      <option value="claude" {% if not claude_ok %}disabled{% endif %}>
+        Claude (Max ของโอ){% if not claude_ok %} — ยังไม่ติดตั้งบนเครื่องนี้{% endif %}
+      </option>
+    </select>
+  </div>
+
+  <div id="ai-chat" class="bg-white rounded-2xl shadow border border-slate-100 p-3 mb-3 min-h-[300px] max-h-[60vh] overflow-y-auto space-y-2">
+    <div class="text-sm text-slate-400 text-center py-6" id="ai-hint">
+      ถามอะไรเกี่ยวกับระบบ/ข้อมูลก็ได้ เช่น "รอบจ่าย AYU ตัดวันไหน" · "เดือนนี้มีงานเดลี่กี่แถว"<br>
+      คำตอบ AI เป็นข้อมูลประกอบ — เรื่องเงินตรวจกับหน้าจริงก่อนใช้เสมอ
+    </div>
+  </div>
+
+  <form id="ai-form" class="flex gap-2 sticky bottom-2">
+    <input id="ai-q" placeholder="พิมพ์คำถาม..." autocomplete="off"
+           class="flex-1 border-2 border-indigo-200 rounded-xl px-3 py-2.5 text-base bg-white">
+    <button id="ai-send" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 rounded-xl font-bold">ถาม</button>
+  </form>
+
+  {% if logs %}
+  <details class="mt-5">
+    <summary class="cursor-pointer text-sm text-slate-500 font-semibold">🕵️ ประวัติการใช้ ({{ logs|length }} ล่าสุด)</summary>
+    <div class="space-y-1 mt-2 text-sm">
+      {% for l in logs %}
+      <div class="bg-white rounded-lg border px-3 py-1.5">
+        <div class="flex gap-2 text-xs text-slate-400">
+          <span>{{ l.created_at | dmy_hm }}</span><span>{{ l.username }}</span>
+          <span class="bg-slate-100 rounded px-1.5">{{ l.model }}</span>
+          <span>{{ l.ms }} ms</span>{% if not l.ok %}<span class="text-rose-500">พัง</span>{% endif %}
+        </div>
+        <div class="truncate">{{ l.question }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </details>
+  {% endif %}
+</div>
+
+<script>
+(function () {
+  const chat = document.getElementById('ai-chat'), hint = document.getElementById('ai-hint');
+  const form = document.getElementById('ai-form'), inp = document.getElementById('ai-q');
+  const send = document.getElementById('ai-send'), modelSel = document.getElementById('ai-model');
+  const history = [];  // {role, content} — ส่งย้อนหลังให้ AI จำบทสนทนา
+
+  function bubble(role, text, isError) {
+    if (hint) hint.remove();
+    const d = document.createElement('div');
+    d.className = role === 'user'
+      ? 'ml-10 bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2 whitespace-pre-wrap break-words'
+      : 'mr-10 bg-slate-50 border rounded-xl px-3 py-2 whitespace-pre-wrap break-words' +
+        (isError ? ' border-rose-200 text-rose-600' : ' border-slate-100');
+    d.textContent = text;
+    chat.appendChild(d);
+    chat.scrollTop = chat.scrollHeight;
+    return d;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const q = inp.value.trim();
+    if (!q || send.disabled) return;
+    bubble('user', q);
+    inp.value = '';
+    send.disabled = true; send.textContent = '⏳';
+    const thinking = bubble('assistant', 'กำลังคิด...');
+    try {
+      const r = await fetch('/ai/ask', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ q, model: modelSel.value, history }),
+      });
+      const j = await r.json();
+      thinking.remove();
+      bubble('assistant', j.answer, !j.ok);
+      if (j.ok) { history.push({role: 'user', content: q}, {role: 'assistant', content: j.answer}); }
+    } catch (err) {
+      thinking.remove();
+      bubble('assistant', 'ส่งคำถามไม่สำเร็จ (' + err + ') — ลองใหม่อีกครั้ง', true);
+    } finally {
+      send.disabled = false; send.textContent = 'ถาม'; inp.focus();
+    }
+  });
+})();
+</script>
+{% endblock %}

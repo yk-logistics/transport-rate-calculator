@@ -39,6 +39,8 @@ MENUS = {
     "quote": ["/quote", "/oatside"],
     # คลังแชทไลน์ (อ่านย้อนหลัง/ค้นหา) — ออฟฟิศ/บัญชีดูได้ (ใช้หาหลักฐานงาน)
     "line": ["/line"],
+    # ผู้ช่วย AI ถามระบบ (เฟส 3) — เห็นข้อมูลข้ามเมนูรวมเงิน → เฉพาะโอ (admin)
+    "ai": ["/ai"],
     # เมนูคลิกขวา (P3) — GET รายการเมนูเท่านั้น item กรองสิทธิ์รายตัวใน handler
     "ctxmenu": ["/api/ctxmenu"],
     # ค้นหากลาง — ทุก role ใช้ได้ (ผล section กรองตามสิทธิ์รายเมนูใน handler)
@@ -66,6 +68,7 @@ MATRIX = {
     "todo":      {"admin": "edit", "office": "edit", "accountant": "edit", "viewer": "edit"},
     "quote":     {"admin": "edit", "office": "deny", "accountant": "deny", "viewer": "deny"},
     "line":      {"admin": "edit", "office": "view", "accountant": "view", "viewer": "deny"},
+    "ai":        {"admin": "edit", "office": "deny", "accountant": "deny", "viewer": "deny"},
     "ctxmenu":   {"admin": "view", "office": "view", "accountant": "view", "viewer": "view"},
     "search":    {"admin": "view", "office": "view", "accountant": "view", "viewer": "view"},
 }
