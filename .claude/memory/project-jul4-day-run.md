@@ -17,7 +17,7 @@ metadata:
 6. **S5 checklist รอบแรก** — ผ่าน 5/7; **อุด CVE จริง: python-multipart 0.0.29→0.0.32 บน server** (form parser รับจากเน็ตตรง); จดค้าง: **starlette 0.38.6 มี CVE หลายตัวแต่ติด pin <0.40 → ต้องวางแผน migration fastapi/starlette เป็นงานแยก**; MSI.TerminalServer/OneDrive เปิดพอร์ตบน server (โอพิจารณาปิด); ข้อ 2 (ไล่ user/role) + ทดสอบ viewer role รอโอ
 7. **LineGroupMap 38 กลุ่ม** ลง server DB (19 customer data-backed) — โอแก้ได้ที่ /line/inbox
 
-**ข้อค้นพบสำคัญ:** สลิป template บน **server = HEAD (874261d) แล้ว** — ที่ค้างคือแก้ใน **working tree local** ของ session สลิปเก่า (payroll_slip.html + payroll_print_all.html มี .k-tag/.c-extra ยังไม่ commit) → ห้าม commit/checkout ทับ จนกว่า session นั้นปิดงาน; deploy แบบ surgical ปลอดภัยแล้วสำหรับไฟล์อื่น
+**ข้อค้นพบสำคัญ:** ~~สลิป template ค้าง working tree ห้ามทับ~~ → **ปิดแล้ว 5 ก.ค.** งาน k-tag/.c-extra commit `20b32b0` + deploy เขียว — deploy ทั้ง dir ได้ตามปกติ (ดู [[project-slip-ktag-mixed-table]])
 
 **Why:** เก็บสถานะรวมเซสชันนี้กันหลงว่าใครทำอะไร deploy อะไรไปแล้ว
 

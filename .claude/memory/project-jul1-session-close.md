@@ -24,7 +24,7 @@ metadata:
 
 **⚠️ ค้าง / ต้องรู้เมื่อกลับมา:**
 - **ภาษี BigC — รอโอตัดสิน (ไม่ใช่บั๊ก):** ณัชพน108 ภาษี 168 เพราะ BigC บริษัทออกน้ำมัน(fuel_self=0)→รายได้คิดภาษีสูง ; วิธีคิดเหมือน LCB ทุกไซต์. ถ้าโอไม่อยากเก็บ → ใส่ tax_exempt.
-- **session อื่นแก้สลิปต่อ (uncommitted!):** branch `fix/slip-trip-fee-kb-display`, working tree มี `_slip_body.html`/`payroll_slip.html`/`payroll_print_all.html` แก้ค้าง (CSS `.c-extra`/`.k-tag` = พิเศษ/OT แยกคอลัมน์แทนซ้อน + ป้าย k-tag เหมา/เที่ยว/รถจอด นำหน้า route แทนคอลัมน์ "ฝั่ง"). **อย่าทับ/revert** — เป็นงานที่กำลังทำต่อ. commit ล่าสุด 874261d/e10e4bf.
+- ~~session อื่นแก้สลิปต่อ (uncommitted)~~ → **ปิดแล้ว 5 ก.ค.**: งานสลิป k-tag/.c-extra commit เข้า HEAD (`20b32b0`) + deploy เขียว — บล็อก "อย่าทับ template สลิป" **ยกเลิก** (ดู [[project-slip-ktag-mixed-table]])
 - **local app.db STALE** (LCB#2 271,074 < server 276,871 = ปกรณ์/ณัฐวุฒิ) — **ห้าม push local DB ทับ server**. งานเงินทำบน server ตรงๆ.
 
 related: [[project-slip-fuel-fill-date]], [[project-bigc-jun-deposit-tax-fuel]], [[project-lcb-bigc-jun-payroll-review]], [[reference-deploy-mvp-selfverify]], [[reference-branch-switch-during-session]]

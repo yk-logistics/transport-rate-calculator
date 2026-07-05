@@ -18,20 +18,21 @@
 ## สถานะเงิน/รอบปัจจุบัน
 - [ปิดรอบ มิ.ย. 3 ไซท์แล้ว](project-jun-close-3sites.md) — 3ก.ค. finalize LCB#2 287,711.37 / AYU#18 263,793.34 / BIGC#4 132,031.03; **รอบ finalized ห้าม recompute (สดย่อยหาย)**; ราคาแก้ทีหลัง→กลไกตกหล่น C4
 - [ปิดเซสชัน 2-3ก.ค.](project-jul3-session-close.md) — deploy 11 อย่าง; ค้างถามโอ: ตัวอย่างใบเสร็จ/ใบหัก (A2) + Editor Drive (S1)
-- [ปิดเซสชัน 1ก.ค.](project-jul1-session-close.md) — LCB#2/BigC#4 บน server; **local DB stale ห้าม push**; สลิป template uncommitted ของ session อื่น (.c-extra/.k-tag) อย่าทับ
+- [ปิดเซสชัน 1ก.ค.](project-jul1-session-close.md) — LCB#2/BigC#4 บน server; **local DB stale ห้าม push**; ~~สลิป template ค้าง~~ ปิดแล้ว 5ก.ค.
 - [LCB+BigC มิ.ย. review](project-lcb-bigc-jun-payroll-review.md) — reconcile เป๊ะ; server LCB#2 ahead ของ local; เกศศักดิ์/ธนวัฒน์ = HR ไม่ใช่บั๊ก
 - [LCB CY KB กติกาสุดท้าย](project-lcb-cy-kb-fulls.md) — คนขับคิดจากราคาคีย์ (kb=5000−คีย์) ส่วนต่างเข้าบริษัท; KB เจ้าของงาน=จากไฟล์
 - [BigC มิ.ย. deposit/ภาษี/น้ำมัน](project-bigc-jun-deposit-tax-fuel.md) — ภาษี BigC รอโอตัดสิน
 
 ## งานเสร็จล่าสุด (ก.ค.)
+- [สลิป k-tag ตารางลูกผสม](project-slip-ktag-mixed-table.md) — DONE 5ก.ค. commit 20b32b0 deploy เขียว: ถอดคอลัมน์ "ฝั่ง"→ป้ายเหมา/เที่ยว/รถจอด + พิเศษ/OT เรียงตรง; **บล็อก "ห้ามทับ template สลิป" ยกเลิกแล้ว** (เหลือ oatside ค้าง working tree ของอีก session)
 - [🧪 TradeLab บอทเทรดเงินสมมุติ](project-tradelab-paper-bot.md) — นอก repo: Desktop\TradeLab port 8030; เริ่มพอร์ต 100k 5ก.ค.; เกณฑ์: ชนะ buy&hold 1-3 เดือนค่อยคุยต่อ; ห้ามปนงานเงิน YK
 - [PWA icon /todo ลง Taskbar](project-pwa-todo-taskbar-icon.md) — DONE 5ก.ค. commit 542e806 + deploy เขียวหมด; hunk PWA เข้า HEAD แล้ว (session อื่น deploy จาก HEAD ได้เลย ไม่ต้องกรองอีก); รอโอลบ shortcut เก่า+Install ใหม่
 - [LINE→todo + AI จบครบ 4 เฟส](project-line-to-todo-ai-phases.md) — 5ก.ค. deploy v46: ➕ /line→/todo · ✨ Qwen เรียบเรียง (สำรอง Claude อัตโนมัติ) · หน้า /ai แชท (เลือกรุ่น Haiku/Sonnet/Opus + AiChatLog) · 📥 กล่องรอคัดจากไลน์ (auto-scan รายวัน, AI เสนอ-โอคัด, วัดจริง 49 งาน); Claude ผ่าน setup-token = secret #9 (docs/AI_CHAT_RUNBOOK.md); gotcha 9arm REST: ท่า /v1/chat/completions + ตั้ง UA เอง
 - [AYU ก.ค. พร้อม import](project-ayu-jul-import-ready.md) — เครื่องมือ+preflight ครบ (231 งาน ไม่มี dupe); **รอโอเคาะ: กลางรอบ (ปลด F3/D1 แต่ห้าม re-import ทับ grid) vs จบรอบ 25 ก.ค.**
 - [🚀 Starlette migrated](project-starlette-migrated.md) — 4ก.ค.: fastapi 0.139/starlette 1.3.1 บน server+dev, 0 CVE; **route ใหม่ต้อง TemplateResponse(request, name, ctx)**
 - [F4 น้ำมันไลน์↔ระบบ](project-f4-fuel-line-compare.md) — DONE 4ก.ค. ไม่ใช้ OCR: /fuel/line-compare parse ข้อความแจ้งเติม; ตกหล่นจริง 7 รายการรอทีม; "รอ import" เทียบ per-site
-- [☀️ เซสชันกลางวัน 4ก.ค.](project-jul4-day-run.md) — G2/S3/F0/S5 done + F3 จูน + doc_no clean 208 + CVE multipart อุดแล้ว → แพลน 34/38; **สลิป template: server=HEAD แล้ว ที่ค้างคือ working tree local ของ session สลิป ห้ามทับ**; starlette CVE ติด pin = งาน migration แยก
-- [🌙 คืน 3→4ก.ค. มาราธอน 22 งาน → แพลน 31/38 (82%) deploy v42](project-jul4-night-run.md) — C2 (9/10)/P1/P2/P3/P5 (เมนู 5 หมวด+หน้าแรกการ์ด)/D2/D3/E1 (PWA เช็คอิน/รูปตู้/ปิดงาน)/E2 (น้ำมันผิดปกติ)/F2 (วัดจริง 1,256 ข้อความ+จูน)/F3/F5/S2/S4/S5/A5 ปุ่ม/B1.1; **7 งานเหลือติดเงื่อนไขภายนอกหมด**; **สลิป template server≠local (session อื่นยังไม่จบ) ห้าม deploy ทั้ง dir**; รอโอ: วันจ่ายเงินเดือน+หนี้+ยืนยัน mapping ไลน์+ตัวอย่างใบเสร็จ+NHL ฟอร์ม+F4 OCR+/uploads public
+- [☀️ เซสชันกลางวัน 4ก.ค.](project-jul4-day-run.md) — G2/S3/F0/S5 done + F3 จูน + doc_no clean 208 + CVE multipart อุดแล้ว → แพลน 34/38; ~~สลิป template ค้าง~~ ปิดแล้ว 5ก.ค.; starlette CVE ติด pin = งาน migration แยก
+- [🌙 คืน 3→4ก.ค. มาราธอน 22 งาน → แพลน 31/38 (82%) deploy v42](project-jul4-night-run.md) — C2 (9/10)/P1/P2/P3/P5 (เมนู 5 หมวด+หน้าแรกการ์ด)/D2/D3/E1 (PWA เช็คอิน/รูปตู้/ปิดงาน)/E2 (น้ำมันผิดปกติ)/F2 (วัดจริง 1,256 ข้อความ+จูน)/F3/F5/S2/S4/S5/A5 ปุ่ม/B1.1; **7 งานเหลือติดเงื่อนไขภายนอกหมด**; ~~สลิป template server≠local~~ ปิดแล้ว 5ก.ค. deploy ได้ปกติ; รอโอ: วันจ่ายเงินเดือน+หนี้+ยืนยัน mapping ไลน์+ตัวอย่างใบเสร็จ+NHL ฟอร์ม+F4 OCR+/uploads public
 - [G2 ย้ายรูปลงแผ่น External](project-g2-media-archive.md) — DONE 4ก.ค. v44: copy→hash→ลบ + ป้าย EXT-xx บน /line; รอโอเสียบแผ่นจริง; ครบกำหนดแรก มิ.ย. 2028
 - S3 DONE 4ก.ค. — docs/SECRETS_INVENTORY.md ทะเบียน 7 secret + หมุน SLIP_INGEST_TOKEN จริงแล้ว (token เก่าตายแล้ว); rotate LINE/Discord/Anthropic/SA รอ console โอ
 - [F3 POD วัดจริง+จูนแล้ว](project-f3-pod-measured-tuned.md) — 4ก.ค.: reverse-match เลข Job deploy แล้ว (strong 57→80); LineGroupMap 38 กลุ่มลง server; รอเดลี่ ก.ค. import ค่อยวัด ≥90% (measure_pod2.py บน server); NHL ต้อง OCR
