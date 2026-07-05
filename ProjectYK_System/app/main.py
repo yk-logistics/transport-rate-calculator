@@ -623,6 +623,12 @@ async def _unhandled_exception_logger(request: Request, exc: Exception):
         status_code=500)
 app.mount("/static", StaticFiles(directory=str(APP_DIR / "static")), name="static")
 
+
+@app.get("/sw.js", include_in_schema=False)
+def service_worker():
+    # เสิร์ฟ service worker จากราก เพื่อให้ scope ครอบทั้งเว็บ (/) ไม่ใช่แค่ /static/.
+    return FileResponse(APP_DIR / "static" / "sw.js", media_type="application/javascript")
+
 # Uploads folder (driver photos, etc.) — served for admin preview. Auto-created.
 _uploads_dir = APP_DIR / "uploads"
 _uploads_dir.mkdir(exist_ok=True)
@@ -657,6 +663,7 @@ from permissions import check as perm_check  # noqa: E402
 # handler calls get_current_driver(), redirecting to /driver/login when absent.
 # So RBAC (AppUser-based) must NOT gate it, or drivers get bounced to the admin login.
 PUBLIC_PREFIXES = ("/login", "/logout", "/static/", "/uploads/", "/health", "/driver",
+                   "/sw.js",       # PWA service worker — must load pre-login for installability
                    "/check",       # magic-link tire check; gated in-handler by signed token
                    "/c/",          # short-URL redirect to /check (resolves token from DB)
                    "/api/petty/")  # service-token auth (not session); checked in-handler
