@@ -9846,7 +9846,8 @@ def oatside_report_file(rel: str):
 
 
 @app.get("/line", response_class=HTMLResponse)
-def line_search_page(request: Request, q: str = "", group: str = "", page: int = 0):
+def line_search_page(request: Request, q: str = "", group: str = "", page: int = 0,
+                     saved: int = 0):
     from services import line_archive as la
 
     ctx = base_context(request)
@@ -9863,7 +9864,7 @@ def line_search_page(request: Request, q: str = "", group: str = "", page: int =
         except Exception as e:
             error = f"อ่านคลังแชทไม่สำเร็จ: {e}"
     ctx.update({"groups": groups, "results": results, "q": q, "group": group,
-                "page": max(page, 0), "error": error})
+                "page": max(page, 0), "error": error, "saved": saved})
     return templates.TemplateResponse(request, "line_search.html", ctx)
 
 
@@ -10315,6 +10316,51 @@ def todo_media(item_id: int, fname: str, request: Request):
     if not str(p).startswith(str(_TODO_MEDIA.resolve())) or not p.exists():
         raise HTTPException(404)
     return FileResponse(p)
+
+
+@app.post("/line/{msg_id}/to-todo")
+def line_to_todo(msg_id: int, request: Request, q: str = Form(""), group: str = Form(""),
+                 page: str = Form("0")):
+    """ปุ่ม ➕ บนหน้า /line — ดึงข้อความที่กด + รูปคนส่งเดียวกันช่วง ±20 นาทีทั้งชุด
+    เข้า /todo ของคนที่กด (ก็อปรูปมาเก็บใน _todo_media เอง — ไม่แตะ DB archiver)."""
+    import shutil
+    from urllib.parse import quote
+
+    from auth import current_user
+    from services import line_archive as la
+
+    user = current_user(request)
+    b = la.bundle_for_todo(msg_id)
+    if b is None:
+        raise HTTPException(404, "ไม่พบข้อความในคลังแชท")
+    header = f"📱 ไลน์ {b['group_name']} — {b['who']} {str(b['sent_at'])[:16]}"
+    text = (b["text"].strip() + "\n\n" + header) if b["text"].strip() else header
+    item = TodoItem(username=user.username if user else "", text=text, category="ไลน์")
+    with Session(engine) as s:
+        s.add(item)
+        s.commit()
+        s.refresh(item)
+        todo_id = item.id
+        names, missing = [], 0
+        for mid in b["media_ids"]:
+            src = la.media_file(mid)
+            if src is None:
+                missing += 1  # รูปย้ายลงแผ่น External แล้ว (G2) — ก็อปไม่ได้ตอนนี้
+                continue
+            d = _TODO_MEDIA / str(todo_id)
+            d.mkdir(parents=True, exist_ok=True)
+            name = f"{len(names) + 1}{src.suffix.lower() or '.jpg'}"
+            shutil.copyfile(src, d / name)
+            names.append(name)
+        if missing:
+            item.text += f"\n(⚠️ อีก {missing} รูปอยู่แผ่น External — เปิดดูได้ในคลังไลน์)"
+        if names:
+            item.media_json = ",".join(names)
+        s.add(item)
+        s.commit()
+    return RedirectResponse(
+        f"/line?q={quote(q)}&group={quote(group)}&page={page or 0}&saved={todo_id}",
+        status_code=303)
 
 
 _HEALTH_CACHE: dict = {"at": None, "data": None}

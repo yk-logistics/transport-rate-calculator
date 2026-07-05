@@ -132,6 +132,54 @@ def daily_digest(day_iso: str, today_iso: str) -> dict:
     }
 
 
+def bundle_for_todo(msg_id: int, window_min: int = 20) -> dict | None:
+    """ข้อความที่กด + รูปของคนส่งเดียวกันในกลุ่มเดียวกันช่วง ±window นาที (นับเป็นชุดเดียวกัน).
+
+    ใช้กับปุ่ม "ส่งเข้าสิ่งที่ต้องทำ" บนหน้า /line — คนงานมักส่งรูปหลายใบก่อน/หลัง
+    แล้วค่อยพิมพ์ข้อความ จึงต้องกวาดรูปข้างเคียงมาด้วย. READ-ONLY เช่นเดิม.
+    """
+    from datetime import datetime, timedelta
+
+    def _parse(ts) -> datetime | None:
+        try:
+            return datetime.fromisoformat(str(ts).replace("T", " ")[:19])
+        except ValueError:
+            return None
+
+    with _conn() as c:
+        m = c.execute("""
+            SELECT m.id, m.group_id, m.user_id, m.msg_type, m.text, m.media_path, m.sent_at,
+                   g.name AS group_name, COALESCE(u.alias, u.display_name) AS who
+            FROM line_message m
+            LEFT JOIN line_group g ON g.group_id = m.group_id
+            LEFT JOIN line_user u ON u.user_id = m.user_id
+            WHERE m.id = ?""", (msg_id,)).fetchone()
+        if m is None:
+            return None
+        t0 = _parse(m["sent_at"])
+        media_ids: list[int] = []
+        if t0 is not None and m["user_id"]:
+            # sent_at เป็น TEXT — กรองหยาบด้วยวันที่ (ครอบเคสคร่อมเที่ยงคืน) แล้วค่อยเทียบนาทีใน Python
+            days = sorted({(t0 - timedelta(minutes=window_min)).date().isoformat(),
+                           t0.date().isoformat(),
+                           (t0 + timedelta(minutes=window_min)).date().isoformat()})
+            sibs = c.execute(f"""
+                SELECT id, msg_type, media_path, sent_at FROM line_message
+                WHERE group_id = ? AND user_id = ?
+                  AND substr(sent_at, 1, 10) IN ({','.join('?' * len(days))})
+                ORDER BY sent_at""", [m["group_id"], m["user_id"], *days]).fetchall()
+            for r in sibs:
+                ts = _parse(r["sent_at"])
+                if (ts is not None and abs((ts - t0).total_seconds()) <= window_min * 60
+                        and r["msg_type"] == "image" and r["media_path"]):
+                    media_ids.append(r["id"])
+        elif m["msg_type"] == "image" and m["media_path"]:
+            media_ids.append(m["id"])
+    return {"text": m["text"] or "", "who": m["who"] or "?",
+            "group_name": m["group_name"] or "", "sent_at": m["sent_at"],
+            "media_ids": media_ids}
+
+
 def media_file(msg_id: int) -> Path | None:
     """ไฟล์ media ของข้อความ (ตรวจอยู่ใต้ line_media จริง กัน path traversal)."""
     root = media_root()
