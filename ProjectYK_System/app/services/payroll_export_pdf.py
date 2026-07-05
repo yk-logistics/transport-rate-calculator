@@ -514,7 +514,8 @@ def export_payroll_pdf_bundle(session, pay_run_id: int, project_root: Optional[P
 
     slip_paths = []
     for it, emp in pairs:
-        ctx = build_payroll_slip_context(session, pr, emp, it)
+        # fpdf renderer ไม่โชว์ธงน้ำมันผิดปกติ → anomaly_rows=[] ข้าม scan ทั้งไซท์ต่อคน
+        ctx = build_payroll_slip_context(session, pr, emp, it, anomaly_rows=[])
         ctx["pdf_period_line"] = _slip_period_line(pr)
         render_driver_slip_page(pdf_all, ctx)
         pdf_one = _Pdf("L", auto_break=False)

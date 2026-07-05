@@ -30,8 +30,13 @@ def _plate_key(plate: str) -> str:
     return (plate or "").strip()
 
 
-def scan(session: Session, d1: date, d2: date, site: str = "") -> dict:
-    """สแกน FuelTxn ช่วงวัน → รายการธง (แถวเดียวติดได้หลายธง) + ตัวเลขสรุป."""
+def scan(session: Session, d1: date, d2: date, site: str = "",
+         r1_threshold: int = REFILL_PER_DAY_THRESHOLD) -> dict:
+    """สแกน FuelTxn ช่วงวัน → รายการธง (แถวเดียวติดได้หลายธง) + ตัวเลขสรุป.
+
+    r1_threshold: เกณฑ์ "เติมถี่" (บิล/คัน/วัน) — หน้า /fuel/anomaly ใช้ default ≥2;
+    สลิปผู้บริหารเรียกด้วย ≥3 (คู่บิล B7+B20 ต่อการเติมครั้งเดียวเป็นปกติของปั๊ม
+    ถ้าธงที่ 2 จะติดแทบทุกคันจนไร้ความหมาย) — นโยบายอยู่ที่พารามิเตอร์นี้ที่เดียว."""
     q = select(FuelTxn).where(FuelTxn.txn_date >= d1, FuelTxn.txn_date <= d2)
     if site:
         q = q.where(FuelTxn.site_code == site)
@@ -62,9 +67,9 @@ def scan(session: Session, d1: date, d2: date, site: str = "") -> dict:
         key = (p or f"#veh{f.vehicle_id}", f.txn_date)
         flags = []
         same_day = per_day.get(key, [])
-        if len(same_day) >= REFILL_PER_DAY_THRESHOLD:
+        if len(same_day) >= r1_threshold:
             day_liters = sum(x.liter or 0 for x in same_day)
-            flags.append({"code": "R1", "level": "amber", "n": len(same_day),
+            flags.append({"code": "R1", "level": "amber",
                           "text": f"เติม {len(same_day)} ครั้งในวัน (รวม {day_liters:,.0f} ลิตร)"})
         v = vehicles.get(f.vehicle_id or -1)
         tank = (v.tank_liters if v and v.tank_liters else 0) or \

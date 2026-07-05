@@ -4917,7 +4917,8 @@ def payroll_print_all(run_id: int, request: Request):
             return RedirectResponse("/payroll?err=notfound", status_code=303)
         items = s.exec(select(PayRunItem).where(PayRunItem.pay_run_id == pr.id)).all()
         ytd_by_emp = _ytd_income_tax_by_emp(s, pr)
-        from services.payroll_slip import build_payroll_slip_context
+        from services.payroll_slip import build_payroll_slip_context, slip_anomaly_rows
+        _anom_rows = slip_anomaly_rows(s, pr)  # scan ธงน้ำมันครั้งเดียวทั้งรอบ ไม่วนต่อคน
         rows = []
         for it in items:
             emp = s.get(Employee, it.employee_id)
@@ -4925,7 +4926,7 @@ def payroll_print_all(run_id: int, request: Request):
             ytd = ytd_by_emp.get(it.employee_id, {"income": 0.0, "tax": 0.0})
             daily = _slip_daily_rows(s, it.employee_id, pr, it.pay_mode, is_boss)
             # แจกแจงรายการหักสดย่อย (วันที่/รายการ/ยอด) — reuse slip context (single source)
-            slip_ctx = build_payroll_slip_context(s, pr, emp, it)
+            slip_ctx = build_payroll_slip_context(s, pr, emp, it, anomaly_rows=_anom_rows)
             row = {"item": it, "employee": emp, "transfer_note": note,
                    "ytd": ytd, "daily": daily, "ctx": slip_ctx,
                    "petty_lines": slip_ctx.get("petty_lines", []),

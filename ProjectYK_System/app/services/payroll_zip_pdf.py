@@ -27,7 +27,11 @@ from typing import Optional
 from sqlmodel import select
 
 from models import Employee, PayRun, PayRunItem
-from services.payroll_slip import build_payroll_slip_context, employee_bank_display_name
+from services.payroll_slip import (
+    build_payroll_slip_context,
+    employee_bank_display_name,
+    slip_anomaly_rows,
+)
 
 
 def find_chrome() -> Optional[str]:
@@ -153,10 +157,12 @@ def export_payroll_slips_zip(
 
     buf = io.BytesIO()
     used: set[str] = set()
+    anom_rows = slip_anomaly_rows(session, pr)  # scan ธงน้ำมันครั้งเดียวทั้งรอบ ไม่วนต่อคน
     try:
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
             for idx, (it, emp) in enumerate(pairs, start=1):
-                ctx = build_payroll_slip_context(session, pr, emp, it)
+                ctx = build_payroll_slip_context(session, pr, emp, it,
+                                                 anomaly_rows=anom_rows)
                 ctx["is_boss"] = is_boss
                 html = render_slip_html(ctx)
                 work = work_root / f"d{idx}"

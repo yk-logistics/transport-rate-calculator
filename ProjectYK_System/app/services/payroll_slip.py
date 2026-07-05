@@ -300,13 +300,31 @@ def classify_mixed_days(daily_jobs) -> dict:
     }
 
 
+SLIP_R1_THRESHOLD = 3  # "เติมถี่" บนสลิป ≥3 บิล/วัน — คู่ B7+B20 (2 บิล/การเติม) ไม่ธง
+
+
+def slip_anomaly_rows(session: Session, pr) -> list:
+    """scan ธงน้ำมันผิดปกติของทั้งรอบ 1 ครั้ง (เกณฑ์ R1 ฉบับสลิป) — เวลาวนสลิปหลายคน
+    (print/ZIP) ให้เรียกตัวนี้ครั้งเดียวก่อน loop แล้วส่งเข้า build_payroll_slip_context
+    ผ่าน anomaly_rows (ไม่งั้น scan ซ้ำทั้งไซท์ต่อคน)."""
+    from services import fuel_anomaly as _fa
+
+    return _fa.scan(session, pr.period_start, pr.period_end,
+                    site=pr.site_code, r1_threshold=SLIP_R1_THRESHOLD)["rows"]
+
+
 def build_payroll_slip_context(
     session: Session,
     pr,
     emp: Employee,
     item: PayRunItem,
+    anomaly_rows: Optional[list] = None,
 ) -> dict[str, Any]:
-    """Build dict used by payroll_slip.html and PDF export."""
+    """Build dict used by payroll_slip.html and PDF export.
+
+    anomaly_rows: ผล slip_anomaly_rows(session, pr) ที่คำนวณไว้แล้ว (ส่งมาเมื่อวนหลายคน);
+    None = คำนวณเอง (หน้าเดี่ยว), [] = ข้ามธง (renderer ที่ไม่โชว์ธง เช่น fpdf bundle).
+    """
     start, end, tag = pr.period_start, pr.period_end, pr.pay_cycle_tag
 
     daily_jobs = session.exec(
@@ -437,34 +455,26 @@ def build_payroll_slip_context(
             # len==1 ตรงวัน job เดียว → ปล่อย fallback r.fuel_* (ไม่ต้องใส่ map)
 
     # --- E2: ธงน้ำมันผิดปกติบนสลิป — โชว์เฉพาะชุดผู้บริหาร (template เช็ค is_boss) ---
-    # reuse กติกา R1/R2/R3 จาก services.fuel_anomaly (read-only ไม่แตะเงิน); ธงเฉพาะบิล
-    # ในตาราง (มี daily_job_id) — วัดถัง/ยกยอด = รายการมือ ไม่ธง. key = แถวที่บิลโชว์จริง.
-    from services import fuel_anomaly as _fa
-
+    # reuse กติกา R1/R2/R3 จาก services.fuel_anomaly (read-only ไม่แตะเงิน; เกณฑ์ R1
+    # ฉบับสลิปอยู่ใน SLIP_R1_THRESHOLD/slip_anomaly_rows ที่เดียว); ธงเฉพาะบิลในตาราง
+    # (มี daily_job_id) — วัดถัง/ยกยอด = รายการมือ ไม่ธง. key = แถวที่บิลโชว์จริง.
     _ANOM_SHORT = {"R1": "เติมถี่", "R2": "เกินถัง", "R3": "วันไม่มีงาน"}
     _ANOM_LV = {"rose": 0, "amber": 1, "sky": 2}
     fuel_anomaly_by_job: dict[int, dict] = {}
     if _txn_disp_job:
-        for _ar in _fa.scan(session, start, end, site=pr.site_code)["rows"]:
+        if anomaly_rows is None:
+            anomaly_rows = slip_anomaly_rows(session, pr)
+        for _ar in anomaly_rows:
             _jid = _txn_disp_job.get(_ar["id"])
             if not _jid:
                 continue
-            # R1 บนสลิปธงเมื่อ ≥3 บิล/วันเท่านั้น — ปั๊มออกบิล B7+B20 แยกใบต่อการเติม
-            # ครั้งเดียวเป็นปกติ (2 บิล/วันแทบทุกคัน → ธงหมดจนไร้ความหมาย);
-            # หน้า /fuel/anomaly ยังใช้เกณฑ์ ≥2 เดิม
-            _fls = [f for f in _ar["flags"]
-                    if not (f["code"] == "R1" and f.get("n", 0) < 3)]
-            if not _fls:
-                continue
             cur = fuel_anomaly_by_job.setdefault(
                 _jid, {"codes": set(), "titles": [], "level": "sky"})
-            for _fl in _fls:
+            for _fl in _ar["flags"]:
                 cur["codes"].add(_fl["code"])
                 cur["titles"].append(_fl["text"])
-            # worst จากธงที่เหลือหลังกรอง (ไม่ใช้ _ar["worst"] ที่รวม R1 ที่ตัดทิ้ง)
-            _worst = min((f["level"] for f in _fls), key=_ANOM_LV.get)
-            if _ANOM_LV[_worst] < _ANOM_LV[cur["level"]]:
-                cur["level"] = _worst
+            if _ANOM_LV[_ar["worst"]] < _ANOM_LV[cur["level"]]:
+                cur["level"] = _ar["worst"]
         for cur in fuel_anomaly_by_job.values():
             cur["short"] = "·".join(_ANOM_SHORT[c] for c in sorted(cur["codes"]))
             cur["title"] = " | ".join(dict.fromkeys(cur["titles"]))
