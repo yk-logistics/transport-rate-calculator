@@ -4,6 +4,14 @@
 
 > **Agent bootstrap:** อ่านเฉพาะ **3 หัวข้อ `##` แรกจากด้านบนลงมา** (ไม่รวมบรรทัดนี้) — **ห้าม**อ่านทั้งไฟล์ทุกแชต. นโยบาย/การย้าย archive: [`ProjectYK_System/docs/CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md)
 
+## 2026-07-05 (LINE→todo เฟส 3 — หน้า /ai ผู้ช่วยแชทถามระบบ เฉพาะโอ)
+
+- **เฟส 3 ✅ (f0c9317, deploy v45):** หน้า `/ai` แชทถามระบบ — RBAC เมนู `ai` เฉพาะ admin (คนอื่น deny ทุก role); model picker: **Qwen ฟรี** (ใช้ได้ทันที) / **Claude ผ่าน `claude -p`** จำกัด `--allowedTools Read,Grep,Glob` = อ่านอย่างเดียวเป็น guard จริง (token Max ยิง API ตรงผิด ToS — ต้อง claude -p เท่านั้น, โควต้าแชร์กับเซสชันทำงานโอ)
+- ทุกคำถามลง **`AiChatLog`** (SCHEMA_VERSION 45, create_all) — ใคร/โมเดล/คำถาม/คำตอบ/ms/พังไหม; โชว์ 20 ล่าสุดท้ายหน้า /ai
+- system prompt เติมตัวเลขสดจาก DB (count งานเดลี่/พนักงาน/รถ + รอบจ่ายล่าสุด 6 รอบ) + กติการอบจ่าย 3 ไซท์ — smoke จริง: ถามรอบจ่าย AYU ตอบ 26→25 ถูก (890ms)
+- **server ยังไม่มี claude CLI** → ตัวเลือก Claude เทา + ข้อความแนะนำ; ขั้นตอนเปิดใช้ (ติดตั้ง+login Max+env `YK_CLAUDE_EXE`/`YK_CLAUDE_CONFIG` — จำเป็นเพราะแอปรันเป็น SYSTEM) อยู่ใน **`docs/AI_CHAT_RUNBOOK.md`**
+- เทสต์ `test_ai_page.py` 7 ตัว + ชุดเต็ม **505 ผ่าน**; เหลือเฟส 4 (auto-scan ไลน์รายวัน→เสนอ todo)
+
 ## 2026-07-05 (LINE→todo เฟส 1+2 — ปุ่ม ➕ จากคลังไลน์ + ✨ AI เรียบเรียง)
 
 - **เฟส 1 ✅ (a3fcfd3):** ปุ่ม ➕ บนหน้า /line ส่งข้อความ+รูปคนส่งเดียวกัน ±20 นาทีทั้งชุดเข้า /todo (`bundle_for_todo`, หมวด "ไลน์", รูปที่ย้ายลงแผ่น External ใส่โน้ตเตือนแทน)

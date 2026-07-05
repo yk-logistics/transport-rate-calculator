@@ -1,6 +1,6 @@
 ---
 name: project-line-to-todo-ai-phases
-description: แผน 4 เฟส LINE→todo + AI ผู้ช่วยในเว็บ — เฟส 1+2 deploy แล้ว 5ก.ค.; เฟส 3-4 ค้าง (หน้า /ai + claude -p / auto-scan)
+description: แผน 4 เฟส LINE→todo + AI ผู้ช่วยในเว็บ — เฟส 1-3 deploy แล้ว 5ก.ค.; เฟส 4 ค้าง (auto-scan ไลน์→เสนอ todo); Claude บน /ai รอโอติดตั้ง CLI บน server
 metadata: 
   node_type: memory
   type: project
@@ -21,7 +21,11 @@ metadata:
 - draft ไม่เก็บ DB (ไม่แตะ schema): `POST /todo/{id}/ai-draft` คืน fragment htmx (`todo_ai_draft.html`) → โอแก้ต่อ/กด "ใช้ตามนี้" ยิง `/todo/{id}/update` ตัวเดิม
 - คีย์: env `YK_QWEN_KEY` (server ใส่ใน `YK_MVP\start_mvp.bat` แล้ว) หรือ `YK_QWEN_KEY_FILE`; dev ชี้ไฟล์ `_Claude Tools/9arm.key`
 - เทสต์ `tests/test_todo_ai_draft.py` 7 ตัว (fake AI) + smoke จริงผ่านทั้ง dev และบน server
-**เฟส 3:** หน้า /ai เฉพาะโอ (admin) — แชทถามระบบ read-only + model picker; Claude ผ่าน **`claude -p` headless บนเครื่อง server login ด้วย Max ของโอ** (เอา token Max ยิง API ตรง = ผิด ToS; claude -p ได้; โควต้าแชร์กับเซสชันทำงาน) + log การใช้
+**เฟส 3 — DONE + deploy 5ก.ค. (commit f0c9317, schema v45):** หน้า /ai เฉพาะ admin
+- RBAC เมนู `ai` (permissions.py) — office/accountant/viewer = deny; ลิงก์ในเมนูผู้บริหาร
+- Qwen = `ai_assist.chat_qwen()` (refactor ใช้ร่วม rewrite_todo); Claude = `chat_claude()` subprocess `claude -p --allowedTools Read,Grep,Glob` (guard อ่านอย่างเดียวจริง); log ทุกคำถามลง `AiChatLog`
+- **server ยังไม่มี claude CLI** — ตัวเลือกเทาอยู่; เปิดใช้ตาม `docs/AI_CHAT_RUNBOOK.md` (ติดตั้ง+login Max+ตั้ง `YK_CLAUDE_EXE`/`YK_CLAUDE_CONFIG` ใน start_mvp.bat — ต้องตั้งเพราะแอปรันเป็น SYSTEM แต่ credential อยู่โปรไฟล์ yklog)
+- ระหว่างทำ: session PWA อื่น commit 542e806 แทรก branch เดียวกัน → hunk /sw.js ที่เคยค้างเข้า HEAD แล้ว, working tree main.py สะอาด (ตอนนี้ stage ตรงได้ ไม่ต้องกรอง hunk แล้ว)
 **เฟส 4:** สแกนข้อความไลน์รายวัน → เสนอ todo เข้ากล่องรอคัด (ต่อยอด [[project-f4-fuel-line-compare]] pattern parse)
 
 กฎยืนทุกเฟส: AI read-only — สร้างอะไรเป็น draft ให้โอยืนยัน ห้ามเขียน DB เอง โดยเฉพาะเงิน
