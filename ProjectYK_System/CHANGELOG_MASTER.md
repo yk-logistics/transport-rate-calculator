@@ -4,6 +4,12 @@
 
 > **Agent bootstrap:** อ่านเฉพาะ **3 หัวข้อ `##` แรกจากด้านบนลงมา** (ไม่รวมบรรทัดนี้) — **ห้าม**อ่านทั้งไฟล์ทุกแชต. นโยบาย/การย้าย archive: [`ProjectYK_System/docs/CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md)
 
+## 2026-07-05 (self-review 8 มุมของงานวันนี้ → แก้ 2 เรื่อง + ซ่อมตัวเช็ค deploy)
+
+- **รีวิวโค้ดวันนี้ทั้งชุดด้วย finder 8 มุม** (5 findings): แก้จริง 2 — (1) **scan ธงน้ำมันเคยวนต่อคน** บน /print + ZIP (~30 scan ซ้ำ/รอบ) → `slip_anomaly_rows()` คำนวณครั้งเดียวก่อน loop แล้วส่งเข้า `build_payroll_slip_context(anomaly_rows=…)`; fpdf bundle ส่ง `[]` ไม่จ่ายค่า scan เลย (2) **เกณฑ์ R1 เคยแยก 2 ที่** → เป็นพารามิเตอร์ `scan(r1_threshold=…)` ที่เดียว (หน้า /fuel/anomaly default 2, สลิป `SLIP_R1_THRESHOLD=3`) (b21e617, pytest 516 ผ่าน, deploy เขียว)
+- ที่เหลือ 3 = โน้ต: หน้าสลิปรายคนไม่รองรับ ?for=boss (พฤติกรรมเดิม — ถ้าโออยากได้ธงบน surface นั้นบอกได้), zip >100MB ควรเปลี่ยน resumable upload (ไกลตัว), ตัวกรอง n เปราะ (หายไปแล้วกับข้อ 2)
+- **ซ่อม `_deploy_remote.ps1`: marker scan ครอบ `services/*.py` แล้ว** — เดิมสแกนแค่ main.py+templates ทำ FAIL หลอกเมื่อ change อยู่ใน services (โดนมา 2 รอบ: ayu_mao 30มิ.ย. + วันนี้) — ยืนยันด้วย deploy ซ้ำ marker `r1_threshold` เขียว
+
 ## 2026-07-05 (S1 ชั้น Drive: โค้ด OAuth พร้อม+deploy — เหลือโอคลิกยินยอมครั้งเดียว)
 
 - **`tools/server_backup/gdrive_oauth.py` ใหม่ (7606056):** setup บน Dev (browser, google-auth-oauthlib เฉพาะตอน setup) → `gdrive_token.json`; ฝั่ง server อัป/หมุนเวียนผ่าน REST **stdlib ล้วน** scope `drive.file` — ไม่ต้องลง lib google บน server; `backup_tier1.py` สลับใช้ OAuth เองเมื่อเห็น token (ไม่มี = fallback SA soft-fail เดิม พฤติกรรมไม่เปลี่ยน)

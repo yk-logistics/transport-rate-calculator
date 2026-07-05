@@ -27,7 +27,7 @@ Checks (each closes a GOTCHA from [[reference-mvp-deploy-restart-gotcha]] / [[re
 3. new 8010 owner **StartTime ≥ main.py mtime − 5s** — catches "old global-python code still serving".
    (Verified StartTime is readable for the SYSTEM-task process — no Access-Denied.)
 4. **port 8020 still up** — archiver survived the cutover.
-5. **ASCII `--markers` present** in main.py/templates on server — guards revert/stale (Thai over SSH = false negatives).
+5. **ASCII `--markers` present** in main.py/templates/**services/*.py** on server (services เพิ่ม 5ก.ค. หลัง FAIL หลอกซ้ำสอง) — guards revert/stale (Thai over SSH = false negatives).
 6. public **app.yklogistics.uk/login → 200**.
 
 ALWAYS pass `--markers` with a string unique to the change shipped — that arg is what proves the

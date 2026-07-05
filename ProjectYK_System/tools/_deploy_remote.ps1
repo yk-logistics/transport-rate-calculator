@@ -96,7 +96,11 @@ if (Get-NetTCPConnection -LocalPort 8020 -State Listen -ErrorAction SilentlyCont
 
 # --- 6. code-content guard: required ASCII markers present on server files -------------
 if ($ExpectMarkers.Trim().Length -gt 0) {
-    $files = @($MainPy) + (Get-ChildItem "$AppDir/templates" -Filter *.html -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
+    # สแกน main.py + templates + services/*.py (เดิมไม่สแกน services → marker ของ
+    # change ใน payroll.py/payroll_slip.py ฯลฯ FAIL หลอกซ้ำสอง — memory ayu-mao-pertrip)
+    $files = @($MainPy) `
+        + (Get-ChildItem "$AppDir/templates" -Filter *.html -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }) `
+        + (Get-ChildItem "$AppDir/services" -Filter *.py -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
     foreach ($mk in ($ExpectMarkers -split ',')) {
         $m = $mk.Trim(); if ($m.Length -eq 0) { continue }
         $hit = Select-String -SimpleMatch -Pattern $m -Path $files -List -ErrorAction SilentlyContinue
