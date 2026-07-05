@@ -24,8 +24,9 @@
 - [BigC มิ.ย. deposit/ภาษี/น้ำมัน](project-bigc-jun-deposit-tax-fuel.md) — ภาษี BigC รอโอตัดสิน
 
 ## งานเสร็จล่าสุด (ก.ค.)
+- [🧪 TradeLab บอทเทรดเงินสมมุติ](project-tradelab-paper-bot.md) — นอก repo: Desktop\TradeLab port 8030; เริ่มพอร์ต 100k 5ก.ค.; เกณฑ์: ชนะ buy&hold 1-3 เดือนค่อยคุยต่อ; ห้ามปนงานเงิน YK
 - [PWA icon /todo ลง Taskbar](project-pwa-todo-taskbar-icon.md) — DONE 5ก.ค. commit 542e806 + deploy เขียวหมด; hunk PWA เข้า HEAD แล้ว (session อื่น deploy จาก HEAD ได้เลย ไม่ต้องกรองอีก); รอโอลบ shortcut เก่า+Install ใหม่
-- [LINE→todo + AI 4 เฟส](project-line-to-todo-ai-phases.md) — เฟส 1-3 deploy แล้ว 5ก.ค. (➕ /line→/todo · ✨ Qwen เรียบเรียง · หน้า /ai แชทถามระบบ admin-only + AiChatLog v45); เฟส 4 ค้าง (auto-scan); Claude บน /ai เปิดใช้แล้ว (setup-token → secret #9, ไม่ต้อง login บนจอ server — docs/AI_CHAT_RUNBOOK.md); gotcha 9arm REST: ต้องท่า /v1/chat/completions + ตั้ง UA เอง; hunk /sw.js เข้า HEAD แล้ว (542e806) — working tree สะอาด
+- [LINE→todo + AI จบครบ 4 เฟส](project-line-to-todo-ai-phases.md) — 5ก.ค. deploy v46: ➕ /line→/todo · ✨ Qwen เรียบเรียง (สำรอง Claude อัตโนมัติ) · หน้า /ai แชท (เลือกรุ่น Haiku/Sonnet/Opus + AiChatLog) · 📥 กล่องรอคัดจากไลน์ (auto-scan รายวัน, AI เสนอ-โอคัด, วัดจริง 49 งาน); Claude ผ่าน setup-token = secret #9 (docs/AI_CHAT_RUNBOOK.md); gotcha 9arm REST: ท่า /v1/chat/completions + ตั้ง UA เอง
 - [AYU ก.ค. พร้อม import](project-ayu-jul-import-ready.md) — เครื่องมือ+preflight ครบ (231 งาน ไม่มี dupe); **รอโอเคาะ: กลางรอบ (ปลด F3/D1 แต่ห้าม re-import ทับ grid) vs จบรอบ 25 ก.ค.**
 - [🚀 Starlette migrated](project-starlette-migrated.md) — 4ก.ค.: fastapi 0.139/starlette 1.3.1 บน server+dev, 0 CVE; **route ใหม่ต้อง TemplateResponse(request, name, ctx)**
 - [F4 น้ำมันไลน์↔ระบบ](project-f4-fuel-line-compare.md) — DONE 4ก.ค. ไม่ใช้ OCR: /fuel/line-compare parse ข้อความแจ้งเติม; ตกหล่นจริง 7 รายการรอทีม; "รอ import" เทียบ per-site
@@ -91,7 +92,7 @@
 - [LCB driver extra fees](project-lcb-driver-extra-fees.md)
 
 ## เครื่องมือ/อ้างอิงเทคนิค
-- [ไอเดียจาก Discord 9arm](reference-9arm-discord-ideas.md) — slipok เช็คสลิป/QR พร้อมเพย์/OCR ไทย/บังคับ calculator กันมั่วเงิน/LLM failover; **gotcha: qwen-readonly ปนความจำ repo เราเข้าไปในคำตอบ — grep ยืนยันก่อนเชื่อ**
+- [ไอเดียจาก Discord 9arm](reference-9arm-discord-ideas.md) — โอเคาะครบ 5ก.ค.: ✨ fallback Qwen→Claude ทำแล้ว (b25d1a9 deploy เขียว, ตั้งค่าบน /ai); สลิปAPI/QR ไม่เอา; OCR ให้เลือก 2 เจ้าเมื่อถึงงาน NHL; **gotcha: qwen-readonly ปนความจำ repo เราเข้าไปในคำตอบ — grep ยืนยันก่อนเชื่อ**
 - [Deploy MVP self-verify](reference-deploy-mvp-selfverify.md) — DEFAULT: deploy_mvp.sh --markers "<ascii>" (แต่ copy ทั้ง dir — มีไฟล์ session อื่นค้างให้ surgical scp แทน)
 - [net_guard ทุกไซต์](reference-net-guard.md) — net_guard.py before/after --allow <ids> พิสูจน์รอบอื่นนิ่ง
 - [Chrome headless PDF](reference-chrome-headless-pdf.md) — --user-data-dir + poll ไฟล์ + ห้าม TemporaryDirectory; ตัดสินไทยด้วย screenshot

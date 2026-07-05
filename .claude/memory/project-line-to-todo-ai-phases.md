@@ -1,6 +1,6 @@
 ---
 name: project-line-to-todo-ai-phases
-description: แผน 4 เฟส LINE→todo + AI ผู้ช่วยในเว็บ — เฟส 1-3 deploy แล้ว 5ก.ค.; เฟส 4 ค้าง (auto-scan ไลน์→เสนอ todo); Claude บน /ai รอโอติดตั้ง CLI บน server
+description: แผน 4 เฟส LINE→todo + AI ผู้ช่วยในเว็บ — จบครบ 4 เฟส 5ก.ค. (➕/✨/หน้า /ai/กล่องรอคัด) deploy v46; Claude เปิดใช้แล้วเลือกรุ่นได้
 metadata: 
   node_type: memory
   type: project
@@ -26,6 +26,12 @@ metadata:
 - Qwen = `ai_assist.chat_qwen()` (refactor ใช้ร่วม rewrite_todo); Claude = `chat_claude()` subprocess `claude -p --allowedTools Read,Grep,Glob` (guard อ่านอย่างเดียวจริง); log ทุกคำถามลง `AiChatLog`
 - **Claude บน server เปิดใช้แล้ว 5ก.ค.** — CLI v2.1.201 ติดตั้งผ่าน SSH; auth ด้วย `CLAUDE_CODE_OAUTH_TOKEN` จาก `claude setup-token` ที่โอรันบนเครื่อง dev (token = secret #9, dev copy ที่ `_Claude Tools/claude_server.key`) → ไม่ต้อง login บนจอ server, รันเป็น SYSTEM ได้; ต้องมี `.claude_headless/.claude.json` ใส่ hasCompletedOnboarding+hasTrustDialogAccepted ของ `C:/Users/yklog/YK_MVP/app` ไม่งั้น workspace ไม่ trust; ยืนยันแล้ว chat_claude ตอบจริงบน server; วิธีหมุน/รายละเอียดใน `docs/AI_CHAT_RUNBOOK.md`
 - ระหว่างทำ: session PWA อื่น commit 542e806 แทรก branch เดียวกัน → hunk /sw.js ที่เคยค้างเข้า HEAD แล้ว, working tree main.py สะอาด (ตอนนี้ stage ตรงได้ ไม่ต้องกรอง hunk แล้ว)
-**เฟส 4:** สแกนข้อความไลน์รายวัน → เสนอ todo เข้ากล่องรอคัด (ต่อยอด [[project-f4-fuel-line-compare]] pattern parse)
+**เฟส 4 — DONE + deploy 5ก.ค. (8314163+cf97e5c, schema v46):** กล่องรอคัดจากไลน์
+- `TodoSuggest` + `services/todo_scan.py`: prefilter → Qwen คัดก้อนละ 25; **AI สร้างได้แค่ pending** โอกดรับถึงเกิด TodoItem (รูปตามมาผ่าน `_todo_from_line_bundle` — refactor ใช้ร่วมเฟส 1)
+- auto-scan: admin เปิด /todo + รอบล่าสุด >20 ชม. → thread; ปุ่มสแกนเองได้; กล่อง/สแกน admin-only
+- จูนจากวัดจริง (400 ข้อความ→58→49): ตัดฟอร์แมต "แจ้งเติม"+น้ำมัน (F4 ดูแยกแล้ว [[project-f4-fuel-line-compare]]) + dedupe (who,text) ข้ามกลุ่ม; คีย์เวิร์ด "ขอ" จับ "ขอบคุณ" ได้ = ตั้งใจ (AI คัดชั้นสุดท้าย)
+- /ai เลือกรุ่น Claude ได้: claude:haiku|sonnet|opus → `chat_claude(model=...)` → `--model`; Qwen มีตัวเดียว qwen3.6-35b-a3b
+
+**ค้าง/ไอเดียถัดไป:** AI ตอบเรื่องเงินรายคน (เช่น "เรวัตรได้เท่าไหร่") ยังไม่ได้ — ตั้งใจ (system prompt มีแค่ count, ห้ามเดาเลขเงิน); ถ้าโออยากได้ต้องออกแบบช่องข้อมูล read-only เพิ่มอย่างระวัง
 
 กฎยืนทุกเฟส: AI read-only — สร้างอะไรเป็น draft ให้โอยืนยัน ห้ามเขียน DB เอง โดยเฉพาะเงิน
