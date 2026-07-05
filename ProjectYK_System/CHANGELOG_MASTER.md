@@ -4,6 +4,14 @@
 
 > **Agent bootstrap:** อ่านเฉพาะ **3 หัวข้อ `##` แรกจากด้านบนลงมา** (ไม่รวมบรรทัดนี้) — **ห้าม**อ่านทั้งไฟล์ทุกแชต. นโยบาย/การย้าย archive: [`ProjectYK_System/docs/CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md)
 
+## 2026-07-05 (LINE→todo เฟส 1+2 — ปุ่ม ➕ จากคลังไลน์ + ✨ AI เรียบเรียง)
+
+- **เฟส 1 ✅ (a3fcfd3):** ปุ่ม ➕ บนหน้า /line ส่งข้อความ+รูปคนส่งเดียวกัน ±20 นาทีทั้งชุดเข้า /todo (`bundle_for_todo`, หมวด "ไลน์", รูปที่ย้ายลงแผ่น External ใส่โน้ตเตือนแทน)
+- **เฟส 2 ✅ (48beeb5):** ปุ่ม ✨ เรียบเรียง ต่อรายการบน /todo — Qwen ฟรี (9arm) แก้คำผิด+จัดหมวด (แจ้งซ่อม/งาน/เบิกของ) เป็น **draft htmx fragment เท่านั้น**; บันทึกจริงต่อเมื่อโอกด "ใช้ตามนี้" (ยิง `/todo/{id}/update` ตัวเดิม) — AI ไม่เขียน DB, ไม่แตะ schema
+- **gotcha 9arm REST (`services/ai_assist.py`):** ต้องใช้ท่า OpenAI `/v1/chat/completions` (ท่า `/v1/messages` คืน content ว่าง — LiteLLM แปลงหาย) + ตั้ง `user-agent` เอง (WAF บล็อก UA Python → 403) + `temperature: 0` (เคยเปลี่ยน "พรุ่งนี้"→"บ่ายนี้" ความหมายเพี้ยน); กันบรรทัดที่มา 📱/(⚠️ หายฝั่ง server
+- คีย์ = secret #8 `YK_QWEN_KEY` ใน `start_mvp.bat` (ดู `docs/SECRETS_INVENTORY.md`); เทสต์ใหม่ 11 ตัว (test_line_to_todo 4 + test_todo_ai_draft 7) + smoke จริงบน server ผ่าน
+- เฟสถัดไป: เฟส 3 หน้า /ai (claude -p ผ่าน Max บนเครื่อง server) · เฟส 4 auto-scan ไลน์รายวันเสนอ todo
+
 ## 2026-07-04 (เซสชันกลางวัน — แพลน MVP 34/38: G2/S3/S5/F0 จบ + จูน POD + อุด CVE)
 
 - **G2 ✅ (v44):** ย้ายรูปไลน์เก่าลงแผ่น External — ตาราง `MediaArchive` + `services/media_archive.py` (copy→sha256→ค่อยลบ), การ์ด+ปุ่มบน /admin/server-health, `/line/media` fallback ป้าย "อยู่แผ่น EXT-xx"; นโยบายเก็บ 2 ปี เตือนดิสก์ <25%

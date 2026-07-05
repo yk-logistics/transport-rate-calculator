@@ -24,6 +24,7 @@
 - [BigC มิ.ย. deposit/ภาษี/น้ำมัน](project-bigc-jun-deposit-tax-fuel.md) — ภาษี BigC รอโอตัดสิน
 
 ## งานเสร็จล่าสุด (ก.ค.)
+- [LINE→todo + AI 4 เฟส](project-line-to-todo-ai-phases.md) — เฟส 1 (➕ /line→/todo) + เฟส 2 (✨ Qwen เรียบเรียง+จัดหมวดเป็น draft) deploy แล้ว 5ก.ค.; เฟส 3-4 ค้าง (หน้า /ai + claude -p ผ่าน Max / auto-scan); gotcha 9arm REST: ต้องท่า /v1/chat/completions + ตั้ง UA เอง; main.py ยังมี hunk PWA /sw.js ค้างของ session อื่น — stage แบบกรอง + deploy จาก HEAD
 - [AYU ก.ค. พร้อม import](project-ayu-jul-import-ready.md) — เครื่องมือ+preflight ครบ (231 งาน ไม่มี dupe); **รอโอเคาะ: กลางรอบ (ปลด F3/D1 แต่ห้าม re-import ทับ grid) vs จบรอบ 25 ก.ค.**
 - [🚀 Starlette migrated](project-starlette-migrated.md) — 4ก.ค.: fastapi 0.139/starlette 1.3.1 บน server+dev, 0 CVE; **route ใหม่ต้อง TemplateResponse(request, name, ctx)**
 - [F4 น้ำมันไลน์↔ระบบ](project-f4-fuel-line-compare.md) — DONE 4ก.ค. ไม่ใช้ OCR: /fuel/line-compare parse ข้อความแจ้งเติม; ตกหล่นจริง 7 รายการรอทีม; "รอ import" เทียบ per-site
