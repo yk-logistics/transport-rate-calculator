@@ -56,12 +56,18 @@ table.daily td.num{text-align:right;font-family:"IBM Plex Mono";font-variant-num
 /* route บรรทัดเดียวเสมอ (ทุกแถวสูงเท่ากัน) — ถ้ายาวเกิน JS fitRouteCells ย่อ font เฉพาะช่อง */
 .c-route{line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .c-trip{font-weight:600;white-space:nowrap;}
+/* ป้ายเหมา/เที่ยว/รถจอด นำหน้า route (แทนคอลัมน์ "ฝั่ง" เดิม — ประหยัดที่ให้ตารางลูกผสม) */
+.k-tag{display:inline-block;font-size:8px;font-weight:600;padding:0 4px;border-radius:2px;margin-right:4px;vertical-align:1px;}
+.k-mao{background:#e4f3e9;color:#1f7a4d;}
+.k-trip{background:#e6eefb;color:#2c5aa0;}
+.k-idle{background:#eee;color:#777;}
 /* ค่าเที่ยว: เลขหลัก .tripv ; พิเศษ/OT แยกเป็นคอลัมน์ .c-extra (ไม่ซ้อนใต้ค่าเที่ยวแล้ว) */
 .c-trip .tripv{font-size:11px;line-height:1.15;}
 .c-extra{white-space:nowrap;}
-.c-extra .fline.sub{font-size:9px;line-height:1.2;color:var(--wb-soft);justify-content:flex-end;gap:3px;}
-.c-extra .fline.sub .fnum{min-width:0;font-weight:600;}
-.c-extra .fline.sub .fk{color:var(--wb-muted);font-size:8px;}
+/* number กับ label แยกกล่องความกว้างคงที่ → หลายบรรทัด (พิเศษ/OT) เรียงตรงเป็นคอลัมน์ */
+.c-extra .fline.sub{font-size:9px;line-height:1.25;color:var(--wb-soft);justify-content:flex-end;gap:0;flex-wrap:nowrap;}
+.c-extra .fline.sub .fnum{min-width:26px;text-align:right;font-weight:600;flex:none;}
+.c-extra .fline.sub .fk{min-width:30px;text-align:left;color:var(--wb-muted);font-size:8px;padding-left:4px;flex:none;}
 .c-cut{color:var(--wb-neg);}
 .c-credit{color:var(--wb-pos);font-weight:600;}
 .tag-credit{display:inline-block;font-size:8px;background:#e7f1ea;color:var(--wb-pos);padding:0 4px;border-radius:2px;font-weight:600;}
@@ -76,7 +82,7 @@ table.daily td.num{text-align:right;font-family:"IBM Plex Mono";font-variant-num
 .tag-fee{display:inline-block;font-size:8px;font-weight:600;background:#eef4ff;color:#2c5aa0;padding:0 4px;border-radius:2px;border:1px solid #cdddf5;}
 /* น้ำมัน/พิเศษ: ทุกแถวใช้ .fline เหมือนกัน ตัวเล็กเท่ากันหมด อยู่กลางแนวตั้ง เรียงตรงคอลัมน์.
    บิลเดียว/หลายบิล ขนาดเดียวกัน (8px) → แถวไม่กระโดด */
-.daily td .fline{font-size:8px;line-height:1.15;white-space:nowrap;color:var(--wb-ink);display:flex;justify-content:flex-end;align-items:center;gap:3px;}
+.daily td .fline{font-size:8px;line-height:1.15;white-space:nowrap;color:var(--wb-ink);display:flex;justify-content:flex-end;align-items:center;gap:3px;flex-wrap:wrap;row-gap:0;}
 .daily td .fline + .fline{margin-top:0;}
 .slip.dense .daily td .fline,.slip.ultra .daily td .fline{font-size:7px;line-height:1.05;}
 /* เลขน้ำมัน + เกรด ความกว้างคงที่ → ตรงเป็นคอลัมน์ ไม่ขยับซ้ายขวา ; ป้าย "ไม่หัก" เล็กท้ายสุด */
