@@ -25,8 +25,28 @@
     <button id="ai-send" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 rounded-xl font-bold">ถาม</button>
   </form>
 
-  {% if logs %}
   <details class="mt-5">
+    <summary class="cursor-pointer text-sm text-slate-500 font-semibold">⚙️ ตั้งค่าปุ่ม ✨ เรียบเรียง (หน้าสิ่งที่ต้องทำ)</summary>
+    <form method="post" action="/ai/settings" class="bg-white rounded-lg border px-3 py-2 mt-2 text-sm space-y-1.5">
+      <label class="flex gap-2 items-center">
+        <input type="radio" name="draft_provider" value="auto" {% if draft_provider == 'auto' %}checked{% endif %}>
+        อัตโนมัติ — ใช้ Qwen (ฟรี) ก่อน ถ้าล่มสลับไป Claude ให้เอง <span class="text-slate-400">(แนะนำ)</span>
+      </label>
+      <label class="flex gap-2 items-center">
+        <input type="radio" name="draft_provider" value="qwen" {% if draft_provider == 'qwen' %}checked{% endif %}>
+        Qwen เท่านั้น — ถ้าล่มขึ้นข้อความพังเลย ไม่สลับ
+      </label>
+      <label class="flex gap-2 items-center">
+        <input type="radio" name="draft_provider" value="claude" {% if draft_provider == 'claude' %}checked{% endif %}
+               {% if not claude_ok %}disabled{% endif %}>
+        Claude เท่านั้น{% if not claude_ok %} <span class="text-slate-400">— ยังไม่ติดตั้งบนเครื่องนี้</span>{% endif %}
+      </label>
+      <button class="bg-slate-700 hover:bg-slate-800 text-white rounded px-3 py-1 font-semibold">บันทึก</button>
+    </form>
+  </details>
+
+  {% if logs %}
+  <details class="mt-3">
     <summary class="cursor-pointer text-sm text-slate-500 font-semibold">🕵️ ประวัติการใช้ ({{ logs|length }} ล่าสุด)</summary>
     <div class="space-y-1 mt-2 text-sm">
       {% for l in logs %}

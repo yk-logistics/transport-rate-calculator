@@ -4,7 +4,7 @@
   {% if error %}
   <div class="text-rose-600">⚠️ {{ error }}</div>
   {% else %}
-  <div class="text-xs text-violet-600 font-bold mb-1">✨ AI เรียบเรียงให้ (ยังไม่บันทึก — แก้ต่อได้ แล้วกดใช้)</div>
+  <div class="text-xs text-violet-600 font-bold mb-1">✨ AI เรียบเรียงให้{% if engine == 'claude' %} — Claude สำรอง{% endif %} (ยังไม่บันทึก — แก้ต่อได้ แล้วกดใช้)</div>
   <form method="post" action="/todo/{{ t.id }}/update" class="space-y-1.5">
     <textarea name="text" rows="4" class="w-full border border-violet-200 rounded px-2 py-1">{{ draft_text }}</textarea>
     <div class="flex gap-1.5 items-center flex-wrap">

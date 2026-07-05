@@ -10343,10 +10343,12 @@ def todo_ai_draft(item_id: int, request: Request):
                        s.exec(select(TodoItem.category)
                               .where(TodoItem.username == user.username)).all()
                        if (x or "").strip()})
-    ctx = {"t": t, "error": "", "draft_text": "", "draft_category": ""}
+    ctx = {"t": t, "error": "", "draft_text": "", "draft_category": "", "engine": ""}
     try:
-        d = ai_assist.rewrite_todo(t.text, cats)
-        ctx.update({"draft_text": d["text"], "draft_category": d["category"] or t.category})
+        d = ai_assist.rewrite_todo(t.text, cats,
+                                   provider=get_setting("ai_draft_provider", "auto"))
+        ctx.update({"draft_text": d["text"], "draft_category": d["category"] or t.category,
+                    "engine": d["engine"]})
     except Exception as e:
         ctx["error"] = str(e)
     return templates.TemplateResponse(request, "todo_ai_draft.html", ctx)
@@ -10431,8 +10433,17 @@ def ai_page(request: Request):
     with Session(engine) as s:
         logs = s.exec(select(AiChatLog).order_by(AiChatLog.id.desc()).limit(20)).all()
     ctx = base_context(request)
-    ctx.update({"claude_ok": ai_assist.claude_available(), "logs": logs})
+    ctx.update({"claude_ok": ai_assist.claude_available(), "logs": logs,
+                "draft_provider": get_setting("ai_draft_provider", "auto")})
     return templates.TemplateResponse(request, "ai.html", ctx)
+
+
+@app.post("/ai/settings")
+def ai_settings(request: Request, draft_provider: str = Form("auto")):
+    """ตั้งค่าปุ่ม ✨ เรียบเรียง (หน้า /todo) — auto = Qwen ก่อน ล่มค่อยสลับ Claude."""
+    if draft_provider in ("auto", "qwen", "claude"):
+        set_setting("ai_draft_provider", draft_provider)
+    return RedirectResponse("/ai", status_code=303)
 
 
 @app.post("/ai/ask")

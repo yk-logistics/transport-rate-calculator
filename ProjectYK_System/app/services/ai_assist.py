@@ -69,13 +69,8 @@ def chat_qwen(messages: list[dict], max_tokens: int = 1000, temperature: float =
     return raw
 
 
-def rewrite_todo(text: str, categories: list[str]) -> dict:
-    """ส่งข้อความโน้ตให้ Qwen แก้คำผิด+จัดหมวด → {"text":..., "category":...}."""
-    # temperature 0: งานพิสูจน์อักษร — ไม่ต้องการความสร้างสรรค์ (เคยเปลี่ยน 'พรุ่งนี้'→'บ่ายนี้')
-    raw = chat_qwen([
-        {"role": "system", "content": _SYSTEM.format(cats=", ".join(categories) or "-")},
-        {"role": "user", "content": text},
-    ])
+def _parse_draft(raw: str, text: str) -> dict:
+    """แกะ JSON จากคำตอบ AI + กันบันทึกที่มา (📱/(⚠️) หาย — ใช้ร่วม Qwen/Claude."""
     m = re.search(r"\{.*\}", raw, re.S)
     try:
         d = json.loads(m.group()) if m else {}
@@ -90,6 +85,28 @@ def rewrite_todo(text: str, categories: list[str]) -> dict:
         if s.startswith(("📱", "(⚠️")) and s not in draft:
             draft += "\n\n" + s
     return {"text": draft, "category": str(d.get("category") or "").strip()}
+
+
+def rewrite_todo(text: str, categories: list[str], provider: str = "auto") -> dict:
+    """เรียบเรียงโน้ต → {"text":..., "category":..., "engine": "qwen"|"claude"}.
+
+    provider (ตั้งได้ที่หน้า /ai): "auto" = Qwen ฟรีก่อน ถ้าพัง fallback Claude,
+    "qwen"/"claude" = ใช้ตัวนั้นตัวเดียว."""
+    sys_prompt = _SYSTEM.format(cats=", ".join(categories) or "-")
+    if provider != "claude":
+        try:
+            # temperature 0: งานพิสูจน์อักษร — ไม่ต้องการความสร้างสรรค์
+            # (เคยเปลี่ยน 'พรุ่งนี้'→'บ่ายนี้')
+            raw = chat_qwen([
+                {"role": "system", "content": sys_prompt},
+                {"role": "user", "content": text},
+            ])
+            return {**_parse_draft(raw, text), "engine": "qwen"}
+        except RuntimeError:
+            if provider == "qwen" or not claude_available():
+                raise
+    raw = chat_claude(sys_prompt + "\n\nโน้ตต้นฉบับ:\n" + text, timeout=120)
+    return {**_parse_draft(raw, text), "engine": "claude"}
 
 
 # ---- Claude ผ่าน `claude -p` headless (เฟส 3 หน้า /ai) -------------------------
