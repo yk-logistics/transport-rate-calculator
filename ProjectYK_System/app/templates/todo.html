@@ -63,6 +63,10 @@
               <span>{{ t.created_at | dmy }}</span>
               {% set pics = media_of(t) %}
               {% for m in pics %}<a href="/todo/media/{{ t.id }}/{{ m }}" target="_blank"><img src="/todo/media/{{ t.id }}/{{ m }}" class="h-10 w-10 object-cover rounded inline-block border"></a>{% endfor %}
+              <button hx-post="/todo/{{ t.id }}/ai-draft" hx-target="#aid-{{ t.id }}" hx-swap="innerHTML"
+                      hx-on::before-request="this.textContent='⏳ กำลังเรียบเรียง...'"
+                      hx-on::after-request="this.textContent='✨ เรียบเรียง'"
+                      class="text-violet-500 hover:text-violet-700" title="ให้ AI แก้คำผิด+จัดหมวด (เป็น draft — ยังไม่บันทึกจนกว่าจะกดใช้)">✨ เรียบเรียง</button>
               <details class="inline"><summary class="cursor-pointer hover:text-slate-600">แก้ไข</summary>
                 <form method="post" action="/todo/{{ t.id }}/update" class="flex gap-1.5 mt-1.5 flex-wrap items-center bg-slate-50 rounded-lg p-2">
                   <input name="text" value="{{ t.text }}" class="border rounded px-2 py-0.5 w-64 text-sm">
@@ -80,6 +84,7 @@
                 </form>
               </details>
             </div>
+            <div id="aid-{{ t.id }}"></div>
           </div>
         </div>
       </div>

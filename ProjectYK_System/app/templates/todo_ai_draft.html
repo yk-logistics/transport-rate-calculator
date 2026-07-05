@@ -1,0 +1,21 @@
+{# fragment ที่ htmx สลับเข้า #aid-<id> บนหน้า /todo — draft จาก AI ยังไม่บันทึก
+   จนกว่าโอกด "ใช้ตามนี้" (ยิง /todo/<id>/update ตัวเดิม) #}
+<div class="mt-2 bg-violet-50 border border-violet-200 rounded-lg p-2 text-sm">
+  {% if error %}
+  <div class="text-rose-600">⚠️ {{ error }}</div>
+  {% else %}
+  <div class="text-xs text-violet-600 font-bold mb-1">✨ AI เรียบเรียงให้ (ยังไม่บันทึก — แก้ต่อได้ แล้วกดใช้)</div>
+  <form method="post" action="/todo/{{ t.id }}/update" class="space-y-1.5">
+    <textarea name="text" rows="4" class="w-full border border-violet-200 rounded px-2 py-1">{{ draft_text }}</textarea>
+    <div class="flex gap-1.5 items-center flex-wrap">
+      <span class="text-xs text-slate-500">หมวด:</span>
+      <input name="category" value="{{ draft_category }}" list="cats" class="border rounded px-2 py-0.5 w-28">
+      <input type="hidden" name="priority" value="{{ t.priority }}">
+      <input type="hidden" name="due_date" value="{{ t.due_date or '' }}">
+      <button class="bg-violet-600 hover:bg-violet-700 text-white rounded px-3 py-0.5 font-semibold">✅ ใช้ตามนี้</button>
+      <button type="button" onclick="this.closest('[id^=aid-]').innerHTML=''"
+              class="text-slate-500 underline text-xs">ไม่เอา</button>
+    </div>
+  </form>
+  {% endif %}
+</div>

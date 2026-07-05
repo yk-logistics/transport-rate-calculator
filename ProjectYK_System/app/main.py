@@ -10318,6 +10318,32 @@ def todo_media(item_id: int, fname: str, request: Request):
     return FileResponse(p)
 
 
+@app.post("/todo/{item_id}/ai-draft", response_class=HTMLResponse)
+def todo_ai_draft(item_id: int, request: Request):
+    """ปุ่ม ✨ บนหน้า /todo (เฟส 2 LINE→todo) — ให้ Qwen ฟรี (9arm) แก้คำผิด+จัดหมวด
+    เป็น draft เท่านั้น: คืน fragment ให้โอแก้ต่อ/กดรับผ่าน /todo/{id}/update ตัวเดิม
+    — AI ไม่เขียน DB เอง."""
+    from auth import current_user
+    from services import ai_assist
+
+    user = current_user(request)
+    with Session(engine) as s:
+        t = s.get(TodoItem, item_id)
+        if not (t and user and t.username == user.username):
+            raise HTTPException(404)
+        cats = sorted({x.strip() for x in
+                       s.exec(select(TodoItem.category)
+                              .where(TodoItem.username == user.username)).all()
+                       if (x or "").strip()})
+    ctx = {"t": t, "error": "", "draft_text": "", "draft_category": ""}
+    try:
+        d = ai_assist.rewrite_todo(t.text, cats)
+        ctx.update({"draft_text": d["text"], "draft_category": d["category"] or t.category})
+    except Exception as e:
+        ctx["error"] = str(e)
+    return templates.TemplateResponse(request, "todo_ai_draft.html", ctx)
+
+
 @app.post("/line/{msg_id}/to-todo")
 def line_to_todo(msg_id: int, request: Request, q: str = Form(""), group: str = Form(""),
                  page: str = Form("0")):
