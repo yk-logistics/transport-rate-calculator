@@ -404,6 +404,9 @@ def build_payroll_slip_context(
         if f.daily_job_id and f.daily_job_id in _dj_order:
             _fill_groups.setdefault(f.txn_date, []).append(f)
     fuel_lines_by_job: dict[int, list] = {}
+    # txn → แถวที่บิล "โชว์จริง" บนสลิป (บิลผิดวันถูกย้ายไป anchor) — ใช้วางธง E2 ให้ตรงช่อง
+    _txn_disp_job = {f.id: f.daily_job_id for f in fuel_rows
+                     if f.daily_job_id and f.daily_job_id in _dj_order}
     for _fill_date, _txns in _fill_groups.items():
         _ondate = [t for t in _txns if _job_wd.get(t.daily_job_id) == _fill_date]
         _misdated = [t for t in _txns if _job_wd.get(t.daily_job_id) != _fill_date]
@@ -426,10 +429,45 @@ def build_payroll_slip_context(
             for t in _misdated:
                 fuel_lines_by_job.setdefault(t.daily_job_id, [])  # แถวเดิม = เว้นช่อง
         for jid, ts in _by_job.items():
+            for t in ts:
+                _txn_disp_job[t.id] = jid
             # โชว์เป็น fline เฉพาะเมื่อ >1 บิลต่อ job หรือ job นี้เป็น anchor ที่รับ misdated
             if len(ts) > 1 or (jid == anchor and _misdated):
                 fuel_lines_by_job[jid] = [_mk_line(t) for t in sorted(ts, key=lambda t:(t.txn_date, t.id or 0))]
             # len==1 ตรงวัน job เดียว → ปล่อย fallback r.fuel_* (ไม่ต้องใส่ map)
+
+    # --- E2: ธงน้ำมันผิดปกติบนสลิป — โชว์เฉพาะชุดผู้บริหาร (template เช็ค is_boss) ---
+    # reuse กติกา R1/R2/R3 จาก services.fuel_anomaly (read-only ไม่แตะเงิน); ธงเฉพาะบิล
+    # ในตาราง (มี daily_job_id) — วัดถัง/ยกยอด = รายการมือ ไม่ธง. key = แถวที่บิลโชว์จริง.
+    from services import fuel_anomaly as _fa
+
+    _ANOM_SHORT = {"R1": "เติมถี่", "R2": "เกินถัง", "R3": "วันไม่มีงาน"}
+    _ANOM_LV = {"rose": 0, "amber": 1, "sky": 2}
+    fuel_anomaly_by_job: dict[int, dict] = {}
+    if _txn_disp_job:
+        for _ar in _fa.scan(session, start, end, site=pr.site_code)["rows"]:
+            _jid = _txn_disp_job.get(_ar["id"])
+            if not _jid:
+                continue
+            # R1 บนสลิปธงเมื่อ ≥3 บิล/วันเท่านั้น — ปั๊มออกบิล B7+B20 แยกใบต่อการเติม
+            # ครั้งเดียวเป็นปกติ (2 บิล/วันแทบทุกคัน → ธงหมดจนไร้ความหมาย);
+            # หน้า /fuel/anomaly ยังใช้เกณฑ์ ≥2 เดิม
+            _fls = [f for f in _ar["flags"]
+                    if not (f["code"] == "R1" and f.get("n", 0) < 3)]
+            if not _fls:
+                continue
+            cur = fuel_anomaly_by_job.setdefault(
+                _jid, {"codes": set(), "titles": [], "level": "sky"})
+            for _fl in _fls:
+                cur["codes"].add(_fl["code"])
+                cur["titles"].append(_fl["text"])
+            # worst จากธงที่เหลือหลังกรอง (ไม่ใช้ _ar["worst"] ที่รวม R1 ที่ตัดทิ้ง)
+            _worst = min((f["level"] for f in _fls), key=_ANOM_LV.get)
+            if _ANOM_LV[_worst] < _ANOM_LV[cur["level"]]:
+                cur["level"] = _worst
+        for cur in fuel_anomaly_by_job.values():
+            cur["short"] = "·".join(_ANOM_SHORT[c] for c in sorted(cur["codes"]))
+            cur["title"] = " | ".join(dict.fromkeys(cur["titles"]))
 
     plates = sorted({r.plate_no_raw for r in daily_jobs if r.plate_no_raw})
     plates_used = ", ".join(plates) if plates else ""
@@ -590,6 +628,7 @@ def build_payroll_slip_context(
         "excluded_job_ids": excluded_job_ids,
         "fuel_grade_by_job": fuel_grade_by_job,
         "fuel_lines_by_job": fuel_lines_by_job,
+        "fuel_anomaly_by_job": fuel_anomaly_by_job,
         "trip_count": trip_count,
         "driver_fees_by_job": driver_fees_by_job,
         "fuel_only_info": fuel_only_info,

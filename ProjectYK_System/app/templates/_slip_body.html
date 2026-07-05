@@ -8,6 +8,9 @@
 {# น้ำมันโชว์ตามวันเติมจริง: anchor (แถววันเติม) ถือ list บรรทัดย่อย [{liter,amount,grade,excluded}];
    job ที่ถูกดูดเข้ากลุ่ม = [] (เว้นช่องว่าง); ไม่อยู่ใน map = โชว์ปกติจาก r.fuel_* #}
 {% set _flines = fuel_lines_by_job|default({}) %}
+{# E2: ธงน้ำมันผิดปกติ (R1 เติมถี่/R2 เกินถัง/R3 วันไม่มีงาน) — โชว์เฉพาะชุดผู้บริหาร #}
+{% set _anom = fuel_anomaly_by_job|default({}) if is_boss|default(false) else {} %}
+{% macro anomtag(jid) %}{% set a = _anom.get(jid) %}{% if a %}<div class="fline"><span class="tag-anom lv-{{ a.level }}" title="{{ a.title }}">⚠ {{ a.short }}</span></div>{% endif %}{% endmacro %}
 {# ค่าพิเศษ/OT/รับตู้คืนตู้ ต่อแถว — โชว้ว่ามาจากเที่ยวไหน (มาโคร render เป็น tag เล็ก) #}
 {% set _dfees = driver_fees_by_job|default({}) %}
 {# พิเศษ/OT/รับตู้ = คอลัมน์แยกต่างหาก (โอ 1ก.ค. เดิมซ้อนใต้ค่าเที่ยวแล้วเบียด). แต่ละชนิดเป็น 1 บรรทัด #}
@@ -79,7 +82,7 @@
             {%- elif _lines %}
             {# วันเติมจริง: หลายบิลอัดในแถวเดียว เป็นบรรทัดย่อย #}
             <td class="num">{% for l in _lines %}<div class="fline">{{ '{:,.0f}'.format(l.liter) if l.liter else '' }}</div>{% endfor %}</td>
-            <td class="num">{% for l in _lines %}<div class="fline">{%- if l.amount %}{{ '{:,.0f}'.format(l.amount) }}{% if l.grade %} <span class="tag-grade">{{ l.grade }}</span>{% endif %}{% if l.excluded %} <span class="tag-free">ไม่หัก</span>{% elif r.work_date in fuel_deduct_dates %} <span class="tag-cut">หัก</span>{% elif k.kind == 'trip' %} <span class="tag-co">บริษัท</span>{% endif %}{%- endif %}</div>{% endfor %}</td>
+            <td class="num">{% for l in _lines %}<div class="fline">{%- if l.amount %}{{ '{:,.0f}'.format(l.amount) }}{% if l.grade %} <span class="tag-grade">{{ l.grade }}</span>{% endif %}{% if l.excluded %} <span class="tag-free">ไม่หัก</span>{% elif r.work_date in fuel_deduct_dates %} <span class="tag-cut">หัก</span>{% elif k.kind == 'trip' %} <span class="tag-co">บริษัท</span>{% endif %}{%- endif %}</div>{% endfor %}{{ anomtag(r.id) }}</td>
             {%- else %}
             <td class="num">{{ '{:,.0f}'.format(r.fuel_liter) if r.fuel_liter else '' }}</td>
             <td class="num">
@@ -88,6 +91,7 @@
                 {%- if r.work_date in fuel_deduct_dates %} <span class="tag-cut">หัก</span>
                 {%- elif k.kind == 'trip' %} <span class="tag-co">บริษัท</span>{% endif %}
               {%- endif %}
+              {{- anomtag(r.id) }}
             </td>
             {%- endif %}
           </tr>
@@ -141,7 +145,7 @@
             {%- else %}
             {% set _fuel = _m if _m else ([{'liter': r.fuel_liter, 'amount': r.fuel_amount, 'grade': _grades.get(r.id, ''), 'excluded': (r.id in excluded_job_ids)}] if (r.fuel_amount or r.fuel_liter) else []) %}
             <td class="num">{% for l in _fuel %}<div class="fline"><span class="fnum">{{ '{:.0f}'.format(l.liter) if l.liter else '' }}</span></div>{% endfor %}</td>
-            <td class="num">{% for l in _fuel %}<div class="fline">{%- if l.amount %}<span class="fnum">{{ '{:,.0f}'.format(l.amount) }}</span><span class="tag-grade">{{ l.grade or '' }}</span>{%- endif %}</div>{% if l.excluded %}<div class="fline"><span class="tag-free">ไม่หัก</span></div>{% endif %}{% endfor %}</td>
+            <td class="num">{% for l in _fuel %}<div class="fline">{%- if l.amount %}<span class="fnum">{{ '{:,.0f}'.format(l.amount) }}</span><span class="tag-grade">{{ l.grade or '' }}</span>{%- endif %}</div>{% if l.excluded %}<div class="fline"><span class="tag-free">ไม่หัก</span></div>{% endif %}{% endfor %}{{ anomtag(r.id) }}</td>
             {%- endif %}
             <td class="num c-trip">{% if r.trip_fee_driver %}<div class="tripv">{{ '{:,.0f}'.format(trip_fee_show(r)) }}</div>{% endif %}</td>
             <td class="num c-extra">{{ feecol(r.id) }}</td>

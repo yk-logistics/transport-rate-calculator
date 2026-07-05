@@ -80,6 +80,11 @@ table.daily td.num{text-align:right;font-family:"IBM Plex Mono";font-variant-num
 .tag-fuel{display:inline-block;font-size:9px;font-weight:600;background:#fdf1dd;color:#9a6a1a;padding:0 5px;border-radius:2px;border:1px solid #ecd3a3;}
 /* ค่าพิเศษ/OT/รับตู้คืนตู้ ต่อแถว (โชว้มาจากเที่ยวไหน) */
 .tag-fee{display:inline-block;font-size:8px;font-weight:600;background:#eef4ff;color:#2c5aa0;padding:0 4px;border-radius:2px;border:1px solid #cdddf5;}
+/* E2: ธงน้ำมันผิดปกติ (ชุดผู้บริหารเท่านั้น) — rose=เกินถัง amber=เติมถี่ sky=วันไม่มีงาน */
+.tag-anom{display:inline-block;font-size:8px;font-weight:600;padding:0 4px;border-radius:2px;}
+.tag-anom.lv-rose{background:#fbe7e7;color:#b3261e;}
+.tag-anom.lv-amber{background:#fdf3dc;color:#9a6b00;}
+.tag-anom.lv-sky{background:#e6f2fb;color:#2c5aa0;}
 /* น้ำมัน/พิเศษ: ทุกแถวใช้ .fline เหมือนกัน ตัวเล็กเท่ากันหมด อยู่กลางแนวตั้ง เรียงตรงคอลัมน์.
    บิลเดียว/หลายบิล ขนาดเดียวกัน (8px) → แถวไม่กระโดด */
 .daily td .fline{font-size:8px;line-height:1.15;white-space:nowrap;color:var(--wb-ink);display:flex;justify-content:flex-end;align-items:center;gap:3px;flex-wrap:wrap;row-gap:0;}

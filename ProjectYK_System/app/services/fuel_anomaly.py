@@ -64,7 +64,7 @@ def scan(session: Session, d1: date, d2: date, site: str = "") -> dict:
         same_day = per_day.get(key, [])
         if len(same_day) >= REFILL_PER_DAY_THRESHOLD:
             day_liters = sum(x.liter or 0 for x in same_day)
-            flags.append({"code": "R1", "level": "amber",
+            flags.append({"code": "R1", "level": "amber", "n": len(same_day),
                           "text": f"เติม {len(same_day)} ครั้งในวัน (รวม {day_liters:,.0f} ลิตร)"})
         v = vehicles.get(f.vehicle_id or -1)
         tank = (v.tank_liters if v and v.tank_liters else 0) or \

@@ -80,6 +80,11 @@ table.daily td.num{text-align:right;font-family:"IBM Plex Mono";font-variant-num
 .tag-fuel{display:inline-block;font-size:9px;font-weight:600;background:#fdf1dd;color:#9a6a1a;padding:0 5px;border-radius:2px;border:1px solid #ecd3a3;}
 /* ค่าพิเศษ/OT/รับตู้คืนตู้ ต่อแถว (โชว้มาจากเที่ยวไหน) */
 .tag-fee{display:inline-block;font-size:8px;font-weight:600;background:#eef4ff;color:#2c5aa0;padding:0 4px;border-radius:2px;border:1px solid #cdddf5;}
+/* E2: ธงน้ำมันผิดปกติ (ชุดผู้บริหารเท่านั้น) — rose=เกินถัง amber=เติมถี่ sky=วันไม่มีงาน */
+.tag-anom{display:inline-block;font-size:8px;font-weight:600;padding:0 4px;border-radius:2px;}
+.tag-anom.lv-rose{background:#fbe7e7;color:#b3261e;}
+.tag-anom.lv-amber{background:#fdf3dc;color:#9a6b00;}
+.tag-anom.lv-sky{background:#e6f2fb;color:#2c5aa0;}
 /* น้ำมัน/พิเศษ: ทุกแถวใช้ .fline เหมือนกัน ตัวเล็กเท่ากันหมด อยู่กลาง เรียงตรงคอลัมน์ */
 .daily td .fline{font-size:8px;line-height:1.15;white-space:nowrap;color:var(--wb-ink);display:flex;justify-content:flex-end;align-items:center;gap:3px;flex-wrap:wrap;row-gap:0;}
 .daily td .fline + .fline{margin-top:0;}
@@ -329,6 +334,7 @@ table.run tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding
           fuel_used_l=r.ctx.fuel_used_l, avg_km_per_l=r.ctx.avg_km_per_l,
           fuel_grade_by_job=r.ctx.fuel_grade_by_job,
           fuel_lines_by_job=r.ctx.fuel_lines_by_job, trip_count=r.ctx.trip_count,
+          fuel_anomaly_by_job=r.ctx.fuel_anomaly_by_job,
           driver_fees_by_job=r.ctx.driver_fees_by_job, is_boss=is_boss %}
     {% include "_slip_body.html" %}
   {% endwith %}
