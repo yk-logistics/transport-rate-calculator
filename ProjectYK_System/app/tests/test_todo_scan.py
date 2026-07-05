@@ -59,6 +59,9 @@ def _make_archive(tmp_path: Path) -> Path:
         (5, 'm5', 'g1', 'u1', 'text', 'สวัสดีครับ', None, _ts(20)),
         (6, 'm6', 'g1', 'u1', 'text', 'เมื่อเดือนก่อนขอเบิกไส้กรอง', None,
          (NOW - timedelta(days=40)).strftime("%Y-%m-%d %H:%M:%S")),
+        # ฟอร์แมตแจ้งเติมน้ำมัน (F4 ดูแยกแล้ว) + โพสต์ซ้ำข้ามกลุ่มของ msg 3
+        (7, 'm7', 'g1', 'u1', 'text', 'แจ้งเติม Caltex ดีเซล 120 ลิตร รถ 72-1219', None, _ts(15)),
+        (8, 'm8', 'g1', 'u1', 'text', 'ยางหลังแตก 2 เส้น รถ 72-1219 ขอเปลี่ยนด่วนครับ', None, _ts(10)),
     ]
     con.executemany("INSERT INTO line_message VALUES (?,?,?,?,?,?,?,?,NULL,0)", rows)
     con.commit()
@@ -106,10 +109,12 @@ def test_scan_creates_pending_and_dedupes(clients, monkeypatch):
     seen = _fake_classify(monkeypatch)
     r = c_admin.post("/todo/scan-line", follow_redirects=False)
     assert r.status_code == 303 and "scanned=1" in r.headers["location"]
-    # prefilter หยาบ: msg 3 ต้องถึง AI; ทักทาย (ไม่มีคีย์เวิร์ด) กับข้อความเก่าเกินต้องไม่ถึง
+    # prefilter หยาบ: msg 3 ต้องถึง AI; ทักทาย (ไม่มีคีย์เวิร์ด) / เก่าเกิน /
+    # ฟอร์แมตแจ้งเติมน้ำมัน (7) / โพสต์ซ้ำข้ามกลุ่ม (8) ต้องไม่ถึง
     # (msg 4 "ขอบคุณ" ติดคีย์เวิร์ด "ขอ" มาด้วยได้ — AI เป็นคนคัดชั้นสุดท้าย)
     assert "[3]" in seen["listing"]
     assert "สวัสดี" not in seen["listing"] and "ไส้กรอง" not in seen["listing"]
+    assert "[7]" not in seen["listing"] and "[8]" not in seen["listing"]
     with Session(engine) as s:
         sg = s.exec(select(TodoSuggest)).one()   # แถวเดียว
     assert sg.status == "pending" and sg.line_msg_id == 3

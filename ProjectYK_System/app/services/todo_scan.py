@@ -21,7 +21,9 @@ _KEYWORDS = ("ซ่อม", "เสีย", "แตก", "รั่ว", "พ�
 _SYSTEM = (
     "คุณช่วยคัดข้อความจากกลุ่มไลน์ของบริษัทขนส่ง ว่าข้อความไหนเป็น \"งานที่ต้องมีคนทำต่อ\"\n"
     "นับเป็นงาน: แจ้งซ่อม/ของเสีย, ขอเบิกของ, สั่งงาน/ฝากงาน, นัดหมาย, ปัญหาที่ต้องตามแก้\n"
-    "ไม่นับ: รายงานว่าทำเสร็จแล้ว, ทักทาย/ขอบคุณ, รับทราบ, คุยเล่น, แจ้งเติมน้ำมันปกติ\n"
+    "ไม่นับ: รายงานว่าทำเสร็จแล้ว, ทักทาย/ขอบคุณ, รับทราบ, คุยเล่น, "
+    "แจ้งเติมน้ำมัน/รายการเติมดีเซลที่ปั๊ม (มีระบบน้ำมันแยกอยู่แล้ว), "
+    "ประโยคถาม-ตอบสั้นๆ กลางบทสนทนา (เช่น 'มีของไหม' 'รับทราบ')\n"
     "อินพุตคือรายการ [id] ผู้ส่ง@กลุ่ม: ข้อความ — ตอบเป็น JSON array อย่างเดียว "
     "เฉพาะข้อความที่เป็นงาน:\n"
     '[{"id": <id>, "summary": "สรุปงานสั้นๆ ภาษาไทย ใส่ทะเบียนรถ/ของ/ชื่อคนให้ครบ", '
@@ -31,6 +33,9 @@ _SYSTEM = (
 
 def _prefilter(text: str) -> bool:
     t = (text or "").strip()
+    # ฟอร์แมตบอท/มาตรฐานแจ้งเติมน้ำมันที่ปั๊ม — F4 (/fuel/line-compare) ดูแยกอยู่แล้ว
+    if "แจ้งเติม" in t and any(k in t for k in ("ดีเซล", "B20", "B7", "ลิตร", "ปั๊ม", "Caltex")):
+        return False
     return len(t) >= 8 and any(k in t for k in _KEYWORDS)
 
 
@@ -46,7 +51,16 @@ def scan(hours: int = 26) -> dict:
         raise RuntimeError(str(e))
     with Session(engine) as s:
         seen = set(s.exec(select(TodoSuggest.line_msg_id)).all())
-    cand = [m for m in msgs if m["id"] not in seen and _prefilter(m["text"])]
+        # กันโพสต์ซ้ำข้ามกลุ่ม (คนเดิมส่งข้อความเดียวกันหลายห้อง) — คีย์ (who, text)
+        seen_txt = {(r[0], r[1]) for r in
+                    s.exec(select(TodoSuggest.who, TodoSuggest.text)).all()}
+    cand = []
+    for m in msgs:
+        key = (m["who"] or "", m["text"])
+        if m["id"] in seen or key in seen_txt or not _prefilter(m["text"]):
+            continue
+        seen_txt.add(key)
+        cand.append(m)
     added = 0
     for i in range(0, len(cand), 25):   # หั่นก้อน — Qwen context 128k
         chunk = cand[i:i + 25]
