@@ -13,7 +13,25 @@
 
 - backup พังคืนไหน → เด้ง **Discord** (channel line-archiver-alerts / yk-backup-alerts) + การ์ด G1 แดง (แดงเองด้วยถ้าชุดล่าสุดเก่ากว่า 26 ชม.)
 - สคริปต์ต้นทางอยู่ใน repo: `ProjectYK_System/tools/server_backup/backup_tier1.py` (server: `C:\Users\yklog\YK_MVP\backup_tier1.py`) + `pull_backup_dev.ps1` (Dev)
-- ⚠️ **ชั้น Google Drive ยังไม่ทำงาน**: Google ตัดโควต้า storage ของ service account (2025) → SA อัปโหลดไฟล์ไม่ได้อีกแล้ว ทางแก้คือ OAuth บัญชีโอ (คลิกยินยอม 1 ครั้ง) — รอเคาะ; ระหว่างนี้สำเนานอกเครื่อง = ชั้น 3
+- ⚠️ **ชั้น Google Drive ยังไม่ทำงาน**: Google ตัดโควต้า storage ของ service account (2025) → SA อัปโหลดไฟล์ไม่ได้อีกแล้ว. **โค้ดฝั่ง OAuth เตรียมครบแล้ว 5 ก.ค.** (`gdrive_oauth.py` วางบน server แล้ว, backup_tier1 สลับใช้เองเมื่อเห็น token) — เหลือโอทำครั้งเดียวตาม §Drive ด้านล่าง ~5 นาที; ระหว่างนี้สำเนานอกเครื่อง = ชั้น 3
+
+## §Drive — เปิดชั้น Google Drive (โอทำครั้งเดียว ~5 นาที; โค้ดพร้อมหมดแล้ว)
+
+1. เปิด https://console.cloud.google.com/apis/credentials (โปรเจกต์ **noble-history-446303** เดิมของ SA)
+2. ถ้ายังไม่เคยตั้ง OAuth consent screen: เมนู "OAuth consent screen" → External → กรอกชื่อแอป `yk-backup` + อีเมลโอ → Save ผ่านทุกหน้า → **สำคัญ: กด "PUBLISH APP" ให้สถานะเป็น In production** (ถ้าปล่อยเป็น Testing → refresh token **หมดอายุทุก 7 วัน** = backup Drive ตายเงียบ; แอป unverified ไม่เป็นไร ใช้เอง)
+3. Credentials → **+ CREATE CREDENTIALS → OAuth client ID → Application type: Desktop app** ชื่อ `yk-backup` → Create → **Download JSON** (ได้ไฟล์ `client_secret_….json`)
+4. บนเครื่อง Dev (เครื่องโอ) เปิด terminal ที่ราก repo:
+   ```powershell
+   pip install google-auth-oauthlib   # ใช้เฉพาะตอน setup; server ไม่ต้องลง
+   python ProjectYK_System/tools/server_backup/gdrive_oauth.py setup --client-secret "<path ไฟล์ที่โหลด>"
+   ```
+   → browser เด้งให้เลือกบัญชี guolekung → หน้าเตือน unverified กด Advanced → Go to yk-backup → Allow
+   → สคริปต์เขียน `gdrive_token.json` + **ทดสอบสร้างโฟลเดอร์ YK_BACKUPS_HOT ใน Drive ทันที** + พิมพ์คำสั่ง scp ให้
+5. รันคำสั่ง scp ที่สคริปต์พิมพ์ (ส่ง token ขึ้น server) — จบ. คืนนั้น 03:00 backup จะอัป Drive เอง
+6. ตรวจผล: เช้าวันถัดไปดู `D:\YK_BACKUPS\last_run.json` → `"drive_ok": true` หรือการ์ดบน /admin/server-health; ทดสอบทันทีก็ได้: `ssh yklog@100.97.150.114` แล้ว `python C:\Users\yklog\YK_MVP\gdrive_oauth.py test`
+
+- scope ที่ขอ = `drive.file` (เห็น/แก้เฉพาะไฟล์ที่ตัวเองสร้าง) — ปลอดภัยต่อไฟล์อื่นใน Drive โอ; พื้นที่ ~350MB (14 daily + 8 weekly × 16MB)
+- token = secret #10 ใน `SECRETS_INVENTORY.md` (วิธีหมุน/ถอนสิทธิ์อยู่ที่นั่น)
 
 ## วิธีกู้ (restore) — ซ้อมจริงแล้ว 3 ก.ค. 2026 (integrity ok ทั้ง 2 DB)
 

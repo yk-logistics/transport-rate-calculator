@@ -17,6 +17,8 @@
 | 8 | `YK_MVP\start_mvp.bat` | `YK_QWEN_KEY` | ปุ่ม ✨ AI เรียบเรียงบน /todo (`services/ai_assist.py` → gateway.9arm.co) | 9arm ออกคีย์ใหม่ → แก้ในไฟล์ (dev: `_Claude Tools\9arm.key` ตัวเดียวกัน) → restart `YK_MVP_APP`; คีย์ฟรี ไม่ผูกเงิน — รั่วแล้วแค่คนอื่นใช้โควต้าฟรีแทน | ก.ค. 2026 (ตั้งครั้งแรก) |
 | 9 | `YK_MVP\start_mvp.bat` | `CLAUDE_CODE_OAUTH_TOKEN` | Claude บนหน้า /ai (`claude -p` — โควต้า Max ของโอ) | `claude setup-token` บนเครื่อง dev (**บัญชีโอ อนุมัติในเบราว์เซอร์**) → แก้ในไฟล์ + `_Claude Tools\claude_server.key` (dev) → restart `YK_MVP_APP` → revoke ตัวเก่าใน claude.ai Settings; ดู AI_CHAT_RUNBOOK.md | **5 ก.ค. 2026** (ตั้งครั้งแรก) |
 
+| 10 | `YK_MVP\app\gdrive_token.json` *(ยังไม่มี — รอโอ setup)* | Google OAuth refresh token (scope drive.file) | backup ชั้น Drive (`gdrive_oauth.py` ← backup_tier1) | รัน `gdrive_oauth.py setup` ใหม่บน Dev (**บัญชีโอ ยินยอมในเบราว์เซอร์**) → scp ทับบน server; ถอนสิทธิ์เก่า: myaccount.google.com → Security → Third-party access | — (รอตั้งครั้งแรก — ดู BACKUP_RUNBOOK §Drive) |
+
 ฝั่งเครื่อง Dev (เครื่องโอ): มี SA json ตัวเดียวกัน + `.env` ของ tools บางตัว — ไม่ expose ออกเน็ต ความเสี่ยงต่ำกว่า แต่หมุนพร้อมกันเมื่อหมุน #7
 
 ## หมายเหตุความปลอดภัย

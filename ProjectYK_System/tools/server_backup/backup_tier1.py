@@ -57,6 +57,9 @@ SERVER = {
     ],
     "out": r"D:\YK_BACKUPS",
     "key": r"C:\Users\yklog\YK_MVP\app\noble-history-446303-e4-c36409a0122c.json",
+    # OAuth token ของโอ (สร้างด้วย gdrive_oauth.py setup บน Dev) — ถ้าไฟล์นี้มี
+    # จะใช้แทน service account (ที่ Google ตัดโควต้าแล้ว)
+    "oauth_token": r"C:\Users\yklog\YK_MVP\app\gdrive_token.json",
     "share_email": "guolekung@gmail.com",
     "archiver_env": r"C:\Users\yklog\YK_LINE_ARCHIVER\.env",
 }
@@ -225,6 +228,7 @@ def main() -> int:
     ap.add_argument("--out", default=SERVER["out"])
     ap.add_argument("--key", default=SERVER["key"])
     ap.add_argument("--share-email", default=SERVER["share_email"])
+    ap.add_argument("--oauth-token", default=SERVER["oauth_token"])
     ap.add_argument("--archiver-env", default=SERVER["archiver_env"])
     ap.add_argument("--no-drive", action="store_true")
     ap.add_argument("--no-discord", action="store_true")
@@ -258,7 +262,14 @@ def main() -> int:
         # (สำเนานอกเครื่องตัวจริงตอนนี้ = ชั้น 3 เครื่อง Dev ดูดผ่าน Tailscale)
         if not a.no_drive:
             try:
-                fid = drive_upload_and_rotate(a.key, a.share_email, zip_path, is_weekly)
+                if Path(a.oauth_token).exists():
+                    # ทาง OAuth (โควต้าโอ) — stdlib ล้วน ไม่ต้องมี lib google บน server
+                    from gdrive_oauth import upload_and_rotate as _oauth_up
+                    fid = _oauth_up(a.oauth_token, zip_path, is_weekly,
+                                    KEEP_DAILY, KEEP_WEEKLY)
+                else:
+                    fid = drive_upload_and_rotate(a.key, a.share_email, zip_path,
+                                                  is_weekly)
                 status["drive_ok"] = True
                 log(f"Drive OK {fid}")
             except Exception as de:  # noqa: BLE001
