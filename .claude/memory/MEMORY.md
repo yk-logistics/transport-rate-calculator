@@ -25,7 +25,7 @@
 
 ## งานเสร็จล่าสุด (ก.ค.)
 - [PWA icon /todo ลง Taskbar](project-pwa-todo-taskbar-icon.md) — DONE 5ก.ค. commit 542e806 + deploy เขียวหมด; hunk PWA เข้า HEAD แล้ว (session อื่น deploy จาก HEAD ได้เลย ไม่ต้องกรองอีก); รอโอลบ shortcut เก่า+Install ใหม่
-- [LINE→todo + AI 4 เฟส](project-line-to-todo-ai-phases.md) — เฟส 1-3 deploy แล้ว 5ก.ค. (➕ /line→/todo · ✨ Qwen เรียบเรียง · หน้า /ai แชทถามระบบ admin-only + AiChatLog v45); เฟส 4 ค้าง (auto-scan); Claude บน /ai รอโอติดตั้ง CLI+login Max บน server (docs/AI_CHAT_RUNBOOK.md); gotcha 9arm REST: ต้องท่า /v1/chat/completions + ตั้ง UA เอง; hunk /sw.js เข้า HEAD แล้ว (542e806) — working tree สะอาด
+- [LINE→todo + AI 4 เฟส](project-line-to-todo-ai-phases.md) — เฟส 1-3 deploy แล้ว 5ก.ค. (➕ /line→/todo · ✨ Qwen เรียบเรียง · หน้า /ai แชทถามระบบ admin-only + AiChatLog v45); เฟส 4 ค้าง (auto-scan); Claude บน /ai เปิดใช้แล้ว (setup-token → secret #9, ไม่ต้อง login บนจอ server — docs/AI_CHAT_RUNBOOK.md); gotcha 9arm REST: ต้องท่า /v1/chat/completions + ตั้ง UA เอง; hunk /sw.js เข้า HEAD แล้ว (542e806) — working tree สะอาด
 - [AYU ก.ค. พร้อม import](project-ayu-jul-import-ready.md) — เครื่องมือ+preflight ครบ (231 งาน ไม่มี dupe); **รอโอเคาะ: กลางรอบ (ปลด F3/D1 แต่ห้าม re-import ทับ grid) vs จบรอบ 25 ก.ค.**
 - [🚀 Starlette migrated](project-starlette-migrated.md) — 4ก.ค.: fastapi 0.139/starlette 1.3.1 บน server+dev, 0 CVE; **route ใหม่ต้อง TemplateResponse(request, name, ctx)**
 - [F4 น้ำมันไลน์↔ระบบ](project-f4-fuel-line-compare.md) — DONE 4ก.ค. ไม่ใช้ OCR: /fuel/line-compare parse ข้อความแจ้งเติม; ตกหล่นจริง 7 รายการรอทีม; "รอ import" เทียบ per-site

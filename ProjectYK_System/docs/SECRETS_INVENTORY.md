@@ -15,6 +15,7 @@
 | 6 | `.cloudflared\741eef82-….json` | tunnel credential | cloudflared (task `YK_CLOUDFLARED_TUNNEL`) | `cloudflared tunnel token`/สร้าง tunnel ใหม่ — แทบไม่ต้องหมุนถ้าไม่รั่ว | — |
 | 7 | `YK_MVP\app\noble-history-….json` | Google service account key (yk-sheets-editor) | อ่าน Google Sheets/Drive (AR, quote sync) | Google Cloud console → สร้าง key ใหม่ → วางแทน → ลบ key เก่า (**บัญชีโอ**); ตรวจ scope: SA ควรเห็นเฉพาะไฟล์ที่แชร์ให้เท่านั้น | มิ.ย. 2026 (ตั้งครั้งแรก) |
 | 8 | `YK_MVP\start_mvp.bat` | `YK_QWEN_KEY` | ปุ่ม ✨ AI เรียบเรียงบน /todo (`services/ai_assist.py` → gateway.9arm.co) | 9arm ออกคีย์ใหม่ → แก้ในไฟล์ (dev: `_Claude Tools\9arm.key` ตัวเดียวกัน) → restart `YK_MVP_APP`; คีย์ฟรี ไม่ผูกเงิน — รั่วแล้วแค่คนอื่นใช้โควต้าฟรีแทน | ก.ค. 2026 (ตั้งครั้งแรก) |
+| 9 | `YK_MVP\start_mvp.bat` | `CLAUDE_CODE_OAUTH_TOKEN` | Claude บนหน้า /ai (`claude -p` — โควต้า Max ของโอ) | `claude setup-token` บนเครื่อง dev (**บัญชีโอ อนุมัติในเบราว์เซอร์**) → แก้ในไฟล์ + `_Claude Tools\claude_server.key` (dev) → restart `YK_MVP_APP` → revoke ตัวเก่าใน claude.ai Settings; ดู AI_CHAT_RUNBOOK.md | **5 ก.ค. 2026** (ตั้งครั้งแรก) |
 
 ฝั่งเครื่อง Dev (เครื่องโอ): มี SA json ตัวเดียวกัน + `.env` ของ tools บางตัว — ไม่ expose ออกเน็ต ความเสี่ยงต่ำกว่า แต่หมุนพร้อมกันเมื่อหมุน #7
 

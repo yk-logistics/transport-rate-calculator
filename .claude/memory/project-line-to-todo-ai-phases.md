@@ -24,7 +24,7 @@ metadata:
 **เฟส 3 — DONE + deploy 5ก.ค. (commit f0c9317, schema v45):** หน้า /ai เฉพาะ admin
 - RBAC เมนู `ai` (permissions.py) — office/accountant/viewer = deny; ลิงก์ในเมนูผู้บริหาร
 - Qwen = `ai_assist.chat_qwen()` (refactor ใช้ร่วม rewrite_todo); Claude = `chat_claude()` subprocess `claude -p --allowedTools Read,Grep,Glob` (guard อ่านอย่างเดียวจริง); log ทุกคำถามลง `AiChatLog`
-- **server ยังไม่มี claude CLI** — ตัวเลือกเทาอยู่; เปิดใช้ตาม `docs/AI_CHAT_RUNBOOK.md` (ติดตั้ง+login Max+ตั้ง `YK_CLAUDE_EXE`/`YK_CLAUDE_CONFIG` ใน start_mvp.bat — ต้องตั้งเพราะแอปรันเป็น SYSTEM แต่ credential อยู่โปรไฟล์ yklog)
+- **Claude บน server เปิดใช้แล้ว 5ก.ค.** — CLI v2.1.201 ติดตั้งผ่าน SSH; auth ด้วย `CLAUDE_CODE_OAUTH_TOKEN` จาก `claude setup-token` ที่โอรันบนเครื่อง dev (token = secret #9, dev copy ที่ `_Claude Tools/claude_server.key`) → ไม่ต้อง login บนจอ server, รันเป็น SYSTEM ได้; ต้องมี `.claude_headless/.claude.json` ใส่ hasCompletedOnboarding+hasTrustDialogAccepted ของ `C:/Users/yklog/YK_MVP/app` ไม่งั้น workspace ไม่ trust; ยืนยันแล้ว chat_claude ตอบจริงบน server; วิธีหมุน/รายละเอียดใน `docs/AI_CHAT_RUNBOOK.md`
 - ระหว่างทำ: session PWA อื่น commit 542e806 แทรก branch เดียวกัน → hunk /sw.js ที่เคยค้างเข้า HEAD แล้ว, working tree main.py สะอาด (ตอนนี้ stage ตรงได้ ไม่ต้องกรอง hunk แล้ว)
 **เฟส 4:** สแกนข้อความไลน์รายวัน → เสนอ todo เข้ากล่องรอคัด (ต่อยอด [[project-f4-fuel-line-compare]] pattern parse)
 

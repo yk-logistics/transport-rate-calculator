@@ -21,25 +21,31 @@
   ผิด ToS; `claude -p` ได้; **โควต้าแชร์กับเซสชันทำงานของโอ**). จำกัดเครื่องมือ
   `--allowedTools Read,Grep,Glob` = guard อ่านอย่างเดียวจริง ระดับเทคนิค.
 
-## เปิดใช้ Claude บน server (ยังไม่ได้ทำ — รอโอ)
+## Claude บน server — เปิดใช้แล้ว 5 ก.ค. 2026 ✅
 
-สถานะ 5 ก.ค. 2026: server (yklog@100.97.150.114) **ยังไม่มี claude CLI** → หน้า /ai
-โชว์ตัวเลือก Claude เป็นสีเทา "ยังไม่ติดตั้งบนเครื่องนี้" และถ้าเรียกจะได้ข้อความแนะนำ ไม่พัง.
+ท่าที่ใช้จริง (ดีกว่าแผนเดิม — โอไม่ต้องไปหน้าจอ server เลย):
 
-ขั้นตอนเปิดใช้ (โอทำบนจอ server ครั้งเดียว):
-
-1. ติดตั้ง Claude Code บน server (PowerShell): `irm https://claude.ai/install.ps1 | iex`
-   (หรือ npm ตามคู่มือทางการ) — ได้ `claude.exe` ใน `%USERPROFILE%\.local\bin`
-2. login ด้วยบัญชี Max ของโอ: รัน `claude` แล้วทำ OAuth ในเบราว์เซอร์ (เครื่อง server มีจอ/AnyDesk)
-3. เพิ่ม 2 บรรทัดใน `C:\Users\yklog\YK_MVP\start_mvp.bat` (ก่อนบรรทัด cd):
+1. **ติดตั้ง CLI ผ่าน SSH:** `irm https://claude.ai/install.ps1 | iex` →
+   `C:\Users\yklog\.local\bin\claude.exe` (v2.1.201; ไม่ต้องแก้ PATH — ชี้ตรงด้วย env)
+2. **token แทนการ login บนจอ server:** โอรัน `claude setup-token` บนเครื่อง dev (อนุมัติ
+   ในเบราว์เซอร์ด้วยบัญชี Max) → ได้ token `sk-ant-oat...` เก็บไว้ที่
+   `_Claude Tools\claude_server.key` (dev, gitignored) — **อย่าก็อป credentials.json
+   ข้ามเครื่อง** (refresh token ชนกัน เสี่ยง login เครื่อง dev หลุด)
+3. **env ใน `YK_MVP\start_mvp.bat`** (secret #9 ใน SECRETS_INVENTORY.md):
    ```
    set YK_CLAUDE_EXE=C:\Users\yklog\.local\bin\claude.exe
-   set YK_CLAUDE_CONFIG=C:\Users\yklog\.claude
+   set CLAUDE_CODE_OAUTH_TOKEN=<token จากข้อ 2>
+   set YK_CLAUDE_CONFIG=C:\Users\yklog\.claude_headless
    ```
-   `YK_CLAUDE_CONFIG` **จำเป็น** — แอปรันเป็น SYSTEM ผ่าน scheduled task แต่ credential
-   Max อยู่โปรไฟล์ yklog; ตัวแปรนี้ทำให้ subprocess หา login เจอ.
-4. restart task `YK_MVP_APP` (Stop-ScheduledTask → เช็ค PID 8010 → Start-ScheduledTask
-   — ดู MVP_SERVER_DEPLOY.md) แล้วเปิด /ai → ตัวเลือก Claude ต้องหายเทา
+   token ใน env = ไม่พึ่ง credential ในโปรไฟล์ → รันเป็น SYSTEM ได้;
+   `.claude_headless\.claude.json` ต้องมี `hasCompletedOnboarding: true` +
+   `projects["C:/Users/yklog/YK_MVP/app"].hasTrustDialogAccepted: true`
+   (ไม่งั้น workspace ไม่ trust — สร้างไว้แล้ว)
+4. restart task `YK_MVP_APP` → ทดสอบแล้ว: `chat_claude()` บน server ตอบจริง
+   (อ่านไฟล์ใน app dir ได้ = trust ทำงาน)
+
+**หมุน token:** `claude setup-token` ใหม่บนเครื่อง dev → แก้ใน start_mvp.bat → restart;
+ยกเลิกของเก่า: claude.ai → Settings → Sessions/Apps revoke.
 
 ## ขยาย/แก้ทีหลัง (สำหรับโมเดลเล็กทำต่อ)
 
