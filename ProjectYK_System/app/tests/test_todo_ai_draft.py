@@ -43,9 +43,9 @@ def _add(client, text="สั่งยาง 71-8967 ดว่น"):
 def test_draft_fragment_shows_ai_text_without_saving(client, monkeypatch):
     seen = {}
 
-    def fake(text, cats):
+    def fake(text, cats, provider="auto"):
         seen["text"], seen["cats"] = text, cats
-        return {"text": "สั่งยาง 71-8967 ด่วน", "category": "แจ้งซ่อม"}
+        return {"text": "สั่งยาง 71-8967 ด่วน", "category": "แจ้งซ่อม", "engine": "qwen"}
 
     monkeypatch.setattr(ai_assist, "rewrite_todo", fake)
     tid = _add(client)
@@ -60,7 +60,8 @@ def test_draft_fragment_shows_ai_text_without_saving(client, monkeypatch):
 
 def test_accept_draft_saves_via_update(client, monkeypatch):
     monkeypatch.setattr(ai_assist, "rewrite_todo",
-                        lambda text, cats: {"text": "เรียบเรียงแล้ว", "category": "งาน"})
+                        lambda text, cats, provider="auto":
+                        {"text": "เรียบเรียงแล้ว", "category": "งาน", "engine": "qwen"})
     tid = _add(client)
     client.post(f"/todo/{tid}/ai-draft")
     client.post(f"/todo/{tid}/update",
@@ -71,7 +72,7 @@ def test_accept_draft_saves_via_update(client, monkeypatch):
 
 
 def test_ai_failure_shows_message_not_500(client, monkeypatch):
-    def boom(text, cats):
+    def boom(text, cats, provider="auto"):
         raise RuntimeError("ยังไม่ได้ตั้งคีย์ AI (YK_QWEN_KEY) — แจ้งแอดมิน")
 
     monkeypatch.setattr(ai_assist, "rewrite_todo", boom)
@@ -120,5 +121,7 @@ def test_rewrite_todo_keeps_source_lines_and_parses_fenced_json(monkeypatch):
 def test_rewrite_todo_no_key_raises_thai_message(monkeypatch):
     monkeypatch.delenv("YK_QWEN_KEY", raising=False)
     monkeypatch.delenv("YK_QWEN_KEY_FILE", raising=False)
+    # ตัด fallback Claude ออก (เครื่อง dev มี claude จริง) — เทสต์เจตนา "ไม่มีทางไปเลย"
+    monkeypatch.setattr(ai_assist, "claude_available", lambda: False)
     with pytest.raises(RuntimeError, match="YK_QWEN_KEY"):
         ai_assist.rewrite_todo("x", [])

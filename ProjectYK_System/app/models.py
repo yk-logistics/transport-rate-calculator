@@ -1640,6 +1640,25 @@ class TodoItem(SQLModel, table=True):
     media_json: str = ""
 
 
+class TodoSuggest(SQLModel, table=True):
+    """กล่องรอคัดจากไลน์ (เฟส 4) — AI สแกนข้อความรายวันแล้ว "เสนอ" เป็นแถว pending
+    โอกดรับถึงจะกลายเป็น TodoItem (กฎยืน: AI ห้ามสร้างงานจริงเอง) กดซ่อน = dismissed.
+
+    dedupe ด้วย line_msg_id — ข้อความหนึ่งถูกเสนอครั้งเดียวตลอด ไม่ว่าจบสถานะไหน;
+    sent_at เก็บ str ตามต้นทาง archiver (TEXT 'YYYY-MM-DD HH:MM…')."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    line_msg_id: int = Field(index=True, unique=True)
+    group_name: str = ""
+    who: str = ""
+    sent_at: str = ""
+    text: str = ""                     # ข้อความต้นฉบับจากไลน์
+    summary: str = ""                  # สรุปงานโดย AI (โชว์ในกล่อง)
+    category: str = ""
+    status: str = Field(default="pending", index=True)  # pending | accepted | dismissed
+    todo_id: Optional[int] = None      # TodoItem ที่เกิดตอนกดรับ
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class AiChatLog(SQLModel, table=True):
     """log การใช้หน้า /ai (เฟส 3 — แชทถามระบบ) — ใครถาม โมเดลไหน ตอบว่าอะไร กี่ ms.
 

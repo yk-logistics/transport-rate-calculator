@@ -1,0 +1,78 @@
+"""เฟส 4 LINE→todo: สแกนข้อความไลน์ → เสนองานเข้ากล่องรอคัด (TodoSuggest).
+
+กฎยืน: AI ได้แค่ "เสนอ" — แถว pending รอโอกดรับบนหน้า /todo ถึงจะเกิด TodoItem จริง.
+ใช้ Qwen ฟรี (chat_qwen) ตัวเดียว — งานคัดกรองปริมาณเยอะ ไม่ควรกินโควต้า Max.
+"""
+import json
+import re
+from datetime import datetime, timedelta
+
+from sqlmodel import Session, select
+
+from db_config import engine
+from models import TodoSuggest
+from services import ai_assist, line_archive
+
+# กรองหยาบก่อนส่ง AI — ลดจำนวนข้อความที่ต้องจ่ายเวลาคัด (แชทส่วนใหญ่คือรายงาน/ทักทาย)
+_KEYWORDS = ("ซ่อม", "เสีย", "แตก", "รั่ว", "พัง", "เปลี่ยน", "เบิก", "ขอ", "สั่ง",
+             "ซื้อ", "แจ้ง", "ด่วน", "พรุ่งนี้", "อย่าลืม", "ฝาก", "ต้อง", "ตรวจ",
+             "เคลม", "ครบกำหนด", "ภาษี", "ประกัน", "ต่อทะเบียน", "นัด", "ติดต่อ")
+
+_SYSTEM = (
+    "คุณช่วยคัดข้อความจากกลุ่มไลน์ของบริษัทขนส่ง ว่าข้อความไหนเป็น \"งานที่ต้องมีคนทำต่อ\"\n"
+    "นับเป็นงาน: แจ้งซ่อม/ของเสีย, ขอเบิกของ, สั่งงาน/ฝากงาน, นัดหมาย, ปัญหาที่ต้องตามแก้\n"
+    "ไม่นับ: รายงานว่าทำเสร็จแล้ว, ทักทาย/ขอบคุณ, รับทราบ, คุยเล่น, แจ้งเติมน้ำมันปกติ\n"
+    "อินพุตคือรายการ [id] ผู้ส่ง@กลุ่ม: ข้อความ — ตอบเป็น JSON array อย่างเดียว "
+    "เฉพาะข้อความที่เป็นงาน:\n"
+    '[{"id": <id>, "summary": "สรุปงานสั้นๆ ภาษาไทย ใส่ทะเบียนรถ/ของ/ชื่อคนให้ครบ", '
+    '"category": "แจ้งซ่อม หรือ งาน หรือ เบิกของ"}]\n'
+    "ห้ามแต่งข้อมูลเพิ่ม ถ้าไม่มีข้อความเป็นงานเลยตอบ []")
+
+
+def _prefilter(text: str) -> bool:
+    t = (text or "").strip()
+    return len(t) >= 8 and any(k in t for k in _KEYWORDS)
+
+
+def scan(hours: int = 26) -> dict:
+    """สแกนข้อความ text ย้อนหลัง N ชม. → เติมแถว pending ใหม่ใน TodoSuggest.
+
+    dedupe ถาวรด้วย line_msg_id (เคยเสนอ/เคยซ่อนแล้วไม่เสนอซ้ำ). คืน dict สรุปจำนวน.
+    พัง (archive ไม่มี / AI ล่ม) โยน RuntimeError ข้อความภาษาคน."""
+    since = (datetime.now() - timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M")
+    try:
+        msgs = line_archive.recent_text_messages(since)
+    except FileNotFoundError as e:
+        raise RuntimeError(str(e))
+    with Session(engine) as s:
+        seen = set(s.exec(select(TodoSuggest.line_msg_id)).all())
+    cand = [m for m in msgs if m["id"] not in seen and _prefilter(m["text"])]
+    added = 0
+    for i in range(0, len(cand), 25):   # หั่นก้อน — Qwen context 128k
+        chunk = cand[i:i + 25]
+        ids = {m["id"]: m for m in chunk}
+        listing = "\n".join(
+            f"[{m['id']}] {(m['who'] or '?')}@{(m['group_name'] or '?')}: "
+            f"{m['text'][:300]}" for m in chunk)
+        raw = ai_assist.chat_qwen(
+            [{"role": "system", "content": _SYSTEM},
+             {"role": "user", "content": listing}], max_tokens=2000)
+        m2 = re.search(r"\[.*\]", raw, re.S)
+        try:
+            items = json.loads(m2.group()) if m2 else []
+        except json.JSONDecodeError:
+            items = []
+        with Session(engine) as s:
+            for it in items:
+                if not isinstance(it, dict) or it.get("id") not in ids:
+                    continue  # AI มั่ว id นอกก้อน — ทิ้ง
+                src = ids[it["id"]]
+                s.add(TodoSuggest(
+                    line_msg_id=src["id"], group_name=src["group_name"] or "",
+                    who=src["who"] or "", sent_at=str(src["sent_at"])[:16],
+                    text=src["text"],
+                    summary=str(it.get("summary") or "").strip() or src["text"][:120],
+                    category=str(it.get("category") or "").strip() or "งาน"))
+                added += 1
+            s.commit()
+    return {"scanned": len(msgs), "candidates": len(cand), "added": added}

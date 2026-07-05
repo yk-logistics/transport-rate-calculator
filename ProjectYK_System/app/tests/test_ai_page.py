@@ -103,13 +103,26 @@ def test_claude_flattens_history_to_prompt(clients, monkeypatch):
     c_admin, _ = clients
     seen = {}
     monkeypatch.setattr(ai_assist, "chat_claude",
-                        lambda prompt, cwd=None, timeout=180: seen.update(p=prompt) or "ตอบ")
+                        lambda prompt, cwd=None, timeout=180, model=None:
+                        seen.update(p=prompt, model=model) or "ตอบ")
     hist = [{"role": "user", "content": "ก่อนหน้า"}]
     c_admin.post("/ai/ask", json={"q": "ล่าสุด", "model": "claude", "history": hist})
     assert "Project YK" in seen["p"] and "โอ: ก่อนหน้า" in seen["p"]
     assert seen["p"].rstrip().endswith("โอ: ล่าสุด")
     with Session(engine) as s:
         assert s.exec(select(AiChatLog)).one().model == "claude"
+
+
+def test_claude_submodel_choice_passed_and_logged(clients, monkeypatch):
+    c_admin, _ = clients
+    seen = {}
+    monkeypatch.setattr(ai_assist, "chat_claude",
+                        lambda prompt, cwd=None, timeout=180, model=None:
+                        seen.update(model=model) or "ตอบ")
+    c_admin.post("/ai/ask", json={"q": "ถาม", "model": "claude:opus"})
+    assert seen["model"] == "opus"
+    with Session(engine) as s:
+        assert s.exec(select(AiChatLog)).one().model == "claude:opus"
 
 
 def test_empty_question_rejected_no_log(clients):

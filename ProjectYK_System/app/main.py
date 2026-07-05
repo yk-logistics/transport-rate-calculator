@@ -61,6 +61,7 @@ from models import (
     KbSettle,
     LeaveRecord,
     TodoItem,
+    TodoSuggest,
     Loan,
     LoanPayment,
     MaintInspection,
@@ -96,7 +97,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 45  # v45: AiChatLog (เฟส 3 /ai — create_all); v44: MediaArchive (G2 — create_all); v43: DocTemplate+DocIssue (A2 — create_all); v42: Vehicle.tank_liters (ALTER); v41: JobMedia; v40: LineGroupMap+LineJobSeen; v39: PartPermission; v38: DebtAccount; v37: AuditLog
+SCHEMA_VERSION = 46  # v46: TodoSuggest (เฟส 4 กล่องรอคัดจากไลน์ — create_all); v45: AiChatLog (เฟส 3 /ai — create_all); v44: MediaArchive (G2 — create_all); v43: DocTemplate+DocIssue (A2 — create_all); v42: Vehicle.tank_liters (ALTER); v41: JobMedia; v40: LineGroupMap+LineJobSeen; v39: PartPermission; v38: DebtAccount; v37: AuditLog
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -10213,12 +10214,23 @@ def todo_page(request: Request, q: str = "", cat: str = ""):
     open_items = [t for t in rows if t.status == "open"]
     done_items = sorted([t for t in rows if t.status == "done"],
                         key=lambda t: t.done_at or t.created_at, reverse=True)[:50]
+    # เฟส 4: กล่องรอคัดจากไลน์ — เห็น/สแกนเฉพาะ admin (ข้อมูลไลน์รวมทุกไซท์)
+    is_admin = bool(user and user.role == "admin")
+    suggests = []
+    if is_admin:
+        _todo_scan_maybe_auto()
+        with Session(engine) as s:
+            suggests = s.exec(select(TodoSuggest).where(TodoSuggest.status == "pending")
+                              .order_by(TodoSuggest.sent_at.desc()).limit(30)).all()
     ctx = base_context(request)
     ctx.update({
         "groups": _todo_groups(open_items, date.today()),
         "done_items": done_items, "cats": cats, "q": q, "cat": cat,
         "n_open": len(open_items),
         "media_of": lambda t: [m for m in (t.media_json or "").split(",") if m],
+        "suggests": suggests, "can_scan": is_admin,
+        "scanned": request.query_params.get("scanned", ""),
+        "scan_err": request.query_params.get("scan_err", ""),
     })
     return templates.TemplateResponse(request, "todo.html", ctx)
 
@@ -10354,24 +10366,20 @@ def todo_ai_draft(item_id: int, request: Request):
     return templates.TemplateResponse(request, "todo_ai_draft.html", ctx)
 
 
-@app.post("/line/{msg_id}/to-todo")
-def line_to_todo(msg_id: int, request: Request, q: str = Form(""), group: str = Form(""),
-                 page: str = Form("0")):
-    """ปุ่ม ➕ บนหน้า /line — ดึงข้อความที่กด + รูปคนส่งเดียวกันช่วง ±20 นาทีทั้งชุด
-    เข้า /todo ของคนที่กด (ก็อปรูปมาเก็บใน _todo_media เอง — ไม่แตะ DB archiver)."""
+def _todo_from_line_bundle(username: str, msg_id: int, category: str = "ไลน์") -> int | None:
+    """สร้าง TodoItem จากข้อความไลน์ + รูปชุดเดียวกัน (±20 นาที คนส่งเดียวกัน) —
+    ก็อปรูปเข้า _todo_media เอง ไม่แตะ DB archiver. คืน todo_id (None = ไม่พบข้อความ).
+    ใช้ร่วมปุ่ม ➕ บนหน้า /line (เฟส 1) และปุ่มรับจากกล่องรอคัด (เฟส 4)."""
     import shutil
-    from urllib.parse import quote
 
-    from auth import current_user
     from services import line_archive as la
 
-    user = current_user(request)
     b = la.bundle_for_todo(msg_id)
     if b is None:
-        raise HTTPException(404, "ไม่พบข้อความในคลังแชท")
+        return None
     header = f"📱 ไลน์ {b['group_name']} — {b['who']} {str(b['sent_at'])[:16]}"
     text = (b["text"].strip() + "\n\n" + header) if b["text"].strip() else header
-    item = TodoItem(username=user.username if user else "", text=text, category="ไลน์")
+    item = TodoItem(username=username, text=text, category=category)
     with Session(engine) as s:
         s.add(item)
         s.commit()
@@ -10394,9 +10402,128 @@ def line_to_todo(msg_id: int, request: Request, q: str = Form(""), group: str = 
             item.media_json = ",".join(names)
         s.add(item)
         s.commit()
+    return todo_id
+
+
+@app.post("/line/{msg_id}/to-todo")
+def line_to_todo(msg_id: int, request: Request, q: str = Form(""), group: str = Form(""),
+                 page: str = Form("0")):
+    """ปุ่ม ➕ บนหน้า /line — ส่งข้อความ+รูปทั้งชุดเข้า /todo ของคนที่กด (เฟส 1)."""
+    from urllib.parse import quote
+
+    from auth import current_user
+
+    user = current_user(request)
+    todo_id = _todo_from_line_bundle(user.username if user else "", msg_id)
+    if todo_id is None:
+        raise HTTPException(404, "ไม่พบข้อความในคลังแชท")
     return RedirectResponse(
         f"/line?q={quote(q)}&group={quote(group)}&page={page or 0}&saved={todo_id}",
         status_code=303)
+
+
+# ---- เฟส 4: กล่องรอคัดจากไลน์ (TodoSuggest) — AI เสนอ โอคัด --------------------
+
+import threading  # noqa: E402
+
+_TODO_SCAN_LOCK = threading.Lock()   # กันสแกนซ้อน (ปุ่ม + auto-trigger พร้อมกัน)
+
+
+def _todo_scan_run() -> dict:
+    """รันสแกน + จดเวลาไว้ใน AppSetting (ใช้ทั้งปุ่มและ auto-trigger)."""
+    from services import todo_scan
+
+    if not _TODO_SCAN_LOCK.acquire(blocking=False):
+        return {"skipped": "กำลังสแกนอยู่แล้ว"}
+    try:
+        set_setting("todo_scan_last", datetime.utcnow().isoformat())
+        return todo_scan.scan()
+    finally:
+        _TODO_SCAN_LOCK.release()
+
+
+def _todo_scan_maybe_auto() -> None:
+    """auto-scan รายวัน: ถ้ารอบล่าสุดเกิน 20 ชม. เด้ง thread สแกนเบื้องหลัง
+    (เรียกตอน admin เปิด /todo — ไม่หน่วงหน้า; พังเงียบได้ รอบหน้า/ปุ่มลองใหม่).
+    มาร์กเวลาแบบ sync ก่อนเด้ง thread — โปรเซสหนึ่งเด้งอย่างมากวันละครั้ง."""
+    from services import line_archive
+
+    if line_archive.db_path() is None:
+        return  # เครื่องนี้ไม่มีคลังไลน์ (dev/test) — ไม่มีอะไรให้สแกน
+    last = get_setting("todo_scan_last", "")
+    try:
+        if last and datetime.utcnow() - datetime.fromisoformat(last) < timedelta(hours=20):
+            return
+    except ValueError:
+        pass
+    set_setting("todo_scan_last", datetime.utcnow().isoformat())
+
+    def _bg():
+        try:
+            _todo_scan_run()
+        except Exception as e:   # อย่าให้ thread ตายแบบมีเสียง — log พอ
+            logging.getLogger("yk.todo_scan").warning("auto-scan ล้มเหลว: %s", e)
+    threading.Thread(target=_bg, daemon=True).start()
+
+
+@app.post("/todo/scan-line")
+def todo_scan_now(request: Request):
+    """ปุ่ม 🔍 สแกนไลน์ตอนนี้ — เฉพาะ admin (ข้อมูลไลน์รวมทุกไซท์)."""
+    from auth import current_user
+
+    user = current_user(request)
+    if not (user and user.role == "admin"):
+        raise HTTPException(403)
+    try:
+        r = _todo_scan_run()
+    except Exception as e:
+        return RedirectResponse(f"/todo?scan_err={e}", status_code=303)
+    return RedirectResponse(f"/todo?scanned={r.get('added', 0)}", status_code=303)
+
+
+@app.post("/todo/suggest/{sid}/accept")
+def todo_suggest_accept(sid: int, request: Request):
+    """รับข้อเสนอ → TodoItem จริงของคนที่กด (ดึงรูปชุดเดียวกันจากไลน์มาด้วย)."""
+    from auth import current_user
+
+    user = current_user(request)
+    if not (user and user.role == "admin"):
+        raise HTTPException(403)
+    with Session(engine) as s:
+        sg = s.get(TodoSuggest, sid)
+        if not sg or sg.status != "pending":
+            raise HTTPException(404)
+        todo_id = _todo_from_line_bundle(user.username, sg.line_msg_id,
+                                         category=sg.category or "งาน")
+        if todo_id is None:
+            # ข้อความหายจาก archive (เช่น เทสต์/ลบ) — สร้างจากสรุป AI แทน ไม่มีรูป
+            item = TodoItem(username=user.username, category=sg.category or "งาน",
+                            text=f"{sg.summary}\n\n📱 ไลน์ {sg.group_name} — {sg.who} {sg.sent_at}")
+            s.add(item)
+            s.commit()
+            s.refresh(item)
+            todo_id = item.id
+        sg.status = "accepted"
+        sg.todo_id = todo_id
+        s.add(sg)
+        s.commit()
+    return RedirectResponse("/todo", status_code=303)
+
+
+@app.post("/todo/suggest/{sid}/dismiss")
+def todo_suggest_dismiss(sid: int, request: Request):
+    from auth import current_user
+
+    user = current_user(request)
+    if not (user and user.role == "admin"):
+        raise HTTPException(403)
+    with Session(engine) as s:
+        sg = s.get(TodoSuggest, sid)
+        if sg and sg.status == "pending":
+            sg.status = "dismissed"
+            s.add(sg)
+            s.commit()
+    return RedirectResponse("/todo", status_code=303)
 
 
 # =========================================================================
@@ -10466,13 +10593,18 @@ async def ai_ask(request: Request):
     t0 = _time.monotonic()
     ok = True
     try:
-        if model == "claude":
+        if model.startswith("claude"):
+            # "claude" = รุ่น default ของ CLI; "claude:haiku|sonnet|opus" = เลือกรุ่นเอง
+            sub = {"claude:haiku": "haiku", "claude:sonnet": "sonnet",
+                   "claude:opus": "opus"}.get(model)
+            if sub is None:
+                model = "claude"
             # claude -p ไม่รับ messages array — แบนประวัติเป็นข้อความเดียว
             lines = [_ai_system_prompt(), ""]
             for m in history:
                 lines.append(("โอ: " if m["role"] == "user" else "ผู้ช่วย: ") + m["content"])
             lines.append("โอ: " + q)
-            answer = ai_assist.chat_claude("\n".join(lines), cwd=str(APP_DIR))
+            answer = ai_assist.chat_claude("\n".join(lines), cwd=str(APP_DIR), model=sub)
         else:
             model = "qwen"
             msgs = ([{"role": "system", "content": _ai_system_prompt()}]

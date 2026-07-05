@@ -6,9 +6,13 @@
     <h1 class="text-2xl font-bold">🤖 ผู้ช่วย AI <span class="text-base font-normal text-slate-500">(อ่านอย่างเดียว — ตอบคำถาม ไม่แตะข้อมูล)</span></h1>
     <select id="ai-model" class="border rounded-lg px-3 py-1.5 text-sm bg-white">
       <option value="qwen">Qwen (ฟรี — เร็ว)</option>
-      <option value="claude" {% if not claude_ok %}disabled{% endif %}>
-        Claude (Max ของโอ){% if not claude_ok %} — ยังไม่ติดตั้งบนเครื่องนี้{% endif %}
-      </option>
+      {% if claude_ok %}
+      <option value="claude:haiku">Claude Haiku (เร็ว ประหยัดโควต้า)</option>
+      <option value="claude:sonnet">Claude Sonnet (มาตรฐาน)</option>
+      <option value="claude:opus">Claude Opus (เก่งสุด — ช้า+กินโควต้า)</option>
+      {% else %}
+      <option value="claude" disabled>Claude (Max ของโอ) — ยังไม่ติดตั้งบนเครื่องนี้</option>
+      {% endif %}
     </select>
   </div>
 

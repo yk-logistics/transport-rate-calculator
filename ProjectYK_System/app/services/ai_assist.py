@@ -130,9 +130,11 @@ def claude_available() -> bool:
     return _claude_exe() is not None
 
 
-def chat_claude(prompt: str, cwd: str | None = None, timeout: int = 180) -> str:
+def chat_claude(prompt: str, cwd: str | None = None, timeout: int = 180,
+                model: str | None = None) -> str:
     """ถาม Claude ด้วย claude -p อ่านอย่างเดียว (Read,Grep,Glob) — คืนข้อความตอบ.
 
+    model: alias ของ CLI ("haiku"/"sonnet"/"opus") — None = รุ่น default ของ CLI.
     ตั้ง CLAUDE_CONFIG_DIR ชี้โปรไฟล์ที่ login ไว้ได้ผ่าน env YK_CLAUDE_CONFIG
     (จำเป็นบน server: แอปรันเป็น SYSTEM แต่ Max login อยู่โปรไฟล์ yklog)."""
     import subprocess
@@ -145,9 +147,12 @@ def chat_claude(prompt: str, cwd: str | None = None, timeout: int = 180) -> str:
     cfg = os.getenv("YK_CLAUDE_CONFIG", "").strip()
     if cfg:
         env["CLAUDE_CONFIG_DIR"] = cfg
+    cmd = [exe, "-p", prompt, "--allowedTools", "Read,Grep,Glob"]
+    if model:
+        cmd += ["--model", model]
     try:
         r = subprocess.run(
-            [exe, "-p", prompt, "--allowedTools", "Read,Grep,Glob"],
+            cmd,
             capture_output=True, text=True, encoding="utf-8", errors="replace",
             timeout=timeout, cwd=cwd, env=env)
     except subprocess.TimeoutExpired:

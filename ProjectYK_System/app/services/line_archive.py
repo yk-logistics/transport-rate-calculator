@@ -79,6 +79,22 @@ def search(q: str = "", group_id: str = "", msg_type: str = "",
     return [dict(r) for r in rows]
 
 
+def recent_text_messages(since_iso: str, limit: int = 400) -> list[dict]:
+    """ข้อความ text ตั้งแต่ since_iso ('YYYY-MM-DD HH:MM') — สำหรับสแกนเสนอ todo
+    (เฟส 4). read-only เช่นเดิม; sent_at เป็น TEXT เทียบ string ได้ (ISO-ish)."""
+    with _conn() as c:
+        rows = c.execute("""
+            SELECT m.id, m.text, m.sent_at, g.name AS group_name,
+                   COALESCE(u.alias, u.display_name) AS who
+            FROM line_message m
+            LEFT JOIN line_group g ON g.group_id = m.group_id
+            LEFT JOIN line_user u ON u.user_id = m.user_id
+            WHERE m.msg_type = 'text' AND m.text IS NOT NULL AND m.text != ''
+              AND m.sent_at >= ?
+            ORDER BY m.sent_at LIMIT ?""", (since_iso, limit)).fetchall()
+    return [dict(r) for r in rows]
+
+
 def daily_digest(day_iso: str, today_iso: str) -> dict:
     """F5: สรุปต่อกลุ่มของวัน day_iso (YYYY-MM-DD) + กลุ่มเงียบ >3 วันเทียบ today_iso.
 
