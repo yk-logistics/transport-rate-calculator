@@ -93,6 +93,7 @@
 - [LCB driver extra fees](project-lcb-driver-extra-fees.md)
 
 ## เครื่องมือ/อ้างอิงเทคนิค
+- [📕 Runbook ปิดรอบเงินเดือน](reference-payroll-close-runbook.md) — docs/PAYROLL_CYCLE_CLOSE_RUNBOOK.md เขียน 5ก.ค. ให้โมเดลถัดไปปิดรอบ LCB 15ก.ค. เองได้ (กฎเหล็ก+checklist+กติกาโหมด+gotcha)
 - [ไอเดียจาก Discord 9arm](reference-9arm-discord-ideas.md) — โอเคาะครบ 5ก.ค.: ✨ fallback Qwen→Claude ทำแล้ว (b25d1a9 deploy เขียว, ตั้งค่าบน /ai); สลิปAPI/QR ไม่เอา; OCR ให้เลือก 2 เจ้าเมื่อถึงงาน NHL; **gotcha: qwen-readonly ปนความจำ repo เราเข้าไปในคำตอบ — grep ยืนยันก่อนเชื่อ**
 - [Deploy MVP self-verify](reference-deploy-mvp-selfverify.md) — DEFAULT: deploy_mvp.sh --markers "<ascii>" (แต่ copy ทั้ง dir — มีไฟล์ session อื่นค้างให้ surgical scp แทน)
 - [net_guard ทุกไซต์](reference-net-guard.md) — net_guard.py before/after --allow <ids> พิสูจน์รอบอื่นนิ่ง

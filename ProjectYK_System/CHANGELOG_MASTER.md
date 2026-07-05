@@ -4,6 +4,12 @@
 
 > **Agent bootstrap:** อ่านเฉพาะ **3 หัวข้อ `##` แรกจากด้านบนลงมา** (ไม่รวมบรรทัดนี้) — **ห้าม**อ่านทั้งไฟล์ทุกแชต. นโยบาย/การย้าย archive: [`ProjectYK_System/docs/CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md)
 
+## 2026-07-05 (Runbook ปิดรอบเงินเดือน + เทสต์ล็อกธงสลิป — เตรียมส่งไม้ก่อน Fable หมด 7/7)
+
+- **📕 `docs/PAYROLL_CYCLE_CLOSE_RUNBOOK.md` ใหม่:** คู่มือปิดรอบทุกไซท์กลั่นจากรอบ มิ.ย. จริง — กฎเหล็ก 5 ข้อ / checklist ก่อนปิด 8 ขั้น (petty→fuel reconcile→preflight→เทียบไฟล์ ground truth→deposit→KB→net_guard) / กติกา engine ต่อโหมด / ท่า recompute ปลอดภัย (gotcha office copy) / gate finalize / ตารางเครื่องมือ + index memory รายเคส → **Opus/Sonnet ปิดรอบ LCB #3 (15 ก.ค.) ได้เองหลัง Fable หมดอายุ 7 ก.ค.**
+- เทสต์ใหม่ 4 ตัว `tests/test_slip_fuel_anomaly_flag.py` ล็อกกติกาธงสลิป: 2 บิล/วันไม่ธง (คู่ B7+B20), 3 บิลธง amber, ธงโชว์เฉพาะ boss render, R2 เกินถังธงแดงแม้บิลเดียว
+- อัปเดต `WAITING_ON_OAT.md` (A5 ปลดเงื่อนไข session สลิป) + scp ขึ้น server แล้ว
+
 ## 2026-07-05 (ธงน้ำมันผิดปกติบนสลิปชุดผู้บริหาร — ปิดหางงาน E2)
 
 - **⚠ ธงในช่องน้ำมันของสลิปชุดผู้บริหาร ✅ (10e80f6, deploy marker `tag-anom` เขียว):** reuse กติกา R1/R2/R3 จาก `services/fuel_anomaly` ผูกเข้าแถวที่บิลโชว์จริงบนสลิป (ตามวันเติมจริง/anchor) — เติมถี่=เหลือง เกินถัง=แดง เติมวันไม่มีงาน=ฟ้า; **สลิปคนขับไม่โชว์** (กันดราม่า — โอไว้ใช้ตรวจตอนจ่าย); โผล่ทั้ง /print?for=boss และ ZIP for=boss อัตโนมัติ (single source ผ่าน build_payroll_slip_context)
