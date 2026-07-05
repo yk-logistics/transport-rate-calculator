@@ -39,7 +39,7 @@
 - [C2 ออกใบวางบิล](project-c2-invoice-builder.md) — /billing/invoice CY+KMMT+CJ verified 6 ใบจริงเลขตรงทุกช่อง; เหลือ vendor template เจ้าอื่น (runbook INVOICE_BUILDER_SPEC.md); ไม่เขียน invoice_no กลับเดลี่; NHL 2 เลย์เอาต์รอถามทีม
 - [C4 ค่าเที่ยวตกหล่น](project-c4-pay-adjustment.md) — DONE 3ก.ค.: แก้ tfd รอบปิดใน grid→ตั้งยอดอัตโนมัติ→บวก/หักรอบถัดไป idempotent (v36); เคสจริงแรก=ราคา AYU ดู runbook
 - [B3 ราคาใบเสนอ→เดลี่](project-b3-quote-to-daily.md) — DONE 3ก.ค.: ปุ่ม 💡 ใน grid กดรับต่อแถว (ไม่ทับ+audit) + /billing เตือนราคา≠ใบเสนอ; รอโอมีใบ "ตกลงแล้ว" ใบแรก
-- [S1 สำรอง 3 ชั้น](project-s1-backup-3tier.md) — DONE 3ก.ค.: nightly zip→D: + ปุ่ม External + Dev mirror + Discord + ซ้อมกู้; **GOTCHA: Google ตัด SA quota — อัป Drive ต้อง OAuth โอ (รอเคาะ)**
+- [S1 สำรอง 3 ชั้น](project-s1-backup-3tier.md) — DONE 3ก.ค.: nightly zip→D: + ปุ่ม External + Dev mirror + Discord + ซ้อมกู้; ชั้น Drive: **โค้ด OAuth พร้อม+deploy แล้ว 5ก.ค.** เหลือโอทำ BACKUP_RUNBOOK §Drive 5 นาที (consent ต้อง PUBLISH ไม่งั้น token ตาย 7 วัน)
 - [C1 พร้อมวางบิล?](project-c1-billing-ready.md) — DONE 3ก.ค.: แถบเช็คใน /billing (ราคาว่าง/ไม่มีเลขใบงาน/ตู้ซ้ำ, deep-link ไป grid); helper _daily_row_kind ใช้ร่วมปฏิทิน; BigC พ.ค. 340 แถวราคาว่าง
 - [B2 เซฟใบเสนอราคา](project-b2-quote-save.md) — DONE 3ก.ค.: /quote/sync พูดโปรโตคอล Drive-sync เดิม (ไม่แก้ไฟล์เครื่องคิด) + /quote/list v35; รอโอลองกดจริง 1 ครั้ง
 - [B4 ปฏิทินกำลังรถ /calendar](project-b4-fleet-calendar.md) — DONE 3ก.ค.: ว่าง=รวม−จอง/วิ่ง−ซ่อม−ลา + ลงลา; GOTCHA เดลี่ไม่มี vehicle link ต้อง match ทะเบียนข้อความ; AYU/BIGC รอเพิ่มรถใน /vehicles

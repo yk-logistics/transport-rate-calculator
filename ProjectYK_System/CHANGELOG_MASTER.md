@@ -4,6 +4,11 @@
 
 > **Agent bootstrap:** อ่านเฉพาะ **3 หัวข้อ `##` แรกจากด้านบนลงมา** (ไม่รวมบรรทัดนี้) — **ห้าม**อ่านทั้งไฟล์ทุกแชต. นโยบาย/การย้าย archive: [`ProjectYK_System/docs/CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md)
 
+## 2026-07-05 (S1 ชั้น Drive: โค้ด OAuth พร้อม+deploy — เหลือโอคลิกยินยอมครั้งเดียว)
+
+- **`tools/server_backup/gdrive_oauth.py` ใหม่ (7606056):** setup บน Dev (browser, google-auth-oauthlib เฉพาะตอน setup) → `gdrive_token.json`; ฝั่ง server อัป/หมุนเวียนผ่าน REST **stdlib ล้วน** scope `drive.file` — ไม่ต้องลง lib google บน server; `backup_tier1.py` สลับใช้ OAuth เองเมื่อเห็น token (ไม่มี = fallback SA soft-fail เดิม พฤติกรรมไม่เปลี่ยน)
+- deploy ขึ้น server แล้วทั้ง 2 ไฟล์ + dry-run จริงผ่าน (zip 16MB, 9 รายการ); ขั้นตอนโอ 6 ขั้นใน `BACKUP_RUNBOOK.md §Drive` — **gotcha สำคัญ: OAuth consent screen ต้องกด PUBLISH (production) ไม่งั้น refresh token หมดอายุทุก 7 วัน = ตายเงียบ**; token ลงทะเบียน secret #10 ใน SECRETS_INVENTORY
+
 ## 2026-07-05 (Runbook ปิดรอบเงินเดือน + เทสต์ล็อกธงสลิป — เตรียมส่งไม้ก่อน Fable หมด 7/7)
 
 - **📕 `docs/PAYROLL_CYCLE_CLOSE_RUNBOOK.md` ใหม่:** คู่มือปิดรอบทุกไซท์กลั่นจากรอบ มิ.ย. จริง — กฎเหล็ก 5 ข้อ / checklist ก่อนปิด 8 ขั้น (petty→fuel reconcile→preflight→เทียบไฟล์ ground truth→deposit→KB→net_guard) / กติกา engine ต่อโหมด / ท่า recompute ปลอดภัย (gotcha office copy) / gate finalize / ตารางเครื่องมือ + index memory รายเคส → **Opus/Sonnet ปิดรอบ LCB #3 (15 ก.ค.) ได้เองหลัง Fable หมดอายุ 7 ก.ค.**

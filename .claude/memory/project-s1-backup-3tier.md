@@ -13,7 +13,7 @@ metadata:
 - **ชั้น 3**: task `YK_PULL_BACKUP` (เครื่อง Dev โอ, 09:30) รัน tools/server_backup/pull_backup_dev.ps1 ดูด zip ล่าสุดผ่าน Tailscale → `C:\Users\guole\YK_BACKUPS_MIRROR` เก็บ 14 — **นี่คือสำเนานอกเครื่อง server ตัวหลักตอนนี้**
 
 **GOTCHA:**
-1. **Google ตัดโควต้า storage ของ service account (นโยบาย 2025) — SA สร้าง/อัปโหลดไฟล์ Drive ไม่ได้อีกถาวร** (403 storageQuotaExceeded แม้อัปเข้าโฟลเดอร์คนอื่น เพราะไฟล์ owner=SA); ข้อสมมติ "SA อัปได้เลย" ในสเปคเดิมผิด; ทางเดียว = OAuth บัญชีโอ (มี plumbing ใน services/email_oauth.py แต่ client id/secret ยังไม่ตั้งบน server) — **รอโอเคาะค่อยทำ**; สคริปต์เขียนแบบ Drive พัง=ธงเหลือง ไม่ล้มงาน พร้อมเปิดใช้เมื่อมี OAuth
+1. **Google ตัดโควต้า storage ของ service account (นโยบาย 2025) — SA สร้าง/อัปโหลดไฟล์ Drive ไม่ได้อีกถาวร** (403 storageQuotaExceeded แม้อัปเข้าโฟลเดอร์คนอื่น เพราะไฟล์ owner=SA); ข้อสมมติ "SA อัปได้เลย" ในสเปคเดิมผิด; ทางเดียว = OAuth บัญชีโอ → **โค้ดพร้อมแล้ว 5 ก.ค.** (`tools/server_backup/gdrive_oauth.py` deploy บน server แล้ว; backup_tier1 สลับใช้เองเมื่อเห็น `gdrive_token.json`; ฝั่ง server REST stdlib ล้วน scope drive.file) — เหลือโอทำ BACKUP_RUNBOOK §Drive ~5 นาที (**gotcha: consent screen ต้อง PUBLISH เป็น production ไม่งั้น refresh token ตายทุก 7 วัน**); token = secret #10
 2. Discord ผ่าน urllib ต้องตั้ง **User-Agent** เอง (Cloudflare 403 UA default) + บอทไม่มีสิทธิ์สร้าง channel → post เข้า line-archiver-alerts เดิม; ทดสอบ alert จริงแล้ว (ข้อความ 🔴 3ก.ค. ~15:31 คือเทสต์)
 3. คอนโซล Windows: สคริปต์ standalone ที่ log ไทยต้อง sys.stdout.reconfigure(utf-8) ไม่งั้นตายทั้งตัว
 
