@@ -24,7 +24,7 @@
 - [BigC มิ.ย. deposit/ภาษี/น้ำมัน](project-bigc-jun-deposit-tax-fuel.md) — ภาษี BigC รอโอตัดสิน
 
 ## งานเสร็จล่าสุด (ก.ค.)
-- [สลิป k-tag ตารางลูกผสม](project-slip-ktag-mixed-table.md) — DONE 5ก.ค. commit 20b32b0 deploy เขียว: ถอดคอลัมน์ "ฝั่ง"→ป้ายเหมา/เที่ยว/รถจอด + พิเศษ/OT เรียงตรง; **บล็อก "ห้ามทับ template สลิป" ยกเลิกแล้ว** (เหลือ oatside ค้าง working tree ของอีก session)
+- [สลิป k-tag ตารางลูกผสม + ธงน้ำมัน E2](project-slip-ktag-mixed-table.md) — DONE 5ก.ค. (20b32b0+10e80f6 deploy เขียว): ถอดคอลัมน์ "ฝั่ง"→ป้ายเหมา/เที่ยว/รถจอด + พิเศษ/OT เรียงตรง + ⚠ ธงน้ำมันผิดปกติบนสลิปชุดผู้บริหาร (R1 เกณฑ์ ≥3 บิล/วัน กันคู่ B7+B20); **บล็อก "ห้ามทับ template สลิป" ยกเลิกแล้ว** (เหลือ oatside ค้าง working tree ของอีก session)
 - [🧪 TradeLab บอทเทรดเงินสมมุติ](project-tradelab-paper-bot.md) — นอก repo: Desktop\TradeLab port 8030; เริ่มพอร์ต 100k 5ก.ค.; เกณฑ์: ชนะ buy&hold 1-3 เดือนค่อยคุยต่อ; ห้ามปนงานเงิน YK
 - [PWA icon /todo ลง Taskbar](project-pwa-todo-taskbar-icon.md) — DONE 5ก.ค. commit 542e806 + deploy เขียวหมด; hunk PWA เข้า HEAD แล้ว (session อื่น deploy จาก HEAD ได้เลย ไม่ต้องกรองอีก); รอโอลบ shortcut เก่า+Install ใหม่
 - [LINE→todo + AI จบครบ 4 เฟส](project-line-to-todo-ai-phases.md) — 5ก.ค. deploy v46: ➕ /line→/todo · ✨ Qwen เรียบเรียง (สำรอง Claude อัตโนมัติ) · หน้า /ai แชท (เลือกรุ่น Haiku/Sonnet/Opus + AiChatLog) · 📥 กล่องรอคัดจากไลน์ (auto-scan รายวัน, AI เสนอ-โอคัด, วัดจริง 49 งาน); Claude ผ่าน setup-token = secret #9 (docs/AI_CHAT_RUNBOOK.md); gotcha 9arm REST: ท่า /v1/chat/completions + ตั้ง UA เอง

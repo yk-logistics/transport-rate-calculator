@@ -16,4 +16,6 @@ metadata:
 - **git**: commit `20b32b0` บน branch → main ff ด้วย `git fetch . branch:main` (checkout ไม่ได้เพราะ oatside ค้าง); deploy `deploy_mvp.sh --markers "k-mao"` เขียวครบ; **ไม่ push origin** (norm repo นี้ origin ตามหลังไกล deploy ผ่าน scp)
 - **บล็อกเก่า "สลิป template uncommitted ห้ามทับ/ห้าม deploy ทั้ง dir" ยกเลิกแล้ว** — ที่ค้างใน working tree เหลือแค่ `app/oatside/` (build_oatside_reports.py + oatside_config.json ของ session Oatside) ซึ่ง deploy_mvp.sh ไม่ลากอยู่แล้ว (copy แค่ root *.py + services/static/templates)
 
+**ต่อยอดทันที (เซสชันเดียวกัน):** หางงาน E2 "ธงบนสลิป" ที่รอ template ว่าง — เสร็จแล้ว commit `10e80f6` deploy marker `tag-anom` เขียว: ⚠ ธง R1/R2/R3 ในช่องน้ำมัน **เฉพาะชุดผู้บริหาร** (is_boss — สลิปคนขับไม่โชว์); **R1 บนสลิปเกณฑ์ ≥3 บิล/วัน** (คู่ B7+B20 ปกติ = 2 บิล ไม่ธง — เกณฑ์ ≥2 เดิมธง 190/รอบ ไร้ความหมาย) ส่วนหน้า /fuel/anomaly เกณฑ์เดิม; fuel_anomaly.scan แนบ `n` ใน flag R1 ให้ผู้เรียกกรอง
+
 related: [[project-jul1-session-close]], [[project-jul4-day-run]], [[reference-deploy-mvp-selfverify]]
