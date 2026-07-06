@@ -11,6 +11,11 @@
 - TDD: `tests/test_uploads_gate.py` 7 ข้อ (anonymous 403 / session 200 / token 200 / token ปลอม 403 / traversal / 404 / template พ่วง token) — เห็น RED ก่อนแก้จริง; full suite **523 ผ่าน**
 - อัปเดต `SECURITY_S2_APP_AUDIT.md` §4 เป็นปิดแล้ว + `PLAN_STATUS.json` โน้ต S2
 
+**รอบบ่าย (เก็บงานที่ทำเองได้เพิ่ม 3 ชิ้น):**
+- **ปิดข้อค้าง S5⑦ (ทดสอบ role viewer)** ด้วยเทสต์ e2e `tests/test_viewer_rbac.py` 4 ข้อแทนการลองมือบน server: เห็น grid ได้ / คอลัมน์เงิน+KB ไม่อยู่ใน payload (fail closed) / POST แก้ข้อมูล 403 / โซนเงิน (payroll/finance/kb) 403 — ผ่านหมด
+- **วัด D1 ใหม่บน server** (probe read-only ใช้ `_daily_row_kind` ตัวจริง): LCB จบจริง; คงเหลือราคาว่าง **BIGC เม.ย. 293/389 + พ.ค. 393/438, AYU มิ.ย. 410/710 + พ.ค. 59/130** → อัปเดตโน้ต D1 ใน PLAN_STATUS
+- **ซ่อม backup ชั้น 3 เงียบหาย**: `YK_PULL_BACKUP` บนเครื่อง Dev (โน้ตบุ๊ก) ติด default "ห้ามเริ่มตอนใช้แบต" (0x800710E0 วันนี้เอง) → ตั้ง AllowStartIfOnBatteries + StartWhenAvailable + รันมือเก็บ zip 6ก.ค. เข้า mirror แล้ว; จด gotcha ใน BACKUP_RUNBOOK; ชั้น 1 server ปกติ (03:00 วันนี้ 15.9MB), ชั้น Drive รอ consent โอตามเดิม
+
 ## 2026-07-05 (self-review 8 มุมของงานวันนี้ → แก้ 2 เรื่อง + ซ่อมตัวเช็ค deploy)
 
 - **รีวิวโค้ดวันนี้ทั้งชุดด้วย finder 8 มุม** (5 findings): แก้จริง 2 — (1) **scan ธงน้ำมันเคยวนต่อคน** บน /print + ZIP (~30 scan ซ้ำ/รอบ) → `slip_anomaly_rows()` คำนวณครั้งเดียวก่อน loop แล้วส่งเข้า `build_payroll_slip_context(anomaly_rows=…)`; fpdf bundle ส่ง `[]` ไม่จ่ายค่า scan เลย (2) **เกณฑ์ R1 เคยแยก 2 ที่** → เป็นพารามิเตอร์ `scan(r1_threshold=…)` ที่เดียว (หน้า /fuel/anomaly default 2, สลิป `SLIP_R1_THRESHOLD=3`) (b21e617, pytest 516 ผ่าน, deploy เขียว)

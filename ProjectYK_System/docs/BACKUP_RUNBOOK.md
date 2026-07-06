@@ -12,6 +12,7 @@
 | 3 | สำเนา zip ชั้น 1 คืนล่าสุด **นอกเครื่อง server** | ทุกวัน 09:30 เมื่อเครื่อง Dev โอเปิดอยู่ (task `YK_PULL_BACKUP` บนเครื่อง Dev, ดูดผ่าน Tailscale) | เครื่อง Dev: `C:\Users\guole\YK_BACKUPS_MIRROR` (เก็บ 14) | อัตโนมัติ |
 
 - backup พังคืนไหน → เด้ง **Discord** (channel line-archiver-alerts / yk-backup-alerts) + การ์ด G1 แดง (แดงเองด้วยถ้าชุดล่าสุดเก่ากว่า 26 ชม.)
+- ⚠️ gotcha ชั้น 3 (เจอ+แก้แล้ว 6 ก.ค. 2026): เครื่อง Dev เป็นโน้ตบุ๊ก — task scheduler default **ไม่ยอมเริ่มงานตอนใช้แบต** ทำ pull เงียบหายวันที่ไม่เสียบสาย (code 0x800710E0) → ตั้ง AllowStartIfOnBatteries + StartWhenAvailable (รันย้อนถ้าพลาดเวลา) แล้ว; ถ้าสร้าง task ใหม่บนโน้ตบุ๊กต้องตั้ง 2 ตัวนี้เสมอ
 - สคริปต์ต้นทางอยู่ใน repo: `ProjectYK_System/tools/server_backup/backup_tier1.py` (server: `C:\Users\yklog\YK_MVP\backup_tier1.py`) + `pull_backup_dev.ps1` (Dev)
 - ⚠️ **ชั้น Google Drive ยังไม่ทำงาน**: Google ตัดโควต้า storage ของ service account (2025) → SA อัปโหลดไฟล์ไม่ได้อีกแล้ว. **โค้ดฝั่ง OAuth เตรียมครบแล้ว 5 ก.ค.** (`gdrive_oauth.py` วางบน server แล้ว, backup_tier1 สลับใช้เองเมื่อเห็น token) — เหลือโอทำครั้งเดียวตาม §Drive ด้านล่าง ~5 นาที; ระหว่างนี้สำเนานอกเครื่อง = ชั้น 3
 
