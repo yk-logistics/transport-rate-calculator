@@ -4,6 +4,13 @@
 
 > **Agent bootstrap:** อ่านเฉพาะ **3 หัวข้อ `##` แรกจากด้านบนลงมา** (ไม่รวมบรรทัดนี้) — **ห้าม**อ่านทั้งไฟล์ทุกแชต. นโยบาย/การย้าย archive: [`ProjectYK_System/docs/CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md)
 
+## 2026-07-06 รอบสอง (D1 เจาะลึก: backfill คลังเรท + ข้อสรุปคอขวดจริง)
+
+- **พบรูจริงของ D1**: RateCard ทั้งระบบมี 18 ใบ (LCB ล้วน) เพราะ auto-learn เพิ่งเกิด 4ก.ค. — แถวเก่าที่มีราคาไม่เคยถูกเรียน → หน้า /billing/fill-prices ว่างเปล่าสำหรับ BIGC/AYU
+- **`tools/backfill_rate_cards.py`** (TDD 3 เทสต์: dry-run ไม่เขียน/apply แล้ว rate_find เจอ+ข้ามแถวลา/idempotent) — replay ตรรกะ auto-learn เดิมกับประวัติ 2,800 แถว → คลังเรท 18→**1,943 ใบ**; undo file `_backfill_rate_cards_undo.json` บน server ครอบ 1,925 ใบใหม่ครบ
+- **ผลวัดหลัง backfill (server จริง)**: LCB 12/12 กดจบ 100% ได้เลย · BIGC มีเรทรอกด 52/686 · AYU 18/469 — **เหลือ 1,085 แถวไม่มีราคาต้นทางในระบบ ต้องได้ราคาจากโอ/สัญญา/ใบเสนอ** = คอขวด D1 คือข้อมูลราคา ไม่ใช่แรงคลิก
+- ⚠️ **incident (จดตรงๆ)**: สคริปต์จำลองตั้ง env `DATABASE_URL` ชี้สำเนาผ่าน ssh→powershell แล้ว**ไม่ติดเงียบๆ** (quoting) → รอบ "จำลอง" commit ลง DB จริง 1,586 ใบก่อนตั้งใจ; ตรวจแล้วสถานะสุดท้าย**ตรงกับผล backfill ที่ตั้งใจเป๊ะ** (ตรรกะเดียวกัน idempotent, ไม่แตะแถวเงิน แตะแต่ตาราง suggestion) + สร้าง undo ครอบย้อนหลังแล้ว; **บทเรียนย้ำกฎเดิม: อย่าส่ง env/คำสั่งซ้อนผ่าน ssh inline — scp สคริปต์ .ps1/.py ไปรันเสมอ** (memory reference-deploy-via-tailscale)
+
 ## 2026-07-06 (ปิดช่องโหว่ /uploads public — หางงาน S2 ตัวสุดท้าย)
 
 - **`/uploads/` (รูปจากคนขับ) ไม่ public แล้ว** — ถอด StaticFiles mount → route `serve_upload` เช็ค **AppUser session หรือ access-link token (`?t=` ท่าเดียวกับ /check)** + กัน path traversal; `/check/mechanic` (ช่างยางผ่าน magic link) แก้ template พ่วง `?t={{ token }}` ที่ URL รูปแล้ว ช่างยังเห็นรูปปกติ

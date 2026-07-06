@@ -14,6 +14,7 @@ metadata:
 **Gotcha SSH→PowerShell (server default shell = PowerShell ไม่ใช่ bash):**
 - `&&` ใช้ไม่ได้ (ใช้ `;` หรือ `Set-Location X; & cmd`).
 - quote ซ้อน `\\\"Name='python.exe'\\\"` พังเสมอ → **เขียน .ps1/.py ส่ง scp ไปรัน** ด้วย `powershell -NoProfile -ExecutionPolicy Bypass -File X.ps1`. อย่า inline filter ซับซ้อน.
+- ⚠️ **env var inline ก็พังเงียบ (เจ็บจริง 6ก.ค.2026):** `\$env:DATABASE_URL='...'` ผ่าน bash→ssh→powershell ตั้งไม่ติดโดยไม่ error → สคริปต์ "จำลอง" ที่นึกว่าชี้ DB สำเนา **commit ลง DB จริง** (โชคดีเป็นตาราง suggestion + idempotent) — **การทดลองที่ต้องเขียน DB: ให้สคริปต์ .py เซ็ต env/path เองข้างในไฟล์ แล้ว scp ไปรัน; ห้ามพึ่ง env จาก command line ข้าม ssh**
 
 **Deploy ครบ (night-run 2026-06-28, สำเร็จ):**
 1. backup server DB: `Copy-Item app.db app.db.bak_before_<x>` (กฎเหล็ก).

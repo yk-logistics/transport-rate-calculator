@@ -19,4 +19,6 @@ metadata:
 
 **Gotcha ใหม่รอบนี้:** deploy_mvp.sh ไม่ copy `app/oatside/` (ปลอดภัยจาก gotcha config server เป็นตัวจริง) แต่ working tree ยังมี oatside แก้ค้างของอีก session — ห้าม `git add -A` ตามเดิม
 
+**รอบสอง (โอสั่ง "ใช้ Fable ต่อจนถูกตัด" ~11:30-12:00): D1 เจาะลึก + backfill คลังเรท** — พบ RateCard มีแค่ 18 ใบ (LCB) เพราะ auto-learn เพิ่งเกิด 4ก.ค. → เขียน `tools/backfill_rate_cards.py` (TDD, dry-run/apply/undo) replay ประวัติ 2,800 แถว → **1,943 ใบ**; ผลจริง: LCB กด 100% ได้เลย, BIGC 52/686, AYU 18/469 มีเรทรอกด — **คอขวด D1 = 1,085 แถวไม่มีราคาต้นทาง ต้องได้จากโอ ไม่ใช่แรงคลิก**; ⚠️ incident: env inline ผ่าน ssh ไม่ติดเงียบๆ ทำสคริปต์จำลอง commit DB จริง (ผลลัพธ์ตรง intended เป๊ะ + undo ครอบ 1,925 ใบแล้ว — บทเรียนจดใน [[reference-deploy-via-tailscale]] + CHANGELOG)
+
 related: [[project-master-plan-jul26]] [[project-fable-deadline-and-phase-p]] [[reference-payroll-close-runbook]] [[project-jul3-session-close]]
