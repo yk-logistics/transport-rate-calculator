@@ -3,6 +3,7 @@
 ## กฎยืน (อ่านก่อนทุกงาน)
 - [🟢 มอบอำนาจเต็มแพลน MVP](project-jul3-session-close.md) — โอ 3ก.ค.: ลุยทุกงานในแพลนไม่ต้องรออนุมัติ ทำก่อนแก้ทีหลัง จดข้อสมมติ; กฎเงิน/ทำลายล้างยึดเดิม
 - [⚠️ Fable ถึง 7/7 + เฟส P](project-fable-deadline-and-phase-p.md) — งานเงิน/ออกแบบยากให้ Fable ก่อน 7ก.ค. + ทิ้ง runbook ให้ Opus
+- [🧠 วิธีคิด Fable→Opus](project-fable-mindset-doc.md) — docs/FABLE_MINDSET_FOR_OPUS.md โมเดลใหญ่ตัวถัดไปอ่าน 1 ครั้งเซสชันแรก (8 นิสัย+จังหวะต่องาน)
 - [แพลน MVP](project-master-plan-jul26.md) — docs/MASTER_PLAN_2026-07.md + MVP_TASK_SPECS.md + PLAN_STATUS.json (อัปเดต%+scp ทุกครั้งที่จบงาน)
 - [กฎ: ใช้เวลาจริง](feedback-use-real-clock.md) — Get-Date ก่อนพูดถึงเวลาเสมอ ห้ามเดา
 - [กฎ: คู่มือส่งต่อโมเดลเล็ก](feedback-handoff-for-smaller-models.md) — ทุกงานทิ้ง runbook ให้ Haiku/Sonnet ทำต่อได้
@@ -24,6 +25,7 @@
 - [BigC มิ.ย. deposit/ภาษี/น้ำมัน](project-bigc-jun-deposit-tax-fuel.md) — ภาษี BigC รอโอตัดสิน
 
 ## งานเสร็จล่าสุด (ก.ค.)
+- [🚚 เครื่องคิดต้นทุน Wonder Sub 2026](project-wonder-sub-cost-calculator.md) — artifact 51 จว. (6/10 ล้อ) ราคาผันน้ำมัน+OSRM; โอวางแผนเข้า MVP (`/quote/wonder` ~10 บรรทัด); gotcha: sandbox บล็อกพิมพ์เงียบ; ค้างถาม: ขากลับมีของไหม (default กำไรแค่ 2-3/51)
 - [🏁 ปิดเซสชัน 6ก.ค. + ส่งไม้ Opus](project-jul6-session-close.md) — อุด /uploads public (S2 จบ) + viewer เทสต์ (S5 เหลือแค่ข้อโอ) + D1 วัดสด (BIGC 686/AYU 469 แถว — งานทีมไม่ใช่โค้ด) + ซ่อม YK_PULL_BACKUP ติดแบต + ย้ายกล่องไลน์รอคัด /todo ลงล่าง; **งานเงิน/ออกแบบยากหมดเกลี้ยง — ที่เหลือติดมือโอ/ทีมหมด; งานปฏิทินถัดไป = ปิดรอบ LCB 15ก.ค. ตาม runbook**
 - [สลิป k-tag ตารางลูกผสม + ธงน้ำมัน E2](project-slip-ktag-mixed-table.md) — DONE 5ก.ค. (20b32b0+10e80f6 deploy เขียว): ถอดคอลัมน์ "ฝั่ง"→ป้ายเหมา/เที่ยว/รถจอด + พิเศษ/OT เรียงตรง + ⚠ ธงน้ำมันผิดปกติบนสลิปชุดผู้บริหาร (R1 เกณฑ์ ≥3 บิล/วัน กันคู่ B7+B20); **บล็อก "ห้ามทับ template สลิป" ยกเลิกแล้ว** (เหลือ oatside ค้าง working tree ของอีก session)
 - [🧪 TradeLab บอทเทรดเงินสมมุติ](project-tradelab-paper-bot.md) — นอก repo: Desktop\TradeLab port 8030; เริ่มพอร์ต 100k 5ก.ค.; เกณฑ์: ชนะ buy&hold 1-3 เดือนค่อยคุยต่อ; ห้ามปนงานเงิน YK
