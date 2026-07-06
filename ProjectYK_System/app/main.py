@@ -44,6 +44,7 @@ from models import (
     DispatchPlan,
     DispatchPlanAudit,
     DispatchPlanLine,
+    DealRecord,
     DriverDeposit,
     DriverSession,
     DriverSubmission,
@@ -74,6 +75,7 @@ from models import (
     PayRunItem,
     PayAdjustment,
     PettyCashTxn,
+    PlaceCache,
     PmPlan,
     Quotation,
     QuotationAudit,
@@ -97,7 +99,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 46  # v46: TodoSuggest (เฟส 4 กล่องรอคัดจากไลน์ — create_all); v45: AiChatLog (เฟส 3 /ai — create_all); v44: MediaArchive (G2 — create_all); v43: DocTemplate+DocIssue (A2 — create_all); v42: Vehicle.tank_liters (ALTER); v41: JobMedia; v40: LineGroupMap+LineJobSeen; v39: PartPermission; v38: DebtAccount; v37: AuditLog
+SCHEMA_VERSION = 47  # v47: DealRecord+PlaceCache (โต๊ะเช็คดีล /quote/deal — create_all); v46: TodoSuggest (เฟส 4 กล่องรอคัดจากไลน์ — create_all); v45: AiChatLog (เฟส 3 /ai — create_all); v44: MediaArchive (G2 — create_all); v43: DocTemplate+DocIssue (A2 — create_all); v42: Vehicle.tank_liters (ALTER); v41: JobMedia; v40: LineGroupMap+LineJobSeen; v39: PartPermission; v38: DebtAccount; v37: AuditLog
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -9421,8 +9423,10 @@ _QUOTE_NAV_BAR = """
 display:flex;align-items:center;gap:18px;flex-wrap:wrap;
 font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:14px;">
   <a href="/daily" style="color:#fff;text-decoration:none;font-weight:700;">&larr; Project YK</a>
-  <span style="font-weight:600;">📋 เครื่องคิดราคาขนส่ง</span>
-  <a href="/quote/list" style="color:#cbd5e1;text-decoration:none;">📄 รายการใบเสนอที่เซฟไว้</a>
+  <a href="/quote" style="color:#cbd5e1;text-decoration:none;font-weight:600;">📋 เครื่องคิดราคา</a>
+  <a href="/quote/deal" style="color:#cbd5e1;text-decoration:none;">🧮 โต๊ะเช็คดีล</a>
+  <a href="/quote/list" style="color:#cbd5e1;text-decoration:none;">📄 ใบเสนอที่เซฟไว้</a>
+  <a href="/quote/wonder" style="color:#cbd5e1;text-decoration:none;">🚚 ต้นทุน Wonder</a>
 </div>
 """
 
@@ -9574,6 +9578,289 @@ def quote_list(request: Request, q: str = "", status: str = ""):
     ctx.update({"rows": rows, "q": q, "status": status,
                 "status_th": _QUOTE_STATUS_TH})
     return templates.TemplateResponse(request, "quote_list.html", ctx)
+
+
+# ---------------------------------------------------------------------------
+# โต๊ะเช็คดีล /quote/deal (v47) — spec: docs/superpowers/specs/2026-07-06-deal-checker-design.md
+# หมายเหตุ route ordering: ทุก path literal ใต้ /quote ต้องอยู่ "ก่อน" /quote/{qid}
+# ---------------------------------------------------------------------------
+
+# พิกัดกลางตัวเมือง 77 จังหวัด (ใช้เป็นปลายทางระดับจังหวัด — OSRM snap ถนนเอง)
+_TH_PROVINCE_COORDS: dict[str, tuple[float, float]] = {
+    "กรุงเทพมหานคร": (13.7563, 100.5018), "สมุทรปราการ": (13.5991, 100.5967),
+    "นนทบุรี": (13.8622, 100.5140), "ปทุมธานี": (14.0208, 100.5250),
+    "พระนครศรีอยุธยา": (14.3532, 100.5689), "อ่างทอง": (14.5896, 100.4550),
+    "ลพบุรี": (14.7995, 100.6534), "สิงห์บุรี": (14.8879, 100.4049),
+    "ชัยนาท": (15.1852, 100.1251), "สระบุรี": (14.5289, 100.9109),
+    "ชลบุรี": (13.3611, 100.9847), "ระยอง": (12.6814, 101.2776),
+    "จันทบุรี": (12.6113, 102.1039), "ตราด": (12.2428, 102.5177),
+    "ฉะเชิงเทรา": (13.6904, 101.0780), "ปราจีนบุรี": (14.0509, 101.3717),
+    "นครนายก": (14.2069, 101.2130), "สระแก้ว": (13.8240, 102.0645),
+    "ราชบุรี": (13.5282, 99.8134), "กาญจนบุรี": (14.0228, 99.5328),
+    "สุพรรณบุรี": (14.4745, 100.1177), "นครปฐม": (13.8199, 100.0622),
+    "สมุทรสาคร": (13.5475, 100.2744), "สมุทรสงคราม": (13.4098, 100.0023),
+    "เพชรบุรี": (13.1119, 99.9399), "ประจวบคีรีขันธ์": (11.8126, 99.7957),
+    "เชียงราย": (19.9105, 99.8406), "เชียงใหม่": (18.7883, 98.9853),
+    "น่าน": (18.7756, 100.7730), "พะเยา": (19.1664, 99.9017),
+    "แพร่": (18.1445, 100.1405), "แม่ฮ่องสอน": (19.2990, 97.9682),
+    "ลำปาง": (18.2888, 99.4909), "ลำพูน": (18.5741, 99.0087),
+    "ตาก": (16.8840, 99.1258), "เพชรบูรณ์": (16.4189, 101.1591),
+    "สุโขทัย": (17.0078, 99.8237), "อุตรดิตถ์": (17.6200, 100.0993),
+    "พิษณุโลก": (16.8211, 100.2659), "กำแพงเพชร": (16.4828, 99.5226),
+    "พิจิตร": (16.4429, 100.3487), "อุทัยธานี": (15.3835, 100.0245),
+    "นครสวรรค์": (15.7047, 100.1372), "ชุมพร": (10.4930, 99.1800),
+    "ระนอง": (9.9529, 98.6085), "สุราษฎร์ธานี": (9.1382, 99.3215),
+    "นครศรีธรรมราช": (8.4304, 99.9631), "กระบี่": (8.0863, 98.9063),
+    "พังงา": (8.4510, 98.5297), "ภูเก็ต": (7.8804, 98.3923),
+    "พัทลุง": (7.6167, 100.0742), "ตรัง": (7.5563, 99.6114),
+    "สตูล": (6.6238, 100.0673), "สงขลา": (7.1897, 100.5954),
+    "ปัตตานี": (6.8692, 101.2500), "ยะลา": (6.5413, 101.2803),
+    "นราธิวาส": (6.4254, 101.8253), "หนองคาย": (17.8783, 102.7420),
+    "บึงกาฬ": (18.3609, 103.6465), "หนองบัวลำภู": (17.2046, 102.4260),
+    "อุดรธานี": (17.4139, 102.7872), "นครพนม": (17.4108, 104.7787),
+    "มุกดาหาร": (16.5453, 104.7208), "สกลนคร": (17.1545, 104.1348),
+    "มหาสารคาม": (16.1850, 103.3020), "เลย": (17.4860, 101.7223),
+    "ขอนแก่น": (16.4419, 102.8360), "กาฬสินธุ์": (16.4315, 103.5059),
+    "ร้อยเอ็ด": (16.0538, 103.6520), "ชัยภูมิ": (15.8069, 102.0311),
+    "สุรินทร์": (14.8818, 103.4936), "บุรีรัมย์": (14.9930, 103.1029),
+    "นครราชสีมา": (14.9799, 102.0977), "ยโสธร": (15.7921, 104.1452),
+    "ศรีสะเกษ": (15.1186, 104.3229), "อำนาจเจริญ": (15.8657, 104.6265),
+    "อุบลราชธานี": (15.2448, 104.8473),
+}
+_TH_PROVINCE_ALIAS = {
+    "กทม": "กรุงเทพมหานคร", "กรุงเทพ": "กรุงเทพมหานคร", "กรุงเทพฯ": "กรุงเทพมหานคร",
+    "อยุธยา": "พระนครศรีอยุธยา", "โคราช": "นครราชสีมา", "แปดริ้ว": "ฉะเชิงเทรา",
+    "อุบล": "อุบลราชธานี", "นครศรีฯ": "นครศรีธรรมราช", "ประจวบ": "ประจวบคีรีขันธ์",
+}
+_DEAL_YK_HOME = (14.15969179682617, 100.60157104661114)  # ฐาน YK วังน้อย
+
+
+def _deal_parse_latlng(text: str):
+    """แกะ 'lat,lng' จากข้อความ — คืน (lat,lng) หรือ None."""
+    m = re.search(r"(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)", text or "")
+    if not m:
+        return None
+    lat, lng = float(m.group(1)), float(m.group(2))
+    if 4.0 <= lat <= 21.5 and 96.0 <= lng <= 106.5:  # กรอบประเทศไทย
+        return (lat, lng)
+    return None
+
+
+def _deal_parse_gmaps_link(url: str):
+    """แกะพิกัดจากลิงก์ Google Maps — ตามลิงก์สั้นให้ด้วย; คืน (lat,lng) หรือ None."""
+    import urllib.request
+    u = (url or "").strip()
+    if not u.startswith("http"):
+        return None
+    # ลิงก์สั้น (maps.app.goo.gl / goo.gl) → ตาม redirect หา URL เต็ม
+    if "goo.gl" in u:
+        try:
+            req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0 (yk-deal)"})
+            with urllib.request.urlopen(req, timeout=10) as r:
+                u = r.geturl()
+        except Exception:
+            return None
+    # ลอง !3dLAT!4dLNG (พิกัดหมุด) ก่อน แล้วค่อย @LAT,LNG (จุดกลางแผนที่)
+    m = re.search(r"!3d(-?\d{1,2}\.\d+)!4d(-?\d{1,3}\.\d+)", u)
+    if not m:
+        m = re.search(r"@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)", u)
+    if not m:
+        return _deal_parse_latlng(u)
+    lat, lng = float(m.group(1)), float(m.group(2))
+    return (lat, lng) if (4.0 <= lat <= 21.5 and 96.0 <= lng <= 106.5) else None
+
+
+def _deal_norm_name(name: str) -> str:
+    n = (name or "").strip()
+    for pre in ("จังหวัด", "จ.", "อ.เมือง", "ตัวเมือง"):
+        if n.startswith(pre):
+            n = n[len(pre):].strip()
+    return n
+
+
+def _deal_resolve_point(s, spec: dict):
+    """resolve จุดหนึ่งเป็นพิกัด — ลำดับ: latlng ตรง → ลิงก์ gmaps → คลังสถานที่ → จังหวัด
+    คืน {lat, lon, how} หรือ None; ถ้า resolve จากลิงก์/พิกัดและมีชื่อ → จำเข้า PlaceCache"""
+    if not spec:
+        return None
+    name = _deal_norm_name(str(spec.get("name") or ""))
+    # 1) พิกัดตรง
+    ll = _deal_parse_latlng(str(spec.get("latlng") or ""))
+    how = "latlng"
+    # 2) ลิงก์ Google Maps
+    if not ll and spec.get("link"):
+        ll = _deal_parse_gmaps_link(str(spec.get("link")))
+        how = "link"
+    if ll:
+        if name:  # จำไว้ใช้ครั้งหน้า
+            row = s.exec(select(PlaceCache).where(PlaceCache.name == name)).first()
+            if row is None:
+                s.add(PlaceCache(name=name, lat=ll[0], lon=ll[1], source=how, use_count=1))
+            else:
+                row.lat, row.lon, row.source = ll[0], ll[1], how
+                row.use_count += 1
+                row.updated_at = datetime.utcnow()
+                s.add(row)
+            s.commit()
+        return {"lat": ll[0], "lon": ll[1], "how": how}
+    if not name:
+        return None
+    # 3) คลังสถานที่
+    row = s.exec(select(PlaceCache).where(PlaceCache.name == name)).first()
+    if row is not None:
+        row.use_count += 1
+        s.add(row); s.commit()
+        return {"lat": row.lat, "lon": row.lon, "how": "place"}
+    # 4) จังหวัด (ชื่อตรง / alias / ชื่อจังหวัดอยู่ในข้อความ)
+    prov = _TH_PROVINCE_ALIAS.get(name, name)
+    if prov in _TH_PROVINCE_COORDS:
+        lat, lon = _TH_PROVINCE_COORDS[prov]
+        return {"lat": lat, "lon": lon, "how": "province", "province": prov}
+    for p, (lat, lon) in _TH_PROVINCE_COORDS.items():
+        if p in name:
+            return {"lat": lat, "lon": lon, "how": "province", "province": p}
+    return None
+
+
+def _deal_osrm(points: list) -> tuple[float, float]:
+    """เรียก OSRM public — points = [(lat,lon),...] คืน (กม., ชม.ขับ); โยน RuntimeError ถ้าพลาด"""
+    import urllib.request
+    coords = ";".join(f"{lon},{lat}" for lat, lon in points)
+    url = f"http://router.project-osrm.org/route/v1/driving/{coords}?overview=false"
+    last_err: Exception | None = None
+    for _ in range(2):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "yk-deal/1.0"})
+            with urllib.request.urlopen(req, timeout=20) as r:
+                d = json.loads(r.read().decode("utf-8"))
+            if d.get("code") == "Ok" and d.get("routes"):
+                rt = d["routes"][0]
+                return rt["distance"] / 1000.0, rt["duration"] / 3600.0
+            last_err = RuntimeError(str(d.get("code")))
+        except Exception as e:  # noqa: BLE001 — retry ครั้งเดียวพอ
+            last_err = e
+    raise RuntimeError(f"OSRM: {last_err}")
+
+
+@app.post("/quote/deal/distance")
+async def deal_distance(request: Request):
+    """คิดระยะ 1 รูทตามโครงเที่ยวของดีล — client วนยิงทีละรูท (เห็น progress)"""
+    import math
+    try:
+        body = json.loads((await request.body()).decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        raise HTTPException(400, "payload ไม่ใช่ JSON")
+    trip_mode = body.get("trip_mode") or "circuit"     # circuit | direct
+    roundtrip = bool(body.get("roundtrip", True))
+    with Session(engine) as s:
+        origin = _deal_resolve_point(s, body.get("origin") or {}) or \
+            {"lat": _DEAL_YK_HOME[0], "lon": _DEAL_YK_HOME[1], "how": "default_yk"}
+        pickup = _deal_resolve_point(s, body.get("pickup") or {}) if body.get("pickup") else None
+        dest = _deal_resolve_point(s, body.get("dest") or {})
+    if dest is None:
+        return JSONResponse({"ok": False, "reason": "dest_unresolved"})
+    o, d = (origin["lat"], origin["lon"]), (dest["lat"], dest["lon"])
+    if trip_mode == "circuit":
+        pts = [o] + ([(pickup["lat"], pickup["lon"])] if pickup else []) + [d, o]
+    else:
+        pts = [o, d]
+    try:
+        km, hr = _deal_osrm(pts)
+    except RuntimeError as e:
+        return JSONResponse({"ok": False, "reason": "osrm_error", "detail": str(e)})
+    if trip_mode == "direct" and roundtrip:
+        km, hr = km * 2, hr * 2
+    days = max(1, math.ceil(hr / 9.0))  # ~9 ชม.ขับ/วัน รวมพัก/โหลด (ท่าเดียวกับหน้า Wonder)
+    return JSONResponse({"ok": True, "km": round(km, 1), "hours": round(hr, 1), "days": days,
+                         "dest": dest, "origin": origin, "pickup": pickup})
+
+
+@app.post("/quote/deal/save")
+async def deal_save(request: Request):
+    try:
+        body = json.loads((await request.body()).decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        raise HTTPException(400, "payload ไม่ใช่ JSON")
+    snapshot = body.get("snapshot") or {}
+    routes = snapshot.get("routes") or []
+    u = current_user(request)
+    with Session(engine) as s:
+        did = body.get("id")
+        row = s.get(DealRecord, int(did)) if did else None
+        if row is None:
+            row = DealRecord(created_by=(u.username if u else ""))
+        row.customer_name = str(body.get("customer_name") or "").strip()
+        row.deal_name = str(body.get("deal_name") or "").strip()
+        if body.get("status") in ("draft", "agreed", "rejected", "archived"):
+            row.status = body["status"]
+        row.snapshot_json = json.dumps(snapshot, ensure_ascii=False)
+        row.route_count = len(routes)
+        row.updated_at = datetime.utcnow()
+        s.add(row); s.commit(); s.refresh(row)
+        return JSONResponse({"ok": True, "id": row.id})
+
+
+@app.get("/quote/deal/list")
+def deal_list(q: str = ""):
+    with Session(engine) as s:
+        rows = s.exec(select(DealRecord).order_by(
+            DealRecord.updated_at.desc()).limit(200)).all()  # type: ignore[union-attr]
+    needle = q.strip().lower()
+    out = []
+    for r in rows:
+        if r.status == "archived":
+            continue
+        if needle and needle not in f"{r.customer_name} {r.deal_name}".lower():
+            continue
+        out.append({"id": r.id, "customer_name": r.customer_name, "deal_name": r.deal_name,
+                    "status": r.status, "route_count": r.route_count,
+                    "updated_at": r.updated_at.isoformat(timespec="minutes")})
+    return JSONResponse({"deals": out})
+
+
+@app.get("/quote/deal/load/{did}")
+def deal_load(did: int):
+    with Session(engine) as s:
+        row = s.get(DealRecord, did)
+    if row is None:
+        raise HTTPException(404)
+    try:
+        snapshot = json.loads(row.snapshot_json or "{}")
+    except ValueError:
+        snapshot = {}
+    return JSONResponse({"ok": True, "id": row.id, "customer_name": row.customer_name,
+                         "deal_name": row.deal_name, "status": row.status, "snapshot": snapshot})
+
+
+def _serve_tool_page(*candidates) -> HTMLResponse:
+    """เสิร์ฟไฟล์เครื่องมือเดี่ยว + แทรกแถบเมนู YK (ท่าเดียวกับ /quote)"""
+    p = _first_existing(*candidates)
+    if p is None:
+        raise HTTPException(404, "ยังไม่ได้วางไฟล์เครื่องมือบนเครื่องนี้")
+    html = p.read_text(encoding="utf-8")
+    m = re.search(r"<body[^>]*>", html)
+    if m:
+        html = html[:m.end()] + _QUOTE_NAV_BAR + html[m.end():]
+    else:  # ไฟล์ fragment (ไม่มี <body>) — ครอบให้ครบเอกสาร
+        html = ("<!doctype html><html lang='th'><head><meta charset='utf-8'>"
+                "<meta name='viewport' content='width=device-width, initial-scale=1'></head>"
+                "<body>" + _QUOTE_NAV_BAR + html + "</body></html>")
+    return HTMLResponse(html)
+
+
+@app.get("/quote/deal", response_class=HTMLResponse)
+def deal_page():
+    """โต๊ะเช็คดีล — ตารางหลายรูท เช็คราคาลูกค้า/ตั้งราคาเอง (v47)"""
+    return _serve_tool_page(_APP_DIR_SELF / "deal_check.html")
+
+
+@app.get("/quote/wonder", response_class=HTMLResponse)
+def wonder_page():
+    """เครื่องต้นทุน Wonder Sub 2026 — เข้าแอปเพื่อให้พิมพ์ได้ (พ้น sandbox artifact)"""
+    return _serve_tool_page(
+        _APP_DIR_SELF / "wonder_sub_cost_2026.html",
+        _APP_DIR_SELF.parent / "TransportRateCalculator" / "wonder_sub_cost_2026.html",
+    )
 
 
 @app.get("/quote/{qid}", response_class=HTMLResponse)

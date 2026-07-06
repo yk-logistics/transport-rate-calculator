@@ -1748,3 +1748,30 @@ class QuotationAudit(SQLModel, table=True):
     field_name: str = ""
     old_value: str = ""
     new_value: str = ""
+
+
+class DealRecord(SQLModel, table=True):
+    """ดีลจากโต๊ะเช็คดีล /quote/deal (v47) — snapshot ทั้งดีลเป็น JSON ก้อนเดียว
+    (routes + ตัวแปรต้นทุน + กติกาค่าเที่ยว) upsert ตาม id; ไม่ลบ — archived แทน."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    customer_name: str = Field(default="", index=True)
+    deal_name: str = ""
+    status: str = Field(default="draft", index=True)  # draft | agreed | rejected | archived
+    snapshot_json: str = ""          # JSON: {config:{...}, routes:[...]}
+    route_count: int = 0             # denormalized ไว้โชว์ใน list โดยไม่ parse JSON
+    created_by: str = ""
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+
+
+class PlaceCache(SQLModel, table=True):
+    """คลังสถานที่ของโต๊ะเช็คดีล (v47) — จำจุดที่เคย resolve (ลิงก์ gmaps/พิกัด)
+    ครั้งหน้าพิมพ์ชื่อเดิมได้เลย ไม่ต้องวางลิงก์ซ้ำ."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(default="", index=True)
+    lat: float = 0.0
+    lon: float = 0.0
+    source: str = ""                 # link | latlng | manual
+    use_count: int = 0
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)

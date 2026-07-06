@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>โต๊ะเช็คดีล — ต้นทุน/ราคาหลายรูท</title>
+<style>
+:root{
+  --bg:#f4f6f9; --panel:#ffffff; --ink:#1a2230; --ink-soft:#5b6675; --ink-faint:#8a94a3;
+  --line:#e4e8ee; --line-soft:#eef1f5; --accent:#1e3a5f; --accent-soft:#e9f0f8;
+  --good:#0f9d6b; --good-bg:#e7f6ef; --loss:#d8322a; --loss-bg:#fcecec; --thin:#c07d10; --thin-bg:#fbf3e0;
+  --mono:'IBM Plex Mono',ui-monospace,'DejaVu Sans Mono',monospace;
+  --thai:'IBM Plex Sans Thai','Sarabun','Noto Sans Thai','Leelawadee UI','Segoe UI',sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--thai);line-height:1.5;-webkit-font-smoothing:antialiased}
+.num,input[type=number],.s-val{font-variant-numeric:tabular-nums}
+.app{max-width:1280px;margin:0 auto;padding:20px 18px 60px}
+h1{font-size:1.35rem;font-weight:700;margin:0 0 2px}
+.sub{margin:0 0 16px;color:var(--ink-soft);font-size:.84rem}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+.panel h3{margin:0 0 10px;font-size:.95rem;color:var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.fld{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fld label{font-size:.7rem;font-weight:500;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em}
+.fld input,.fld select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:.92rem;font-family:var(--mono);outline:none}
+.fld input[type=text]{font-family:var(--thai)}
+.fld input:focus,.fld select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{flex:1;padding:8px 6px;border:0;background:var(--bg);color:var(--ink-soft);font-family:var(--thai);font-size:.82rem;cursor:pointer;white-space:nowrap}
+.seg button.on{background:var(--accent);color:#fff}
+.note{margin:10px 0 0;font-size:.76rem;color:var(--ink-faint);line-height:1.6}
+.btn{padding:9px 16px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--ink);font-family:var(--thai);font-size:.85rem;cursor:pointer}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{filter:brightness(1.12);color:#fff}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.s-label{font-size:.68rem;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+.s-val{font-size:1.05rem;font-weight:700}
+.s-val.good{color:var(--good)} .s-val.loss{color:var(--loss)} .s-val.thin{color:var(--thin)}
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+table{width:100%;border-collapse:collapse;font-size:.86rem;min-width:1000px}
+thead th{position:sticky;top:0;background:var(--panel);color:var(--ink-soft);font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.02em;padding:10px 10px;text-align:right;border-bottom:2px solid var(--line);vertical-align:bottom;z-index:2}
+thead th:first-child{text-align:left}
+.th-sub{display:block;font-size:.64rem;font-weight:400;color:var(--ink-faint);text-transform:none;letter-spacing:0}
+tbody td{padding:8px 10px;border-bottom:1px solid var(--line-soft);vertical-align:middle;text-align:right;font-family:var(--mono)}
+tbody td.name{text-align:left;font-family:var(--thai);font-weight:600;min-width:170px}
+tbody tr:hover{background:var(--accent-soft)}
+tbody tr:last-child td{border-bottom:0}
+.badge{display:inline-block;font-size:.62rem;font-weight:500;padding:1px 7px;border-radius:8px;margin-left:6px;vertical-align:1px;font-family:var(--thai)}
+.badge.province{background:var(--accent-soft);color:var(--accent)}
+.badge.place{background:var(--good-bg);color:var(--good)}
+.badge.link,.badge.latlng{background:var(--thin-bg);color:var(--thin)}
+.badge.fail{background:var(--loss-bg);color:var(--loss)}
+.badge.manual{background:var(--line-soft);color:var(--ink-soft)}
+.cell-in{width:84px;padding:5px 7px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);font-family:var(--mono);font-size:.84rem;text-align:right;outline:none}
+.cell-in:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.cell-in.edited{border-color:var(--accent);background:var(--accent-soft);font-weight:600}
+.cell-in.w-sm{width:58px}
+.cell-in::placeholder{color:var(--ink-faint);font-weight:400}
+.pill{display:inline-block;min-width:56px;text-align:center;padding:2px 8px;border-radius:7px;font-size:.8rem;font-weight:600}
+.pill.good{background:var(--good-bg);color:var(--good)}
+.pill.loss{background:var(--loss-bg);color:var(--loss)}
+.pill.thin{background:var(--thin-bg);color:var(--thin)}
+.pill.na{background:var(--line-soft);color:var(--ink-faint)}
+tr.row-loss{box-shadow:inset 3px 0 0 var(--loss)}
+tr.row-thin{box-shadow:inset 3px 0 0 var(--thin)}
+tr.row-good{box-shadow:inset 3px 0 0 var(--good)}
+.del-btn{border:none;background:none;color:var(--ink-faint);cursor:pointer;font-size:.95rem;padding:2px 6px}
+.del-btn:hover{color:var(--loss)}
+textarea{width:100%;min-height:96px;padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-family:var(--thai);font-size:.88rem;resize:vertical;outline:none}
+textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.addrow{display:grid;grid-template-columns:2fr 2fr 1fr auto;gap:8px;align-items:end}
+.deal-list{max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:10px;margin-top:8px}
+.deal-item{padding:9px 12px;border-bottom:1px dashed var(--line-soft);cursor:pointer;display:flex;justify-content:space-between;gap:10px;font-size:.85rem}
+.deal-item:hover{background:var(--accent-soft)}
+.deal-item .meta{color:var(--ink-faint);font-size:.75rem;white-space:nowrap}
+.msg{margin:8px 0;padding:10px 12px;border-radius:10px;font-size:.83rem;display:none}
+.msg.ok{background:var(--good-bg);color:var(--good);display:block}
+.msg.err{background:var(--loss-bg);color:var(--loss);display:block}
+.msg.info{background:var(--thin-bg);color:var(--thin);display:block}
+.band-table thead th{font-size:.68rem}
+.band-table td{font-size:.8rem;padding:6px 8px}
+.band-table td.base-band,.band-table th.base-band{background:var(--accent-soft)}
+.collapsible{display:none}
+.collapsible.open{display:block}
+.foot{margin:12px 2px 0;font-size:.74rem;color:var(--ink-faint);line-height:1.6}
+@media(max-width:640px){.addrow{grid-template-columns:1fr 1fr}.app{padding:14px 10px 44px}}
+@media print{
+  :root{--bg:#fff;--panel:#fff;--ink:#111;--ink-soft:#333;--ink-faint:#555;--line:#bbb;--line-soft:#ddd;
+    --accent:#1e3a5f;--accent-soft:#eef2f7;--good:#0a7a4f;--good-bg:#eaf6f0;--loss:#b81f18;--loss-bg:#fbeceb;--thin:#8a5a08;--thin-bg:#f7efdd}
+  @page{size:A4 landscape;margin:10mm}
+  body{background:#fff}
+  .app{max-width:none;padding:0}
+  #yk-quote-nav,.toolbar,.btn,.msg,textarea,.addrow,#pastePanel,#dealListPanel,.del-btn{display:none!important}
+  .panel,.stat,.tblwrap{break-inside:avoid;box-shadow:none}
+  .tblwrap{overflow:visible;border:1px solid var(--line)}
+  table{min-width:0;font-size:.7rem}
+  thead th{position:static}
+  tbody tr{break-inside:avoid}
+  .cell-in{border:none!important;background:transparent!important;font-weight:600;padding:1px 0;width:auto;-webkit-appearance:none;appearance:none}
+  input[type=number]::-webkit-inner-spin-button{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>🧮 โต๊ะเช็คดีล</h1>
+  <p class="sub">ลูกค้าโยนรูท/ราคามา → วางทั้งก้อน → เห็นต้นทุน กำไร หรือราคาที่ควรเสนอ ทุกรูทในตารางเดียว · สูตรเดียวกับเครื่องคิดต้นทุน YK + ผันราคาน้ำมัน</p>
+
+  <!-- ดีล + โครงเที่ยว -->
+  <section class="panel">
+    <div class="grid">
+      <div class="fld" style="grid-column:span 2"><label>ลูกค้า</label><input type="text" id="customer" placeholder="เช่น บ.ลูกค้า A"></div>
+      <div class="fld" style="grid-column:span 2"><label>ชื่อดีล</label><input type="text" id="dealName" placeholder="เช่น งานกระจายสินค้า ก.ค."></div>
+      <div class="fld"><label>ชนิดรถ</label>
+        <div class="seg" id="truckSeg">
+          <button type="button" data-truck="6" class="on">6 ล้อ</button>
+          <button type="button" data-truck="10">10 ล้อ</button>
+        </div>
+      </div>
+      <div class="fld" style="grid-column:span 2"><label>โครงเที่ยว</label>
+        <div class="seg" id="modeSeg">
+          <button type="button" data-mode="circuit" class="on">วงรอบผ่านจุดรับของ</button>
+          <button type="button" data-mode="direct">วิ่งตรง ต้นทาง→ปลายทาง</button>
+        </div>
+      </div>
+      <div class="fld" id="rtFld" style="display:none"><label>คิดระยะ</label>
+        <div class="seg" id="rtSeg">
+          <button type="button" data-rt="1" class="on">ไป-กลับ ×2</button>
+          <button type="button" data-rt="0">ขาเดียว</button>
+        </div>
+      </div>
+    </div>
+    <div class="grid" style="margin-top:10px">
+      <div class="fld" style="grid-column:span 2"><label>ต้นทาง/ฐานรถ (ว่าง = YK วังน้อย)</label><input type="text" id="originName" placeholder="ชื่อ หรือวางลิงก์แผนที่/พิกัด"></div>
+      <div class="fld" style="grid-column:span 2" id="pickupFld"><label>จุดรับของ (เช่น คลังลูกค้า)</label><input type="text" id="pickupName" placeholder="ชื่อ หรือวางลิงก์แผนที่/พิกัด"></div>
+    </div>
+    <p class="note">พิมพ์<strong>ชื่อจังหวัด</strong>ระบบรู้พิกัดเอง (77 จังหวัด) · ที่เจาะจง (โรงงาน/คลัง) วาง<strong>ลิงก์ Google Maps</strong> หรือ<strong>พิกัด lat,long</strong> ต่อท้ายชื่อได้เลย — ระบบจำเข้าคลังสถานที่ ครั้งหน้าพิมพ์ชื่อเดิมพอ</p>
+  </section>
+
+  <!-- ตัวแปรต้นทุน + กติกาค่าเที่ยว -->
+  <section class="panel">
+    <h3>ตัวแปรต้นทุน (สูตรเดียวกับเครื่องคิดต้นทุน YK)</h3>
+    <div class="grid">
+      <div class="fld"><label>ราคาน้ำมัน (บ./ล.)</label><input type="number" id="fuel" step="0.01" value="37.50"></div>
+      <div class="fld"><label>เรทน้ำมัน (กม./ล.)</label><input type="number" id="eff" step="0.1" value="5"></div>
+      <div class="fld"><label>ค่าซ่อมบำรุง (บ./กม.)</label><input type="number" id="maint" step="0.1" value="0"></div>
+      <div class="fld"><label>เงินเดือน/เดือน</label><input type="number" id="salary" step="100" value="0"></div>
+      <div class="fld"><label>ค่าดูแลรถ/เดือน</label><input type="number" id="care" step="100" value="0"></div>
+      <div class="fld"><label>มูลค่ารถ (บาท)</label><input type="number" id="asset" step="10000" value="700000"></div>
+      <div class="fld"><label>อายุสึกหรอ (ปี)</label><input type="number" id="depY" step="1" value="8"></div>
+      <div class="fld"><label>ประกันรถ/ปี</label><input type="number" id="insVeh" step="1000" value="42000"></div>
+      <div class="fld"><label>ประกันสินค้า/ปี</label><input type="number" id="insCargo" step="1000" value="13500"></div>
+      <div class="fld"><label>วันงาน/เดือน (ฐานประกัน)</label><input type="number" id="insDays" step="1" value="24"></div>
+      <div class="fld"><label>Back Office (%)</label><input type="number" id="bo" step="0.5" value="15"></div>
+      <div class="fld"><label>% เป้า 1</label><input type="number" id="t1" step="0.5" value="15"></div>
+      <div class="fld"><label>% เป้า 2</label><input type="number" id="t2" step="0.5" value="30"></div>
+    </div>
+    <h3 style="margin-top:14px">กติกาค่าเที่ยวอัตโนมัติ (แก้ได้ต่อดีล)</h3>
+    <div class="grid">
+      <div class="fld"><label>ฐาน (บาท)</label><input type="number" id="feeBase" step="50" value="500"></div>
+      <div class="fld"><label>ครอบคลุมถึง (กม.)</label><input type="number" id="feeBaseKm" step="10" value="250"></div>
+      <div class="fld"><label>สเต็ประยะ (กม.)</label><input type="number" id="feeStepKm" step="10" value="150"></div>
+      <div class="fld"><label>+บาท/สเต็ป</label><input type="number" id="feeStepBaht" step="50" value="100"></div>
+      <div class="fld"><label>10 ล้อ บวกเพิ่ม</label><input type="number" id="feeTenPlus" step="50" value="100"></div>
+      <div class="fld"><label>โบนัสเริ่มวันที่</label><input type="number" id="feeBonusFrom" step="1" value="3"></div>
+      <div class="fld"><label>โบนัส บาท/วัน</label><input type="number" id="feeBonusPerDay" step="50" value="100"></div>
+    </div>
+  </section>
+
+  <!-- วางข้อความ -->
+  <section class="panel" id="pastePanel">
+    <h3>วางรูทจากลูกค้า (Excel / ไลน์ / PDF — ก็อปมาวางทั้งก้อน)</h3>
+    <textarea id="pasteBox" placeholder="บรรทัดละรูท เช่น&#10;ขอนแก่น 8,500&#10;เชียงใหม่&#9;13,900&#10;คลัง DC ลูกค้า บางนา 3,200&#10;(มีราคาท้ายบรรทัดหรือไม่มีก็ได้)"></textarea>
+    <div class="toolbar" style="margin-top:8px">
+      <button type="button" class="btn primary" id="parseBtn">➕ แยกรายการเข้าตาราง</button>
+      <span class="note" style="margin:0">เลขท้ายบรรทัดที่ ≥ 300 จะถูกอ่านเป็น "ราคาลูกค้า" — แก้ในตารางได้ทุกช่อง</span>
+    </div>
+    <div class="addrow" style="margin-top:10px">
+      <div class="fld"><label>เพิ่มทีละรูท: ปลายทาง</label><input type="text" id="newName" placeholder="จังหวัด / ชื่อที่เคยใช้ / ชื่อใหม่"></div>
+      <div class="fld"><label>ลิงก์แผนที่/พิกัด (ถ้ามี)</label><input type="text" id="newLink" placeholder="วางลิงก์ หรือ 13.75,100.50"></div>
+      <div class="fld"><label>ราคาลูกค้า</label><input type="number" id="newPrice" step="100" placeholder="ว่างได้"></div>
+      <button type="button" class="btn" id="addBtn">เพิ่ม</button>
+    </div>
+  </section>
+
+  <div class="msg" id="msg"></div>
+
+  <div class="toolbar">
+    <button type="button" class="btn primary" id="calcBtn">📏 คิดระยะ/วัน ทุกรูทที่ยังว่าง</button>
+    <button type="button" class="btn" id="saveBtn">💾 เซฟดีล</button>
+    <button type="button" class="btn" id="listBtn">📂 ดีลที่เซฟไว้</button>
+    <button type="button" class="btn" id="bandBtn">⛽ ตารางผันน้ำมัน</button>
+    <button type="button" class="btn" id="csvBtn">Export CSV</button>
+    <button type="button" class="btn" id="printBtn">🖨️ พิมพ์</button>
+    <span class="note" style="margin:0" id="dealTag"></span>
+  </div>
+
+  <section class="panel collapsible" id="dealListPanel">
+    <h3>ดีลที่เซฟไว้</h3>
+    <input type="text" id="dealSearch" class="cell-in" style="width:100%;font-family:var(--thai);text-align:left" placeholder="ค้นชื่อลูกค้า/ดีล…">
+    <div class="deal-list" id="dealList"></div>
+  </section>
+
+  <section class="stats" id="stats"></section>
+
+  <div class="tblwrap">
+    <table>
+      <thead><tr>
+        <th>ปลายทาง</th>
+        <th>กม.<span class="th-sub">แก้ได้</span></th>
+        <th>วัน<span class="th-sub">แก้ได้</span></th>
+        <th>ค่าเที่ยว<span class="th-sub">อัตโนมัติ·แก้ได้</span></th>
+        <th>ต้นทุนรวม</th>
+        <th>ราคาลูกค้า<span class="th-sub">ว่าง = โหมดตั้งราคา</span></th>
+        <th>กำไร</th>
+        <th>%กำไร</th>
+        <th>เป้า <span id="t1Hd">15</span>%</th>
+        <th>เป้า <span id="t2Hd">30</span>%</th>
+        <th></th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- ตารางผันน้ำมัน -->
+  <section class="panel collapsible" id="bandPanel">
+    <h3>⛽ ตารางผันราคาตามน้ำมัน (สำหรับยื่นลูกค้า)</h3>
+    <div class="grid">
+      <div class="fld"><label>เริ่มช่วงแรก (บ./ล.)</label><input type="number" id="bandStart" step="1" value="29"></div>
+      <div class="fld"><label>กว้างช่วงละ (บาท)</label><input type="number" id="bandWidth" step="0.5" value="2"></div>
+      <div class="fld"><label>จำนวนช่วง</label><input type="number" id="bandCount" step="1" value="12"></div>
+      <div class="fld"><label>% ปรับต่อช่วง</label><input type="number" id="bandPct" step="0.1" value="2.5"></div>
+      <div class="fld"><label>ราคาที่ใช้กาง</label>
+        <select id="bandUse"><option value="price">ราคาลูกค้า (ถ้าว่างใช้เป้า 1)</option><option value="t1">ราคาเป้า 1 ทุกรูท</option><option value="t2">ราคาเป้า 2 ทุกรูท</option></select>
+      </div>
+    </div>
+    <p class="note">ราคาที่กรอก/เป้า ถือเป็นราคา ณ <strong>ช่วงน้ำมันปัจจุบัน</strong> (ตามราคาน้ำมันด้านบน) แล้วปรับ ±% ต่อช่วงแบบคิดจากฐาน — ท่าเดียวกับใบ Wonder</p>
+    <div class="tblwrap" style="margin-top:10px"><table class="band-table" id="bandTable"></table></div>
+  </section>
+
+  <p class="foot">ระยะทาง = ถนนจริง OSRM ตามโครงเที่ยวที่เลือก (แก้ กม. เองได้ทุกรูท — ช่องที่แก้เป็นสีน้ำเงิน) · วันแนะนำ = ชม.ขับ ÷ ~9 ปัดขึ้น · ต้นทุน = น้ำมัน+คน+ประกัน+สึกหรอ+ซ่อม ×(1+BO%) + ค่าเที่ยว×(1+BO%) · ต้นทุนการเงิน/เครดิตไม่รวม · อย่าลืมกด 💾 เซฟดีล</p>
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const nf = new Intl.NumberFormat('th-TH',{maximumFractionDigits:0});
+  const nf1 = new Intl.NumberFormat('th-TH',{minimumFractionDigits:1,maximumFractionDigits:1});
+  const fmt = n => isFinite(n)? nf.format(Math.round(n)) : '—';
+  const num = id => { const v=parseFloat($(id).value); return isFinite(v)?v:0; };
+
+  let truck=6, tripMode='circuit', roundtrip=true;
+  let routes=[];            // {name, link, km, kmAuto, hours, days, daysAuto, fee, price, how}
+  let dealId=null, dirty=false, busy=false;
+
+  function markDirty(){ dirty=true; }
+  window.addEventListener('beforeunload', e=>{ if(dirty){ e.preventDefault(); e.returnValue=''; } });
+
+  function showMsg(text, cls){
+    const m=$('msg'); m.textContent=text; m.className='msg '+cls;
+    if(cls==='ok') setTimeout(()=>{ m.className='msg'; }, 4000);
+  }
+
+  // ---------- เอนจินต้นทุน (สูตรเดียวกับ transport_rate_calculator / Wonder) ----------
+  function autoFee(km, days){
+    const base=num('feeBase'), baseKm=num('feeBaseKm'), stepKm=Math.max(1,num('feeStepKm'));
+    const stepB=num('feeStepBaht'), tenPlus=num('feeTenPlus');
+    const bFrom=Math.max(1,num('feeBonusFrom')), bPer=num('feeBonusPerDay');
+    let f = km<=baseKm ? base : base + Math.ceil((km-baseKm)/stepKm)*stepB;
+    if(truck===10) f += tenPlus;
+    const bonusDays = Math.max(0, Math.floor(days) - (bFrom-1));
+    return f + bonusDays*bPer;
+  }
+  function costNoTrip(km, days){
+    const fuel=num('fuel'), eff=Math.max(.01,num('eff')), maint=num('maint');
+    const sal=num('salary'), care=num('care'), asset=num('asset'), depY=Math.max(1,num('depY'));
+    const iv=num('insVeh'), ic=num('insCargo'), idz=Math.max(1,num('insDays')), bo=num('bo');
+    const fuelCost=(km/eff)*fuel;
+    const driver=((sal+care)/30)*days;
+    const ins=(iv/(idz*12))*days + (ic/(idz*12))*days;
+    const dep=((asset/depY)/365)*days;
+    return (fuelCost+driver+ins+dep+km*maint)*(1+bo/100);
+  }
+  function calcRow(r){
+    const km = r.km!=null ? r.km : (r.kmAuto!=null ? r.kmAuto : null);
+    const days = r.days!=null ? r.days : (r.daysAuto!=null ? r.daysAuto : 1);
+    if(km==null) return {km:null, days, fee:null, cost:null, profit:null, margin:null, t1:null, t2:null};
+    const bo=num('bo');
+    const fee = r.fee!=null ? r.fee : autoFee(km, days);
+    const cost = costNoTrip(km, days) + fee*(1+bo/100);
+    const t1p=num('t1')/100, t2p=num('t2')/100;
+    const t1 = t1p<1 ? cost/(1-t1p) : cost;
+    const t2 = t2p<1 ? cost/(1-t2p) : cost;
+    let profit=null, margin=null;
+    if(r.price!=null && r.price>0){ profit=r.price-cost; margin=profit/r.price*100; }
+    return {km, days, fee, feeAuto:autoFee(km,days), cost, profit, margin, t1, t2};
+  }
+  const sev = m => m==null ? 'na' : (m<0?'loss':(m<15?'thin':'good'));
+
+  // ---------- ตาราง ----------
+  function render(){
+    $('t1Hd').textContent=num('t1').toFixed(0); $('t2Hd').textContent=num('t2').toFixed(0);
+    $('rtFld').style.display = tripMode==='direct' ? '' : 'none';
+    $('pickupFld').style.display = tripMode==='circuit' ? '' : 'none';
+    const tb=$('tbody');
+    tb.innerHTML = routes.map((r,i)=>{
+      const c=calcRow(r);
+      const sc=sev(c.margin);
+      const badge = r.how ? `<span class="badge ${r.how}">${
+        {province:'จังหวัด',place:'คลังที่เคยใช้',link:'ลิงก์',latlng:'พิกัด',fail:'หาไม่เจอ',manual:'กรอกเอง'}[r.how]||r.how}</span>` : '';
+      return `<tr class="row-${sc}">
+        <td class="name">${escapeHtml(r.name)}${badge}</td>
+        <td><input type="number" class="cell-in ${r.km!=null?'edited':''}" data-i="${i}" data-f="km" value="${r.km!=null?r.km:''}" placeholder="${r.kmAuto!=null?nf1.format(r.kmAuto):'—'}" step="1" min="0"></td>
+        <td><input type="number" class="cell-in w-sm ${r.days!=null?'edited':''}" data-i="${i}" data-f="days" value="${r.days!=null?r.days:''}" placeholder="${r.daysAuto!=null?r.daysAuto:'1'}" step="0.5" min="0"></td>
+        <td><input type="number" class="cell-in ${r.fee!=null?'edited':''}" data-i="${i}" data-f="fee" value="${r.fee!=null?r.fee:''}" placeholder="${c.feeAuto!=null?fmt(c.feeAuto):'—'}" step="100" min="0"></td>
+        <td>${fmt(c.cost)}</td>
+        <td><input type="number" class="cell-in ${r.price!=null?'edited':''}" data-i="${i}" data-f="price" value="${r.price!=null?r.price:''}" placeholder="ตั้งราคา" step="100" min="0"></td>
+        <td style="font-weight:700;color:${c.profit==null?'var(--ink-faint)':(c.profit>=0?'var(--good)':'var(--loss)')}">${c.profit==null?'—':(c.profit>=0?'+':'')+fmt(c.profit)}</td>
+        <td><span class="pill ${sc}">${c.margin==null?'—':c.margin.toFixed(1)+'%'}</span></td>
+        <td>${fmt(c.t1)}</td>
+        <td>${fmt(c.t2)}</td>
+        <td><button type="button" class="del-btn" data-del="${i}" title="ลบรูท">✕</button></td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="11" style="text-align:center;color:var(--ink-faint);padding:24px;font-family:var(--thai)">ยังไม่มีรูท — วางข้อความจากลูกค้าด้านบน หรือเพิ่มทีละรูท</td></tr>';
+
+    tb.querySelectorAll('.cell-in').forEach(inp=>{
+      inp.addEventListener('change', e=>{
+        const i=+e.target.dataset.i, f=e.target.dataset.f, raw=e.target.value.trim(), v=parseFloat(raw);
+        routes[i][f] = (raw!=='' && isFinite(v) && v>=0) ? v : null;
+        markDirty(); render();
+      });
+    });
+    tb.querySelectorAll('[data-del]').forEach(b=>{
+      b.addEventListener('click', e=>{
+        routes.splice(+e.target.dataset.del,1); markDirty(); render();
+      });
+    });
+
+    // stats
+    const cs=routes.map(calcRow);
+    const withPrice=cs.filter(c=>c.margin!=null);
+    const good=withPrice.filter(c=>c.profit>0).length, loss=withPrice.filter(c=>c.profit<0).length;
+    const sumProfit=withPrice.reduce((s,c)=>s+c.profit,0);
+    const noKm=cs.filter(c=>c.km==null).length;
+    $('stats').innerHTML =
+      stat('รูททั้งหมด', routes.length, '') +
+      stat('มีราคาลูกค้า', withPrice.length, '') +
+      stat('กำไร', good+' รูท', good?'good':'') +
+      stat('ขาดทุน', loss+' รูท', loss?'loss':'good') +
+      stat('รวมกำไร (รูทละ 1 เที่ยว)', fmt(sumProfit), sumProfit>=0?'good':'loss') +
+      (noKm? stat('ยังไม่มีระยะ', noKm+' รูท', 'thin') : '');
+    $('dealTag').textContent = dealId ? ('ดีล #'+dealId+(dirty?' · ยังไม่เซฟการแก้ล่าสุด':' · เซฟแล้ว')) : (routes.length?'ยังไม่เซฟ':'');
+  }
+  function stat(l,v,c){ return `<div class="stat"><div class="s-label">${l}</div><div class="s-val ${c}">${v}</div></div>`; }
+  function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+  // ---------- paste parser ----------
+  function parseBulk(text){
+    const out=[];
+    for(let line of text.split(/\r?\n/)){
+      line=line.trim(); if(!line) continue;
+      line=line.replace(/^\d+[\.\)]\s*/,'');           // ตัดเลขข้อนำหน้า
+      let name=line, price=null;
+      const parts=line.split(/\t+|\s{2,}/).map(s=>s.trim()).filter(Boolean);
+      if(parts.length>1){
+        const last=parseFloat(parts[parts.length-1].replace(/[,฿ ]/g,''));
+        if(isFinite(last)&&last>=300){ price=last; name=parts.slice(0,-1).join(' '); }
+        else name=parts.join(' ');
+      }
+      if(price==null){                                  // เผื่อคั่นด้วยช่องว่างเดียว
+        const m=name.match(/^(.*?)\s+([\d,]+(?:\.\d+)?)\s*(?:บาท)?$/);
+        if(m){ const v=parseFloat(m[2].replace(/,/g,'')); if(isFinite(v)&&v>=300){ name=m[1].trim(); price=v; } }
+      }
+      if(name) out.push({name, link:'', km:null, kmAuto:null, hours:null, days:null, daysAuto:null, fee:null, price, how:null});
+    }
+    return out;
+  }
+  $('parseBtn').addEventListener('click', ()=>{
+    const items=parseBulk($('pasteBox').value);
+    if(!items.length){ showMsg('ไม่พบรายการในข้อความที่วาง','err'); return; }
+    routes=routes.concat(items); $('pasteBox').value='';
+    markDirty(); render();
+    showMsg('เพิ่ม '+items.length+' รูท — กด "คิดระยะ/วัน" เพื่อให้ระบบคิดระยะอัตโนมัติ','ok');
+  });
+  $('addBtn').addEventListener('click', ()=>{
+    const name=$('newName').value.trim(); if(!name){ showMsg('ใส่ชื่อปลายทางก่อน','err'); return; }
+    const p=parseFloat($('newPrice').value);
+    routes.push({name, link:$('newLink').value.trim(), km:null, kmAuto:null, hours:null,
+                 days:null, daysAuto:null, fee:null, price:isFinite(p)&&p>0?p:null, how:null});
+    $('newName').value=''; $('newLink').value=''; $('newPrice').value='';
+    markDirty(); render();
+  });
+
+  // ---------- คิดระยะ (วนทีละรูท — เห็น progress) ----------
+  function pointSpec(nameFieldVal){
+    const t=(nameFieldVal||'').trim();
+    if(!t) return null;
+    return t.startsWith('http') ? {name:'', link:t} :
+           /\d{1,2}\.\d+\s*,\s*\d{1,3}\.\d+/.test(t) ? {name:'', latlng:t} : {name:t};
+  }
+  async function calcDistances(){
+    if(busy) return; busy=true; $('calcBtn').disabled=true;
+    const origin=pointSpec($('originName').value);
+    const pickup=tripMode==='circuit' ? pointSpec($('pickupName').value) : null;
+    let done=0, fail=0;
+    for(let i=0;i<routes.length;i++){
+      const r=routes[i];
+      if(r.km!=null || r.kmAuto!=null) continue;        // มีระยะแล้ว (auto หรือกรอกเอง) ข้าม
+      $('calcBtn').textContent='📏 กำลังคิด… ('+(done+1)+')';
+      const dest = r.link ? {name:r.name, link:r.link} : {name:r.name};
+      try{
+        const res=await fetch('/quote/deal/distance',{method:'POST',
+          body:JSON.stringify({dest, origin, pickup, trip_mode:tripMode, roundtrip})});
+        const d=await res.json();
+        if(d.ok){ r.kmAuto=d.km; r.hours=d.hours; r.daysAuto=d.days; r.how=(d.dest&&d.dest.how)||'province'; done++; }
+        else { r.how='fail'; fail++; }
+      }catch(e){ r.how='fail'; fail++; }
+      render();
+      await new Promise(rs=>setTimeout(rs,350));        // เว้นจังหวะ OSRM public
+    }
+    busy=false; $('calcBtn').disabled=false; $('calcBtn').textContent='📏 คิดระยะ/วัน ทุกรูทที่ยังว่าง';
+    if(done||fail) showMsg('คิดระยะสำเร็จ '+done+' รูท'+(fail?(' · หาไม่เจอ '+fail+' รูท — วางลิงก์แผนที่ในช่องเพิ่มรูท หรือกรอก กม. เอง'):''), fail?'info':'ok');
+    markDirty();
+  }
+  $('calcBtn').addEventListener('click', calcDistances);
+
+  // ---------- segments ----------
+  $('truckSeg').addEventListener('click', e=>{
+    const b=e.target.closest('button[data-truck]'); if(!b) return;
+    truck=+b.dataset.truck;
+    [...$('truckSeg').children].forEach(x=>x.classList.toggle('on',x===b));
+    $('eff').value = truck===6?'5':'4';
+    markDirty(); render();
+  });
+  $('modeSeg').addEventListener('click', e=>{
+    const b=e.target.closest('button[data-mode]'); if(!b) return;
+    tripMode=b.dataset.mode;
+    [...$('modeSeg').children].forEach(x=>x.classList.toggle('on',x===b));
+    routes.forEach(r=>{ r.kmAuto=null; r.daysAuto=null; r.hours=null; });  // โครงเปลี่ยน = ระยะ auto เดิมใช้ไม่ได้
+    markDirty(); render();
+    if(routes.length) showMsg('เปลี่ยนโครงเที่ยวแล้ว — กด "คิดระยะ/วัน" ใหม่ (ระยะที่กรอกเองยังอยู่)','info');
+  });
+  $('rtSeg').addEventListener('click', e=>{
+    const b=e.target.closest('button[data-rt]'); if(!b) return;
+    roundtrip=b.dataset.rt==='1';
+    [...$('rtSeg').children].forEach(x=>x.classList.toggle('on',x===b));
+    routes.forEach(r=>{ r.kmAuto=null; r.daysAuto=null; });
+    markDirty(); render();
+  });
+
+  ['fuel','eff','maint','salary','care','asset','depY','insVeh','insCargo','insDays','bo','t1','t2',
+   'feeBase','feeBaseKm','feeStepKm','feeStepBaht','feeTenPlus','feeBonusFrom','feeBonusPerDay']
+    .forEach(id=>$(id).addEventListener('input', ()=>{ markDirty(); render(); }));
+
+  // ---------- เซฟ/โหลด ----------
+  function snapshot(){
+    return {
+      config:{ truck, tripMode, roundtrip,
+        origin:$('originName').value, pickup:$('pickupName').value,
+        fields:Object.fromEntries(['fuel','eff','maint','salary','care','asset','depY','insVeh','insCargo','insDays','bo','t1','t2','feeBase','feeBaseKm','feeStepKm','feeStepBaht','feeTenPlus','feeBonusFrom','feeBonusPerDay','bandStart','bandWidth','bandCount','bandPct'].map(id=>[id,$(id).value])) },
+      routes };
+  }
+  function applySnapshot(s){
+    const c=s.config||{};
+    truck=c.truck||6; tripMode=c.tripMode||'circuit'; roundtrip=c.roundtrip!==false;
+    [...$('truckSeg').children].forEach(x=>x.classList.toggle('on', +x.dataset.truck===truck));
+    [...$('modeSeg').children].forEach(x=>x.classList.toggle('on', x.dataset.mode===tripMode));
+    [...$('rtSeg').children].forEach(x=>x.classList.toggle('on', (x.dataset.rt==='1')===roundtrip));
+    $('originName').value=c.origin||''; $('pickupName').value=c.pickup||'';
+    Object.entries(c.fields||{}).forEach(([id,v])=>{ if($(id)) $(id).value=v; });
+    routes=Array.isArray(s.routes)?s.routes:[];
+  }
+  $('saveBtn').addEventListener('click', async ()=>{
+    const customer=$('customer').value.trim();
+    if(!customer){ showMsg('ใส่ชื่อลูกค้าก่อนเซฟ','err'); return; }
+    try{
+      const res=await fetch('/quote/deal/save',{method:'POST',
+        body:JSON.stringify({id:dealId, customer_name:customer, deal_name:$('dealName').value.trim(), snapshot:snapshot()})});
+      const d=await res.json();
+      if(d.ok){ dealId=d.id; dirty=false; render(); showMsg('เซฟดีล #'+d.id+' แล้ว','ok'); }
+      else showMsg('เซฟไม่สำเร็จ','err');
+    }catch(e){ showMsg('เซฟไม่สำเร็จ: '+e,'err'); }
+  });
+  $('listBtn').addEventListener('click', async ()=>{
+    const p=$('dealListPanel'); p.classList.toggle('open');
+    if(p.classList.contains('open')) await loadList();
+  });
+  $('dealSearch').addEventListener('input', ()=>loadList());
+  async function loadList(){
+    try{
+      const res=await fetch('/quote/deal/list?q='+encodeURIComponent($('dealSearch').value));
+      const d=await res.json();
+      $('dealList').innerHTML=(d.deals||[]).map(x=>
+        `<div class="deal-item" data-open="${x.id}"><span>${escapeHtml(x.customer_name)} — ${escapeHtml(x.deal_name||('ดีล #'+x.id))}</span><span class="meta">${x.route_count} รูท · ${x.updated_at.replace('T',' ')}</span></div>`
+      ).join('') || '<div class="deal-item">ยังไม่มีดีลที่เซฟไว้</div>';
+      $('dealList').querySelectorAll('[data-open]').forEach(el=>{
+        el.addEventListener('click', ()=>openDeal(+el.dataset.open));
+      });
+    }catch(e){ showMsg('โหลดรายการไม่สำเร็จ','err'); }
+  }
+  async function openDeal(id){
+    if(dirty && !confirm('ดีลปัจจุบันยังไม่เซฟ เปิดดีลอื่นทับเลย?')) return;
+    try{
+      const res=await fetch('/quote/deal/load/'+id);
+      const d=await res.json();
+      dealId=d.id; $('customer').value=d.customer_name||''; $('dealName').value=d.deal_name||'';
+      applySnapshot(d.snapshot||{});
+      dirty=false; $('dealListPanel').classList.remove('open');
+      render(); showMsg('เปิดดีล #'+d.id+' แล้ว','ok');
+    }catch(e){ showMsg('เปิดดีลไม่สำเร็จ','err'); }
+  }
+
+  // ---------- ตารางผันน้ำมัน ----------
+  $('bandBtn').addEventListener('click', ()=>{ $('bandPanel').classList.toggle('open'); renderBands(); });
+  ['bandStart','bandWidth','bandCount','bandPct','bandUse'].forEach(id=>$(id).addEventListener('input',renderBands));
+  function renderBands(){
+    if(!$('bandPanel').classList.contains('open')) return;
+    const start=num('bandStart'), width=Math.max(.5,num('bandWidth'));
+    const count=Math.min(20,Math.max(2,num('bandCount'))), pct=num('bandPct')/100;
+    const use=$('bandUse').value, fuel=num('fuel');
+    let base=Math.floor((fuel-start)/width); base=Math.max(0,Math.min(count-1,base));
+    const heads=[...Array(count).keys()].map(i=>{
+      const lo=start+i*width, hi=lo+width-0.01;
+      return `<th class="${i===base?'base-band':''}">${lo.toFixed(2)}–${hi.toFixed(2)}</th>`;
+    }).join('');
+    const rows=routes.map(r=>{
+      const c=calcRow(r);
+      let p0 = use==='t1'?c.t1 : use==='t2'?c.t2 : (r.price!=null&&r.price>0?r.price:c.t1);
+      if(p0==null||!isFinite(p0)) return '';
+      const cells=[...Array(count).keys()].map(i=>{
+        const v=p0*(1+pct*(i-base));
+        return `<td class="${i===base?'base-band':''}">${fmt(v)}</td>`;
+      }).join('');
+      return `<tr><td class="name" style="text-align:left;font-family:var(--thai)">${escapeHtml(r.name)}</td>${cells}</tr>`;
+    }).join('');
+    $('bandTable').innerHTML=`<thead><tr><th style="text-align:left">ปลายทาง</th>${heads}</tr></thead><tbody>${rows||'<tr><td colspan="'+(count+1)+'" style="text-align:center;font-family:var(--thai);color:var(--ink-faint);padding:16px">ยังไม่มีรูทที่มีราคา/ระยะ</td></tr>'}</tbody>`;
+  }
+
+  // ---------- export / print ----------
+  $('csvBtn').addEventListener('click', ()=>{
+    const head=['ปลายทาง','กม','วัน','ค่าเที่ยว','ต้นทุนรวม','ราคาลูกค้า','กำไร','margin_%','เป้า'+num('t1')+'%','เป้า'+num('t2')+'%'];
+    const body=routes.map(r=>{ const c=calcRow(r);
+      return [r.name.replace(/,/g,' '), c.km??'', c.days??'', c.fee!=null?Math.round(c.fee):'', c.cost!=null?Math.round(c.cost):'',
+              r.price??'', c.profit!=null?Math.round(c.profit):'', c.margin!=null?c.margin.toFixed(1):'',
+              c.t1!=null?Math.round(c.t1):'', c.t2!=null?Math.round(c.t2):''].join(','); });
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob(['﻿'+[head.join(','),...body].join('\n')],{type:'text/csv'}));
+    a.download='deal_'+($('customer').value.trim()||'draft')+'.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+  $('printBtn').addEventListener('click', ()=>window.print());
+
+  render();
+})();
+</script>
+</body>
+</html>

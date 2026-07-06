@@ -1,0 +1,481 @@
+<div class="app">
+  <header class="hd">
+    <div>
+      <h1>ต้นทุน–กำไร งาน Wonder Sub 2026</h1>
+      <p class="sub">วงรอบ YK → กิมเฮง → ปลายทาง → กลับ YK · ระยะทางถนนจริง (OSRM) · เทียบราคายืนยัน Wonder 1/7/2026</p>
+    </div>
+    <button class="theme-btn" id="themeBtn" type="button" aria-label="สลับธีม">◐</button>
+  </header>
+
+  <!-- Controls -->
+  <section class="panel" aria-label="ตัวแปรคำนวณ">
+    <div class="ctrl-grid">
+      <div class="fld">
+        <label>ชนิดรถ</label>
+        <div class="seg" id="truckSeg">
+          <button type="button" data-truck="6" class="on">6 ล้อ (5 กม./ล.)</button>
+          <button type="button" data-truck="10">10 ล้อ (4 กม./ล.)</button>
+        </div>
+      </div>
+      <div class="fld"><label>ราคาน้ำมัน (บาท/ลิตร)</label><input type="number" id="fuelPrice" step="0.01" value="37.50"></div>
+      <div class="fld"><label>เรทน้ำมัน (กม./ลิตร)</label><input type="number" id="fuelEff" step="0.1" value="5"></div>
+      <div class="fld"><label>ค่าซ่อมบำรุง (บาท/กม.)</label><input type="number" id="maintRate" step="0.1" value="0"></div>
+      <div class="fld"><label>วันทำงาน (สำรอง)<br><span style="font-size:.62rem;color:var(--ink-faint)">แต่ละจังหวัดมีค่าตามระยะอยู่แล้ว</span></label><input type="number" id="workDays" step="0.5" value="1"></div>
+      <div class="fld"><label>เงินเดือน/เดือน</label><input type="number" id="salary" step="100" value="0"></div>
+      <div class="fld"><label>ค่าดูแลรถ/เดือน</label><input type="number" id="care" step="100" value="0"></div>
+      <div class="fld"><label>มูลค่ารถ (บาท)</label><input type="number" id="assetVal" step="10000" value="700000"></div>
+      <div class="fld"><label>อายุสึกหรอ (ปี)</label><input type="number" id="depYears" step="1" value="8"></div>
+      <div class="fld"><label>ประกันรถ/ปี</label><input type="number" id="insVeh" step="1000" value="42000"></div>
+      <div class="fld"><label>ประกันสินค้า/ปี</label><input type="number" id="insCargo" step="1000" value="13500"></div>
+      <div class="fld"><label>วันทำงาน/เดือน (ฐานประกัน)</label><input type="number" id="insDays" step="1" value="24"></div>
+      <div class="fld"><label>Back Office (%)</label><input type="number" id="backOffice" step="0.5" value="15"></div>
+      <div class="fld"><label>% กำไรเป้า (สวย)</label><input type="number" id="targetMargin" step="0.5" value="30"></div>
+    </div>
+    <p class="note">ค่าเที่ยวคิด<strong>อัตโนมัติ</strong> = ตามระยะทาง (6 ล้อ: 0–250 กม. = 500, ทุกๆ เกิน 150 กม. +100 · 10 ล้อ: +100) <strong>+ โบนัสงานไกล</strong> ตั้งแต่วันที่ 3 ขึ้นไป +100/วัน (3 วัน +100, 4 วัน +200) — พิมพ์ทับในช่องได้ · ราคาขาย (Wonder) เลือกช่วงน้ำมันอัตโนมัติจากราคาน้ำมันด้านบน · สูตรต้นทุนตรงกับเครื่องคิดต้นทุน YK เดิม</p>
+  </section>
+
+  <!-- Summary -->
+  <section class="stats" id="stats" aria-label="สรุป"></section>
+
+  <div class="toolbar">
+    <input type="search" id="search" placeholder="ค้นหาจังหวัด…" aria-label="ค้นหาจังหวัด">
+    <span class="band-tag" id="bandTag"></span>
+    <button type="button" class="mini" id="resetTrips">ล้างค่าที่กรอกทั้งหมด</button>
+    <button type="button" class="mini" id="exportCsv">Export CSV</button>
+    <button type="button" class="mini" id="printBtn">🖨️ พิมพ์ทั้งหน้า</button>
+  </div>
+  <div class="print-msg" id="printMsg" hidden>
+    <strong>พิมพ์จากในหน้า claude.ai ตรงๆ ไม่ได้</strong> (ระบบครอบหน้าไว้ บล็อกคำสั่งพิมพ์/เปิดแท็บ/ดาวน์โหลดแบบเงียบ)<br>
+    วิธีพิมพ์ตอนนี้: เปิดไฟล์ <code>ProjectYK_System\TransportRateCalculator\wonder_sub_cost_2026.html</code> ในเครื่อง (ดับเบิลคลิก) แล้วกดปุ่มพิมพ์หรือ Ctrl+P ได้ครบทุกหน้า · ถ้ามีไฟล์ <code>wonder_sub_cost_print.html</code> ถูกดาวน์โหลดเมื่อกี้ เปิดไฟล์นั้นก็ได้เช่นกัน · พอหน้านี้เข้าเว็บแอป MVP แล้ว ปุ่มพิมพ์จะทำงานทันที
+  </div>
+
+  <!-- Table -->
+  <div class="tblwrap">
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th class="sortable" data-k="name">จังหวัด</th>
+          <th class="num edit-col">ระยะทาง<br><span class="th-sub">กม. · แก้ได้</span></th>
+          <th class="sortable num" data-k="rev">ราคาขาย<br><span class="th-sub">Wonder</span></th>
+          <th class="num edit-col">วัน<br><span class="th-sub">ต่อเที่ยว</span></th>
+          <th class="sortable num" data-k="cost">ต้นทุนไม่รวมค่าเที่ยว</th>
+          <th class="num edit-col">ค่าเที่ยว<br><span class="th-sub">อัตโนมัติ · แก้ได้</span></th>
+          <th class="sortable num" data-k="totalCost">ต้นทุนรวม</th>
+          <th class="sortable num" data-k="profit">กำไร/เที่ยว</th>
+          <th class="sortable num" data-k="margin">% กำไร</th>
+          <th class="sortable num" data-k="target">ราคาเป้า<br><span class="th-sub" id="targetSubHd">สวย</span></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <p class="foot">ต้นทุนการเงิน/เครดิตลูกค้าไม่รวมในตารางนี้ (โฟกัสต้นทุนเดินรถตรง) · <strong>ระยะทาง</strong> ที่แสดง = OSRM (สั้นกว่า Google Maps ~2%) กรอกทับด้วยเลข Google Maps จริงได้ ช่องที่แก้จะเป็นสีน้ำเงิน · <strong>วัน</strong>ที่แสดงเป็นค่าเริ่มต้นรายจังหวัด (ประมาณจากเวลาขับจริง ~9 ชม./วัน) แล้วแต่สไตล์คนขับพิมพ์ทับได้ · <strong>วัน</strong>/<strong>ระยะ</strong>/<strong>ค่าเที่ยว</strong> ที่ปล่อยว่าง = ใช้ค่าเริ่มต้น/อัตโนมัติ · ช่องที่แก้เองเป็นสีน้ำเงิน · ทุกค่าที่กรอกจำไว้ในเครื่อง</p>
+</div>
+
+<script>
+window.WONDER_DATA = {"bands": [29.0, 31.0, 33.0, 35.0, 37.0, 39.0, 41.0, 43.0, 45.0, 47.0, 49.0, 51.0], "rows": [{"name": "เชียงราย", "zone": "เหนือตอนบน", "km": 1662.9, "rev6": [14333, 14700, 15068, 15444, 15830, 16226, 16632, 17047, 17474, 17911, 18358, 18817], "rev10": [16088, 16500, 16913, 17335, 17769, 18213, 18668, 19135, 19613, 20104, 20606, 21121]}, {"name": "เชียงใหม่", "zone": "เหนือตอนบน", "km": 1422.7, "rev6": [13553, 13900, 14248, 14604, 14969, 15343, 15727, 16120, 16523, 16936, 17359, 17793], "rev10": [14138, 14500, 14863, 15234, 15615, 16005, 16405, 16816, 17236, 17667, 18109, 18561]}, {"name": "น่าน", "zone": "เหนือตอนบน", "km": 1379.4, "rev6": [12675, 13000, 13325, 13658, 14000, 14350, 14708, 15076, 15453, 15839, 16235, 16641], "rev10": [13650, 14000, 14350, 14709, 15076, 15453, 15840, 16236, 16642, 17058, 17484, 17921]}, {"name": "พะเยา", "zone": "เหนือตอนบน", "km": 1477.3, "rev6": [13553, 13900, 14248, 14604, 14969, 15343, 15727, 16120, 16523, 16936, 17359, 17793], "rev10": [13650, 14000, 14350, 14709, 15076, 15453, 15840, 16236, 16642, 17058, 17484, 17921]}, {"name": "แพร่", "zone": "เหนือตอนบน", "km": 1146.3, "rev6": [11700, 12000, 12300, 12608, 12923, 13246, 13577, 13916, 14264, 14621, 14986, 15361], "rev10": [13650, 14000, 14350, 14709, 15076, 15453, 15840, 16236, 16642, 17058, 17484, 17921]}, {"name": "แม่ฮ่องสอน", "zone": "เหนือตอนบน", "km": 1811.4, "rev6": [19013, 19500, 19988, 20487, 20999, 21524, 22062, 22614, 23179, 23759, 24353, 24962], "rev10": [19988, 20500, 21013, 21538, 22076, 22628, 23194, 23774, 24368, 24977, 25602, 26242]}, {"name": "ลำปาง", "zone": "เหนือตอนบน", "km": 1250.4, "rev6": [13163, 13500, 13838, 14183, 14538, 14901, 15274, 15656, 16047, 16448, 16860, 17281], "rev10": [13163, 13500, 13838, 14183, 14538, 14901, 15274, 15656, 16047, 16448, 16860, 17281]}, {"name": "ลำพูน", "zone": "เหนือตอนบน", "km": 1369.9, "rev6": [12675, 13000, 13325, 13658, 14000, 14350, 14708, 15076, 15453, 15839, 16235, 16641], "rev10": [13163, 13500, 13838, 14183, 14538, 14901, 15274, 15656, 16047, 16448, 16860, 17281]}, {"name": "ตาก", "zone": "เหนือตอนล่าง", "km": 890.8, "rev6": [10238, 10500, 10763, 11032, 11307, 11590, 11880, 12177, 12481, 12793, 13113, 13441], "rev10": [13163, 13500, 13838, 14183, 14538, 14901, 15274, 15656, 16047, 16448, 16860, 17281]}, {"name": "เพชรบูรณ์", "zone": "เหนือตอนล่าง", "km": 746.1, "rev6": [7508, 7700, 7893, 8090, 8292, 8499, 8712, 8930, 9153, 9382, 9616, 9857], "rev10": [9750, 10000, 10250, 10506, 10769, 11038, 11314, 11597, 11887, 12184, 12489, 12801]}, {"name": "สุโขทัย", "zone": "เหนือตอนล่าง", "km": 896.5, "rev6": [9068, 9300, 9533, 9771, 10015, 10265, 10522, 10785, 11055, 11331, 11614, 11905], "rev10": [11700, 12000, 12300, 12608, 12923, 13246, 13577, 13916, 14264, 14621, 14986, 15361]}, {"name": "อุตรดิตถ์", "zone": "เหนือตอนล่าง", "km": 1010.4, "rev6": [9068, 9300, 9533, 9771, 10015, 10265, 10522, 10785, 11055, 11331, 11614, 11905], "rev10": [11700, 12000, 12300, 12608, 12923, 13246, 13577, 13916, 14264, 14621, 14986, 15361]}, {"name": "พิษณุโลก", "zone": "เหนือตอนล่าง", "km": 794.5, "rev6": [7508, 7700, 7893, 8090, 8292, 8499, 8712, 8930, 9153, 9382, 9616, 9857], "rev10": [6825, 7000, 7175, 7354, 7538, 7727, 7920, 8118, 8321, 8529, 8742, 8961]}, {"name": "กำแพงเพชร", "zone": "เหนือตอนล่าง", "km": 762.1, "rev6": [7508, 7700, 7893, 8090, 8292, 8499, 8712, 8930, 9153, 9382, 9616, 9857], "rev10": [9750, 10000, 10250, 10506, 10769, 11038, 11314, 11597, 11887, 12184, 12489, 12801]}, {"name": "พิจิตร", "zone": "เหนือตอนล่าง", "km": 754.6, "rev6": [7508, 7700, 7893, 8090, 8292, 8499, 8712, 8930, 9153, 9382, 9616, 9857], "rev10": [9750, 10000, 10250, 10506, 10769, 11038, 11314, 11597, 11887, 12184, 12489, 12801]}, {"name": "อุทัยธานี", "zone": "เหนือตอนล่าง", "km": 477.6, "rev6": [5948, 6100, 6253, 6409, 6569, 6733, 6902, 7074, 7251, 7432, 7618, 7809], "rev10": [6825, 7000, 7175, 7354, 7538, 7727, 7920, 8118, 8321, 8529, 8742, 8961]}, {"name": "นครสวรรค์", "zone": "เหนือตอนล่าง", "km": 532.1, "rev6": [5948, 6100, 6253, 6409, 6569, 6733, 6902, 7074, 7251, 7432, 7618, 7809], "rev10": [7800, 8000, 8200, 8405, 8615, 8831, 9051, 9278, 9509, 9747, 9991, 10241]}, {"name": "ชุมพร", "zone": "ใต้ตอนบน", "km": 1028.7, "rev6": [8775, 9000, 9225, 9456, 9692, 9934, 10183, 10437, 10698, 10966, 11240, 11521], "rev10": [10033, 10290, 10547, 10811, 11081, 11358, 11642, 11933, 12232, 12537, 12851, 13172]}, {"name": "ระนอง", "zone": "ใต้ตอนบน", "km": 1261.2, "rev6": [10725, 11000, 11275, 11557, 11846, 12142, 12445, 12757, 13076, 13402, 13737, 14081], "rev10": [11963, 12270, 12577, 12891, 13213, 13544, 13882, 14229, 14585, 14950, 15324, 15707]}, {"name": "สุราษฎร์ธานี", "zone": "ใต้ตอนบน", "km": 1397.0, "rev6": [10238, 10500, 10763, 11032, 11307, 11590, 11880, 12177, 12481, 12793, 13113, 13441], "rev10": [12578, 12900, 13223, 13553, 13892, 14239, 14595, 14960, 15334, 15717, 16110, 16513]}, {"name": "นครศรีธรรมราช", "zone": "ใต้ตอนบน", "km": 1676.5, "rev6": [13163, 13500, 13838, 14183, 14538, 14901, 15274, 15656, 16047, 16448, 16860, 17281], "rev10": [15113, 15500, 15888, 16285, 16692, 17109, 17537, 17975, 18425, 18885, 19357, 19841]}, {"name": "กระบี่", "zone": "ใต้ตอนบน", "km": 1660.5, "rev6": [12188, 12500, 12813, 13133, 13461, 13798, 14143, 14496, 14859, 15230, 15611, 16001], "rev10": [15113, 15500, 15888, 16285, 16692, 17109, 17537, 17975, 18425, 18885, 19357, 19841]}, {"name": "พังงา", "zone": "ใต้ตอนบน", "km": 1620.3, "rev6": [13163, 13500, 13838, 14183, 14538, 14901, 15274, 15656, 16047, 16448, 16860, 17281], "rev10": [16263, 16680, 17097, 17524, 17963, 18412, 18872, 19344, 19827, 20323, 20831, 21352]}, {"name": "ภูเก็ต", "zone": "ใต้ตอนบน", "km": 1787.5, "rev6": [13650, 14000, 14350, 14709, 15076, 15453, 15840, 16236, 16642, 17058, 17484, 17921], "rev10": [17989, 18450, 18911, 19384, 19869, 20365, 20874, 21396, 21931, 22480, 23042, 23618]}, {"name": "พัทลุง", "zone": "ใต้ตอนล่าง", "km": 1798.6, "rev6": [12615, 12939, 13262, 13594, 13933, 14282, 14639, 15005, 15380, 15764, 16158, 16562], "rev10": [17989, 18450, 18911, 19384, 19869, 20365, 20874, 21396, 21931, 22480, 23042, 23618]}, {"name": "ตรัง", "zone": "ใต้ตอนล่าง", "km": 1769.5, "rev6": [12615, 12939, 13262, 13594, 13933, 14282, 14639, 15005, 15380, 15764, 16158, 16562], "rev10": [17989, 18450, 18911, 19384, 19869, 20365, 20874, 21396, 21931, 22480, 23042, 23618]}, {"name": "สตูล", "zone": "ใต้ตอนล่าง", "km": 2061.0, "rev6": [15727, 16130, 16534, 16947, 17371, 17805, 18250, 18706, 19174, 19653, 20145, 20648], "rev10": [19378, 19875, 20372, 20881, 21403, 21938, 22487, 23049, 23625, 24216, 24821, 25442]}, {"name": "สงขลา", "zone": "ใต้ตอนล่าง", "km": 2026.2, "rev6": [15600, 16000, 16400, 16810, 17230, 17661, 18103, 18555, 19019, 19494, 19982, 20481], "rev10": [16088, 16500, 16913, 17335, 17769, 18213, 18668, 19135, 19613, 20104, 20606, 21121]}, {"name": "ปัตตานี", "zone": "ใต้ตอนล่าง", "km": 2187.2, "rev6": [15222, 15612, 16002, 16402, 16812, 17233, 17664, 18105, 18558, 19022, 19497, 19985], "rev10": [21694, 22250, 22806, 23376, 23961, 24560, 25174, 25803, 26448, 27109, 27787, 28482]}, {"name": "ยะลา", "zone": "ใต้ตอนล่าง", "km": 2241.6, "rev6": [15222, 15612, 16002, 16402, 16812, 17233, 17664, 18105, 18558, 19022, 19497, 19985], "rev10": [21694, 22250, 22806, 23376, 23961, 24560, 25174, 25803, 26448, 27109, 27787, 28482]}, {"name": "นราธิวาส", "zone": "ใต้ตอนล่าง", "km": 2375.0, "rev6": [15222, 15612, 16002, 16402, 16812, 17233, 17664, 18105, 18558, 19022, 19497, 19985], "rev10": [21694, 22250, 22806, 23376, 23961, 24560, 25174, 25803, 26448, 27109, 27787, 28482]}, {"name": "หนองคาย", "zone": "อิสานตอนบน", "km": 1301.8, "rev6": [10238, 10500, 10763, 11032, 11307, 11590, 11880, 12177, 12481, 12793, 13113, 13441], "rev10": [13163, 13500, 13838, 14183, 14538, 14901, 15274, 15656, 16047, 16448, 16860, 17281]}, {"name": "บึงกาฬ", "zone": "อิสานตอนบน", "km": 1569.6, "rev6": [12188, 12500, 12813, 13133, 13461, 13798, 14143, 14496, 14859, 15230, 15611, 16001], "rev10": [15113, 15500, 15888, 16285, 16692, 17109, 17537, 17975, 18425, 18885, 19357, 19841]}, {"name": "หนองบัวลำภู", "zone": "อิสานตอนบน", "km": 1098.9, "rev6": [9263, 9500, 9738, 9981, 10230, 10486, 10748, 11017, 11293, 11575, 11864, 12161], "rev10": [12188, 12500, 12813, 13133, 13461, 13798, 14143, 14496, 14859, 15230, 15611, 16001]}, {"name": "อุดรธานี", "zone": "อิสานตอนบน", "km": 1192.2, "rev6": [9263, 9500, 9738, 9981, 10230, 10486, 10748, 11017, 11293, 11575, 11864, 12161], "rev10": [12188, 12500, 12813, 13133, 13461, 13798, 14143, 14496, 14859, 15230, 15611, 16001]}, {"name": "นครพนม", "zone": "อิสานตอนบน", "km": 1566.8, "rev6": [12188, 12500, 12813, 13133, 13461, 13798, 14143, 14496, 14859, 15230, 15611, 16001], "rev10": [15113, 15500, 15888, 16285, 16692, 17109, 17537, 17975, 18425, 18885, 19357, 19841]}, {"name": "มุกดาหาร", "zone": "อิสานตอนบน", "km": 1370.2, "rev6": [11213, 11500, 11788, 12082, 12384, 12694, 13011, 13336, 13670, 14012, 14362, 14721], "rev10": [13650, 14000, 14350, 14709, 15076, 15453, 15840, 16236, 16642, 17058, 17484, 17921]}, {"name": "สกลนคร", "zone": "อิสานตอนบน", "km": 1343.5, "rev6": [11213, 11500, 11788, 12082, 12384, 12694, 13011, 13336, 13670, 14012, 14362, 14721], "rev10": [12675, 13000, 13325, 13658, 14000, 14350, 14708, 15076, 15453, 15839, 16235, 16641]}, {"name": "มหาสารคาม", "zone": "อิสานตอนบน", "km": 989.6, "rev6": [9263, 9500, 9738, 9981, 10230, 10486, 10748, 11017, 11293, 11575, 11864, 12161], "rev10": [11213, 11500, 11788, 12082, 12384, 12694, 13011, 13336, 13670, 14012, 14362, 14721]}, {"name": "เลย", "zone": "อิสานตอนบน", "km": 1131.3, "rev6": [10238, 10500, 10763, 11032, 11307, 11590, 11880, 12177, 12481, 12793, 13113, 13441], "rev10": [12188, 12500, 12813, 13133, 13461, 13798, 14143, 14496, 14859, 15230, 15611, 16001]}, {"name": "ขอนแก่น", "zone": "อิสานตอนบน", "km": 943.4, "rev6": [8288, 8500, 8713, 8930, 9154, 9382, 9617, 9857, 10104, 10356, 10615, 10881], "rev10": [10238, 10500, 10763, 11032, 11307, 11590, 11880, 12177, 12481, 12793, 13113, 13441]}, {"name": "กาฬสินธุ์", "zone": "อิสานตอนล่าง", "km": 1086.6, "rev6": [10238, 10500, 10763, 11032, 11307, 11590, 11880, 12177, 12481, 12793, 13113, 13441], "rev10": [11798, 12100, 12403, 12713, 13030, 13356, 13690, 14032, 14383, 14743, 15111, 15489]}, {"name": "ร้อยเอ็ด", "zone": "อิสานตอนล่าง", "km": 1068.2, "rev6": [9263, 9500, 9738, 9981, 10230, 10486, 10748, 11017, 11293, 11575, 11864, 12161], "rev10": [5558, 5700, 5843, 5989, 6138, 6292, 6449, 6610, 6776, 6945, 7119, 7296]}, {"name": "ชัยภูมิ", "zone": "อิสานตอนล่าง", "km": 713.2, "rev6": [6338, 6500, 6663, 6829, 7000, 7175, 7354, 7538, 7726, 7920, 8118, 8321], "rev10": [7995, 8200, 8405, 8615, 8831, 9051, 9278, 9509, 9747, 9991, 10241, 10497]}, {"name": "สุรินทร์", "zone": "อิสานตอนล่าง", "km": 915.7, "rev6": [9263, 9500, 9738, 9981, 10230, 10486, 10748, 11017, 11293, 11575, 11864, 12161], "rev10": [11213, 11500, 11788, 12082, 12384, 12694, 13011, 13336, 13670, 14012, 14362, 14721]}, {"name": "บุรีรัมย์", "zone": "อิสานตอนล่าง", "km": 828.1, "rev6": [7313, 7500, 7688, 7880, 8077, 8279, 8486, 8698, 8915, 9138, 9366, 9601], "rev10": [9263, 9500, 9738, 9981, 10230, 10486, 10748, 11017, 11293, 11575, 11864, 12161]}, {"name": "นครราชสีมา", "zone": "อิสานตอนล่าง", "km": 565.9, "rev6": [5850, 6000, 6150, 6304, 6461, 6623, 6788, 6958, 7132, 7310, 7493, 7681], "rev10": [7313, 7500, 7688, 7880, 8077, 8279, 8486, 8698, 8915, 9138, 9366, 9601]}, {"name": "ยโสธร", "zone": "อิสานตอนล่าง", "km": 1114.2, "rev6": [10238, 10500, 10763, 11032, 11307, 11590, 11880, 12177, 12481, 12793, 13113, 13441], "rev10": [11213, 11500, 11788, 12082, 12384, 12694, 13011, 13336, 13670, 14012, 14362, 14721]}, {"name": "ศรีสะเกษ", "zone": "อิสานตอนล่าง", "km": 1146.3, "rev6": [10238, 10500, 10763, 11032, 11307, 11590, 11880, 12177, 12481, 12793, 13113, 13441], "rev10": [11700, 12000, 12300, 12608, 12923, 13246, 13577, 13916, 14264, 14621, 14986, 15361]}, {"name": "อำนาจเจริญ", "zone": "อิสานตอนล่าง", "km": 1225.6, "rev6": [10725, 11000, 11275, 11557, 11846, 12142, 12445, 12757, 13076, 13402, 13737, 14081], "rev10": [13163, 13500, 13838, 14183, 14538, 14901, 15274, 15656, 16047, 16448, 16860, 17281]}, {"name": "อุบลราชธานี", "zone": "อิสานตอนล่าง", "km": 1286.0, "rev6": [10725, 11000, 11275, 11557, 11846, 12142, 12445, 12757, 13076, 13402, 13737, 14081], "rev10": [12188, 12500, 12813, 13133, 13461, 13798, 14143, 14496, 14859, 15230, 15611, 16001]}]};
+
+// วันทำงานเริ่มต้นรายจังหวัด — ประมาณจากเวลาขับจริง OSRM (ปัดขึ้น ~9 ชม.ขับ/วัน); โอพิมพ์ทับได้
+window.WONDER_DEFDAYS = {"เชียงราย":3, "เชียงใหม่":3, "น่าน":2, "พะเยา":3, "แพร่":2, "แม่ฮ่องสอน":3, "ลำปาง":2, "ลำพูน":2, "ตาก":2, "เพชรบูรณ์":2, "สุโขทัย":2, "อุตรดิตถ์":2, "พิษณุโลก":2, "กำแพงเพชร":2, "พิจิตร":2, "อุทัยธานี":1, "นครสวรรค์":1, "ชุมพร":2, "ระนอง":2, "สุราษฎร์ธานี":2, "นครศรีธรรมราช":3, "กระบี่":3, "พังงา":3, "ภูเก็ต":3, "พัทลุง":3, "ตรัง":3, "สตูล":3, "สงขลา":3, "ปัตตานี":3, "ยะลา":4, "นราธิวาส":4, "หนองคาย":2, "บึงกาฬ":3, "หนองบัวลำภู":2, "อุดรธานี":2, "นครพนม":3, "มุกดาหาร":2, "สกลนคร":2, "มหาสารคาม":2, "เลย":2, "ขอนแก่น":2, "กาฬสินธุ์":2, "ร้อยเอ็ด":2, "ชัยภูมิ":2, "สุรินทร์":2, "บุรีรัมย์":2, "นครราชสีมา":1, "ยโสธร":2, "ศรีสะเกษ":2, "อำนาจเจริญ":2, "อุบลราชธานี":2};
+
+(function(){
+  const D = window.WONDER_DATA;
+  const DEFDAYS = window.WONDER_DEFDAYS;
+  const $ = id => document.getElementById(id);
+  const LSKEY = 'wonder_sub_trips_v1';
+  const LSKEY_D = 'wonder_sub_days_v1';
+  const LSKEY_KM = 'wonder_sub_km_v1';
+  let truck = 6, sortK = 'profit', sortDir = -1, trips = {}, days = {}, dists = {};   // เริ่มเรียงกำไรมาก→น้อย ให้ตรงลูกศร ▼
+  try { trips = JSON.parse(localStorage.getItem(LSKEY)) || {}; } catch(e){ trips = {}; }
+  try { days = JSON.parse(localStorage.getItem(LSKEY_D)) || {}; } catch(e){ days = {}; }
+  try { dists = JSON.parse(localStorage.getItem(LSKEY_KM)) || {}; } catch(e){ dists = {}; }
+
+  const nf = new Intl.NumberFormat('th-TH', {maximumFractionDigits:0});
+  const nf1 = new Intl.NumberFormat('th-TH', {minimumFractionDigits:1, maximumFractionDigits:1});
+  const fmt = n => nf.format(Math.round(n));
+  const num = id => { const v = parseFloat($(id).value); return isFinite(v) ? v : 0; };
+
+  // pick revenue for current fuel price band
+  function bandIndex(fuel){
+    let idx = 0;
+    for (let i=0;i<D.bands.length;i++){ if (fuel >= D.bands[i]) idx = i; }
+    return idx;
+  }
+  function bandLabel(i){
+    const lo = D.bands[i], hi = (i<D.bands.length-1) ? D.bands[i+1]-0.01 : lo+1.99;
+    return lo.toFixed(2)+'–'+hi.toFixed(2);
+  }
+
+  // ค่าเที่ยวอัตโนมัติ: ฐานตามระยะทาง (6ล้อ 0-250=500, ทุกๆเกิน 150กม.=+100 ปัดขึ้น; 10ล้อ +100)
+  //   + โบนัสงานไกล: ตั้งแต่วันที่ 3 ขึ้นไป +100/วัน (3วัน=+100, 4วัน=+200)
+  function autoTripFee(km, wd){
+    let fee = km <= 250 ? 500 : 500 + Math.ceil((km-250)/150)*100;
+    if (truck === 10) fee += 100;
+    const bonusDays = Math.max(0, Math.floor(wd) - 2);   // วันที่เกิน 2 วันแรก
+    fee += bonusDays * 100;
+    return fee;
+  }
+
+  // cost engine — same formula as transport_rate_calculator.html
+  function costOf(km, wd){
+    const fuel = num('fuelPrice'), eff = Math.max(0.01, num('fuelEff'));
+    const sal = num('salary'), care = num('care');
+    const insVeh = num('insVeh'), insCargo = num('insCargo');
+    const insDays = Math.max(1, num('insDays')), asset = num('assetVal');
+    const depY = Math.max(1, num('depYears')), maint = num('maintRate'), bo = num('backOffice');
+    const liters = km / eff;
+    const fuelCost = liters * fuel;
+    const driver = ((sal + care)/30) * wd;
+    const annualWorkDays = insDays * 12;
+    const insVehC = (insVeh/annualWorkDays)*wd;
+    const insCargoC = (insCargo/annualWorkDays)*wd;
+    const dep = ((asset/depY)/365)*wd;
+    const maintC = km * maint;
+    const fixed = driver + insVehC + insCargoC + dep;
+    const beforeBO = fuelCost + fixed + maintC;      // ค่าเที่ยว added later as trip line
+    const costNoTrip = beforeBO * (1 + bo/100);
+    return { liters, fuelCost, driver, fixed, dep, maintC, insVehC, insCargoC, costNoTrip, bo };
+  }
+
+  function computeRows(){
+    const bi = bandIndex(num('fuelPrice'));
+    const tm = num('targetMargin')/100;
+    const globalDefDays = num('workDays');
+    return D.rows.map(r=>{
+      const rev = (truck===6 ? r.rev6 : r.rev10)[bi];
+      const provDef = (DEFDAYS[r.name] != null) ? DEFDAYS[r.name] : globalDefDays;
+      const wd = (days[r.name] != null) ? days[r.name] : provDef;
+      const km = (dists[r.name] != null) ? dists[r.name] : r.km;
+      const c = costOf(km, wd);
+      const tripAuto = autoTripFee(km, wd);
+      const tripEdited = (trips[r.name] != null);
+      const trip = tripEdited ? trips[r.name] : tripAuto;
+      // ค่าเที่ยว also passes through back-office in original engine; keep consistent
+      const totalCost = c.costNoTrip + trip*(1 + c.bo/100);
+      const profit = rev - totalCost;
+      const margin = rev>0 ? profit/rev*100 : 0;
+      const target = tm<1 ? totalCost/(1-tm) : totalCost;   // price to hit target margin
+      return { name:r.name, zone:r.zone, km, kmOsrm:r.km, kmEdited:(dists[r.name] != null), rev, days:wd, daysDef:provDef, daysEdited:(days[r.name] != null), cost:c.costNoTrip, trip, tripAuto, tripEdited, totalCost, profit, margin, target };
+    });
+  }
+
+  function sevClass(m){ if(m<0) return 'loss'; if(m<15) return 'thin'; return 'good'; }
+
+  function render(){
+    const rows = computeRows();
+    const q = ($('search').value||'').trim();
+    let view = q ? rows.filter(r=>r.name.includes(q)||r.zone.includes(q)) : rows.slice();
+    view.sort((a,b)=>{
+      let x=a[sortK], y=b[sortK];
+      if(typeof x==='string') return x.localeCompare(y,'th')*sortDir;
+      return (x-y)*sortDir;
+    });
+
+    // stats
+    const prof = rows.filter(r=>r.profit>0).length;
+    const loss = rows.filter(r=>r.profit<0).length;
+    const avgM = rows.reduce((s,r)=>s+r.margin,0)/rows.length;
+    const best = rows.reduce((a,b)=>b.margin>a.margin?b:a);
+    const worst = rows.reduce((a,b)=>b.margin<a.margin?b:a);
+    $('stats').innerHTML = [
+      stat('กำไร', prof+' จังหวัด', 'good'),
+      stat('ขาดทุน', loss+' จังหวัด', loss? 'loss':'good'),
+      stat('% กำไรเฉลี่ย', avgM.toFixed(1)+'%', sevClass(avgM)),
+      stat('ดีสุด', best.name, 'good', best.margin.toFixed(1)+'%'),
+      stat('แย่สุด', worst.name, sevClass(worst.margin), worst.margin.toFixed(1)+'%'),
+    ].join('');
+
+    const bi = bandIndex(num('fuelPrice'));
+    $('bandTag').textContent = 'ช่วงน้ำมัน '+bandLabel(bi)+' · '+truck+' ล้อ';
+    $('targetSubHd').textContent = num('targetMargin').toFixed(0)+'%';
+
+    const tb = $('tbody');
+    tb.innerHTML = view.map(r=>{
+      const sc = sevClass(r.margin);
+      const dayVal = (days[r.name] != null) ? days[r.name] : '';
+      const kmVal = r.kmEdited ? r.km : '';
+      return `<tr class="row-${sc}">
+        <td class="name">${r.name}<span class="zone">${r.zone}</span></td>
+        <td class="num edit-col"><input type="number" class="km-in ${r.kmEdited?'edited':''}" data-p="${r.name}" value="${kmVal}" placeholder="${nf1.format(r.kmOsrm)}" step="1" min="0" title="ระยะ OSRM ${nf1.format(r.kmOsrm)} กม. — กรอกทับด้วยเลข Google Maps ได้"></td>
+        <td class="num rev">${fmt(r.rev)}</td>
+        <td class="num edit-col"><input type="number" class="day-in ${r.daysEdited?'edited':''}" data-p="${r.name}" value="${dayVal}" placeholder="${r.daysDef}" step="0.5" min="0" title="วันเริ่มต้น ${r.daysDef} วัน (ประมาณจากเวลาขับ) — พิมพ์ทับได้"></td>
+        <td class="num muted">${fmt(r.cost)}</td>
+        <td class="num edit-col"><input type="number" class="trip-in ${r.tripEdited?'edited':''}" data-p="${r.name}" value="${r.tripEdited?r.trip:''}" placeholder="${fmt(r.tripAuto)}" step="100" min="0" title="ค่าเที่ยวอัตโนมัติ ${fmt(r.tripAuto)} บาท — พิมพ์ทับได้"></td>
+        <td class="num">${fmt(r.totalCost)}</td>
+        <td class="num prof ${sc}">${r.profit>=0?'+':''}${fmt(r.profit)}</td>
+        <td class="num margin ${sc}"><span class="pill ${sc}">${r.margin.toFixed(1)}%</span></td>
+        <td class="num tgt">${fmt(r.target)}</td>
+      </tr>`;
+    }).join('');
+
+    tb.querySelectorAll('.trip-in').forEach(inp=>{
+      inp.addEventListener('change', e=>{
+        const p=e.target.dataset.p, raw=e.target.value.trim(), v=parseFloat(raw);
+        // ว่าง = กลับไปใช้ค่าอัตโนมัติ · ใส่เลข (รวม 0) = ทับค่า
+        if(raw!=='' && isFinite(v) && v>=0) trips[p]=v; else delete trips[p];
+        localStorage.setItem(LSKEY, JSON.stringify(trips));
+        render();
+      });
+    });
+    tb.querySelectorAll('.day-in').forEach(inp=>{
+      inp.addEventListener('change', e=>{
+        const p=e.target.dataset.p, raw=e.target.value.trim(), v=parseFloat(raw);
+        if(raw!=='' && isFinite(v) && v>=0) days[p]=v; else delete days[p];
+        localStorage.setItem(LSKEY_D, JSON.stringify(days));
+        render();
+      });
+    });
+    tb.querySelectorAll('.km-in').forEach(inp=>{
+      inp.addEventListener('change', e=>{
+        const p=e.target.dataset.p, raw=e.target.value.trim(), v=parseFloat(raw);
+        if(raw!=='' && isFinite(v) && v>0) dists[p]=v; else delete dists[p];
+        localStorage.setItem(LSKEY_KM, JSON.stringify(dists));
+        render();
+      });
+    });
+  }
+  function stat(label,val,cls,sub){
+    return `<div class="stat"><div class="s-label">${label}</div><div class="s-val ${cls||''}">${val}</div>${sub?`<div class="s-sub ${cls||''}">${sub}</div>`:''}</div>`;
+  }
+
+  // truck segment
+  $('truckSeg').addEventListener('click', e=>{
+    const b=e.target.closest('button[data-truck]'); if(!b) return;
+    truck = parseInt(b.dataset.truck,10);
+    [...$('truckSeg').children].forEach(x=>x.classList.toggle('on', x===b));
+    $('fuelEff').value = truck===6? '5':'4';
+    render();
+  });
+
+  // inputs
+  ['fuelPrice','fuelEff','maintRate','workDays','salary','care','assetVal','depYears','insVeh','insCargo','insDays','backOffice','targetMargin']
+    .forEach(id=>$(id).addEventListener('input', render));
+  $('search').addEventListener('input', render);
+
+  // sorting
+  document.querySelectorAll('th.sortable').forEach(th=>{
+    th.addEventListener('click', ()=>{
+      const k=th.dataset.k;
+      if(sortK===k) sortDir*=-1; else { sortK=k; sortDir = (k==='name')?1:-1; }
+      document.querySelectorAll('th.sortable').forEach(x=>x.removeAttribute('data-dir'));
+      th.setAttribute('data-dir', sortDir>0?'asc':'desc');
+      render();
+    });
+  });
+
+  $('resetTrips').addEventListener('click', ()=>{
+    if(confirm('ล้างค่าเที่ยว วันทำงาน และระยะทางที่กรอกทับ ทุกจังหวัด?')){
+      trips={}; days={}; dists={};
+      localStorage.removeItem(LSKEY); localStorage.removeItem(LSKEY_D); localStorage.removeItem(LSKEY_KM);
+      render();
+    }
+  });
+
+  $('exportCsv').addEventListener('click', ()=>{
+    const rows = computeRows().sort((a,b)=>b.profit-a.profit);
+    const head = ['จังหวัด','โซน','ระยะทาง_กม','ระยะแก้เอง','ระยะ_OSRM','วันทำงาน','ราคาขาย_Wonder','ต้นทุนไม่รวมค่าเที่ยว','ค่าเที่ยว','ค่าเที่ยวแก้เอง','ค่าเที่ยวอัตโนมัติ','ต้นทุนรวม','กำไร','margin_%','ราคาเป้า'];
+    const body = rows.map(r=>[r.name,r.zone,r.km,(r.kmEdited?'ใช่':''),r.kmOsrm,r.days,Math.round(r.rev),Math.round(r.cost),r.trip,(r.tripEdited?'ใช่':''),r.tripAuto,Math.round(r.totalCost),Math.round(r.profit),r.margin.toFixed(1),Math.round(r.target)].join(','));
+    const csv='﻿'+[head.join(','),...body].join('\n');
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+    a.download=`wonder_sub_cost_${truck}wheel.csv`; a.click();
+  });
+
+  // สร้าง HTML หน้าเดียวพร้อมพิมพ์จากสภาพปัจจุบัน (ตาราง render แล้ว, input กลายเป็นข้อความ)
+  function buildPrintHtml(){
+    const styles = Array.from(document.querySelectorAll('style')).map(s=>s.outerHTML).join('');
+    const bodyClone = document.body.cloneNode(true);
+    bodyClone.querySelectorAll('script').forEach(s=>s.remove());
+    bodyClone.querySelectorAll('input').forEach(inp=>{
+      const span=document.createElement('span');
+      span.textContent = inp.value || inp.getAttribute('placeholder') || '';
+      span.style.fontWeight='600';
+      inp.parentNode.replaceChild(span, inp);
+    });
+    const now = new Date();
+    const stamp = now.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'})+' '+now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+    const bi = bandIndex(num('fuelPrice'));
+    const head = '<p style="font-size:.8rem;color:#555;margin:0 0 10px">พิมพ์เมื่อ '+stamp+' · น้ำมัน '+num('fuelPrice').toFixed(2)+' บาท/ลิตร (ช่วง '+bandLabel(bi)+') · รถ '+truck+' ล้อ</p>';
+    return '<!doctype html><html lang="th"><head><meta charset="utf-8"><title>ต้นทุน Wonder Sub 2026</title>' +
+      styles + '</head><body>' + head + bodyClone.innerHTML +
+      '<script>window.addEventListener("load",function(){setTimeout(function(){window.print()},300)})<\/script></body></html>';
+  }
+
+  // อยู่ใน iframe (โดน claude.ai ครอบ) หรือเปิดเป็นหน้าเดี่ยว (ไฟล์ในเครื่อง / MVP)?
+  const inIframe = (function(){ try { return window.self !== window.top; } catch(e){ return true; } })();
+
+  $('printBtn').addEventListener('click', ()=>{
+    if (!inIframe) { window.print(); return; }   // หน้าเดี่ยว: พิมพ์ตรงได้เลย
+    // ใน sandbox ของ claude.ai: print/open/download/alert ถูกบล็อก "เงียบๆ" ได้หมด
+    // จึงลองทุกทาง แล้วโชว์คำแนะนำในหน้า (ช่องทางเดียวที่บล็อกไม่ได้)
+    const html = buildPrintHtml();
+    let w = null;
+    try { w = window.open('', '_blank'); } catch(e){ w = null; }
+    if (w && w.document) {
+      w.document.open(); w.document.write(html); w.document.close(); w.focus();
+      $('printMsg').hidden = true;
+      return;
+    }
+    try {
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));
+      a.download='wonder_sub_cost_print.html';
+      document.body.appendChild(a); a.click(); a.remove();
+    } catch(e){}
+    $('printMsg').hidden = false;
+    $('printMsg').scrollIntoView({behavior:'smooth', block:'center'});
+  });
+
+  // theme
+  $('themeBtn').addEventListener('click', ()=>{
+    const cur = document.documentElement.getAttribute('data-theme');
+    const next = cur==='dark'?'light':(cur==='light'?'dark':(matchMedia('(prefers-color-scheme: dark)').matches?'light':'dark'));
+    document.documentElement.setAttribute('data-theme', next);
+  });
+
+  document.querySelector('th[data-k="profit"]').setAttribute('data-dir','desc');
+  render();
+})();
+</script>
+
+<style>
+:root{
+  --bg:#f4f6f9; --panel:#ffffff; --ink:#1a2230; --ink-soft:#5b6675; --ink-faint:#8a94a3;
+  --line:#e4e8ee; --line-soft:#eef1f5; --accent:#1e3a5f; --accent-soft:#e9f0f8;
+  --good:#0f9d6b; --good-bg:#e7f6ef; --loss:#d8322a; --loss-bg:#fcecec; --thin:#c07d10; --thin-bg:#fbf3e0;
+  --mono:'IBM Plex Mono',ui-monospace,'DejaVu Sans Mono',monospace;
+  --thai:'IBM Plex Sans Thai','Sarabun','Noto Sans Thai','Leelawadee UI','Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#12161c; --panel:#1a2028; --ink:#e7ecf3; --ink-soft:#9aa6b6; --ink-faint:#6b7686;
+    --line:#2a323d; --line-soft:#222932; --accent:#6aa3e0; --accent-soft:#1e2937;
+    --good:#3fd69a; --good-bg:#16332a; --loss:#f0736b; --loss-bg:#3a1e1e; --thin:#e6b24a; --thin-bg:#332a16;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f4f6f9; --panel:#ffffff; --ink:#1a2230; --ink-soft:#5b6675; --ink-faint:#8a94a3;
+  --line:#e4e8ee; --line-soft:#eef1f5; --accent:#1e3a5f; --accent-soft:#e9f0f8;
+  --good:#0f9d6b; --good-bg:#e7f6ef; --loss:#d8322a; --loss-bg:#fcecec; --thin:#c07d10; --thin-bg:#fbf3e0;
+}
+:root[data-theme="dark"]{
+  --bg:#12161c; --panel:#1a2028; --ink:#e7ecf3; --ink-soft:#9aa6b6; --ink-faint:#6b7686;
+  --line:#2a323d; --line-soft:#222932; --accent:#6aa3e0; --accent-soft:#1e2937;
+  --good:#3fd69a; --good-bg:#16332a; --loss:#f0736b; --loss-bg:#3a1e1e; --thin:#e6b24a; --thin-bg:#332a16;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--thai);line-height:1.5;-webkit-font-smoothing:antialiased}
+.num,.rev,.prof,.margin,.tgt,input[type=number],.s-val{font-variant-numeric:tabular-nums}
+.app{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
+
+.hd{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:20px}
+h1{font-size:1.45rem;font-weight:700;letter-spacing:-.01em;margin:0 0 4px;text-wrap:balance}
+.sub{margin:0;color:var(--ink-soft);font-size:.86rem;max-width:70ch}
+.theme-btn{flex:0 0 auto;width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink-soft);font-size:1.1rem;cursor:pointer}
+.theme-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 18px 14px;margin-bottom:18px}
+.ctrl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.fld{display:flex;flex-direction:column;gap:5px;min-width:0}
+.fld label{font-size:.72rem;font-weight:500;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em}
+.fld input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:.94rem;font-family:var(--mono);outline:none}
+.fld input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{flex:1;padding:8px 6px;border:0;background:var(--bg);color:var(--ink-soft);font-family:var(--thai);font-size:.82rem;cursor:pointer;white-space:nowrap}
+.seg button.on{background:var(--accent);color:#fff}
+.note{margin:12px 0 0;font-size:.78rem;color:var(--ink-faint);line-height:1.6}
+.note strong{color:var(--accent)}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.s-label{font-size:.72rem;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.s-val{font-size:1.15rem;font-weight:700}
+.s-val.good,.s-sub.good{color:var(--good)} .s-val.loss,.s-sub.loss{color:var(--loss)} .s-val.thin,.s-sub.thin{color:var(--thin)}
+.s-sub{font-size:.8rem;font-weight:600;margin-top:2px;font-family:var(--mono)}
+
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+#search{flex:1;min-width:180px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--ink);font-family:var(--thai);font-size:.9rem;outline:none}
+#search:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.band-tag{font-size:.78rem;color:var(--ink-soft);background:var(--accent-soft);border:1px solid var(--line);padding:6px 11px;border-radius:20px;font-weight:600;white-space:nowrap}
+.mini{padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--ink-soft);font-family:var(--thai);font-size:.8rem;cursor:pointer}
+.mini:hover{border-color:var(--accent);color:var(--accent)}
+
+.print-msg{margin:0 0 12px;padding:12px 14px;border:1px solid var(--thin);background:var(--thin-bg);color:var(--ink);border-radius:10px;font-size:.85rem;line-height:1.7}
+.print-msg code{font-family:var(--mono);font-size:.78rem;background:var(--panel);padding:1px 5px;border-radius:5px;border:1px solid var(--line)}
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+table{width:100%;border-collapse:collapse;font-size:.88rem;min-width:900px}
+.day-in{width:60px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);font-family:var(--mono);font-size:.85rem;text-align:right;outline:none}
+.day-in:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.day-in.edited{border-color:var(--accent);background:var(--accent-soft);font-weight:600}
+.day-in::placeholder{color:var(--ink-faint);font-weight:400}
+.km-in{width:82px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);font-family:var(--mono);font-size:.85rem;text-align:right;outline:none}
+.km-in:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.km-in.edited{border-color:var(--accent);background:var(--accent-soft);font-weight:600}
+.km-in::placeholder{color:var(--ink-faint);font-weight:400}
+thead th{position:sticky;top:0;background:var(--panel);color:var(--ink-soft);font-weight:600;font-size:.75rem;text-transform:uppercase;letter-spacing:.02em;padding:11px 12px;text-align:left;border-bottom:2px solid var(--line);vertical-align:bottom;z-index:2}
+thead th.num{text-align:right}
+.th-sub{font-size:.66rem;font-weight:400;color:var(--ink-faint);text-transform:none;letter-spacing:0}
+th.sortable{cursor:pointer;user-select:none}
+th.sortable:hover{color:var(--accent)}
+th.sortable[data-dir=asc]::after{content:' ▲';font-size:.6rem}
+th.sortable[data-dir=desc]::after{content:' ▼';font-size:.6rem}
+th.edit-col{color:var(--accent)}
+tbody td{padding:9px 12px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+tbody td.num{text-align:right;font-family:var(--mono)}
+tbody tr:hover{background:var(--accent-soft)}
+tbody tr:last-child td{border-bottom:0}
+.name{font-weight:600;white-space:nowrap}
+.zone{display:block;font-size:.68rem;font-weight:400;color:var(--ink-faint);margin-top:1px}
+.muted{color:var(--ink-soft)}
+.rev{font-weight:600}
+.prof{font-weight:700}
+.prof.good{color:var(--good)} .prof.loss{color:var(--loss)} .prof.thin{color:var(--thin)}
+.tgt{color:var(--ink-soft)}
+.pill{display:inline-block;min-width:58px;text-align:center;padding:3px 9px;border-radius:7px;font-family:var(--mono);font-size:.82rem;font-weight:600}
+.pill.good{background:var(--good-bg);color:var(--good)}
+.pill.loss{background:var(--loss-bg);color:var(--loss)}
+.pill.thin{background:var(--thin-bg);color:var(--thin)}
+tr.row-loss{box-shadow:inset 3px 0 0 var(--loss)}
+tr.row-thin{box-shadow:inset 3px 0 0 var(--thin)}
+tr.row-good{box-shadow:inset 3px 0 0 var(--good)}
+.trip-in{width:88px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);font-family:var(--mono);font-size:.85rem;text-align:right;outline:none}
+.trip-in:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.trip-in.edited{border-color:var(--accent);background:var(--accent-soft);font-weight:600}
+.trip-in::placeholder{color:var(--ink-faint);font-weight:400}
+.foot{margin:12px 2px 0;font-size:.76rem;color:var(--ink-faint);line-height:1.6}
+
+@media (max-width:600px){
+  .app{padding:16px 12px 44px}
+  h1{font-size:1.2rem}
+  .ctrl-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+@media print{
+  /* พิมพ์ทั้งหน้าตั้งแต่หัว — บังคับพื้นขาวหมึกดำ อ่านง่ายบนกระดาษ */
+  :root, :root[data-theme="dark"], :root[data-theme="light"]{
+    --bg:#fff; --panel:#fff; --ink:#111; --ink-soft:#333; --ink-faint:#555;
+    --line:#bbb; --line-soft:#ddd; --accent:#1e3a5f; --accent-soft:#eef2f7;
+    --good:#0a7a4f; --good-bg:#eaf6f0; --loss:#b81f18; --loss-bg:#fbeceb; --thin:#8a5a08; --thin-bg:#f7efdd;
+  }
+  @page{size:A4 landscape;margin:10mm}
+  body{background:#fff}
+  .app{max-width:none;padding:0}
+  .theme-btn, .toolbar, #search, .mini, .print-msg{display:none!important}
+  .panel, .stat, .tblwrap{break-inside:avoid;box-shadow:none}
+  .tblwrap{overflow:visible;border:1px solid var(--line)}
+  table{min-width:0;font-size:.72rem}
+  thead th{position:static}
+  tbody tr{break-inside:avoid}
+  /* ช่องกรอกให้ดูเป็นตัวเลขเปล่า ไม่มีกรอบ/พื้น เวลาพิมพ์ */
+  .km-in, .day-in, .trip-in, .fld input, .fld .seg{
+    border:none!important;background:transparent!important;box-shadow:none!important;
+    color:var(--ink)!important;font-weight:600;padding:2px 0;width:auto;-webkit-appearance:none;appearance:none;
+  }
+  .seg button:not(.on){display:none}
+  .seg button.on{background:transparent!important;color:var(--ink)!important;padding:0}
+  input[type=number]::-webkit-inner-spin-button{display:none}
+  .foot, .note{color:#333}
+  a[href]:after{content:""}
+}
+</style>
