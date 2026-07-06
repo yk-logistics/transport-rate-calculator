@@ -260,7 +260,7 @@
         },
         {
           "id": "S5",
-          "name": "checklist ตรวจเจาะรายไตรมาส — ✅ SECURITY_QUARTERLY_CHECKLIST.md (7 หมวด runbook + ตารางประวัติรัน; รอบแรกยังไม่ได้รัน)",
+          "name": "checklist ตรวจเจาะรายไตรมาส — ✅ SECURITY_QUARTERLY_CHECKLIST.md (7 หมวด runbook; รอบแรกรันแล้ว 4ก.ค. ผ่าน 5/7 + อุด CVE multipart — ค้าง: ไล่รายชื่อ user กับโอ + ทดสอบ role viewer; รอบถัดไป ต.ค.)",
           "days": 0.25,
           "status": "done"
         }
