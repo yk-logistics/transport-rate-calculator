@@ -60,10 +60,10 @@ def test_weekly_cashflow_shape_and_sources(client):
     # W1 = AR due ในสัปดาห์ + เลยกำหนด
     assert weeks[0]["in_ar"] == 50000.0
     assert {r["inv"] for r in weeks[0]["ar_items"]} == {"A1", "A2"}
-    # เงินเดือน LCB จ่ายวันที่ 20 — นับเฉพาะ net>0 = 100,000 และมีลิงก์ย้อนรอบ
+    # เงินเดือน LCB จ่ายวันที่ 1 (โอเคาะจริง 6ก.ค.) — นับเฉพาะ net>0 = 100,000 และมีลิงก์ย้อนรอบ
     pay = [e for w in weeks for e in w["payroll_items"]]
     assert pay and all(e["amount"] == 100000.0 for e in pay)
-    assert all(e["date"].day == 20 for e in pay)
+    assert all(e["date"].day == 1 for e in pay)
     assert pay[0]["href"].startswith("/payroll/")
     # งวดหนี้: เฉพาะบัญชี active (7,000 วันที่ 10) — บัญชีปิดไม่โผล่
     debts = [e for w in weeks for e in w["debt_items"]]

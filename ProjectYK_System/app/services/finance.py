@@ -574,9 +574,9 @@ def cash_flow_projection(session: Session, start: date, days: int = 90) -> list[
 # D2: เงินหมุน 8 สัปดาห์ (/finance/cashflow)
 # --------------------------------------------------------------------------
 
-# ข้อสมมติวันจ่ายเงินเดือน (โอยังไม่เคาะวันจ่ายจริง — จ่ายหลังปิดรอบ ~5 วัน):
-# BIGC รอบจบสิ้นเดือน → จ่ายวันที่ 5 เดือนถัดไป; LCB จบ 15 → จ่าย 20; AYU จบ 25 → จ่าย 30
-PAYROLL_PAY_DAY = {"BIGC": 5, "LCB": 20, "AYU": 30}
+# วันจ่ายเงินเดือนจริง (โอเคาะ 6 ก.ค. 2026): LCB/BIGC จ่ายวันที่ 1, AYU จ่ายสิ้นเดือน
+# (ใส่ 31 → _clamp_day ปรับเป็นวันสุดท้ายของเดือนจริงให้เอง)
+PAYROLL_PAY_DAY = {"BIGC": 1, "LCB": 1, "AYU": 31}
 
 
 def _clamp_day(y: int, m: int, day: int) -> date:
@@ -687,8 +687,7 @@ def weekly_cashflow(session: Session, ar_pending: list[dict], start: date,
         "weekly_petty": round(weekly_petty, 2),
         "weekly_fuel": round(weekly_fuel, 2),
         "assumptions": [
-            f"เงินเดือน: ใช้ยอดรอบล่าสุดต่อไซท์ จ่ายวันที่ {PAYROLL_PAY_DAY['BIGC']} (BIGC) / "
-            f"{PAYROLL_PAY_DAY['LCB']} (LCB) / {PAYROLL_PAY_DAY['AYU']} (AYU) ของเดือน — ข้อสมมติ ยังไม่เคาะวันจ่ายจริง",
+            "เงินเดือน: ใช้ยอดรอบล่าสุดต่อไซท์ — LCB/BIGC จ่ายวันที่ 1, AYU จ่ายสิ้นเดือน (โอเคาะจริง 6 ก.ค. 2026)",
             "petty+น้ำมัน: เฉลี่ยจาก 30 วันหลังสุด เกลี่ยเท่ากันทุกสัปดาห์",
             "AR ที่เลยกำหนดแล้ว: นับรวมในสัปดาห์แรก",
         ],
