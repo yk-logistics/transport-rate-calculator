@@ -9744,7 +9744,8 @@ def _deal_osrm(points: list) -> tuple[float, float]:
 
 @app.post("/quote/deal/distance")
 async def deal_distance(request: Request):
-    """คิดระยะ 1 รูทตามโครงเที่ยวของดีล — client วนยิงทีละรูท (เห็น progress)"""
+    """คิดระยะ 1 รูทตามโครงเที่ยวของดีล — client วนยิงทีละรูท (เห็น progress)
+    รองรับหลายจุดส่งต่อรูท: ส่ง stops=[spec,...] (ไปตามลำดับ) หรือ dest=spec จุดเดียว"""
     import math
     try:
         body = json.loads((await request.body()).decode("utf-8"))
@@ -9752,27 +9753,31 @@ async def deal_distance(request: Request):
         raise HTTPException(400, "payload ไม่ใช่ JSON")
     trip_mode = body.get("trip_mode") or "circuit"     # circuit | direct
     roundtrip = bool(body.get("roundtrip", True))
+    stop_specs = body.get("stops") or ([body.get("dest")] if body.get("dest") else [])
+    if not stop_specs:
+        return JSONResponse({"ok": False, "reason": "no_stops"})
     with Session(engine) as s:
         origin = _deal_resolve_point(s, body.get("origin") or {}) or \
             {"lat": _DEAL_YK_HOME[0], "lon": _DEAL_YK_HOME[1], "how": "default_yk"}
         pickup = _deal_resolve_point(s, body.get("pickup") or {}) if body.get("pickup") else None
-        dest = _deal_resolve_point(s, body.get("dest") or {})
-    if dest is None:
-        return JSONResponse({"ok": False, "reason": "dest_unresolved"})
-    o, d = (origin["lat"], origin["lon"]), (dest["lat"], dest["lon"])
+        stops = [_deal_resolve_point(s, sp) for sp in stop_specs]
+    for idx, st in enumerate(stops):
+        if st is None:
+            return JSONResponse({"ok": False, "reason": "dest_unresolved", "stop_index": idx,
+                                 "stop_name": str((stop_specs[idx] or {}).get("name") or "")})
+    o = (origin["lat"], origin["lon"])
+    stop_pts = [(st["lat"], st["lon"]) for st in stops]
     if trip_mode == "circuit":
-        pts = [o] + ([(pickup["lat"], pickup["lon"])] if pickup else []) + [d, o]
-    else:
-        pts = [o, d]
+        pts = [o] + ([(pickup["lat"], pickup["lon"])] if pickup else []) + stop_pts + [o]
+    else:  # direct: ไล่ทุกจุดตามลำดับ; ไป-กลับ = บวกขากลับเส้นจริง (แม่นกว่า ×2)
+        pts = [o] + stop_pts + ([o] if roundtrip else [])
     try:
         km, hr = _deal_osrm(pts)
     except RuntimeError as e:
         return JSONResponse({"ok": False, "reason": "osrm_error", "detail": str(e)})
-    if trip_mode == "direct" and roundtrip:
-        km, hr = km * 2, hr * 2
     days = max(1, math.ceil(hr / 9.0))  # ~9 ชม.ขับ/วัน รวมพัก/โหลด (ท่าเดียวกับหน้า Wonder)
     return JSONResponse({"ok": True, "km": round(km, 1), "hours": round(hr, 1), "days": days,
-                         "dest": dest, "origin": origin, "pickup": pickup})
+                         "stops": stops, "dest": stops[-1], "origin": origin, "pickup": pickup})
 
 
 @app.post("/quote/deal/save")
@@ -9833,15 +9838,23 @@ def deal_load(did: int):
 
 
 def _serve_tool_page(*candidates) -> HTMLResponse:
-    """เสิร์ฟไฟล์เครื่องมือเดี่ยว + แทรกแถบเมนู YK (ท่าเดียวกับ /quote)"""
+    """เสิร์ฟไฟล์เครื่องมือเดี่ยว + แทรกแถบเมนู YK (ท่าเดียวกับ /quote)
+
+    GOTCHA: ห้ามใช้ re.search หา <body> ทั้งไฟล์แบบเหมารวม — ไฟล์ fragment
+    (เช่น wonder_sub_cost_2026.html) มีคำว่า '<body>' อยู่ใน "string ของ JS"
+    (โค้ดปุ่มพิมพ์) การฉีดเมนูเข้ากลาง string ทำ script ทั้งหน้าพังเงียบ
+    → ตัดสินจากต้นไฟล์: เอกสารเต็ม (<!doctype/<html) ค่อยฉีดหลังแท็กจริง,
+    fragment ห่อใหม่โดยวางเมนูหน้าสุด ไม่แตะเนื้อไฟล์เลย"""
     p = _first_existing(*candidates)
     if p is None:
         raise HTTPException(404, "ยังไม่ได้วางไฟล์เครื่องมือบนเครื่องนี้")
     html = p.read_text(encoding="utf-8")
-    m = re.search(r"<body[^>]*>", html)
-    if m:
-        html = html[:m.end()] + _QUOTE_NAV_BAR + html[m.end():]
-    else:  # ไฟล์ fragment (ไม่มี <body>) — ครอบให้ครบเอกสาร
+    head = html.lstrip()[:100].lower()
+    if head.startswith("<!doctype") or head.startswith("<html"):
+        m = re.search(r"<body[^>]*>", html)
+        if m:
+            html = html[:m.end()] + _QUOTE_NAV_BAR + html[m.end():]
+    else:  # fragment — ครอบให้ครบเอกสาร เมนูอยู่หน้าสุด
         html = ("<!doctype html><html lang='th'><head><meta charset='utf-8'>"
                 "<meta name='viewport' content='width=device-width, initial-scale=1'></head>"
                 "<body>" + _QUOTE_NAV_BAR + html + "</body></html>")

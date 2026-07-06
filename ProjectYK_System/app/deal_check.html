@@ -54,6 +54,7 @@ tbody tr:last-child td{border-bottom:0}
 .badge.province{background:var(--accent-soft);color:var(--accent)}
 .badge.place{background:var(--good-bg);color:var(--good)}
 .badge.link,.badge.latlng{background:var(--thin-bg);color:var(--thin)}
+.badge.multi{background:var(--accent-soft);color:var(--accent)}
 .badge.fail{background:var(--loss-bg);color:var(--loss)}
 .badge.manual{background:var(--line-soft);color:var(--ink-soft)}
 .cell-in{width:84px;padding:5px 7px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);font-family:var(--mono);font-size:.84rem;text-align:right;outline:none}
@@ -175,13 +176,13 @@ textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft
   <!-- วางข้อความ -->
   <section class="panel" id="pastePanel">
     <h3>วางรูทจากลูกค้า (Excel / ไลน์ / PDF — ก็อปมาวางทั้งก้อน)</h3>
-    <textarea id="pasteBox" placeholder="บรรทัดละรูท เช่น&#10;ขอนแก่น 8,500&#10;เชียงใหม่&#9;13,900&#10;คลัง DC ลูกค้า บางนา 3,200&#10;(มีราคาท้ายบรรทัดหรือไม่มีก็ได้)"></textarea>
+    <textarea id="pasteBox" placeholder="บรรทัดละรูท เช่น&#10;ขอนแก่น 8,500&#10;เชียงใหม่&#9;13,900&#10;อยุธยา > สระบุรี > โคราช 12,000   ← เที่ยวเดียวส่งหลายจุด คั่นด้วย >&#10;(มีราคาท้ายบรรทัดหรือไม่มีก็ได้)"></textarea>
     <div class="toolbar" style="margin-top:8px">
       <button type="button" class="btn primary" id="parseBtn">➕ แยกรายการเข้าตาราง</button>
       <span class="note" style="margin:0">เลขท้ายบรรทัดที่ ≥ 300 จะถูกอ่านเป็น "ราคาลูกค้า" — แก้ในตารางได้ทุกช่อง</span>
     </div>
     <div class="addrow" style="margin-top:10px">
-      <div class="fld"><label>เพิ่มทีละรูท: ปลายทาง</label><input type="text" id="newName" placeholder="จังหวัด / ชื่อที่เคยใช้ / ชื่อใหม่"></div>
+      <div class="fld"><label>เพิ่มทีละรูท: ปลายทาง (หลายจุดคั่นด้วย &gt;)</label><input type="text" id="newName" placeholder="เช่น อยุธยา > สระบุรี > โคราช"></div>
       <div class="fld"><label>ลิงก์แผนที่/พิกัด (ถ้ามี)</label><input type="text" id="newLink" placeholder="วางลิงก์ หรือ 13.75,100.50"></div>
       <div class="fld"><label>ราคาลูกค้า</label><input type="number" id="newPrice" step="100" placeholder="ว่างได้"></div>
       <button type="button" class="btn" id="addBtn">เพิ่ม</button>
@@ -311,8 +312,11 @@ textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft
     tb.innerHTML = routes.map((r,i)=>{
       const c=calcRow(r);
       const sc=sev(c.margin);
+      const nStops=(r.stops&&r.stops.length)||1;
       const badge = r.how ? `<span class="badge ${r.how}">${
-        {province:'จังหวัด',place:'คลังที่เคยใช้',link:'ลิงก์',latlng:'พิกัด',fail:'หาไม่เจอ',manual:'กรอกเอง'}[r.how]||r.how}</span>` : '';
+        {province:'จังหวัด',place:'คลังที่เคยใช้',link:'ลิงก์',latlng:'พิกัด',manual:'กรอกเอง',
+         multi:'หลายจุด ('+nStops+')',
+         fail:'หาไม่เจอ'+(r.failStop?(': '+escapeHtml(r.failStop)):'')}[r.how]||r.how}</span>` : '';
       return `<tr class="row-${sc}">
         <td class="name">${escapeHtml(r.name)}${badge}</td>
         <td><input type="number" class="cell-in ${r.km!=null?'edited':''}" data-i="${i}" data-f="km" value="${r.km!=null?r.km:''}" placeholder="${r.kmAuto!=null?nf1.format(r.kmAuto):'—'}" step="1" min="0"></td>
@@ -376,7 +380,12 @@ textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft
         const m=name.match(/^(.*?)\s+([\d,]+(?:\.\d+)?)\s*(?:บาท)?$/);
         if(m){ const v=parseFloat(m[2].replace(/,/g,'')); if(isFinite(v)&&v>=300){ name=m[1].trim(); price=v; } }
       }
-      if(name) out.push({name, link:'', km:null, kmAuto:null, hours:null, days:null, daysAuto:null, fee:null, price, how:null});
+      if(name){
+        // หลายจุดส่งในเที่ยวเดียว: คั่นด้วย > หรือ → เช่น "อยุธยา > สระบุรี > โคราช"
+        const stopNames=name.split(/\s*(?:>|→|»)\s*/).map(s=>s.trim()).filter(Boolean);
+        out.push({name:stopNames.join(' → '), stops:stopNames.map(n=>({name:n})),
+                  link:'', km:null, kmAuto:null, hours:null, days:null, daysAuto:null, fee:null, price, how:null});
+      }
     }
     return out;
   }
@@ -390,7 +399,11 @@ textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft
   $('addBtn').addEventListener('click', ()=>{
     const name=$('newName').value.trim(); if(!name){ showMsg('ใส่ชื่อปลายทางก่อน','err'); return; }
     const p=parseFloat($('newPrice').value);
-    routes.push({name, link:$('newLink').value.trim(), km:null, kmAuto:null, hours:null,
+    const link=$('newLink').value.trim();
+    const stopNames=name.split(/\s*(?:>|→|»)\s*/).map(s=>s.trim()).filter(Boolean);
+    const stops=stopNames.map(n=>({name:n}));
+    if(link && stops.length===1) stops[0].link=link;   // ลิงก์แผนที่ใช้กับปลายทางจุดเดียว
+    routes.push({name:stopNames.join(' → '), stops, link, km:null, kmAuto:null, hours:null,
                  days:null, daysAuto:null, fee:null, price:isFinite(p)&&p>0?p:null, how:null});
     $('newName').value=''; $('newLink').value=''; $('newPrice').value='';
     markDirty(); render();
@@ -412,13 +425,18 @@ textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft
       const r=routes[i];
       if(r.km!=null || r.kmAuto!=null) continue;        // มีระยะแล้ว (auto หรือกรอกเอง) ข้าม
       $('calcBtn').textContent='📏 กำลังคิด… ('+(done+1)+')';
-      const dest = r.link ? {name:r.name, link:r.link} : {name:r.name};
+      const stops = (r.stops&&r.stops.length) ? r.stops
+                  : [ r.link ? {name:r.name, link:r.link} : {name:r.name} ];
       try{
         const res=await fetch('/quote/deal/distance',{method:'POST',
-          body:JSON.stringify({dest, origin, pickup, trip_mode:tripMode, roundtrip})});
+          body:JSON.stringify({stops, origin, pickup, trip_mode:tripMode, roundtrip})});
         const d=await res.json();
-        if(d.ok){ r.kmAuto=d.km; r.hours=d.hours; r.daysAuto=d.days; r.how=(d.dest&&d.dest.how)||'province'; done++; }
-        else { r.how='fail'; fail++; }
+        if(d.ok){
+          r.kmAuto=d.km; r.hours=d.hours; r.daysAuto=d.days;
+          r.how=(d.stops&&d.stops.length>1)?'multi':((d.dest&&d.dest.how)||'province');
+          done++;
+        }
+        else { r.how='fail'; if(d.stop_name) r.failStop=d.stop_name; fail++; }
       }catch(e){ r.how='fail'; fail++; }
       render();
       await new Promise(rs=>setTimeout(rs,350));        // เว้นจังหวะ OSRM public
