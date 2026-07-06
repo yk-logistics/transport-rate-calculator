@@ -11,6 +11,8 @@
 - TDD: `tests/test_uploads_gate.py` 7 ข้อ (anonymous 403 / session 200 / token 200 / token ปลอม 403 / traversal / 404 / template พ่วง token) — เห็น RED ก่อนแก้จริง; full suite **523 ผ่าน**
 - อัปเดต `SECURITY_S2_APP_AUDIT.md` §4 เป็นปิดแล้ว + `PLAN_STATUS.json` โน้ต S2
 
+**ปิดเซสชัน:** ui(todo) โอสั่ง — ย้ายกล่อง 📥 จากไลน์รอคัด ลงท้ายรายการงาน (เหนือ ✅ เสร็จแล้ว) ไม่บังโน้ตตัวเอง; เทสต์ todo 16 ผ่าน + deploy เขียว (marker inbox-bottom-jul6)
+
 **รอบบ่าย (เก็บงานที่ทำเองได้เพิ่ม 3 ชิ้น):**
 - **ปิดข้อค้าง S5⑦ (ทดสอบ role viewer)** ด้วยเทสต์ e2e `tests/test_viewer_rbac.py` 4 ข้อแทนการลองมือบน server: เห็น grid ได้ / คอลัมน์เงิน+KB ไม่อยู่ใน payload (fail closed) / POST แก้ข้อมูล 403 / โซนเงิน (payroll/finance/kb) 403 — ผ่านหมด
 - **วัด D1 ใหม่บน server** (probe read-only ใช้ `_daily_row_kind` ตัวจริง): LCB จบจริง; คงเหลือราคาว่าง **BIGC เม.ย. 293/389 + พ.ค. 393/438, AYU มิ.ย. 410/710 + พ.ค. 59/130** → อัปเดตโน้ต D1 ใน PLAN_STATUS

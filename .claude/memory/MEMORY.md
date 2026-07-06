@@ -24,6 +24,7 @@
 - [BigC มิ.ย. deposit/ภาษี/น้ำมัน](project-bigc-jun-deposit-tax-fuel.md) — ภาษี BigC รอโอตัดสิน
 
 ## งานเสร็จล่าสุด (ก.ค.)
+- [🏁 ปิดเซสชัน 6ก.ค. + ส่งไม้ Opus](project-jul6-session-close.md) — อุด /uploads public (S2 จบ) + viewer เทสต์ (S5 เหลือแค่ข้อโอ) + D1 วัดสด (BIGC 686/AYU 469 แถว — งานทีมไม่ใช่โค้ด) + ซ่อม YK_PULL_BACKUP ติดแบต + ย้ายกล่องไลน์รอคัด /todo ลงล่าง; **งานเงิน/ออกแบบยากหมดเกลี้ยง — ที่เหลือติดมือโอ/ทีมหมด; งานปฏิทินถัดไป = ปิดรอบ LCB 15ก.ค. ตาม runbook**
 - [สลิป k-tag ตารางลูกผสม + ธงน้ำมัน E2](project-slip-ktag-mixed-table.md) — DONE 5ก.ค. (20b32b0+10e80f6 deploy เขียว): ถอดคอลัมน์ "ฝั่ง"→ป้ายเหมา/เที่ยว/รถจอด + พิเศษ/OT เรียงตรง + ⚠ ธงน้ำมันผิดปกติบนสลิปชุดผู้บริหาร (R1 เกณฑ์ ≥3 บิล/วัน กันคู่ B7+B20); **บล็อก "ห้ามทับ template สลิป" ยกเลิกแล้ว** (เหลือ oatside ค้าง working tree ของอีก session)
 - [🧪 TradeLab บอทเทรดเงินสมมุติ](project-tradelab-paper-bot.md) — นอก repo: Desktop\TradeLab port 8030; เริ่มพอร์ต 100k 5ก.ค.; เกณฑ์: ชนะ buy&hold 1-3 เดือนค่อยคุยต่อ; ห้ามปนงานเงิน YK
 - [PWA icon /todo ลง Taskbar](project-pwa-todo-taskbar-icon.md) — DONE 5ก.ค. commit 542e806 + deploy เขียวหมด; hunk PWA เข้า HEAD แล้ว (session อื่น deploy จาก HEAD ได้เลย ไม่ต้องกรองอีก); รอโอลบ shortcut เก่า+Install ใหม่
@@ -32,7 +33,7 @@
 - [🚀 Starlette migrated](project-starlette-migrated.md) — 4ก.ค.: fastapi 0.139/starlette 1.3.1 บน server+dev, 0 CVE; **route ใหม่ต้อง TemplateResponse(request, name, ctx)**
 - [F4 น้ำมันไลน์↔ระบบ](project-f4-fuel-line-compare.md) — DONE 4ก.ค. ไม่ใช้ OCR: /fuel/line-compare parse ข้อความแจ้งเติม; ตกหล่นจริง 7 รายการรอทีม; "รอ import" เทียบ per-site
 - [☀️ เซสชันกลางวัน 4ก.ค.](project-jul4-day-run.md) — G2/S3/F0/S5 done + F3 จูน + doc_no clean 208 + CVE multipart อุดแล้ว → แพลน 34/38; ~~สลิป template ค้าง~~ ปิดแล้ว 5ก.ค.; starlette CVE ติด pin = งาน migration แยก
-- [🌙 คืน 3→4ก.ค. มาราธอน 22 งาน → แพลน 31/38 (82%) deploy v42](project-jul4-night-run.md) — C2 (9/10)/P1/P2/P3/P5 (เมนู 5 หมวด+หน้าแรกการ์ด)/D2/D3/E1 (PWA เช็คอิน/รูปตู้/ปิดงาน)/E2 (น้ำมันผิดปกติ)/F2 (วัดจริง 1,256 ข้อความ+จูน)/F3/F5/S2/S4/S5/A5 ปุ่ม/B1.1; **7 งานเหลือติดเงื่อนไขภายนอกหมด**; ~~สลิป template server≠local~~ ปิดแล้ว 5ก.ค. deploy ได้ปกติ; รอโอ: วันจ่ายเงินเดือน+หนี้+ยืนยัน mapping ไลน์+ตัวอย่างใบเสร็จ+NHL ฟอร์ม+F4 OCR+/uploads public
+- [🌙 คืน 3→4ก.ค. มาราธอน 22 งาน → แพลน 31/38 (82%) deploy v42](project-jul4-night-run.md) — C2 (9/10)/P1/P2/P3/P5 (เมนู 5 หมวด+หน้าแรกการ์ด)/D2/D3/E1 (PWA เช็คอิน/รูปตู้/ปิดงาน)/E2 (น้ำมันผิดปกติ)/F2 (วัดจริง 1,256 ข้อความ+จูน)/F3/F5/S2/S4/S5/A5 ปุ่ม/B1.1; **7 งานเหลือติดเงื่อนไขภายนอกหมด**; ~~สลิป template server≠local~~ ปิดแล้ว 5ก.ค. deploy ได้ปกติ; รอโอ: วันจ่ายเงินเดือน+หนี้+ยืนยัน mapping ไลน์+ตัวอย่างใบเสร็จ+NHL ฟอร์ม+F4 OCR (~~/uploads public~~ ปิดแล้ว 6ก.ค.)
 - [G2 ย้ายรูปลงแผ่น External](project-g2-media-archive.md) — DONE 4ก.ค. v44: copy→hash→ลบ + ป้าย EXT-xx บน /line; รอโอเสียบแผ่นจริง; ครบกำหนดแรก มิ.ย. 2028
 - S3 DONE 4ก.ค. — docs/SECRETS_INVENTORY.md ทะเบียน 7 secret + หมุน SLIP_INGEST_TOKEN จริงแล้ว (token เก่าตายแล้ว); rotate LINE/Discord/Anthropic/SA รอ console โอ
 - [F3 POD วัดจริง+จูนแล้ว](project-f3-pod-measured-tuned.md) — 4ก.ค.: reverse-match เลข Job deploy แล้ว (strong 57→80); LineGroupMap 38 กลุ่มลง server; รอเดลี่ ก.ค. import ค่อยวัด ≥90% (measure_pod2.py บน server); NHL ต้อง OCR

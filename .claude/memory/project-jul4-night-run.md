@@ -32,7 +32,7 @@ metadata:
 
 **How to apply (รอโอ/งานต่อ):**
 - โอเคาะ: วันจ่ายเงินเดือนจริง (D2) + กรอกหนี้ /finance/debts + mark กลุ่มลูกค้า /line/inbox แล้ววัด F2 ≥80% กับข้อความจริง + อ่าน SECURITY_TEAM_ONE_PAGER แจกทีม
-- /uploads เปิด public (S2 พบ) — วิธีแก้อยู่ในรายงาน ต้องทดสอบกับมือถือคนขับก่อน
+- ~~/uploads เปิด public (S2 พบ)~~ ปิดแล้ว 6ก.ค. (3bd3fce deploy เขียว — PWA คนขับไม่โหลด /uploads จริง ที่กลัวไม่เกิด; ช่างยาง magic link ใช้ ?t=)
 - C2 เพิ่มลูกค้า: runbook ใน INVOICE_BUILDER_SPEC.md (~30 นาที/เจ้า Sonnet ทำได้); NHL ต้องถามทีมว่าฟอร์มไหน canonical
 - งานที่เหลือในแพลน: A2/A5/D1/P5 (ต้องโอ), F3/F4 (ต้องดู media จริงบน server), G2 (ไฟล์บน server), S3 (rotate token — ทำตอนโอตื่น)
 [[project-c2-invoice-builder]] [[project-master-plan-jul26]] [[reference-mvp-server-deploy]]
