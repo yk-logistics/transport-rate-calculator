@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-05",
+  "updated": "2026-07-06",
   "note": "อัปเดตไฟล์นี้ทุกครั้งที่งานเปลี่ยนสถานะ (pending → doing → done) — หน้า /admin/plan อ่านไฟล์นี้",
   "phases": [
     {
@@ -242,7 +242,7 @@
         },
         {
           "id": "S2",
-          "name": "audit จุดเงินครบ + เช็ค upload/ไฟล์ — ✅ ครบ 12 จุดเงิน (เก็บตก PayAdjustment cancel + เรทราคา) + ตรวจ upload/traversal ครบ (รายงาน SECURITY_S2_APP_AUDIT.md); ⚠️ /uploads public รอเคาะวิธีแก้",
+          "name": "audit จุดเงินครบ + เช็ค upload/ไฟล์ — ✅ ครบ 12 จุดเงิน (เก็บตก PayAdjustment cancel + เรทราคา) + ตรวจ upload/traversal ครบ (รายงาน SECURITY_S2_APP_AUDIT.md); ✅ /uploads ปิด public แล้ว 6ก.ค. (session/token เท่านั้น + เทสต์ล็อก 7 ข้อ; ช่างยาง magic link ยังเห็นรูปผ่าน ?t=)",
           "days": 0.5,
           "status": "done"
         },

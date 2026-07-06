@@ -120,7 +120,7 @@
       {% if row.ev.photo_paths %}
         <div class="flex gap-2 mb-2 overflow-x-auto">
           {% for p in row.ev.photo_paths.split(',') if p %}
-            <a href="/uploads/{{ p }}" target="_blank"><img src="/uploads/{{ p }}"
+            <a href="/uploads/{{ p }}?t={{ token }}" target="_blank"><img src="/uploads/{{ p }}?t={{ token }}"
                class="h-16 w-16 object-cover rounded border border-slate-600"></a>
           {% endfor %}
         </div>

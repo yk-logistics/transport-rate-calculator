@@ -4,6 +4,13 @@
 
 > **Agent bootstrap:** อ่านเฉพาะ **3 หัวข้อ `##` แรกจากด้านบนลงมา** (ไม่รวมบรรทัดนี้) — **ห้าม**อ่านทั้งไฟล์ทุกแชต. นโยบาย/การย้าย archive: [`ProjectYK_System/docs/CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md)
 
+## 2026-07-06 (ปิดช่องโหว่ /uploads public — หางงาน S2 ตัวสุดท้าย)
+
+- **`/uploads/` (รูปจากคนขับ) ไม่ public แล้ว** — ถอด StaticFiles mount → route `serve_upload` เช็ค **AppUser session หรือ access-link token (`?t=` ท่าเดียวกับ /check)** + กัน path traversal; `/check/mechanic` (ช่างยางผ่าน magic link) แก้ template พ่วง `?t={{ token }}` ที่ URL รูปแล้ว ช่างยังเห็นรูปปกติ
+- ข้อกังวลเดิม "อย่าแก้ blind เดี๋ยวพัง Driver PWA" ตรวจแล้วไม่จริง: PWA คนขับพรีวิวรูป client-side ก่อนอัปโหลด ไม่เคยโหลดจาก /uploads (grep templates/driver_* + static/ ยืนยัน)
+- TDD: `tests/test_uploads_gate.py` 7 ข้อ (anonymous 403 / session 200 / token 200 / token ปลอม 403 / traversal / 404 / template พ่วง token) — เห็น RED ก่อนแก้จริง; full suite **523 ผ่าน**
+- อัปเดต `SECURITY_S2_APP_AUDIT.md` §4 เป็นปิดแล้ว + `PLAN_STATUS.json` โน้ต S2
+
 ## 2026-07-05 (self-review 8 มุมของงานวันนี้ → แก้ 2 เรื่อง + ซ่อมตัวเช็ค deploy)
 
 - **รีวิวโค้ดวันนี้ทั้งชุดด้วย finder 8 มุม** (5 findings): แก้จริง 2 — (1) **scan ธงน้ำมันเคยวนต่อคน** บน /print + ZIP (~30 scan ซ้ำ/รอบ) → `slip_anomaly_rows()` คำนวณครั้งเดียวก่อน loop แล้วส่งเข้า `build_payroll_slip_context(anomaly_rows=…)`; fpdf bundle ส่ง `[]` ไม่จ่ายค่า scan เลย (2) **เกณฑ์ R1 เคยแยก 2 ที่** → เป็นพารามิเตอร์ `scan(r1_threshold=…)` ที่เดียว (หน้า /fuel/anomaly default 2, สลิป `SLIP_R1_THRESHOLD=3`) (b21e617, pytest 516 ผ่าน, deploy เขียว)

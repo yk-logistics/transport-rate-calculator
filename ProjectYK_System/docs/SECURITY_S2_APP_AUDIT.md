@@ -42,13 +42,17 @@
   `/todo/media/...` ✅ (+ ตรวจเจ้าของ), `/quote`/`/ops/...` = path คงที่ ✅
 - StaticFiles (/static, /uploads) ไม่มี directory listing โดยดีไซน์ ✅
 
-## 4. ⚠️ ประเด็นที่พบ — รอตัดสินใจ (ไม่แก้กลางคืนเพราะเสี่ยงพัง Driver PWA)
+## 4. ✅ ประเด็นที่พบ — ปิดแล้ว 6 ก.ค. 2026
 
-**`/uploads/` (รูปจากคนขับ) เปิด public ไม่ต้องล็อกอิน** (อยู่ใน PUBLIC_PREFIXES)
-— เหตุผลเดิมน่าจะให้ PWA คนขับ (auth คนละระบบ) โหลดรูปได้; ความเสี่ยง: ใครมี URL
-ตรงก็เปิดรูปได้ (ชื่อไฟล์คาดเดายาก แต่ไม่ใช่การป้องกันจริง)
-**ทางแก้ที่เสนอ:** เปลี่ยนเป็น route `/uploads/{path}` ที่รับทั้ง session admin และ
-DriverSession แล้วค่อยเสิร์ฟ (ต้องทดสอบกับมือถือคนขับจริงก่อน deploy — อย่าแก้ blind)
+**`/uploads/` (รูปจากคนขับ) เคยเปิด public ไม่ต้องล็อกอิน** — ปิดแล้ว: ถอด StaticFiles
+mount → route `/uploads/{path}` (main.py `serve_upload`) เสิร์ฟเมื่อมี **AppUser session
+หรือ access-link token (`?t=` แบบเดียวกับ /check)** เท่านั้น + กัน path traversal
+(`resolve()` + parents check); เทสต์ล็อก 7 ข้อใน `tests/test_uploads_gate.py`
+
+ข้อกังวลเดิม "เสี่ยงพัง Driver PWA" ตรวจแล้ว**ไม่จริง**: หน้า PWA คนขับพรีวิวรูปเป็น
+client-side (FileReader ก่อนอัปโหลด) ไม่เคยโหลดจาก /uploads; ผู้ใช้จริงมี 3 ทาง —
+admin pages (session ✓), API ดูรูปงานใน grid (session ✓), และ `/check/mechanic`
+ผ่าน magic link → แก้ template พ่วง `?t={{ token }}` ที่ URL รูปแล้ว
 
 ## 5. ของที่แข็งแรงอยู่แล้ว (จาก red-team 15 มิ.ย. — ดู SECURITY_FOR_OAT.md)
 

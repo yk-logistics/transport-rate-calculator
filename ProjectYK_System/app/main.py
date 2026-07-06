@@ -631,10 +631,23 @@ def service_worker():
     # เสิร์ฟ service worker จากราก เพื่อให้ scope ครอบทั้งเว็บ (/) ไม่ใช่แค่ /static/.
     return FileResponse(APP_DIR / "static" / "sw.js", media_type="application/javascript")
 
-# Uploads folder (driver photos, etc.) — served for admin preview. Auto-created.
+# Uploads folder (driver photos, etc.) — S2: ไม่เสิร์ฟ public แล้ว ต้องมี session
+# ระบบ หรือ access-link token (?t= — หน้า /check/mechanic ฝังรูปพร้อม token)
 _uploads_dir = APP_DIR / "uploads"
 _uploads_dir.mkdir(exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=str(_uploads_dir)), name="uploads")
+
+
+@app.get("/uploads/{upload_path:path}", include_in_schema=False)
+def serve_upload(upload_path: str, request: Request):
+    # current_user / _check_link_guard เป็น global ตอน runtime (นิยามถัดลงไปในไฟล์)
+    if current_user(request) is None:
+        with Session(engine) as s:
+            if _check_link_guard(request, s) is None:
+                raise HTTPException(403, "ต้องล็อกอินหรือเปิดผ่านลิงก์ที่ได้รับ")
+    full = (_uploads_dir / upload_path).resolve()
+    if not full.is_file() or _uploads_dir.resolve() not in full.parents:
+        raise HTTPException(404)
+    return FileResponse(full)
 
 _DOCS_PRINT_DIR = APP_DIR.parent / "docs" / "print"
 
@@ -664,7 +677,9 @@ from permissions import check as perm_check  # noqa: E402
 # /driver/* is the driver PWA — it has its OWN auth (DriverSession + PIN) and each
 # handler calls get_current_driver(), redirecting to /driver/login when absent.
 # So RBAC (AppUser-based) must NOT gate it, or drivers get bounced to the admin login.
-PUBLIC_PREFIXES = ("/login", "/logout", "/static/", "/uploads/", "/health", "/driver",
+PUBLIC_PREFIXES = ("/login", "/logout", "/static/",
+                   "/uploads/",    # gated in-handler (session OR access-link token)
+                   "/health", "/driver",
                    "/sw.js",       # PWA service worker — must load pre-login for installability
                    "/check",       # magic-link tire check; gated in-handler by signed token
                    "/c/",          # short-URL redirect to /check (resolves token from DB)
