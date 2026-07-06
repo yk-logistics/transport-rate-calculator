@@ -50,8 +50,10 @@ cd C:\...\ProjectYK_System\app
 - เปิด /admin/* โดยไม่ล็อกอิน → ต้องเด้ง /login
 - ล็อกอินผิด 5 ครั้งติด → ต้องโดนล็อก (login_guard)
 - role viewer: ลอง POST แก้ข้อมูล → ต้อง 403; เปิด /api/daily/grid-data → ต้องไม่มี kb_amount
+  (มีเทสต์ล็อกถาวรแล้ว `app/tests/test_viewer_rbac.py` — รอบถัดไปรัน pytest ไฟล์นี้แทนลองมือได้)
 
 ## ประวัติการรัน
 | วันที่ | ผู้รัน | ผล/ประเด็น |
 |-------|-------|-----------|
+| 6 ก.ค. 2569 | Claude (Fable) | **ปิดค้างจากรอบแรก 2 เรื่อง:** ⑦ role viewer พิสูจน์ด้วยเทสต์ e2e 4 ข้อ (`test_viewer_rbac.py` — grid ดูได้/คอลัมน์เงิน+KB ไม่หลุด payload/POST 403/โซนเงิน 403) แทนการลองมือ; ④ ปิดช่องโหว่ /uploads public (route + session/token, `test_uploads_gate.py` 7 ข้อ, deploy เขียว) · เหลือค้างโอข้อเดียว: ② ไล่รายชื่อ user/role (ระบบยังมีแต่ yk1 บัญชีเดียว — แนะนำแยกบัญชีรายคน) |
 | 4 ก.ค. 2569 | Claude (Fable) | **รอบแรก — ผ่าน 5/7 ข้อ, แก้จริง 1 เรื่อง:** ①พอร์ต: ครบตามคาด ไม่มี RDP/XAMPP; ⚠ พบ MSI.TerminalServer/CentralServer (ซอฟต์แวร์เมนบอร์ด MSI เปิดพอร์ตฟัง) + OneDrive — โอพิจารณาปิดถ้าไม่ใช้ ③pip-audit: **python-multipart 0.0.29 มี 3 CVE → อัป 0.0.32 + เทสต์ 424 ผ่าน + deploy server แล้ววันเดียวกัน**; starlette 0.38.6 มี CVE หลายตัวแต่ติด pin (<0.40) — ต้องวางแผน migration fastapi/starlette แยกงาน (Jinja2 globals พัง); pytest CVE = dev-only ④ไม่มี secret ใน git ⑤ชั้น1 03:00 วันนี้ ✓ / ชั้น3 dev ดูดวันนี้ ✓ / Drive ติด SA quota (รอ OAuth โอ) / ซ้อมกู้ทำแล้ว 3 ก.ค. (S1) ⑥cert หมด 9 ก.ย. 2026 (Cloudflare ต่อเอง) ⑦/admin ไม่ล็อกอิน→303 ✓, login ผิด 5 ครั้ง→429 ✓, SSH public IP→timeout ✓ · **ค้างให้โอ:** ②ไล่รายชื่อ user/role กับโอ + ⑦ทดสอบ role viewer (ไม่มีรหัส viewer ให้ทดสอบ) · **ข้อค้นพบ ② (รันเพิ่มเย็นวันเดียวกัน): ทั้งระบบมี user เดียว = yk1 (admin) — ทีมออฟฟิศแชร์บัญชี admin กันหมด** → audit แยกคนไม่ได้ + ทุกคนถือสิทธิ์เต็ม; แนะนำโอสร้างบัญชีรายคน (office/accountant) ที่ /admin/users แล้วเปลี่ยนรหัส yk1; ไม่มี override สิทธิ์รายคนตกค้าง (ศูนย์แถว) · **เพิ่มเติมเย็นวันเดียวกัน: อัป fastapi/starlette เป็น 0.139/1.3.1 ทั้งแอปหลัก + บอทไลน์ (8020 เปิดสู่เน็ต ใช้ชุดมีช่องโหว่เดิม) — pip-audit runtime เหลือ 0 CVE ทั้งสอง service; ตรวจซ้ำด้วยเทสต์ 428×3 + browser smoke 8 หน้า** |
