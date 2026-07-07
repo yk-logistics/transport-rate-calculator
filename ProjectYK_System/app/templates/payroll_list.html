@@ -7,10 +7,17 @@
     <h1 class="text-2xl font-bold">Payroll · รอบเงินเดือน</h1>
     <p class="text-sm text-slate-500">สรุปการจ่ายเงินเดือนต่อไซต์ต่อรอบ</p>
   </div>
-  <a href="/payroll/new"
-     class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded text-sm font-medium">
-    + สร้างรอบใหม่
-  </a>
+  <div class="flex gap-2">
+    <a href="/payroll/manual-slip"
+       class="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded text-sm font-medium"
+       title="ทำสลิปย้อนหลัง/สลิปพิเศษ — ทุกช่องพิมพ์แก้ได้เอง ไม่แตะข้อมูลระบบ">
+      🧾 สลิปเขียนเอง
+    </a>
+    <a href="/payroll/new"
+       class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded text-sm font-medium">
+      + สร้างรอบใหม่
+    </a>
+  </div>
 </div>
 
 <form method="get" class="bg-white rounded-lg border p-4 mb-4 grid md:grid-cols-4 gap-3 items-end">

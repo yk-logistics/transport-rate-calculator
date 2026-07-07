@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<title>สลิปเขียนเอง · Y.K. Logistics</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+{# สลิปเขียนเอง (โอ 7ก.ค.2026): ทำสลิปย้อนหลังช่วงข้อมูลระบบยังไม่ครบ — ทุกช่องพิมพ์แก้ได้
+   เลือกพนักงานเติม ชื่อ/รหัส/เลขบัตร/บัญชี ที่มีในระบบ; ไม่เขียน DB; ร่างเซฟ localStorage #}
+<style>
+:root{--wb-ink:#15233f;--wb-soft:#3a4a68;--wb-paper:#fbfaf6;--wb-line:#e3e0d6;--wb-brass:#b07d2b;--wb-pos:#1f7a4d;--wb-neg:#b23b3b;--wb-muted:#9a9789;}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:#edeae1;font-family:"IBM Plex Sans Thai","Sarabun",sans-serif;color:var(--wb-ink);font-size:13px;}
+.bar{max-width:900px;margin:10px auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.bar select,.bar button{font:inherit;padding:6px 12px;border:1px solid var(--wb-line);border-radius:8px;background:#fff;cursor:pointer;}
+.bar button.primary{background:var(--wb-ink);color:#fff;font-weight:600;}
+.bar .hint{font-size:11px;color:var(--wb-muted);}
+.slip{max-width:900px;margin:0 auto 24px;background:var(--wb-paper);border:1px solid var(--wb-line);}
+.wb-mast{display:flex;justify-content:space-between;align-items:flex-end;padding:18px 24px 13px;border-bottom:2px solid var(--wb-ink);}
+.wb-brand{font-weight:700;font-size:18px;letter-spacing:.5px;}
+.wb-brand small{display:block;font-weight:500;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--wb-brass);margin-top:2px;}
+.wb-mast-meta{text-align:right;font-size:11px;color:var(--wb-soft);line-height:1.7;}
+.wb-who{display:grid;grid-template-columns:1.6fr 1fr 1.2fr;border-bottom:1px solid var(--wb-line);}
+.wb-who>div{padding:10px 14px;border-right:1px solid var(--wb-line);border-bottom:1px solid var(--wb-line);}
+.wb-who>div:nth-child(3n){border-right:none;}
+.wb-k{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--wb-muted);}
+input.f,textarea.f{font:inherit;color:var(--wb-ink);background:transparent;border:none;border-bottom:1px dashed #cfcabb;width:100%;padding:2px 0;font-weight:600;font-size:14px;}
+input.f:focus,textarea.f:focus{outline:none;border-bottom:1.5px solid var(--wb-brass);background:#fffdf4;}
+input.f.small{font-size:12px;font-weight:500;}
+.wb-ribbon{display:flex;background:var(--wb-ink);color:#fff;}
+.wb-ribbon .seg{flex:1;padding:12px 16px;}
+.wb-ribbon .lab{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.6);}
+.wb-ribbon .fig{font-family:"IBM Plex Mono",monospace;font-size:18px;font-weight:600;margin-top:3px;}
+.wb-ribbon .seg.minus .fig{color:#f0a3a3;}
+.wb-ribbon .seg.net{background:var(--wb-brass);flex:1.3;}
+.wb-ribbon .seg.net .fig{font-size:24px;font-weight:700;}
+.wb-body{display:grid;grid-template-columns:1fr 1fr;}
+.wb-col{padding:16px 18px;}
+.wb-col.left{border-right:1px solid var(--wb-line);}
+.wb-sec{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--wb-brass);font-weight:600;margin:0 0 9px;border-bottom:1px solid var(--wb-ink);padding-bottom:5px;}
+table.rows{width:100%;border-collapse:collapse;}
+table.rows td{padding:4px 4px;border-bottom:1px solid #efece3;vertical-align:middle;}
+table.rows input.amt{font-family:"IBM Plex Mono",monospace;text-align:right;width:110px;font-weight:600;font-size:13px;background:transparent;border:none;border-bottom:1px dashed #cfcabb;padding:2px 0;}
+table.rows input.amt:focus{outline:none;border-bottom:1.5px solid var(--wb-brass);background:#fffdf4;}
+table.rows input.lbl{font:inherit;width:100%;background:transparent;border:none;border-bottom:1px dashed transparent;padding:2px 0;}
+table.rows input.lbl:focus{outline:none;border-bottom:1px dashed var(--wb-brass);}
+table.rows td.x{width:22px;text-align:center;}
+table.rows td.x button{border:none;background:none;color:var(--wb-neg);cursor:pointer;font-size:13px;padding:0;}
+.addrow{margin-top:6px;font-size:11px;color:var(--wb-soft);background:none;border:1px dashed var(--wb-line);border-radius:6px;padding:3px 10px;cursor:pointer;}
+.sumline{display:flex;justify-content:space-between;font-weight:700;padding:7px 4px 0;border-top:1.5px solid var(--wb-ink);margin-top:6px;font-family:"IBM Plex Mono",monospace;}
+.wb-footer{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;padding:26px 24px 20px;border-top:1px solid var(--wb-line);}
+.sig{text-align:center;font-size:11px;color:var(--wb-soft);}
+.sig .line{border-bottom:1px dotted var(--wb-soft);height:34px;margin-bottom:6px;}
+.note-area{padding:0 24px 14px;font-size:11px;color:var(--wb-soft);}
+@media print{
+  .no-print{display:none !important;}
+  html,body{background:#fff;}
+  .slip{border:none;max-width:none;margin:0;}
+  input.f,table.rows input{border-bottom-color:transparent !important;background:transparent !important;}
+  table.rows td.x{display:none;}
+}
+</style>
+</head>
+<body>
+
+<div class="bar no-print">
+  <b>🧾 สลิปเขียนเอง</b>
+  <select id="empSel" onchange="if(this.value)location='/payroll/manual-slip?emp_id='+this.value">
+    <option value="">— เลือกพนักงานเติมข้อมูลจากระบบ (หรือพิมพ์เองทั้งหมด) —</option>
+    {% for e in emps %}
+    <option value="{{ e.id }}" {% if emp and emp.id == e.id %}selected{% endif %}>{{ e.home_site_code }} · {{ e.full_name }}{% if e.nickname %} ({{ e.nickname }}){% endif %}</option>
+    {% endfor %}
+  </select>
+  <button class="primary" onclick="window.print()">🖨 พิมพ์</button>
+  <button onclick="clearDraft()">ล้างฟอร์ม</button>
+  <span class="hint">ทุกช่องพิมพ์แก้ได้ · ยอดรวมคิดให้เอง · ร่างเซฟในเครื่องนี้อัตโนมัติ (ไม่บันทึกลงระบบ)</span>
+</div>
+
+<div class="slip" id="slip">
+  <div class="wb-mast">
+    <div class="wb-brand">Y.K. LOGISTICS<small>สลิปเงินเดือน · Payslip</small></div>
+    <div class="wb-mast-meta">
+      ช่วงงวด <input class="f small" data-k="period" style="width:170px;display:inline-block;" placeholder="เช่น 1/5/2026 – 31/5/2026">
+      <br>วันที่จ่าย <input class="f small" data-k="paydate" style="width:110px;display:inline-block;" placeholder="เช่น 1/6/2026">
+    </div>
+  </div>
+
+  <div class="wb-who">
+    <div><div class="wb-k">ชื่อพนักงาน</div><input class="f" data-k="name" value="{{ emp.full_name if emp else '' }}"></div>
+    <div><div class="wb-k">รหัส</div><input class="f" data-k="code" value="{{ emp.code if emp else '' }}"></div>
+    <div><div class="wb-k">ตำแหน่ง / ไซท์</div><input class="f" data-k="role" value="{{ (emp.role ~ ' · ' ~ emp.home_site_code) if emp and emp.role else (emp.home_site_code if emp else '') }}"></div>
+    <div><div class="wb-k">เลขบัตรประชาชน</div><input class="f" data-k="idcard" value="{{ emp.id_card if emp and emp.id_card else '' }}"></div>
+    <div><div class="wb-k">ธนาคาร</div><input class="f" data-k="bank" value="{{ emp.bank_name if emp and emp.bank_name else '' }}"></div>
+    <div><div class="wb-k">เลขบัญชี</div><input class="f" data-k="acct" value="{{ emp.account_no if emp and emp.account_no else '' }}"></div>
+  </div>
+
+  <div class="wb-ribbon">
+    <div class="seg"><div class="lab">รวมรายได้</div><div class="fig" id="sumInc2">0</div></div>
+    <div class="seg minus"><div class="lab">− รวมหัก</div><div class="fig" id="sumDed2">0</div></div>
+    <div class="seg net"><div class="lab">ยอดรับสุทธิ</div><div class="fig" id="sumNet">฿ 0.00</div></div>
+  </div>
+
+  <div class="wb-body">
+    <div class="wb-col left">
+      <div class="wb-sec">รายได้</div>
+      <table class="rows" id="incTable"></table>
+      <button class="addrow no-print" onclick="addRow('inc','', '')">➕ เพิ่มรายการรายได้</button>
+      <div class="sumline"><span>รวมรายได้</span><span id="sumInc">0.00</span></div>
+    </div>
+    <div class="wb-col">
+      <div class="wb-sec">เงินหัก</div>
+      <table class="rows" id="dedTable"></table>
+      <button class="addrow no-print" onclick="addRow('ded','', '')">➕ เพิ่มรายการหัก</button>
+      <div class="sumline"><span>รวมหัก</span><span id="sumDed">0.00</span></div>
+    </div>
+  </div>
+
+  <div class="note-area">หมายเหตุ: <input class="f small" data-k="note" style="width:85%;display:inline-block;" placeholder=""></div>
+
+  <div class="wb-footer">
+    <div class="sig"><div class="line"></div>ผู้จัดทำ</div>
+    <div class="sig"><div class="line"></div>ผู้มีอำนาจลงนาม</div>
+    <div class="sig"><div class="line"></div>ผู้รับเงิน · วันที่ <input class="f small" data-k="sigdate" style="width:90px;display:inline-block;"></div>
+  </div>
+</div>
+
+<script>
+const PREFILL = {{ 'true' if emp else 'false' }};
+const KEY = "ykManualSlip";
+const DEF_INC = ["เงินเดือน", "ค่าเที่ยว", "ค่าดูแลรถ", "พิเศษ / OT"];
+const DEF_DED = ["ประกันสังคม", "เงินเบิก / สดย่อย", "อื่นๆ"];
+
+function num(v){ const f = parseFloat(String(v).replace(/,/g, "")); return isFinite(f) ? f : 0; }
+function fmt(n){ return n.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+
+function addRow(kind, label, amount){
+  const tb = document.getElementById(kind + "Table");
+  const tr = document.createElement("tr");
+  tr.innerHTML = '<td><input class="lbl" value=""></td>' +
+                 '<td style="width:120px;"><input class="amt" inputmode="decimal" placeholder="0"></td>' +
+                 '<td class="x no-print"><button title="ลบแถว" onclick="this.closest(\'tr\').remove();recalc()">✕</button></td>';
+  tr.querySelector(".lbl").value = label;
+  tr.querySelector(".amt").value = amount;
+  tb.appendChild(tr);
+  tr.querySelectorAll("input").forEach(i => i.addEventListener("input", recalc));
+  tr.querySelector(".amt").addEventListener("blur", e => { const n = num(e.target.value); e.target.value = n ? fmt(n) : ""; });
+}
+
+function recalc(){
+  let inc = 0, ded = 0;
+  document.querySelectorAll("#incTable .amt").forEach(i => inc += num(i.value));
+  document.querySelectorAll("#dedTable .amt").forEach(i => ded += num(i.value));
+  document.getElementById("sumInc").textContent = fmt(inc);
+  document.getElementById("sumDed").textContent = fmt(ded);
+  document.getElementById("sumInc2").textContent = fmt(inc);
+  document.getElementById("sumDed2").textContent = fmt(ded);
+  document.getElementById("sumNet").textContent = "฿ " + fmt(inc - ded);
+  saveDraft();
+}
+
+function collect(){
+  const d = {fields: {}, inc: [], ded: []};
+  document.querySelectorAll("input.f").forEach(i => d.fields[i.dataset.k] = i.value);
+  document.querySelectorAll("#incTable tr").forEach(tr => d.inc.push([tr.querySelector(".lbl").value, tr.querySelector(".amt").value]));
+  document.querySelectorAll("#dedTable tr").forEach(tr => d.ded.push([tr.querySelector(".lbl").value, tr.querySelector(".amt").value]));
+  return d;
+}
+let saveTimer = null;
+function saveDraft(){ clearTimeout(saveTimer); saveTimer = setTimeout(() => localStorage.setItem(KEY, JSON.stringify(collect())), 300); }
+function clearDraft(){ localStorage.removeItem(KEY); location = "/payroll/manual-slip"; }
+
+(function init(){
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(KEY) || "null"); } catch(e){}
+  if (d && d.inc && d.inc.length) {
+    d.inc.forEach(r => addRow("inc", r[0], r[1]));
+    d.ded.forEach(r => addRow("ded", r[0], r[1]));
+    // ช่องหัวสลิป: ถ้าเพิ่งเลือกพนักงานจากระบบ (PREFILL) ให้ค่าจากระบบชนะช่องตัวตน
+    const idKeys = ["name", "code", "role", "idcard", "bank", "acct"];
+    document.querySelectorAll("input.f").forEach(i => {
+      const k = i.dataset.k;
+      if (d.fields[k] && !(PREFILL && idKeys.includes(k))) i.value = d.fields[k];
+    });
+  } else {
+    DEF_INC.forEach(l => addRow("inc", l, ""));
+    DEF_DED.forEach(l => addRow("ded", l, ""));
+  }
+  document.querySelectorAll("input.f").forEach(i => i.addEventListener("input", recalc));
+  recalc();
+})();
+</script>
+</body>
+</html>

@@ -4078,6 +4078,21 @@ def payroll_list(
     return templates.TemplateResponse(request, "payroll_list.html", ctx)
 
 
+@app.get("/payroll/manual-slip", response_class=HTMLResponse)
+def payroll_manual_slip(request: Request, emp_id: int = 0):
+    """สลิปเขียนเอง (โอ 7ก.ค.) — ทำสลิปย้อนหลังช่วงข้อมูลระบบยังไม่ครบ: ทุกช่อง
+    พิมพ์แก้ได้ + เลือกพนักงานเติมข้อมูลที่มี (ชื่อ/รหัส/เลขบัตร/บัญชี) แล้วพิมพ์.
+    ไม่เขียนอะไรลง DB; ร่างเซฟใน localStorage ฝั่งเครื่องผู้ใช้.
+    NB: literal path ต้องมาก่อน /payroll/{run_id} (ไม่งั้นโดนดักเป็น run_id)."""
+    ctx = base_context(request)
+    with Session(engine) as s:
+        emps = s.exec(select(Employee).where(Employee.status == "active")
+                      .order_by(Employee.home_site_code, Employee.full_name)).all()
+        emp = s.get(Employee, emp_id) if emp_id else None
+    ctx.update({"emps": emps, "emp": emp})
+    return templates.TemplateResponse(request, "payroll_manual_slip.html", ctx)
+
+
 @app.get("/payroll/new", response_class=HTMLResponse)
 def payroll_new_form(request: Request):
     from datetime import date as _d
