@@ -70,7 +70,10 @@
 | `preflight_payrun.py --site X --run-id N` | ตรวจ 4 มิติก่อนปิด (read-only) |
 | `fuel_slip_reconcile.py <run_id>` | น้ำมัน mao ตาราง=หักจริง |
 | `preflight_kb_driver_price.py` | KB ↔ ราคาคีย์ |
-| `deploy_mvp.sh --markers "<ascii>"` | deploy + self-verify — **marker สแกนแค่ main.py+templates**; แก้ services/*.py ต้อง verify ด้วย grep บน server เอง |
+| `import_lcb_daily.py --cycle 2026-07 --dry-run` | **เดลี่ LCB (ใหม่ 7ก.ค. — parameterized, พิสูจน์เลขตรงสคริปต์เดิมเป๊ะ)**: ไฟล์ = `Salary/2026/7.Jul/LCB/วางบิล YK VOLVO.xlsx` (Excel local โอ = source of truth); dry-run ดูยอดก่อน แล้วค่อยรันจริง (`--wipe-prior` ถ้าเคย import รอบนี้แล้ว); override ไฟล์ด้วย `--xlsx` |
+| `import_bigc_daily.py` (cycle 2026-06 เตรียมแล้ว) | เดลี่ BigC วิ่ง มิ.ย. — รอไฟล์ `7.Jul/BigC/` จากทีม |
+| `import_ayu_daily.py --cycle 2026-07` | เดลี่ AYU — ดูขั้น re-import จากชีทจริงใน §2 ข้อ 1 |
+| `deploy_mvp.sh --markers "<ascii>"` | deploy + self-verify (marker สแกน main.py+templates+services แล้ว — ซ่อม 5ก.ค.) |
 
 **Deploy DB ขึ้น server**: ห้าม scp app.db ดิบ (WAL → malformed) — ใช้ backup-API + `wal_checkpoint(TRUNCATE)` ก่อน + swap ตอน 8010 หยุด (kill by PID เท่านั้น อย่า filter .venv — โดน LINE archiver 8020). และ **swap DB ต้อง preserve appuser hash จาก server ก่อน** (ไม่งั้นรหัสทีมหาย — memory mvp-password-db-swap-gotcha).
 
