@@ -75,6 +75,21 @@ def test_uploads_serves_valid_access_link_token(client):
         path.unlink()
 
 
+def test_uploads_token_fetch_does_not_inflate_use_count(client):
+    """โหลดรูปด้วย token ไม่บวก use_count — ตัวนับ /admin/check-links ต้องหมายถึง
+    'เปิดลิงก์กี่ครั้ง' ไม่ใช่โดนบวกตามจำนวนรูปในหน้า."""
+    name, path = _make_upload_file()
+    try:
+        tok = _make_link("mechanic")
+        for _ in range(3):
+            assert client.get(f"/uploads/{name}?t={tok}").status_code == 200
+        with Session(engine) as s:
+            link = s.exec(select(AccessLink)).first()
+            assert link.use_count == 0
+    finally:
+        path.unlink()
+
+
 def test_uploads_rejects_bad_token(client):
     name, path = _make_upload_file()
     try:

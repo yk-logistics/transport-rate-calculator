@@ -644,7 +644,7 @@ def serve_upload(upload_path: str, request: Request):
     # current_user / _check_link_guard เป็น global ตอน runtime (นิยามถัดลงไปในไฟล์)
     if current_user(request) is None:
         with Session(engine) as s:
-            if _check_link_guard(request, s) is None:
+            if _check_link_guard(request, s, count_use=False) is None:
                 raise HTTPException(403, "ต้องล็อกอินหรือเปิดผ่านลิงก์ที่ได้รับ")
     full = (_uploads_dir / upload_path).resolve()
     if not full.is_file() or _uploads_dir.resolve() not in full.parents:
@@ -7358,8 +7358,12 @@ LINK_MAX_AGE_DEFAULT = 3600   # seconds; UI lets admin pick ttl in hours
 LINK_HARD_CAP_SECONDS = 7 * 24 * 3600   # signature never honored beyond 7 days
 
 
-def _check_link_guard(request: Request, session: Session):
-    """Return the live AccessLink for a request's ?t= token, or None."""
+def _check_link_guard(request: Request, session: Session, count_use: bool = True):
+    """Return the live AccessLink for a request's ?t= token, or None.
+
+    count_use=False สำหรับ subresource (รูปใน /uploads) — ไม่บวก use_count
+    ให้ตัวนับใน /admin/check-links ยังแปลว่า "เปิดลิงก์กี่ครั้ง" ไม่ใช่จำนวนรูป.
+    """
     tok = request.query_params.get("t") or ""
     if not tok:
         return None
@@ -7369,9 +7373,10 @@ def _check_link_guard(request: Request, session: Session):
     link = session.exec(select(AccessLink).where(AccessLink.token == tok)).first()
     if not link or link.revoked or link.expires_at < datetime.utcnow():
         return None
-    link.use_count += 1
-    link.last_used_at = datetime.utcnow()
-    session.add(link); session.commit()
+    if count_use:
+        link.use_count += 1
+        link.last_used_at = datetime.utcnow()
+        session.add(link); session.commit()
     return link
 
 

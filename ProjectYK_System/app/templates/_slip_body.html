@@ -68,11 +68,13 @@
           {%- endif %}
         </tr></thead>
         <tbody>
+        {# วันซ้ำไม่โชว์วันที่ — เทียบกับแถวที่"มองเห็น"ล่าสุด (previtem พังเมื่อแถวก่อนหน้าโดนซ่อน) #}
+        {% set _dt = namespace(last=none) %}
         {% for r in daily_jobs %}
           {%- if not ((not _boss) and r.id in _fuelonly) and r.id not in _midskip %}
           {% set k = day_kind(r) %}
           <tr{% if r.id in _fuelonly %} class="row-fuelonly"{% endif %}>
-            <td class="c-date">{% if loop.first or loop.previtem.work_date != r.work_date %}{{ r.work_date.strftime('%d/%m') }}{% endif %}</td>
+            <td class="c-date">{% if _dt.last != r.work_date %}{{ r.work_date.strftime('%d/%m') }}{% set _dt.last = r.work_date %}{% endif %}</td>
             {%- if r.id in _fuelonly %}
             <td class="c-route"><span class="wb-muted">🛢 เติมน้ำมัน{% if _fuelonly[r.id].fill_date %} {{ _fuelonly[r.id].fill_date | dmy }}{% elif _fuelonly[r.id].for_date %} · สำหรับงาน {{ _fuelonly[r.id].for_date | dmy }}{% endif %}</span></td>
             {%- else %}
@@ -162,11 +164,12 @@
           {%- endif %}
         </tr></thead>
         <tbody>
+        {# วันซ้ำไม่โชว์วันที่ (ทุกไซต์ โอ 1ก.ค.) — เทียบกับแถวที่"มองเห็น"ล่าสุด (previtem พังเมื่อแถวก่อนหน้าโดนซ่อน) #}
+        {% set _dt = namespace(last=none) %}
         {% for r in daily_jobs %}
           {%- if not (r.id in _fuelonly and (_bigc or not _boss)) %}{# แถวเติมน้ำมันล้วน: คนขับไม่เห็น (โอ 6ก.ค.) + BigC ไม่เห็นทุก surface (บริษัทออก) ; boss LCB เห็น (น้ำมันหักจริง) #}
           <tr{% if r.id in _fuelonly %} class="row-fuelonly"{% endif %}>
-            {# ไม่โชว้ ↳ วันซ้ำ (ทุกไซต์ โอ 1ก.ค.) — เว้นว่างแทน #}
-            <td class="c-date">{% if loop.first or loop.previtem.work_date != r.work_date %}{{ r.work_date.strftime('%d/%m') }}{% endif %}</td>
+            <td class="c-date">{% if _dt.last != r.work_date %}{{ r.work_date.strftime('%d/%m') }}{% set _dt.last = r.work_date %}{% endif %}</td>
             {%- if r.id in _fuelonly %}{% set fo = _fuelonly[r.id] %}
             {# แถวเติมน้ำมัน: ข้อความเรียบๆ ไม่ใช้ป้ายน้ำตาล (โอ 1ก.ค.) #}
             <td class="c-route"><span class="wb-muted">🛢 เติมน้ำมัน{% if fo.fill_date %} {{ fo.fill_date | dmy }}{% endif %}{% if fo.for_date %} · สำหรับงาน {{ fo.for_date | dmy }}{% endif %}</span></td>

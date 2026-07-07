@@ -73,3 +73,22 @@ def test_print_boss_still_shows_fuelonly_rows(client):
     """ชุดผู้บริหารต้องเห็นรายวันครบ ไว้ตรวจการเติม."""
     b = client.get("/payroll/1/print?for=boss", follow_redirects=True).text
     assert _FUELONLY_MARK in b
+
+
+def test_hidden_fuelonly_same_day_does_not_swallow_date(client):
+    """แถวเติมน้ำมัน (ซ่อน) วันเดียวกับแถวงาน: วันที่ต้องยังโชว์บนแถวงาน —
+    ตัวเช็ควันซ้ำต้องดูจากแถวที่มองเห็นล่าสุด ไม่ใช่แถวก่อนหน้าในข้อมูล."""
+    from services.payroll import compute_pay_run
+    with Session(engine) as s:
+        # เติมน้ำมันแยกแถว "วันเดียวกับ" วันงานใหม่ 25/5 (id เล็กกว่าแถวงาน → มาก่อนในลำดับ)
+        fo = DailyJob(site_code="LCB", driver_id=70, work_date=date(2026, 5, 25),
+                      fuel_liter=30, fuel_amount=1200, fuel_date=date(2026, 5, 25))
+        s.add(fo); s.commit(); s.refresh(fo)
+        s.add(DailyJob(site_code="LCB", driver_id=70, work_date=date(2026, 5, 25),
+                       status_code="KAO", revenue_customer=4000, trip_fee_driver=2400))
+        s.add(FuelTxn(driver_id=70, site_code="LCB", txn_date=date(2026, 5, 25),
+                      liter=30, amount=1200, daily_job_id=fo.id))
+        s.commit()
+        compute_pay_run(s, s.get(PayRun, 1), recompute=True); s.commit()
+    b = client.get("/payroll/1/employee/70/slip", follow_redirects=True).text
+    assert "25/05" in b
