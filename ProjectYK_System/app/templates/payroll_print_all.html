@@ -63,7 +63,7 @@ table.daily td.num{text-align:right;font-family:"IBM Plex Mono";font-variant-num
 .k-idle{background:#eee;color:#777;}
 /* ค่าเที่ยว: เลขหลัก .tripv ; พิเศษ/OT แยกเป็นคอลัมน์ .c-extra (ไม่ซ้อนใต้ค่าเที่ยวแล้ว) */
 .c-trip .tripv{font-size:11px;line-height:1.15;}
-.c-extra{white-space:nowrap;border-left:1px solid var(--wb-line);}
+.c-extra{white-space:nowrap;}
 .row-idlemerge td{color:var(--wb-soft);}
 /* number กับ label แยกกล่องความกว้างคงที่ → หลายบรรทัด (พิเศษ/OT) เรียงตรงเป็นคอลัมน์ */
 .c-extra .fline.sub{font-size:9px;line-height:1.25;color:var(--wb-soft);justify-content:flex-end;gap:0;flex-wrap:nowrap;}
@@ -95,6 +95,9 @@ table.daily td.num{text-align:right;font-family:"IBM Plex Mono";font-variant-num
 .daily td.num .tag-grade{width:20px;text-align:center;box-sizing:border-box;flex:none;font-size:7px;padding:0 2px;}
 .daily td.num .tag-grade:empty{background:none;border:none;}
 .daily td.num .tag-free{font-size:6.5px;padding:0 2px;flex:none;line-height:1.2;}
+/* ป้ายสถานะน้ำมัน (หัก/บริษัท/ไม่หัก) ตาราง mixed — กว้างคงที่ เรียงตรงคอลัมน์ */
+.daily td.num .tag-st{width:32px;text-align:center;box-sizing:border-box;flex:none;font-size:7px;padding:0 2px;line-height:1.3;}
+.daily td.num .tag-st:empty{background:none;border:none;}
 .row-fuelonly{background:#fcfaf4;}
 .row-fuelonly .c-date{color:var(--wb-muted);}
 table.daily tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding-top:5px;font-weight:600;}
