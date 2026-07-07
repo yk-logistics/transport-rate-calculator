@@ -53,9 +53,11 @@ table.rows td.x button{border:none;background:none;color:var(--wb-neg);cursor:po
 /* เส้นเซ็นสองฝั่งต้องอยู่แนวเดียวกัน (โอ 7ก.ค.) — จัดทุกบล็อกชิดล่างด้วย flex column + justify-end */
 .wb-footer{display:grid;grid-template-columns:1fr 1fr;gap:60px;padding:14px 60px 20px;border-top:1px solid var(--wb-line);align-items:end;}
 .sig{text-align:center;font-size:11px;color:var(--wb-soft);display:flex;flex-direction:column;justify-content:flex-end;}
-.sig .sigimg{height:86px;display:block;margin:0 auto -14px;}
-.sig .line{border-bottom:1px dotted var(--wb-soft);margin-bottom:6px;}
-.sig .caption{white-space:nowrap;}
+.sig .sigimg{height:86px;display:block;margin:0 auto -4px;}
+.sig .line{border-bottom:1px dotted var(--wb-soft);margin-bottom:0;}
+/* caption สองฝั่งสูงเท่ากันเป๊ะ (ฝั่งขวามี input) → เส้นจุดอยู่ระดับเดียวกัน */
+.sig .caption{white-space:nowrap;height:26px;display:flex;align-items:center;justify-content:center;gap:4px;}
+.sig .caption input.f{width:90px;font-size:12px;}
 .sig b{color:var(--wb-ink);}
 .note-area{padding:0 24px 14px;font-size:11px;color:var(--wb-soft);}
 @media print{
@@ -71,6 +73,8 @@ table.rows td.x button{border:none;background:none;color:var(--wb-neg);cursor:po
 <body>
 
 <div class="bar no-print">
+  <a href="/payroll" style="text-decoration:none;color:var(--wb-soft);border:1px solid var(--wb-line);border-radius:8px;padding:6px 12px;background:#fff;">← หน้าเงินเดือน</a>
+  <a href="/" style="text-decoration:none;border:1px solid var(--wb-line);border-radius:8px;padding:6px 12px;background:#fff;" title="หน้าแรก">🏠</a>
   <b>🧾 สลิปเขียนเอง</b>
   <select id="empSel" onchange="if(this.value)location='/payroll/manual-slip?emp_id='+this.value">
     <option value="">— เลือกพนักงาน (หรือพิมพ์เองทั้งหมด) —</option>
@@ -163,7 +167,7 @@ table.rows td.x button{border:none;background:none;color:var(--wb-neg);cursor:po
     </div>
     <div class="sig">
       <div class="line"></div>
-      <div class="caption">ผู้รับเงิน · วันที่ <input class="f small" data-k="sigdate" style="width:90px;display:inline-block;"></div>
+      <div class="caption">ผู้รับเงิน · วันที่ <input class="f small" data-k="sigdate"></div>
     </div>
   </div>
 </div>
