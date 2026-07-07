@@ -1,6 +1,7 @@
-"""หน้า /print ต้องส่ง fuel_only_info เข้า _slip_body เหมือนหน้าสลิปรายคน —
-ไม่งั้นวัน 'เติมน้ำมัน' (มีน้ำมันแต่ไม่มีงาน) จะตกไปโชว์ผิดเป็น 'รถจอด' บน /print
-ทั้งที่หน้าสลิปรายคน (payroll_slip.html) โชว์ถูก. เป็นแค่การแสดงผล ไม่กระทบเงิน.
+"""แถว "เติมน้ำมัน" (มีน้ำมันแต่ไม่มีงาน) — โอ 6ก.ค.: **สลิปคนขับไม่โชว์รายวันแล้ว**
+(กลัวคนขับสับสนว่าวันไม่วิ่งทำไมมีรายการ) → เหลือบรรทัดสรุปเดียวเมื่อน้ำมันถูกหักจริง
+(กันตารางบวกไม่ครบกับแถวรวม); **ชุดผู้บริหาร (?for=boss) ยังเห็นรายวันครบ** ไว้ตรวจ.
+เป็นแค่การแสดงผล ไม่กระทบเงิน.
 """
 import os, tempfile
 
@@ -49,18 +50,26 @@ def client():
         yield c
 
 
-# marker เฉพาะของ "แถวเติมน้ำมัน" (ช่องส่งสินค้า) — ต่างจากคำว่า "เติมน้ำมัน"
-# ในโน้ตท้ายสลิป ที่โผล่เสมอ. ใช้ตัวนี้แยกว่า row ถูก render เป็น fuel-only จริง.
+# marker "แถวเติมน้ำมันรายวัน" (ช่องส่งสินค้า) — บรรทัดสรุปใหม่จงใจไม่ใช้คำนี้
 _FUELONLY_MARK = "🛢 เติมน้ำมัน"
+# marker บรรทัดสรุปฝั่งคนขับ (โผล่เมื่อ fuel_cost_self > 0)
+_SUMMARY_MARK = "น้ำมันวันไม่มีงานวิ่ง"
 
 
-def test_individual_slip_shows_fuelonly(client):
-    """หน้าสลิปรายคน: วัน 22/5 โชว์แถวเติมน้ำมัน (baseline ถูกอยู่แล้ว)."""
+def test_driver_slip_hides_fuelonly_rows_shows_summary(client):
+    """สลิปรายคน (คนขับ): ไม่มีแถวเติมน้ำมันรายวัน แต่มีบรรทัดสรุป (น้ำมันหักจริง)."""
     b = client.get("/payroll/1/employee/70/slip", follow_redirects=True).text
-    assert _FUELONLY_MARK in b
+    assert _FUELONLY_MARK not in b
+    assert _SUMMARY_MARK in b
 
 
-def test_print_shows_fuelonly_not_idle(client):
-    """หน้า /print: วัน 22/5 ต้องโชว์แถวเติมน้ำมันเหมือนกัน — ไม่ใช่หลุดเป็น 'รถจอด'."""
+def test_print_driver_hides_fuelonly_rows_shows_summary(client):
     b = client.get("/payroll/1/print", follow_redirects=True).text
+    assert _FUELONLY_MARK not in b
+    assert _SUMMARY_MARK in b
+
+
+def test_print_boss_still_shows_fuelonly_rows(client):
+    """ชุดผู้บริหารต้องเห็นรายวันครบ ไว้ตรวจการเติม."""
+    b = client.get("/payroll/1/print?for=boss", follow_redirects=True).text
     assert _FUELONLY_MARK in b

@@ -63,7 +63,8 @@ table.daily td.num{text-align:right;font-family:"IBM Plex Mono";font-variant-num
 .k-idle{background:#eee;color:#777;}
 /* ค่าเที่ยว: เลขหลัก .tripv ; พิเศษ/OT แยกเป็นคอลัมน์ .c-extra (ไม่ซ้อนใต้ค่าเที่ยวแล้ว) */
 .c-trip .tripv{font-size:11px;line-height:1.15;}
-.c-extra{white-space:nowrap;}
+.c-extra{white-space:nowrap;border-left:1px solid var(--wb-line);}
+.row-idlemerge td{color:var(--wb-soft);}
 /* number กับ label แยกกล่องความกว้างคงที่ → หลายบรรทัด (พิเศษ/OT) เรียงตรงเป็นคอลัมน์ */
 .c-extra .fline.sub{font-size:9px;line-height:1.25;color:var(--wb-soft);justify-content:flex-end;gap:0;flex-wrap:nowrap;}
 .c-extra .fline.sub .fnum{min-width:26px;text-align:right;font-weight:600;flex:none;}
@@ -324,7 +325,8 @@ table.run tfoot td{border-top:2px solid var(--wb-ink);border-bottom:none;padding
   {% with daily_jobs=r.ctx.daily_jobs, item=r.ctx.item, employee=r.ctx.employee, run=r.ctx.run,
           mixed=r.ctx.mixed, route_text=r.ctx.route_text, route_cell=r.ctx.route_cell,
           route_remark=r.ctx.route_remark, day_kind=r.ctx.day_kind, trip_fee_show=r.ctx.trip_fee_show,
-          fuel_only_info=r.ctx.fuel_only_info,
+          fuel_only_info=r.ctx.fuel_only_info, fuelonly_hidden=r.ctx.fuelonly_hidden,
+          mixed_idle_skip=r.ctx.mixed_idle_skip, mixed_idle_groups=r.ctx.mixed_idle_groups,
           fuel_deduct_dates=r.ctx.fuel_deduct_dates, excluded_job_ids=r.ctx.excluded_job_ids,
           tank_measure_rows=r.ctx.tank_measure_rows, fuel_excluded_amt=r.ctx.fuel_excluded_amt,
           fuel_deducted_amt=r.ctx.fuel_deducted_amt, fuel_deducted_liter=r.ctx.fuel_deducted_liter,

@@ -550,6 +550,26 @@ def build_payroll_slip_context(
                     for_date = match.work_date
             fuel_only_info[r.id] = {"fill_date": fill_date, "for_date": for_date}
 
+    # โอ 6ก.ค.: สลิปคนขับซ่อนแถว fuel-only รายวัน (กลัวคนขับสับสน) → สรุปยอดที่
+    # "จะโชว์จริง" ของแถวพวกนั้น (หลังย้ายบิลตามวันเติมใน fuel_lines_by_job) ไว้เป็น
+    # บรรทัดเดียวท้ายตาราง เมื่อคนนี้ถูกหักน้ำมันจริง — กันตารางบวกไม่ครบกับแถวรวม.
+    _fo_n, _fo_liter, _fo_amount = 0, 0.0, 0.0
+    for _fid in fuel_only_info:
+        _fl = fuel_lines_by_job.get(_fid)
+        if _fl == []:
+            continue  # บิลถูกย้ายไปโชว์แถวอื่นแล้ว — แถวนี้ไม่มีเลขให้ซ่อน
+        if _fl:
+            _fo_n += 1
+            _fo_liter += sum((l["liter"] or 0) for l in _fl)
+            _fo_amount += sum((l["amount"] or 0) for l in _fl)
+        else:
+            _fr = next(r for r in daily_jobs if r.id == _fid)
+            if (_fr.fuel_amount or 0) or (_fr.fuel_liter or 0):
+                _fo_n += 1
+                _fo_liter += _fr.fuel_liter or 0
+                _fo_amount += _fr.fuel_amount or 0
+    fuelonly_hidden = {"n": _fo_n, "liter": _fo_liter, "amount": _fo_amount}
+
     # รายการ "ไม่หัก" ในรอบเดียวกัน (เบิกที่ไม่หัก / รับเข้า) — สำหรับโชว์เพิ่ม
     # (ติ๊กซ่อนได้ ไม่กระทบยอดหัก). ไม่รวมตัวที่หักอยู่แล้วใน petty_rows.
     petty_extra_rows = session.exec(
@@ -610,6 +630,33 @@ def build_payroll_slip_context(
 
     mixed = classify_mixed_days(daily_jobs) if emp.pay_mode == "lcb_mixed" else None
 
+    # โอ 6ก.ค. (เคสสุรเดช): วันรถจอด/ลา ใน mixed ที่ "ไม่มีอะไรให้ดู" (ไม่มีเงิน/น้ำมัน/
+    # ค่าพิเศษ และไม่ติดธงรอลงราคา) ยุบเหลือแถวสรุปเดียวต่อป้าย — display เท่านั้น.
+    mixed_idle_skip: set = set()
+    mixed_idle_groups: list = []
+    if mixed:
+        _mg: dict[str, list] = {}
+        for r in daily_jobs:
+            if r.id in fuel_only_info:
+                continue
+            _k = mixed_day_kind(r)
+            if _k["kind"] != "idle" or _k["awaiting_price"]:
+                continue
+            _fl = fuel_lines_by_job.get(r.id)
+            _shows_fuel = bool(_fl) if _fl is not None else bool(
+                (r.fuel_amount or 0) or (r.fuel_liter or 0))
+            if _shows_fuel or driver_fees_by_job.get(r.id):
+                continue
+            _mg.setdefault(_k["label"], []).append(r)
+        for _label, _rows in _mg.items():
+            if len(_rows) >= 2:
+                mixed_idle_groups.append({
+                    "label": _label,
+                    "dates": [r.work_date for r in _rows],
+                    "n": len(_rows),
+                })
+                mixed_idle_skip.update(r.id for r in _rows)
+
     # วันที่หักน้ำมัน (ใช้ logic เดียวกับ engine เพื่อให้สลิปป้าย 'หัก' ตรงกับเงินจริง):
     # วันเหมา + วันรถจอด 'ช่วงเหมา'. import แบบ lazy กันวงกลม.
     fuel_deduct_dates: set = set()
@@ -642,6 +689,9 @@ def build_payroll_slip_context(
         "trip_count": trip_count,
         "driver_fees_by_job": driver_fees_by_job,
         "fuel_only_info": fuel_only_info,
+        "fuelonly_hidden": fuelonly_hidden,
+        "mixed_idle_skip": mixed_idle_skip,
+        "mixed_idle_groups": mixed_idle_groups,
         "petty_lines": petty_lines,
         "petty_lines_extra": petty_lines_extra,
         "petty_categories": petty_categories,
