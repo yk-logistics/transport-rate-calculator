@@ -101,6 +101,26 @@ def test_manual_slip_multiple_months(client):
     assert "12,345" in r.text and "15,000" in r.text
 
 
+def test_manual_slip_prefills_real_paydate(client):
+    """วันที่จ่ายเติมตามรอบจริง (โอเคาะ 6ก.ค.): LCB/BIGC = วันที่ 1 เดือนถัดจากรอบจบ,
+    AYU = สิ้นเดือนที่รอบจบ."""
+    _login(client)
+    # LCB รอบจบ 15/05 → จ่าย 01/06/2026
+    r = client.get("/payroll/manual-slip?emp_id=5&run_ids=1")
+    assert 'value="01/06/2026"' in r.text
+    # AYU รอบจบ 25/06 → จ่ายสิ้นเดือน 30/06/2026
+    with Session(engine) as s:
+        s.add(PayRun(id=9, site_code="AYU", pay_cycle_tag="2026-06",
+                     period_start=date(2026, 5, 26), period_end=date(2026, 6, 25),
+                     status="finalized"))
+        s.add(PayRunItem(pay_run_id=9, employee_id=5, site_code="AYU",
+                         trip_fee_total=9999.0, gross_total=9999.0,
+                         deduction_total=0.0, net_pay=9999.0))
+        s.commit()
+    r = client.get("/payroll/manual-slip?emp_id=5&run_ids=9")
+    assert 'value="30/06/2026"' in r.text
+
+
 def test_manual_slip_footer_no_authorized_signer(client):
     """โอสั่ง: ตัดช่อง 'ผู้มีอำนาจลงนาม' — เหลือ ผู้จัดทำ (มีลายเซ็น+ตรา) กับ ผู้รับเงิน."""
     _login(client)

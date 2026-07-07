@@ -50,11 +50,12 @@ table.rows td.x{width:22px;text-align:center;}
 table.rows td.x button{border:none;background:none;color:var(--wb-neg);cursor:pointer;font-size:13px;padding:0;}
 .addrow{margin-top:6px;font-size:11px;color:var(--wb-soft);background:none;border:1px dashed var(--wb-line);border-radius:6px;padding:3px 10px;cursor:pointer;}
 .sumline{display:flex;justify-content:space-between;font-weight:700;padding:7px 4px 0;border-top:1.5px solid var(--wb-ink);margin-top:6px;font-family:"IBM Plex Mono",monospace;}
-.wb-footer{display:grid;grid-template-columns:1fr 1fr;gap:60px;padding:14px 60px 20px;border-top:1px solid var(--wb-line);}
-.sig{text-align:center;font-size:11px;color:var(--wb-soft);}
+/* เส้นเซ็นสองฝั่งต้องอยู่แนวเดียวกัน (โอ 7ก.ค.) — จัดทุกบล็อกชิดล่างด้วย flex column + justify-end */
+.wb-footer{display:grid;grid-template-columns:1fr 1fr;gap:60px;padding:14px 60px 20px;border-top:1px solid var(--wb-line);align-items:end;}
+.sig{text-align:center;font-size:11px;color:var(--wb-soft);display:flex;flex-direction:column;justify-content:flex-end;}
 .sig .sigimg{height:86px;display:block;margin:0 auto -14px;}
-.sig .line{border-bottom:1px dotted var(--wb-soft);height:34px;margin-bottom:6px;}
-.sig .line.short{height:20px;}
+.sig .line{border-bottom:1px dotted var(--wb-soft);margin-bottom:6px;}
+.sig .caption{white-space:nowrap;}
 .sig b{color:var(--wb-ink);}
 .note-area{padding:0 24px 14px;font-size:11px;color:var(--wb-soft);}
 @media print{
@@ -105,7 +106,8 @@ table.rows td.x button{border:none;background:none;color:var(--wb-neg);cursor:po
       ช่วงงวด <input class="f small" data-k="period" style="width:180px;display:inline-block;"
         value="{{ (prefill.run.period_start | dmy) ~ ' – ' ~ (prefill.run.period_end | dmy) if prefill else '' }}"
         placeholder="เช่น 1/5/2026 – 31/5/2026">
-      <br>วันที่จ่าย <input class="f small" data-k="paydate" style="width:110px;display:inline-block;" placeholder="เช่น 1/6/2026">
+      <br>วันที่จ่าย <input class="f small" data-k="paydate" style="width:110px;display:inline-block;"
+        value="{{ prefill.paydate | dmy if prefill else '' }}" placeholder="เช่น 1/6/2026">
     </div>
   </div>
 
@@ -156,10 +158,13 @@ table.rows td.x button{border:none;background:none;color:var(--wb-neg);cursor:po
   <div class="wb-footer">
     <div class="sig">
       <img class="sigimg" src="/uploads/sig_oh.png" alt="" onerror="this.style.display='none'">
-      <div class="line short"></div>
-      <b>พงษกาญจน์</b> · ผู้จัดทำ
+      <div class="line"></div>
+      <div class="caption"><b>พงษกาญจน์</b> · ผู้จัดทำ</div>
     </div>
-    <div class="sig"><div class="line"></div>ผู้รับเงิน · วันที่ <input class="f small" data-k="sigdate" style="width:90px;display:inline-block;"></div>
+    <div class="sig">
+      <div class="line"></div>
+      <div class="caption">ผู้รับเงิน · วันที่ <input class="f small" data-k="sigdate" style="width:90px;display:inline-block;"></div>
+    </div>
   </div>
 </div>
 {% endmacro %}

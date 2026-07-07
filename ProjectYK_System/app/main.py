@@ -4119,7 +4119,15 @@ def payroll_manual_slip(request: Request, emp_id: int = 0, run_ids: str = ""):
                 if round(rest, 2):
                     inc.append(("รายได้อื่น", rest))
                 ded = [(lb, getattr(it, f) or 0) for lb, f in _DED if (getattr(it, f) or 0)]
-                slips.append({"run": pr, "inc": inc, "ded": ded})
+                # วันที่จ่ายจริง (โอเคาะ 6ก.ค.): AYU = สิ้นเดือนที่รอบจบ;
+                # LCB/BIGC = วันที่ 1 ของเดือนถัดจากรอบจบ
+                pe = pr.period_end
+                if pr.site_code == "AYU":
+                    _nm = date(pe.year + (pe.month == 12), pe.month % 12 + 1, 1)
+                    paydate = _nm - timedelta(days=1)
+                else:
+                    paydate = date(pe.year + (pe.month == 12), pe.month % 12 + 1, 1)
+                slips.append({"run": pr, "inc": inc, "ded": ded, "paydate": paydate})
             slips.sort(key=lambda x: x["run"].period_start)
     ctx.update({"emps": emps, "emp": emp, "emp_runs": emp_runs, "slips": slips,
                 "run_ids": run_ids})
