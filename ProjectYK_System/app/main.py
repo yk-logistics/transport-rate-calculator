@@ -4079,17 +4079,50 @@ def payroll_list(
 
 
 @app.get("/payroll/manual-slip", response_class=HTMLResponse)
-def payroll_manual_slip(request: Request, emp_id: int = 0):
+def payroll_manual_slip(request: Request, emp_id: int = 0, run_ids: str = ""):
     """สลิปเขียนเอง (โอ 7ก.ค.) — ทำสลิปย้อนหลังช่วงข้อมูลระบบยังไม่ครบ: ทุกช่อง
     พิมพ์แก้ได้ + เลือกพนักงานเติมข้อมูลที่มี (ชื่อ/รหัส/เลขบัตร/บัญชี) แล้วพิมพ์.
-    ไม่เขียนอะไรลง DB; ร่างเซฟใน localStorage ฝั่งเครื่องผู้ใช้.
+    run_ids=1,2 → ดึงตัวเลขจริงจาก PayRunItem ของรอบพวกนั้น หลายเดือน = หลายสลิป
+    ในหน้าเดียว (แก้ต่อได้ก่อนพิมพ์). ไม่เขียนอะไรลง DB.
     NB: literal path ต้องมาก่อน /payroll/{run_id} (ไม่งั้นโดนดักเป็น run_id)."""
+    # (label, field) เรียงแบบสลิปจริง — โชว์เฉพาะค่าที่ไม่เป็นศูนย์
+    _INC = [("เงินเดือน", "base_salary_earned"), ("ค่าดูแลรถ", "care_allowance_earned"),
+            ("ค่าเที่ยว", "trip_fee_total"), ("เหมา (60% ค่าขนส่ง)", "fuel_share_income"),
+            ("ค่าเรทน้ำมัน", "fuel_rate_income"), ("ชดเชยการันตี", "guarantee_topup"),
+            ("พิเศษ", "special_income"), ("OT", "ot_income"),
+            ("รับตู้คืนตู้", "pickup_return_income")]
+    _DED = [("ค่าน้ำมัน (หักจริง)", "fuel_cost_self"), ("ประกันสังคม", "social_security"),
+            ("ภาษีหัก ณ ที่จ่าย", "income_tax_withholding"),
+            ("เงินประกันตน (ผ่อน)", "deposit_install"), ("ผ่อนอุบัติเหตุ", "accident_install"),
+            ("เงินเบิก / สดย่อย", "petty_cash_deduction"), ("หักอื่นๆ", "other_deduction")]
+
     ctx = base_context(request)
     with Session(engine) as s:
         emps = s.exec(select(Employee).where(Employee.status == "active")
                       .order_by(Employee.home_site_code, Employee.full_name)).all()
         emp = s.get(Employee, emp_id) if emp_id else None
-    ctx.update({"emps": emps, "emp": emp})
+        emp_runs, slips = [], []
+        if emp:
+            rows = s.exec(
+                select(PayRun, PayRunItem)
+                .where(PayRunItem.pay_run_id == PayRun.id,
+                       PayRunItem.employee_id == emp.id)
+                .order_by(PayRun.period_end.desc())).all()
+            emp_runs = [pr for pr, _ in rows]
+            wanted = {int(x) for x in run_ids.split(",") if x.strip().isdigit()}
+            for pr, it in rows:
+                if pr.id not in wanted:
+                    continue
+                inc = [(lb, getattr(it, f) or 0) for lb, f in _INC if (getattr(it, f) or 0)]
+                rest = (it.other_income or 0) - (it.special_income or 0) \
+                    - (it.ot_income or 0) - (it.pickup_return_income or 0)
+                if round(rest, 2):
+                    inc.append(("รายได้อื่น", rest))
+                ded = [(lb, getattr(it, f) or 0) for lb, f in _DED if (getattr(it, f) or 0)]
+                slips.append({"run": pr, "inc": inc, "ded": ded})
+            slips.sort(key=lambda x: x["run"].period_start)
+    ctx.update({"emps": emps, "emp": emp, "emp_runs": emp_runs, "slips": slips,
+                "run_ids": run_ids})
     return templates.TemplateResponse(request, "payroll_manual_slip.html", ctx)
 
 
