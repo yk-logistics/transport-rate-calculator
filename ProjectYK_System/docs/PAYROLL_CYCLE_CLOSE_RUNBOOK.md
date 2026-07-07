@@ -24,7 +24,7 @@
 
 รันทุกคำสั่งจากราก repo; ตัวที่แตะ server DB ให้รันบน server.
 
-1. **เดลี่ครบรอบ** — import จบแล้ว ไม่มีเที่ยวค้าง; ถ้ารอบนั้น import กลางรอบไปแล้ว (กติกาใหม่ ก.ค.) ห้าม re-import ทับ grid (ราคาที่ทีมเติมจะหาย) — แก้ใน grid เท่านั้น.
+1. **เดลี่ครบรอบ** — import จบแล้ว ไม่มีเที่ยวค้าง. **AYU รอบ 2026-07 import กลางรอบไปแล้ว 6ก.ค. (314 งาน) + โอเคาะกติกา: ข้อมูล AYU แก้ที่"ชีทจริง"เท่านั้น ห้ามแก้ใน grid** → ก่อนปิดรอบ 25ก.ค. ให้ re-import สุดท้าย: export ชีทจริง (id 1F5eJlYs…) เป็น xlsx → scp ทับ `YK_MVP/tools/ayu_gsheet.xlsx` บน server → รัน `_run_ayu_import.ps1` (dry-run ดูยอด) → apply พร้อม `--wipe-prior` (ลบ source=ayu_2026-07 แล้วเขียนใหม่ทั้งก้อน — ปลอดภัยเพราะไม่มีใครแก้ grid). **ถ้าพบว่ามีใครแก้ grid AYU ไปแล้ว: ห้าม wipe เด็ดขาด** (ของหาย — ตระกูล C4) ให้เทียบมือแทน. ไซท์อื่น (LCB/BIGC) กติกาเดิม: import ครั้งเดียวตอนจบรอบ แล้วแก้ใน grid — ห้าม re-import ทับ.
 2. **สดย่อย (petty) ครบ** — `import_petty_cash.py` แล้วเช็ค: คนขับใหม่ที่ onboard หลัง import ต้องดึง petty ของเขาตามมาด้วย (เคสปรีชา 4,095). คนที่ลาออกแล้วมียอดในชีท = carry ไปรอบหน้า ไม่ใช่บั๊ก (เคสวันชัย).
 3. **น้ำมัน reconcile** — `python ProjectYK_System/tools/fuel_slip_reconcile.py <run_id>` ต้องไม่มี MISMATCH (กฎโอ: Σ น้ำมันในตารางสลิป = fuel_cost_self ทุกคน mao; ส่วนต่างต้องมีบรรทัด off-table). **ย้ายน้ำมันข้ามคน/รถ ต้องแก้ 2 ที่**: FuelTxn (คุมเงินหัก) + DailyJob.fuel_amount/liter แถวเดิม (คุมสลิป).
 4. **preflight** — `python ProjectYK_System/tools/preflight_payrun.py --site <SITE> --run-id <id>` (read-only, JSON ลง reports/): unlinked / cycle-drift / cross-site / source scan.
