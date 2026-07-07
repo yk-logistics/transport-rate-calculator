@@ -102,16 +102,35 @@ def parse_invoice(path: Path, fname: str) -> dict | None:
 
     wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
     ws = wb["ค่าขนส่ง"] if "ค่าขนส่ง" in wb.sheetnames else wb[wb.sheetnames[-1]]
+    # ตำแหน่งคอลัมน์ไม่คงที่ — ฟอร์ม ก.ค.69 ตัดช่อง OT/ชอร์ ทำให้ จำนวนเงิน เลื่อน M→L
+    # จึงหาจากแถวหัวตารางไทยก่อน (ไม่เจอ = ฟอร์มเดิม J/K/L/M)
+    hdr = None
+    for row in ws.iter_rows(min_row=5, max_row=25):
+        heads = {c.coordinate.rstrip("0123456789"): c.value.strip()
+                 for c in row if isinstance(c.value, str)}
+        if "จำนวนเงิน" in heads.values() and "ค่าขนส่ง" in heads.values():
+            hdr = heads
+            break
+    cols = {"transport": "J", "extra": "K", "advance": "L", "amount": "M"}
+    if hdr:
+        by_label = {v: col for col, v in hdr.items()}
+        cols = {"transport": by_label["ค่าขนส่ง"], "advance": by_label.get("ค่าใช้จ่าย"),
+                "amount": by_label["จำนวนเงิน"], "extra": None}
+        for col in hdr:  # ช่องเงินอื่นระหว่างค่าขนส่ง↔จำนวนเงิน (ค่าล่วงเวลา/ชอร์/ล้าง)
+            if col not in cols.values() and cols["transport"] < col < cols["amount"]:
+                cols["extra"] = col
     qty = 0
     transport = ot_sheet = advances = row_sum = 0.0
     for row in ws.iter_rows(min_row=15, max_row=60):
         vals = {c.coordinate.rstrip("0123456789"): c.value for c in row if c.value is not None}
         if isinstance(vals.get("A"), (int, float)):  # แถวตู้: A = เลขลำดับ
             qty += 1
-            transport += float(vals.get("J") or 0)
-            ot_sheet += float(vals.get("K") or 0)
-            advances += float(vals.get("L") or 0)
-            row_sum += float(vals.get("M") or 0)
+            transport += float(vals.get(cols["transport"]) or 0)
+            if cols["extra"]:
+                ot_sheet += float(vals.get(cols["extra"]) or 0)
+            if cols["advance"]:
+                advances += float(vals.get(cols["advance"]) or 0)
+            row_sum += float(vals.get(cols["amount"]) or 0)
     wb.close()
     return {
         "inv": inv, "customer": customer.strip(), "quote": quote, "ot": ot,

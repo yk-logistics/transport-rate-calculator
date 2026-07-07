@@ -51,6 +51,35 @@ def test_match_amount_not_found():
     assert kbp.match_amount(FAKE_ROWS, 123.45)["combos"] == []
 
 
+@pytest.mark.parametrize("headers,data", [
+    # ฟอร์มเดิม (พ.ค.-มิ.ย.69): J=ขนส่ง K=OT L=ใช้จ่าย M=จำนวนเงิน
+    ({"J": "ค่าขนส่ง", "K": "ค่าล่วงเวลา", "L": "ค่าใช้จ่าย", "M": "จำนวนเงิน"},
+     {"J": 5000, "L": 1746, "M": 6746}),
+    # ฟอร์ม ก.ค.69 ตัดช่อง OT: K=ใช้จ่าย L=จำนวนเงิน (เคสจริงยอดวางบิลหาย 7ก.ค.)
+    ({"J": "ค่าขนส่ง", "K": "ค่าใช้จ่าย", "L": "จำนวนเงิน"},
+     {"J": 5000, "K": 1746, "L": 6746}),
+])
+def test_parse_invoice_column_layouts(tmp_path, headers, data):
+    """คอลัมน์ จำนวนเงิน เลื่อนตำแหน่งได้ — parse จากหัวตาราง ไม่ล็อก M."""
+    import openpyxl
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "ค่าขนส่ง"
+    for col, label in headers.items():
+        ws[f"{col}14"] = label
+    ws["A16"] = 1
+    for col, v in data.items():
+        ws[f"{col}16"] = v
+    p = tmp_path / "CYIV2607-001 MINKANG 3953+200.xlsx"
+    wb.save(p)
+    r = kbp.parse_invoice(p, p.name)
+    assert r["qty"] == 1
+    assert r["transport"] == 5000.0
+    assert r["advances"] == 1746.0
+    assert r["grand_total"] == 6746.0
+    assert kbp.kb_of(r) == 847.0  # 5000 − 3953×1 − 200
+
+
 @pytest.fixture()
 def client(monkeypatch):
     SQLModel.metadata.drop_all(engine)
