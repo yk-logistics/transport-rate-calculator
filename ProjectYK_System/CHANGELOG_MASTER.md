@@ -13,7 +13,8 @@
 - **`/maint/tires/report`:** การ์ดค่ายางเดือนนี้+เทียบเดือนก่อน(%) · ตารางเหตุที่เปลี่ยน(group ระเบิด/ดอกหมด/ลวดโผล่ เรียงมาก→น้อย) · ค่ายางรายคัน · **ตารางเทียบหล่อ vs แท้: บาท/เดือน + บาท/1,000กม.** จากยางครบวงจร(ติดตั้ง→ถอด); ยางไม่มีไมล์คิดเป็นวันได้ คอลัมน์กิโลว่างเฉพาะเส้นนั้น ไม่พังทั้งตาราง; เตือน "ข้อมูลยังน้อย" เมื่อ retired<5
 - **gotcha:** route ใหม่ (bill/report) ต้องประกาศ**ก่อน** `/maint/tires/{tire_id}` ไม่งั้น starlette จับ "bill"/"report" เป็น tire_id (เจอตอน RED — เทสต์ render ได้ 303→login เพราะ auth guard, ไม่ใช่ fall-through)
 - **logic แยก unit:** `services/tire_view.tire_lifecycle_report()` (aggregate หล่อ/แท้+เหตุ testable ไม่ผ่าน HTTP)
-- **verify:** TDD 13 เทสต์ (test_tire_bill_report.py) ครอบเกณฑ์ผ่านข้อ 2–5 ครบ; ชุดเต็มรอบแรก **558 ผ่าน 0 ล้ม**; e2e HTTP จริง (คีย์บิล 12,500฿→ยางเก่าถอดพร้อมเหตุ→รายงาน render ครบ) + migration ทดสอบบนสำเนา app.db; commit 43a8a57
+- **verify:** TDD 13 เทสต์ (test_tire_bill_report.py) ครอบเกณฑ์ผ่านข้อ 2–5 ครบ; ชุดเต็ม **560 ผ่าน** (1 flaky = test_error_logging ไม่เกี่ยวยาง ผ่านเมื่อรันเดี่ยว); e2e HTTP จริง (คีย์บิล 12,500฿→ยางเก่าถอดพร้อมเหตุ→รายงาน render ครบ) + migration ทดสอบบนสำเนา app.db; commit 43a8a57
+- **deploy เขียว (surgical scp 6 ไฟล์ — ไม่ใช้ deploy_mvp.sh):** backup app.db.bak_before_tire_v48_20260708_200045 → restart ปลอดภัย (kill 8010 by PID, 8020 archiver ยังอยู่) → **migration รันบน production DB จริง: schema=48, tire_type/removal_reason/reason_code เพิ่มครบ** → public https://app.yklogistics.uk /login 200, /maint/tires/{bill,report} 303 (route มีจริง); **main.py พ่วง oauth_state cookie fix ของอีก session ขึ้นไปด้วย (โอเคาะ)**
 - **ยังไม่แตะ:** payroll/finance/daily/billing/cycle — ค่ายางเข้า MaintRecord ตามทางเดิม (kind=tire_change ไม่รั่วรอบคนขับ เว้น paid_by=deduct_driver = flow เดิม)
 
 ## 2026-07-07 (A5 สลิป: โอไล่จริง → จัดระเบียบ 3 เรื่อง + deploy)
