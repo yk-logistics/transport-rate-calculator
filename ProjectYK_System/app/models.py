@@ -582,6 +582,10 @@ class Tire(SQLModel, table=True):
     tread_depth_mm: float = 0.0    # ความหนาดอกยางปัจจุบัน (mm)
     retread_count: int = 0         # จำนวนครั้งที่ดอกยางหล่อซ้ำ
 
+    # v48: ยางหล่อ vs แท้ + เหตุถอดล่าสุด (เก็บที่ตัวยางเพื่อ query เร็ว)
+    tire_type: str = Field(default="new", index=True)   # new | retread | used
+    removal_reason: str = Field(default="", index=True)  # ตาม TIRE_REMOVAL_REASONS
+
     notes: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -610,6 +614,7 @@ class TireEvent(SQLModel, table=True):
     actor_name: str = ""         # name typed at magic-link entry
     actor_role: str = ""         # driver | mechanic | "" (office)
     condition_flag: str = ""     # driver report: ok | near | problem | ""
+    reason_code: str = Field(default="", index=True)  # v48: เหตุของ event (unmount/scrap) ตาม TIRE_REMOVAL_REASONS
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -796,6 +801,26 @@ TIRE_CONDITION_FLAGS = (
     ("ok",      "ปกติ"),
     ("near",    "น่าจะใกล้หมด"),
     ("problem", "มีปัญหา (รั่ว/บวม/ฉีก)"),
+)
+
+# v48: ประเภทยาง (แยกต้นทุน/อายุ หล่อ vs แท้)
+TIRE_TYPES = (
+    ("new",     "ยางแท้ (ซื้อใหม่)"),
+    ("retread", "ยางหล่อดอก"),
+    ("used",    "ยางมือสอง"),
+)
+
+# v48: เหตุที่ถอด/เปลี่ยนยาง (เก็บที่ TireEvent.reason_code + Tire.removal_reason)
+TIRE_REMOVAL_REASONS = (
+    ("burst",        "ยางระเบิด"),
+    ("wire",         "ลวดโผล่/ผ้าใบขาด"),
+    ("worn",         "ดอกหมด/หมดสภาพ"),
+    ("bulge",        "บวม/ปูด"),
+    ("puncture",     "ตำ/รั่ว ซ่อมไม่ได้"),
+    ("retread_send", "ส่งหล่อดอก"),
+    ("rotate_plan",  "สลับตามแผน (ยังใช้ได้)"),
+    ("damage",       "เสียหายอื่น (บาด/ฉีก)"),
+    ("other",        "อื่น ๆ"),
 )
 
 PM_KINDS = (

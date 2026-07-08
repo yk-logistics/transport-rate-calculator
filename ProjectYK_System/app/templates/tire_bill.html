@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}คีย์บิลยาง{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">📋 คีย์บิลยาง</h1>
+  <div class="flex gap-2">
+    <a href="/maint/tires/report" class="btn bg-slate-200 hover:bg-slate-300">📊 รายงานความคุ้ม</a>
+    <a href="/maint/tires" class="btn bg-slate-200 hover:bg-slate-300">← รายการยาง</a>
+  </div>
+</div>
+
+<p class="text-sm text-slate-500 mb-4">
+  กรอกบิลจากร้านยาง 1 ใบ → ระบบสร้างยาง + ประวัติเปลี่ยน + ค่าใช้จ่ายให้อัตโนมัติ
+  &nbsp;·&nbsp; <span class="text-slate-400">เลขไมล์ไม่บังคับ (มีก็คิดต้นทุนต่อกิโลได้)</span>
+</p>
+
+{% if not vehicles %}
+<div class="p-6 bg-amber-50 border border-amber-300 rounded-lg text-center text-amber-800">
+  ยังไม่มีรถในระบบ — <a href="/vehicles/new" class="underline font-semibold">เพิ่มรถก่อน</a>
+</div>
+{% else %}
+
+<form method="post" action="/maint/tires/bill" id="bill-form">
+  <input type="hidden" name="row_count" id="row_count" value="0">
+
+  {# ---- หัวบิล ---- #}
+  <div class="p-4 bg-white border rounded-lg mb-4">
+    <h2 class="font-semibold mb-3 text-slate-700">1. ข้อมูลบิล</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div>
+        <label class="text-xs text-slate-500">รถ <span class="text-red-500">*</span></label>
+        <select name="vehicle_id" id="vehicle-select" required
+                class="border rounded px-2 py-1 w-full"
+                hx-get="/maint/tires/bill/positions"
+                hx-target="#pos-template"
+                hx-trigger="change"
+                hx-include="[name='vehicle_id']">
+          <option value="">— เลือกรถ —</option>
+          {% for v in vehicles %}
+          <option value="{{ v.id }}" {% if selected and selected.id == v.id %}selected{% endif %}>{{ v.plate_no }}{% if v.truck_type %} ({{ v.truck_type }}){% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-slate-500">วันที่ <span class="text-red-500">*</span></label>
+        <input type="date" name="work_date" required value="{{ today }}" class="border rounded px-2 py-1 w-full">
+      </div>
+      <div>
+        <label class="text-xs text-slate-500">เลขไมล์รถ <span class="text-slate-300">(ไม่บังคับ)</span></label>
+        <input type="number" name="mile" placeholder="กม." class="border rounded px-2 py-1 w-full">
+      </div>
+      <div>
+        <label class="text-xs text-slate-500">ร้านยาง</label>
+        <select name="vendor_id" class="border rounded px-2 py-1 w-full">
+          <option value="">— ไม่ระบุ —</option>
+          {% for vn in vendors %}
+          <option value="{{ vn.id }}">{{ vn.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-slate-500">เลขที่บิล/ใบเสร็จ</label>
+        <input type="text" name="receipt_ref" placeholder="เช่น R-00123" class="border rounded px-2 py-1 w-full">
+      </div>
+      <div>
+        <label class="text-xs text-slate-500">จ่ายโดย</label>
+        <select name="paid_by" class="border rounded px-2 py-1 w-full">
+          {% for code, label in paid_by_options %}
+          <option value="{{ code }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  {# ---- รายการยางที่เปลี่ยน ---- #}
+  <div class="p-4 bg-white border rounded-lg mb-4">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-semibold text-slate-700">2. ยางที่เปลี่ยน</h2>
+      <button type="button" id="add-row" class="btn bg-emerald-600 text-white hover:bg-emerald-700 text-sm">+ เพิ่มเส้น</button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm" id="rows-table">
+        <thead>
+          <tr class="text-left text-slate-500 border-b">
+            <th class="py-1 pr-2">ตำแหน่ง</th>
+            <th class="py-1 pr-2">ประเภท</th>
+            <th class="py-1 pr-2">ยี่ห้อ</th>
+            <th class="py-1 pr-2">รุ่น</th>
+            <th class="py-1 pr-2">ขนาด</th>
+            <th class="py-1 pr-2">ราคา/เส้น</th>
+            <th class="py-1 pr-2">ดอก(mm)</th>
+            <th class="py-1 pr-2">เหตุที่เปลี่ยน</th>
+            <th class="py-1"></th>
+          </tr>
+        </thead>
+        <tbody id="rows-body"></tbody>
+      </table>
+    </div>
+    <p class="text-xs text-slate-400 mt-2">ถ้าตำแหน่งนั้นมียางเก่าอยู่ ระบบจะถอดยางเก่าออก (พร้อมบันทึกเหตุ) ให้อัตโนมัติ</p>
+  </div>
+
+  {# ---- ค่าอื่น + รวม ---- #}
+  <div class="p-4 bg-white border rounded-lg mb-4">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div>
+        <label class="text-xs text-slate-500">ค่าแรง (฿)</label>
+        <input type="number" step="0.01" name="labor_cost" placeholder="0" class="border rounded px-2 py-1 w-full">
+      </div>
+      <div>
+        <label class="text-xs text-slate-500">ค่าอื่น (฿)</label>
+        <input type="number" step="0.01" name="other_cost" placeholder="0" class="border rounded px-2 py-1 w-full">
+      </div>
+      <div class="flex items-end">
+        <div class="text-right w-full">
+          <span class="text-xs text-slate-500">รวมค่ายาง (ประเมิน)</span>
+          <div class="text-xl font-bold text-orange-600" id="grand-total">฿0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex justify-end gap-3">
+    <a href="/maint/tires" class="btn bg-slate-200 hover:bg-slate-300">ยกเลิก</a>
+    <button type="submit" class="btn bg-orange-600 text-white hover:bg-orange-700">💾 บันทึกบิล</button>
+  </div>
+</form>
+
+{# hidden pool of <option>s for positions, refreshed by HTMX on vehicle change #}
+<select id="pos-template" class="hidden">
+  {% for p in positions %}
+  <option value="{{ p }}">{{ p }}</option>
+  {% endfor %}
+</select>
+
+<script>
+const TIRE_TYPES = [{% for c,l in tire_types %}["{{c}}","{{l}}"]{% if not loop.last %},{% endif %}{% endfor %}];
+const REASONS = [{% for c,l in removal_reasons %}["{{c}}","{{l}}"]{% if not loop.last %},{% endif %}{% endfor %}];
+
+function posOptions() {
+  const src = document.getElementById('pos-template');
+  return '<option value="">—</option>' + src.innerHTML;
+}
+function selectHtml(name, idx, opts) {
+  return `<select name="${name}_${idx}" class="border rounded px-1 py-1 w-full text-sm">${opts}</select>`;
+}
+function optList(pairs) {
+  return pairs.map(p => `<option value="${p[0]}">${p[1]}</option>`).join('');
+}
+
+let rowIdx = 0;
+function addRow() {
+  const idx = rowIdx++;
+  const tr = document.createElement('tr');
+  tr.className = "border-b";
+  tr.innerHTML = `
+    <td class="py-1 pr-2 min-w-[120px]">${selectHtml('pos', idx, posOptions())}</td>
+    <td class="py-1 pr-2 min-w-[110px]">${selectHtml('type', idx, optList(TIRE_TYPES))}</td>
+    <td class="py-1 pr-2"><input name="brand_${idx}" class="border rounded px-1 py-1 w-full text-sm" placeholder="Bridgestone"></td>
+    <td class="py-1 pr-2"><input name="model_${idx}" class="border rounded px-1 py-1 w-full text-sm" placeholder="R150"></td>
+    <td class="py-1 pr-2"><input name="spec_${idx}" class="border rounded px-1 py-1 w-full text-sm" placeholder="11R22.5"></td>
+    <td class="py-1 pr-2"><input name="price_${idx}" type="number" step="0.01" class="border rounded px-1 py-1 w-24 text-sm price-in" placeholder="0"></td>
+    <td class="py-1 pr-2"><input name="tread_${idx}" type="number" step="0.1" class="border rounded px-1 py-1 w-16 text-sm" placeholder="mm"></td>
+    <td class="py-1 pr-2 min-w-[130px]">${selectHtml('reason', idx, optList(REASONS))}</td>
+    <td class="py-1"><button type="button" class="text-red-500 hover:text-red-700 del-row">✕</button></td>`;
+  document.getElementById('rows-body').appendChild(tr);
+  tr.querySelector('.del-row').addEventListener('click', () => { tr.remove(); recount(); recalc(); });
+  tr.querySelector('.price-in').addEventListener('input', recalc);
+  recount();
+}
+function recount() {
+  document.getElementById('row_count').value = rowIdx;
+}
+function recalc() {
+  let total = 0;
+  document.querySelectorAll('.price-in').forEach(i => total += parseFloat(i.value || 0));
+  document.querySelectorAll('[name=labor_cost],[name=other_cost]').forEach(i => total += parseFloat(i.value || 0));
+  document.getElementById('grand-total').textContent = '฿' + total.toLocaleString(undefined, {minimumFractionDigits: 0});
+}
+
+document.getElementById('add-row').addEventListener('click', addRow);
+document.querySelectorAll('[name=labor_cost],[name=other_cost]').forEach(i => i.addEventListener('input', recalc));
+// start with one empty row
+addRow();
+{% if selected %}// vehicle preselected -> positions already in template{% endif %}
+</script>
+{% endif %}
+{% endblock %}

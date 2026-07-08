@@ -99,7 +99,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 47  # v47: DealRecord+PlaceCache (โต๊ะเช็คดีล /quote/deal — create_all); v46: TodoSuggest (เฟส 4 กล่องรอคัดจากไลน์ — create_all); v45: AiChatLog (เฟส 3 /ai — create_all); v44: MediaArchive (G2 — create_all); v43: DocTemplate+DocIssue (A2 — create_all); v42: Vehicle.tank_liters (ALTER); v41: JobMedia; v40: LineGroupMap+LineJobSeen; v39: PartPermission; v38: DebtAccount; v37: AuditLog
+SCHEMA_VERSION = 48  # v48: Tire.tire_type+removal_reason, TireEvent.reason_code (ALTER — ระบบยางหยุดเลือด: คีย์บิล+รายงานหล่อ/แท้); v47: DealRecord+PlaceCache (โต๊ะเช็คดีล /quote/deal — create_all); v46: TodoSuggest (เฟส 4 กล่องรอคัดจากไลน์ — create_all); v45: AiChatLog (เฟส 3 /ai — create_all); v44: MediaArchive (G2 — create_all); v43: DocTemplate+DocIssue (A2 — create_all); v42: Vehicle.tank_liters (ALTER); v41: JobMedia; v40: LineGroupMap+LineJobSeen; v39: PartPermission; v38: DebtAccount; v37: AuditLog
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -394,6 +394,11 @@ def _apply_additive_migrations() -> None:
 
     # v41 → v42 (E2): ขนาดถังน้ำมันต่อคัน (0 = ใช้ default ตามชนิดรถ)
     _ensure_column("vehicle", "tank_liters", "REAL", default="0")
+
+    # v47 → v48: ระบบยาง "หยุดเลือด" — ประเภทยาง(หล่อ/แท้)+เหตุถอด
+    _ensure_column("tire",      "tire_type",      "TEXT", default="new")
+    _ensure_column("tire",      "removal_reason", "TEXT", default="")
+    _ensure_column("tireevent", "reason_code",    "TEXT", default="")
 
     # v6 → v7: PayRunItem BIGC audit columns + PayRunAdjust table (created via
     # SQLModel.metadata.create_all; nothing ALTER-wise needed for new table).
@@ -2529,7 +2534,8 @@ def email_oauth_start():
     state = new_oauth_state()
     url = build_authorize_url(state)
     resp = RedirectResponse(url=url, status_code=303)
-    resp.set_cookie("email_oauth_state", state, max_age=600, httponly=True, samesite="lax")
+    resp.set_cookie("email_oauth_state", state, max_age=600, httponly=True,
+                    samesite="lax", secure=_secure_cookies)
     return resp
 
 
@@ -7985,6 +7991,240 @@ def maint_tire_list(request: Request, status_filter: str = "", vehicle_filter: s
     )
 
 
+# --- Tire "หยุดเลือด": bill entry (office) + cost/longevity report -----------
+# NOTE: these literal paths MUST be declared before /maint/tires/{tire_id}
+# below, otherwise Starlette matches "bill"/"report" as a tire_id.
+
+@app.get("/maint/tires/bill", response_class=HTMLResponse)
+def maint_tire_bill_form(request: Request, vehicle_id: int = 0):
+    with Session(engine) as s:
+        vehicles = s.exec(select(Vehicle).order_by(Vehicle.plate_no)).all()
+        vendors = s.exec(
+            select(Vendor).where(Vendor.kind == "tire").order_by(Vendor.name)
+        ).all()
+        sel = s.get(Vehicle, vehicle_id) if vehicle_id else None
+    positions = _tire_positions_for_vehicle(sel) if sel else ()
+    return templates.TemplateResponse(request, "tire_bill.html", {
+        "request": request,
+        "vehicles": vehicles,
+        "vendors": vendors,
+        "selected": sel,
+        "positions": positions,
+        "tire_types": models.TIRE_TYPES,
+        "removal_reasons": models.TIRE_REMOVAL_REASONS,
+        "paid_by_options": models.MAINT_PAID_BY,
+        "today": date.today().isoformat(),
+    })
+
+
+@app.get("/maint/tires/bill/positions", response_class=HTMLResponse)
+def maint_tire_bill_positions(request: Request, vehicle_id: int = 0):
+    """HTMX partial: position <option>s for the chosen vehicle."""
+    with Session(engine) as s:
+        v = s.get(Vehicle, vehicle_id) if vehicle_id else None
+    positions = _tire_positions_for_vehicle(v) if v else ()
+    opts = "".join(
+        f'<option value="{p}">{models.TIRE_POSITION_TH.get(p, p)} ({p})</option>'
+        for p in positions
+    )
+    return HTMLResponse(opts)
+
+
+@app.post("/maint/tires/bill")
+async def maint_tire_bill_save(request: Request):
+    """One tire bill -> MaintRecord(kind=tire_change) + per-tyre Tire/mount/MaintPart.
+
+    Any tyre currently at a target position is auto-unmounted (carrying the
+    replacement's removal reason) by _apply_tire_event's mount branch, and we
+    also stamp removal_reason on it explicitly for the office flow.
+    """
+    form = await request.form()
+    vehicle_id = int(form.get("vehicle_id") or 0)
+    work_date = _parse_date(form.get("work_date") or "") or date.today()
+    mile = _parse_float(form.get("mile") or "0")
+    vendor_raw = form.get("vendor_id") or ""
+    vendor_id = int(vendor_raw) if vendor_raw.strip().isdigit() else None
+    paid_by = (form.get("paid_by") or "cash").strip()
+    receipt_ref = (form.get("receipt_ref") or "").strip()
+    mechanic_name = (form.get("mechanic_name") or "").strip()
+    row_count = int(form.get("row_count") or 0)
+
+    with Session(engine) as s:
+        v = s.get(Vehicle, vehicle_id)
+        if not v:
+            raise HTTPException(404, "Vehicle not found")
+
+        rec = MaintRecord(
+            record_no=_gen_code(s, MaintRecord, "M", 6),
+            work_date=work_date,
+            vehicle_id=vehicle_id,
+            plate_raw=v.plate_no or "",
+            mile_snapshot=mile,
+            kind="tire_change",
+            status="done",
+            vendor_id=vendor_id,
+            paid_by=paid_by,
+            receipt_ref=receipt_ref,
+            mechanic_name=mechanic_name,
+        )
+        s.add(rec)
+        s.flush()  # get rec.id
+
+        parts_total = 0.0
+        changed = 0
+        for i in range(row_count):
+            pos = (form.get(f"pos_{i}") or "").strip().upper()
+            if not pos:
+                continue
+            ttype = (form.get(f"type_{i}") or "new").strip()
+            brand = (form.get(f"brand_{i}") or "").strip()
+            model = (form.get(f"model_{i}") or "").strip()
+            spec = (form.get(f"spec_{i}") or "").strip()
+            serial = (form.get(f"serial_{i}") or "").strip()
+            price = _parse_float(form.get(f"price_{i}") or "0")
+            tread = _parse_float(form.get(f"tread_{i}") or "0")
+            reason = (form.get(f"reason_{i}") or "").strip()
+
+            # displaced old tyre at this position -> unmount it explicitly with
+            # the reason, so the event trail (not just the Tire) records why.
+            # (mount below would auto-unmount too, but that event has no reason.)
+            for old in s.exec(select(Tire).where(
+                Tire.current_vehicle_id == vehicle_id,
+                Tire.current_position == pos,
+            )).all():
+                _apply_tire_event(
+                    s, old, event_type="unmount", event_date=work_date,
+                    mile=mile, reason_code=reason,
+                    note=f"ถอดออก (คีย์บิล {rec.record_no})",
+                )
+
+            new_tire = Tire(
+                code=_gen_code(s, Tire, "T", 4),
+                brand=brand, model=model, spec=spec, serial_no=serial,
+                purchase_date=work_date, purchase_price=price,
+                purchase_vendor_id=vendor_id,
+                tire_type=ttype, status="new",
+                tread_depth_mm=tread,
+            )
+            s.add(new_tire)
+            s.flush()
+
+            _apply_tire_event(
+                s, new_tire, event_type="mount", event_date=work_date,
+                mile=mile, to_vehicle_id=vehicle_id, to_position=pos,
+                tread_before=tread, tread_after=tread,
+                reason_code=reason,
+                note=f"คีย์บิล {rec.record_no}",
+            )
+            # link mount event to the record
+            ev = s.exec(select(TireEvent).where(
+                TireEvent.tire_id == new_tire.id
+            ).order_by(TireEvent.id.desc())).first()
+            if ev:
+                ev.maint_record_id = rec.id
+                s.add(ev)
+
+            s.add(MaintPart(
+                maint_record_id=rec.id, part_id=None,
+                part_name_raw=f"ยาง {brand} {model} {spec}".strip(),
+                qty=1, unit_price=price, total=price,
+                tire_id=new_tire.id,
+                note=dict(models.TIRE_REMOVAL_REASONS).get(reason, reason),
+            ))
+            parts_total += price
+            changed += 1
+
+        labor = _parse_float(form.get("labor_cost") or "0")
+        other = _parse_float(form.get("other_cost") or "0")
+        rec.parts_cost = parts_total
+        rec.labor_cost = labor
+        rec.other_cost = other
+        rec.total_cost = parts_total + labor + other
+
+        # keep vehicle odometer fresh when a reading was supplied
+        if mile > 0 and mile > (v.current_mile or 0):
+            v.current_mile = mile
+            s.add(v)
+
+        s.commit()
+
+    return RedirectResponse(f"/maint/tires/by-vehicle/{vehicle_id}", status_code=303)
+
+
+@app.get("/maint/tires/report", response_class=HTMLResponse)
+def maint_tire_report(request: Request, month: str = ""):
+    import services.tire_view as tv
+    today = date.today()
+    if not month:
+        month = f"{today.year:04d}-{today.month:02d}"
+    try:
+        y, m = [int(x) for x in month.split("-")]
+        period_start, period_end = _month_bounds(y, m)
+    except Exception:
+        y, m = today.year, today.month
+        period_start, period_end = _month_bounds(y, m)
+    # previous month bounds for the delta card
+    if m == 1:
+        prev_start, prev_end = _month_bounds(y - 1, 12)
+    else:
+        prev_start, prev_end = _month_bounds(y, m - 1)
+
+    with Session(engine) as s:
+        recs = s.exec(
+            select(MaintRecord).where(MaintRecord.kind == "tire_change")
+        ).all()
+        veh_map = {v.id: v for v in s.exec(select(Vehicle)).all()}
+
+        def _in(rec, a, b):
+            return a <= rec.work_date <= b
+
+        month_recs = [r for r in recs if _in(r, period_start, period_end)]
+        prev_recs = [r for r in recs if _in(r, prev_start, prev_end)]
+
+        month_cost = sum(r.total_cost or 0 for r in month_recs)
+        prev_cost = sum(r.total_cost or 0 for r in prev_recs)
+
+        # tyres changed this month = MaintPart rows with tire_id on month records
+        month_rec_ids = {r.id for r in month_recs}
+        all_parts = s.exec(select(MaintPart).where(MaintPart.tire_id.isnot(None))).all()
+        month_parts = [p for p in all_parts if p.maint_record_id in month_rec_ids]
+        tyres_changed = len(month_parts)
+
+        # per-vehicle spend this month
+        per_vehicle: dict[int, dict] = {}
+        for r in month_recs:
+            pv = per_vehicle.setdefault(r.vehicle_id or 0, {
+                "plate": (veh_map.get(r.vehicle_id).plate_no if veh_map.get(r.vehicle_id) else (r.plate_raw or "—")),
+                "count": 0, "cost": 0.0,
+            })
+            pv["count"] += 1
+            pv["cost"] += r.total_cost or 0
+        per_vehicle_rows = sorted(per_vehicle.values(), key=lambda x: -x["cost"])
+
+        # lifecycle + reason breakdown (all-time; the comparison needs history)
+        life = tv.tire_lifecycle_report(s)
+
+    delta = None
+    if prev_cost > 0:
+        delta = round((month_cost - prev_cost) / prev_cost * 100.0, 1)
+
+    return templates.TemplateResponse(request, "tire_report.html", {
+        "request": request,
+        "month": month,
+        "period_start": period_start,
+        "period_end": period_end,
+        "month_cost": month_cost,
+        "prev_cost": prev_cost,
+        "delta_pct": delta,
+        "tyres_changed": tyres_changed,
+        "avg_per_tyre": (month_cost / tyres_changed if tyres_changed else 0.0),
+        "per_vehicle_rows": per_vehicle_rows,
+        "by_type": life["by_type"],
+        "by_reason": life["by_reason"],
+        "retired_count": life["retired_count"],
+    })
+
+
 @app.get("/maint/tires/new", response_class=HTMLResponse)
 def maint_tire_new_form(request: Request):
     with Session(engine) as s:
@@ -8114,7 +8354,7 @@ def _apply_tire_event(s: Session, t: Tire, *, event_type: str, event_date: date,
                       to_position: str = "", tread_before: float = 0.0,
                       tread_after: float = 0.0, note: str = "",
                       actor_name: str = "", actor_role: str = "",
-                      photo_paths: str = "") -> TireEvent:
+                      photo_paths: str = "", reason_code: str = "") -> TireEvent:
     """Create a TireEvent + mutate Tire state atomically (caller commits).
 
     Shared by the office route (/maint/tires/{id}/event) and the mechanic
@@ -8131,6 +8371,7 @@ def _apply_tire_event(s: Session, t: Tire, *, event_type: str, event_date: date,
         tread_after_mm=tread_after,
         note=note,
         actor_name=actor_name, actor_role=actor_role, photo_paths=photo_paths,
+        reason_code=reason_code,
     )
 
     if event_type == "mount":
@@ -8170,6 +8411,8 @@ def _apply_tire_event(s: Session, t: Tire, *, event_type: str, event_date: date,
         t.current_vehicle_id = None
         t.current_position = ""
         t.status = "stored"
+        if reason_code:
+            t.removal_reason = reason_code
 
     elif event_type == "rotate":
         # rotate = same vehicle, different position
@@ -8188,6 +8431,8 @@ def _apply_tire_event(s: Session, t: Tire, *, event_type: str, event_date: date,
         t.current_vehicle_id = None
         t.current_position = ""
         t.status = "scrapped"
+        if reason_code:
+            t.removal_reason = reason_code
 
     elif event_type == "inspect":
         if tread_after:

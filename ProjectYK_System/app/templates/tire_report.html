@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}รายงานความคุ้มยาง{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">📊 รายงานความคุ้มยาง</h1>
+  <div class="flex gap-2">
+    <a href="/maint/tires/bill" class="btn bg-orange-600 text-white hover:bg-orange-700">📋 คีย์บิลยาง</a>
+    <a href="/maint/tires" class="btn bg-slate-200 hover:bg-slate-300">← รายการยาง</a>
+  </div>
+</div>
+
+{# ---- month picker ---- #}
+<form method="get" class="mb-4 flex items-center gap-2">
+  <label class="text-sm text-slate-500">เดือน</label>
+  <input type="month" name="month" value="{{ month }}" class="border rounded px-2 py-1"
+         onchange="this.form.submit()">
+</form>
+
+{# ---- summary cards (เงินหายไปไหน) ---- #}
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+  <div class="p-4 bg-white border rounded-lg">
+    <div class="text-xs text-slate-500">ค่ายางเดือนนี้</div>
+    <div class="text-2xl font-bold text-orange-600">฿{{ "{:,.0f}".format(month_cost) }}</div>
+    {% if delta_pct is not none %}
+      {% if delta_pct > 0 %}
+      <div class="text-xs text-red-500">▲ {{ delta_pct }}% จากเดือนก่อน (฿{{ "{:,.0f}".format(prev_cost) }})</div>
+      {% elif delta_pct < 0 %}
+      <div class="text-xs text-emerald-600">▼ {{ delta_pct|abs }}% จากเดือนก่อน (฿{{ "{:,.0f}".format(prev_cost) }})</div>
+      {% else %}
+      <div class="text-xs text-slate-400">เท่าเดือนก่อน</div>
+      {% endif %}
+    {% else %}
+      <div class="text-xs text-slate-400">เดือนก่อนไม่มีข้อมูล</div>
+    {% endif %}
+  </div>
+  <div class="p-4 bg-white border rounded-lg">
+    <div class="text-xs text-slate-500">จำนวนเส้นที่เปลี่ยน</div>
+    <div class="text-2xl font-bold">{{ tyres_changed }}</div>
+    <div class="text-xs text-slate-400">เส้น (เดือนนี้)</div>
+  </div>
+  <div class="p-4 bg-white border rounded-lg">
+    <div class="text-xs text-slate-500">เฉลี่ยต่อเส้น</div>
+    <div class="text-2xl font-bold">฿{{ "{:,.0f}".format(avg_per_tyre) }}</div>
+  </div>
+  <div class="p-4 bg-white border rounded-lg">
+    <div class="text-xs text-slate-500">ช่วงที่แสดง</div>
+    <div class="text-sm font-semibold pt-1">{{ period_start | dmy }}<br>ถึง {{ period_end | dmy }}</div>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+  {# ---- reason breakdown (เกิดเหตุอะไร) ---- #}
+  <div class="p-4 bg-white border rounded-lg">
+    <h2 class="font-semibold mb-3 text-slate-700">🔧 เหตุที่เปลี่ยนยาง (สะสมทั้งหมด)</h2>
+    {% if by_reason %}
+    <table class="w-full text-sm">
+      <thead><tr class="text-left text-slate-500 border-b">
+        <th class="py-1">เหตุ</th><th class="py-1 text-right">จำนวนเส้น</th><th class="py-1 text-right">มูลค่า</th>
+      </tr></thead>
+      <tbody>
+        {% for r in by_reason %}
+        <tr class="border-b">
+          <td class="py-1">{{ r.label }}</td>
+          <td class="py-1 text-right">{{ r.count }}</td>
+          <td class="py-1 text-right">฿{{ "{:,.0f}".format(r.cost) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="text-sm text-slate-400 py-4 text-center">ยังไม่มียางที่ถอด/ทิ้งในระบบ</p>
+    {% endif %}
+  </div>
+
+  {# ---- per-vehicle (คันไหนกินยาง) ---- #}
+  <div class="p-4 bg-white border rounded-lg">
+    <h2 class="font-semibold mb-3 text-slate-700">🚚 ค่ายางรายคัน (เดือนนี้)</h2>
+    {% if per_vehicle_rows %}
+    <table class="w-full text-sm">
+      <thead><tr class="text-left text-slate-500 border-b">
+        <th class="py-1">ทะเบียน</th><th class="py-1 text-right">ครั้ง</th><th class="py-1 text-right">ค่ายาง</th>
+      </tr></thead>
+      <tbody>
+        {% for v in per_vehicle_rows %}
+        <tr class="border-b">
+          <td class="py-1">{{ v.plate }}</td>
+          <td class="py-1 text-right">{{ v.count }}</td>
+          <td class="py-1 text-right">฿{{ "{:,.0f}".format(v.cost) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="text-sm text-slate-400 py-4 text-center">เดือนนี้ยังไม่มีการเปลี่ยนยาง</p>
+    {% endif %}
+  </div>
+</div>
+
+{# ---- retread vs new (คำถามหลัก) ---- #}
+<div class="p-4 bg-white border rounded-lg mb-6">
+  <h2 class="font-semibold mb-1 text-slate-700">⚖️ เทียบความคุ้ม: ยางหล่อ vs ยางแท้</h2>
+  <p class="text-xs text-slate-400 mb-3">
+    คิดจากยางที่ <b>ถอด/ทิ้งไปแล้ว</b> เท่านั้น (ต้องครบวงจร ติดตั้ง→ถอด) · ยางที่ยังวิ่งอยู่ยังไม่นับ
+    {% if retired_count < 5 %}
+    <span class="text-amber-600">· ข้อมูลยังน้อย ({{ retired_count }} เส้น) ตัวเลขจะแม่นขึ้นเมื่อสะสมมากขึ้น</span>
+    {% endif %}
+  </p>
+  {% if by_type %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead><tr class="text-left text-slate-500 border-b">
+        <th class="py-1 pr-2">ประเภท</th>
+        <th class="py-1 pr-2 text-right">เส้น(เลิกใช้)</th>
+        <th class="py-1 pr-2 text-right">อายุเฉลี่ย (วัน)</th>
+        <th class="py-1 pr-2 text-right">กิโลเฉลี่ย</th>
+        <th class="py-1 pr-2 text-right">ราคาเฉลี่ย/เส้น</th>
+        <th class="py-1 pr-2 text-right bg-orange-50">บาท/เดือน</th>
+        <th class="py-1 pr-2 text-right bg-orange-50">บาท/1,000กม.</th>
+      </tr></thead>
+      <tbody>
+        {% for r in by_type %}
+        <tr class="border-b">
+          <td class="py-1 pr-2 font-semibold">{{ r.label }}</td>
+          <td class="py-1 pr-2 text-right">{{ r.count }}</td>
+          <td class="py-1 pr-2 text-right">{{ r.avg_days }}</td>
+          <td class="py-1 pr-2 text-right">
+            {% if r.avg_km is not none %}{{ "{:,.0f}".format(r.avg_km) }}<span class="text-xs text-slate-400"> ({{ r.km_sample }})</span>{% else %}<span class="text-slate-300">— ไม่มีเลขไมล์</span>{% endif %}
+          </td>
+          <td class="py-1 pr-2 text-right">฿{{ "{:,.0f}".format(r.avg_price) }}</td>
+          <td class="py-1 pr-2 text-right bg-orange-50 font-semibold">
+            {% if r.baht_per_month is not none %}฿{{ "{:,.0f}".format(r.baht_per_month) }}{% else %}<span class="text-slate-300">—</span>{% endif %}
+          </td>
+          <td class="py-1 pr-2 text-right bg-orange-50 font-semibold">
+            {% if r.baht_per_1000km is not none %}฿{{ "{:,.0f}".format(r.baht_per_1000km) }}{% else %}<span class="text-slate-300">—</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="text-xs text-slate-400 mt-2">ยิ่ง <b>บาท/เดือน</b> และ <b>บาท/1,000กม.</b> ต่ำ ยิ่งคุ้ม — ใช้เทียบว่ายางหล่อประหยัดจริงไหมเมื่อเทียบกับอายุที่สั้นกว่า</p>
+  {% else %}
+  <p class="text-sm text-slate-400 py-6 text-center">
+    ยังไม่มียางที่ครบวงจร (ติดตั้ง→ถอด) — เริ่มคีย์บิลเปลี่ยนยาง แล้วตารางนี้จะทยอยมีข้อมูล
+  </p>
+  {% endif %}
+</div>
+
+{% endblock %}
