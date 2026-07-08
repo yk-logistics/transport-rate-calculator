@@ -82,3 +82,31 @@ def test_driver_cookie_not_secure_in_insecure_dev(monkeypatch):
     # over plain http still works.
     is_secure, header = _driver_cookie_secure(monkeypatch, "1")
     assert not is_secure, f"driver cookie should skip Secure in dev: {header!r}"
+
+
+def _oauth_state_cookie_secure(monkeypatch, secure_flag):
+    # The Gmail OAuth CSRF-state cookie is a security cookie too (guards the
+    # oauth callback). It rides the module-level _secure_cookies flag, which is
+    # frozen at import (same flag the SessionMiddleware uses), so we patch the
+    # flag directly rather than the env. Stub the authorize-URL builder so we
+    # don't need real Google OAuth config.
+    import main
+    monkeypatch.setattr(main, "build_authorize_url", lambda state: "https://example/authorize")
+    monkeypatch.setattr(main, "_secure_cookies", secure_flag)
+    resp = main.email_oauth_start()
+    header = resp.headers.get("set-cookie", "")
+    return "secure" in header.lower(), header
+
+
+def test_oauth_state_cookie_secure_in_prod(monkeypatch):
+    # Production => _secure_cookies is True => OAuth state cookie must be Secure.
+    is_secure, header = _oauth_state_cookie_secure(monkeypatch, True)
+    assert "email_oauth_state" in header
+    assert "httponly" in header.lower()
+    assert is_secure, f"oauth_state cookie missing Secure in prod: {header!r}"
+
+
+def test_oauth_state_cookie_not_secure_in_insecure_dev(monkeypatch):
+    # Local http dev => _secure_cookies is False => no Secure so it still works.
+    is_secure, _ = _oauth_state_cookie_secure(monkeypatch, False)
+    assert not is_secure
