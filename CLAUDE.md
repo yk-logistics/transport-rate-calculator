@@ -28,9 +28,16 @@ ProjectYK_System\tools\phase2_import.bat  # รันทั้งสองพร
 
 # migrate to PostgreSQL (cloud demo)
 python ProjectYK_System\tools\sqlite_to_postgres.py
+
+# รัน test suite (จากราก repo หรือใน app/) — 545 tests, throwaway SQLite ผ่าน conftest
+cd ProjectYK_System\app
+.venv\Scripts\python.exe -m pytest -q          # ทั้งชุด
+.venv\Scripts\python.exe -m pytest tests\test_security_hardening.py -q   # ไฟล์เดียว
 ```
 
-**ไม่มี test suite / linter อยู่ใน repo** — ตรวจความถูกต้องผ่าน preflight scripts ใน `tools/`
+**มี pytest suite ใน `ProjectYK_System/app/tests/`** (545 tests, ไม่มี linter) — `conftest.py`
+บังคับ throwaway SQLite + reset schema ต่อ test เอง รันได้เลยไม่แตะ DB จริง งานเงิน/import
+ยังต้องผ่าน preflight scripts ใน `tools/` เพิ่มด้วย
 
 ## Architecture ที่ต้องรู้ก่อนแก้โค้ด
 

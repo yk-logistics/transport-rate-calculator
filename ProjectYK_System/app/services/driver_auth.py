@@ -165,7 +165,9 @@ def set_session_cookie(response: Response, token: str) -> None:
         max_age=SESSION_DAYS * 24 * 3600,
         httponly=True,
         samesite="lax",
-        secure=False,  # TODO: True when HTTPS
+        # Secure ON by default (production is HTTPS). YK_INSECURE_COOKIES=1 opts
+        # out for local http dev / tests — same gate as the main app cookie.
+        secure=os.environ.get("YK_INSECURE_COOKIES", "").lower() not in ("1", "true", "yes"),
     )
 
 

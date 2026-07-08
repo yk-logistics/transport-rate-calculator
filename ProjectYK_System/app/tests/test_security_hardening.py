@@ -48,3 +48,37 @@ def test_security_headers_present(client):
     assert h.get("x-content-type-options") == "nosniff"
     assert "strict-transport-security" in h
     assert "referrer-policy" in h
+
+
+def _driver_cookie_secure(monkeypatch, insecure_env):
+    # Call set_session_cookie directly against a real Response and read back the
+    # Secure attribute of the driver session cookie. Same env gate as the main
+    # SessionMiddleware (YK_INSECURE_COOKIES), so prod (env unset) => Secure.
+    import os
+    from starlette.responses import Response
+    from services import driver_auth
+
+    if insecure_env is None:
+        monkeypatch.delenv("YK_INSECURE_COOKIES", raising=False)
+    else:
+        monkeypatch.setenv("YK_INSECURE_COOKIES", insecure_env)
+    resp = Response()
+    driver_auth.set_session_cookie(resp, "dummy-token")
+    header = resp.headers.get("set-cookie", "")
+    return "secure" in header.lower(), header
+
+
+def test_driver_cookie_secure_in_prod(monkeypatch):
+    # Production leaves YK_INSECURE_COOKIES unset -> driver cookie must be Secure
+    # so drv_session is never sent over plain HTTP (matches the main app cookie).
+    is_secure, header = _driver_cookie_secure(monkeypatch, None)
+    assert "httponly" in header.lower()      # JS can't read it
+    assert "samesite=lax" in header.lower()  # CSRF defence
+    assert is_secure, f"driver cookie missing Secure in prod: {header!r}"
+
+
+def test_driver_cookie_not_secure_in_insecure_dev(monkeypatch):
+    # Local http dev / TestClient opts out via YK_INSECURE_COOKIES=1 so login
+    # over plain http still works.
+    is_secure, header = _driver_cookie_secure(monkeypatch, "1")
+    assert not is_secure, f"driver cookie should skip Secure in dev: {header!r}"
