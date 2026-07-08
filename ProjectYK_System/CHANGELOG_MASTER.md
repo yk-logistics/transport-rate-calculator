@@ -4,6 +4,18 @@
 
 > **Agent bootstrap:** อ่านเฉพาะ **3 หัวข้อ `##` แรกจากด้านบนลงมา** (ไม่รวมบรรทัดนี้) — **ห้าม**อ่านทั้งไฟล์ทุกแชต. นโยบาย/การย้าย archive: [`ProjectYK_System/docs/CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md)
 
+## 2026-07-08 (🛞 ระบบยาง "หยุดเลือด" — ค่ายาง ~2 แสน/เดือนไม่มีระบบติดตาม)
+
+- **ปัญหาโอ:** ค่ายางเดือนก่อนเกือบ 200,000 ไม่รู้เส้นไหนเปลี่ยนเมื่อไหร่/ทำไม (ระเบิด/ลวดโผล่/ดอกหมด) หล่อ vs แท้คุ้มกว่ากันไม่รู้ — สั่งยางแบบไม่มีข้อมูล **ค้นพบ: schema ยาง (Tire/TireEvent/_apply_tire_event/Quick Setup) มีครบตั้งแต่ v8/v10 แต่ 0 แถว** เครื่องมือพร้อมแต่ไม่มีใครกรอก → งานนี้ไม่สร้างใหม่ เติม 3 ชิ้นที่ขาด (spec: docs/superpowers/specs/2026-07-08-tire-tracking-stop-the-bleed-design.md)
+- **brainstorm เคาะกับโอ 4 ข้อ:** โฟกัส=หยุดเลือด(รู้เงินหายไปไหน) · บิล=กระดาษ/รูปถ่าย · เลขไมล์=มีบ้างไม่มีบ้าง(ไม่บังคับ→คิดได้ทั้งกิโล+เดือน) · คนกรอก=ธุรการคีย์ทีหลังจากคอม → **ตัด PWA ช่าง+OCR ออก** (YAGNI)
+- **schema v48 (ALTER additive):** `Tire.tire_type`(new/retread/used ยางแท้/หล่อ/มือสอง)+`Tire.removal_reason`, `TireEvent.reason_code`; preflight ยืนยัน tire/tireevent=0 แถวบน app.db จริงก่อนเพิ่มคอลัมน์ → ปลอดภัย 100%
+- **`/maint/tires/bill` (คีย์บิลธุรการ):** บิลร้านยาง 1 ใบ = 1 submit → สร้าง `Tire`+mount event+`MaintRecord(kind=tire_change)`+`MaintPart` ครบ; ยางเก่าตำแหน่งเดิมถูก **unmount ชัดเจนพร้อม reason_code** (ไม่พึ่ง silent auto-unmount ที่ไม่มีเหตุ — self-review เจอ+แก้+เทสต์); เลขไมล์ไม่บังคับ; อัปเดต Vehicle.current_mile เมื่อกรอก; ฟอร์ม add-row + HTMX โหลดตำแหน่งตามรถ
+- **`/maint/tires/report`:** การ์ดค่ายางเดือนนี้+เทียบเดือนก่อน(%) · ตารางเหตุที่เปลี่ยน(group ระเบิด/ดอกหมด/ลวดโผล่ เรียงมาก→น้อย) · ค่ายางรายคัน · **ตารางเทียบหล่อ vs แท้: บาท/เดือน + บาท/1,000กม.** จากยางครบวงจร(ติดตั้ง→ถอด); ยางไม่มีไมล์คิดเป็นวันได้ คอลัมน์กิโลว่างเฉพาะเส้นนั้น ไม่พังทั้งตาราง; เตือน "ข้อมูลยังน้อย" เมื่อ retired<5
+- **gotcha:** route ใหม่ (bill/report) ต้องประกาศ**ก่อน** `/maint/tires/{tire_id}` ไม่งั้น starlette จับ "bill"/"report" เป็น tire_id (เจอตอน RED — เทสต์ render ได้ 303→login เพราะ auth guard, ไม่ใช่ fall-through)
+- **logic แยก unit:** `services/tire_view.tire_lifecycle_report()` (aggregate หล่อ/แท้+เหตุ testable ไม่ผ่าน HTTP)
+- **verify:** TDD 13 เทสต์ (test_tire_bill_report.py) ครอบเกณฑ์ผ่านข้อ 2–5 ครบ; ชุดเต็มรอบแรก **558 ผ่าน 0 ล้ม**; e2e HTTP จริง (คีย์บิล 12,500฿→ยางเก่าถอดพร้อมเหตุ→รายงาน render ครบ) + migration ทดสอบบนสำเนา app.db; commit 43a8a57
+- **ยังไม่แตะ:** payroll/finance/daily/billing/cycle — ค่ายางเข้า MaintRecord ตามทางเดิม (kind=tire_change ไม่รั่วรอบคนขับ เว้น paid_by=deduct_driver = flow เดิม)
+
 ## 2026-07-07 (A5 สลิป: โอไล่จริง → จัดระเบียบ 3 เรื่อง + deploy)
 
 - **รอบเย็น — โอติตาราง Mix รอบสอง (screenshot สุรเดช): ป้ายน้ำมันเหลื่อม + หัวคอลัมน์ + เส้นตั้ง (fe1acac deploy เขียว):** ช่องน้ำมัน ฿ ตาราง mixed จัดใหม่เป็น เลขบรรทัดบน / ป้ายคู่ [เกรด][บริษัท·หัก·ไม่หัก] บรรทัดล่าง — `.tag-st` กว้างคงที่ 32px เรียงตรงคอลัมน์ทุกแถว (เดิม flex-wrap ห่อเองเพราะช่อง 70px ใส่สามกล่องบรรทัดเดียวไม่พอ) บิลเดียวใช้โครง `.fline` เดียวกับหลายบิล; หัวตาราง mixed "ค่าแรง"→"ค่าเที่ยว"; `.c-extra` ถอด border-left ทั้ง payroll_slip+print_all; verify: render สุรเดชจริง + screenshot + pytest -k slip 65 ผ่าน; deploy surgical scp 3 ไฟล์ (oatside ค้าง tree — ไม่ใช้ deploy_mvp.sh) + restart + marker เขียว + /login 200; **โอยืนยัน "เหลือแค่ Mix นอกนั้นโอเคหมด" → ชุดสลิปน่าจะครบแล้ว**
