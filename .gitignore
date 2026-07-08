@@ -197,5 +197,9 @@ reports/เทียบไฟล์*
 Oatside/TransportRateCalculator/reports/
 Oatside/Oatside_PG_Trip_Summary_By_Site.xlsx
 
-# Oatside raw payroll xlsx (business data)
+# Oatside raw "รายงานการผ่านจุด" xlsx = business data (NEVER commit)
+# ครอบทุกโฟลเดอร์ย่อย (Used/, gps_archive/, ราก Oatside/) — เคยหลุด tracked แก้ 8 ก.ค.
+Oatside/**/Y.K._Logistics*.xlsx
 Oatside/Y.K._Logistics*.xlsx
+Oatside/**/Oatside_PG_Trip_Summary_By_Site*.xlsx
+Oatside/Oatside_PG_Trip_Summary_By_Site*.xlsx
