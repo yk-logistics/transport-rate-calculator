@@ -199,7 +199,8 @@ Oatside/Oatside_PG_Trip_Summary_By_Site.xlsx
 
 # Oatside raw "รายงานการผ่านจุด" xlsx = business data (NEVER commit)
 # ครอบทุกโฟลเดอร์ย่อย (Used/, gps_archive/, ราก Oatside/) — เคยหลุด tracked แก้ 8 ก.ค.
-Oatside/**/Y.K._Logistics*.xlsx
-Oatside/Y.K._Logistics*.xlsx
+# มี * นำหน้า Y.K. เผื่อ prefix timestamp (เช่น 20260526_1308_Y.K._Logistics...)
+Oatside/**/*Y.K._Logistics*.xlsx
+Oatside/*Y.K._Logistics*.xlsx
 Oatside/**/Oatside_PG_Trip_Summary_By_Site*.xlsx
 Oatside/Oatside_PG_Trip_Summary_By_Site*.xlsx
