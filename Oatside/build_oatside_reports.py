@@ -48,6 +48,7 @@ class OatsideConfig:
     trip_rates: list[dict]
     diesel_price_history: dict[date, float]
     one_trip_surcharge_pct: float
+    one_trip_surcharge_pct_periods: list[dict]
     min_trips_per_truck: int
     max_travel_h: float
     max_origin_chain_gap_h: float
@@ -153,6 +154,7 @@ _DEFAULT_CONFIG = OatsideConfig(
     ],
     diesel_price_history={},
     one_trip_surcharge_pct=50.0,
+    one_trip_surcharge_pct_periods=[],
     min_trips_per_truck=2,
     max_travel_h=48.0,
     max_origin_chain_gap_h=3.0,
@@ -220,6 +222,8 @@ _DEFAULT_CONFIG_JSON = {
     "diesel_price_history": [],
     "_note_diesel_price_history": "ราคาน้ำมันรายวัน (ไฮดีเซล) สำหรับคำนวณเรทตามวันที่วิ่ง; ตัวอย่าง: {\"date\":\"2026-04-01\",\"price\":50.5}",
     "one_trip_surcharge_pct": 50,
+    "one_trip_surcharge_pct_periods": [],
+    "_note_one_trip_surcharge_pct_periods": "ช่วงวันที่ที่ % วันวิ่ง 1 เที่ยว ต่างจากค่าหลัก เช่น [{\"from\":\"2026-06-16\",\"pct\":25}] (to เว้นได้=ไม่มีกำหนด; ไม่กระทบ no_finish 100%)",
     "min_trips_per_truck_per_day": 2,
     "max_travel_h": 48,
     "max_origin_chain_gap_h": 3,
@@ -293,6 +297,9 @@ def load_oatside_config() -> OatsideConfig:
     diesel_price_history = _parse_diesel_price_history(raw.get("diesel_price_history"))
 
     surcharge_pct = float(raw.get("one_trip_surcharge_pct", _DEFAULT_CONFIG.one_trip_surcharge_pct))
+    surcharge_pct_periods = raw.get("one_trip_surcharge_pct_periods", _DEFAULT_CONFIG.one_trip_surcharge_pct_periods)
+    if not isinstance(surcharge_pct_periods, list):
+        surcharge_pct_periods = []
     min_trips = int(raw.get("min_trips_per_truck_per_day", _DEFAULT_CONFIG.min_trips_per_truck))
 
     env_travel = os.environ.get("OATSIDE_MAX_TRAVEL_H")
@@ -414,6 +421,7 @@ def load_oatside_config() -> OatsideConfig:
         trip_rates=trip_rates,
         diesel_price_history=diesel_price_history,
         one_trip_surcharge_pct=surcharge_pct,
+        one_trip_surcharge_pct_periods=surcharge_pct_periods,
         min_trips_per_truck=min_trips,
         max_travel_h=max_travel,
         max_origin_chain_gap_h=gap_h,
@@ -511,6 +519,55 @@ def _trip_rate_rule(d: date, cfg: OatsideConfig) -> dict:
         else:
             return rule
     return {"rate_baht": 7500, "base_fuel_min": 50.0, "base_fuel_max": 50.99, "step_pct_per_baht": 1.5}
+
+
+def one_trip_pct_for_date(d: date, cfg: OatsideConfig) -> float:
+    """% ส่วนเพิ่มวันวิ่ง 1 เที่ยว ตามช่วงวันที่ (one_trip_surcharge_pct_periods) — นอกช่วงใช้ค่าหลัก.
+    ไม่กระทบ no_finish 100% (คิดเต็มเรทเสมอ)."""
+    for rule in cfg.one_trip_surcharge_pct_periods:
+        frm, to = rule.get("from"), rule.get("to")
+        try:
+            d_from = datetime.strptime(str(frm), "%Y-%m-%d").date() if frm else None
+            d_to = datetime.strptime(str(to), "%Y-%m-%d").date() if to else None
+        except ValueError:
+            continue
+        if (d_from is None or d_from <= d) and (d_to is None or d <= d_to):
+            try:
+                return float(rule.get("pct", cfg.one_trip_surcharge_pct))
+            except (TypeError, ValueError):
+                continue
+    return float(cfg.one_trip_surcharge_pct)
+
+
+def one_trip_pcts_short(cfg: OatsideConfig) -> str:
+    """เช่น '50' หรือ '50/25' — ใช้ในหัวคอลัมน์/label สั้น."""
+    pcts = [f"{cfg.one_trip_surcharge_pct:.0f}"]
+    for rule in cfg.one_trip_surcharge_pct_periods:
+        try:
+            v = f"{float(rule.get('pct')):.0f}"
+        except (TypeError, ValueError):
+            continue
+        if v not in pcts:
+            pcts.append(v)
+    return "/".join(pcts)
+
+
+def one_trip_pct_label(cfg: OatsideConfig) -> str:
+    """เช่น '50%' หรือ '50% (ตั้งแต่ 2026-06-16 เหลือ 25%)' — ใช้ในบรรทัดสรุปลูกค้า."""
+    base = f"{cfg.one_trip_surcharge_pct:.0f}%"
+    if not cfg.one_trip_surcharge_pct_periods:
+        return base
+    parts = []
+    for rule in cfg.one_trip_surcharge_pct_periods:
+        try:
+            p = f"{float(rule.get('pct')):.0f}%"
+        except (TypeError, ValueError):
+            continue
+        frm = str(rule.get("from") or "")[:10]
+        to = str(rule.get("to") or "")[:10]
+        rng = f"ตั้งแต่ {frm}" if frm and not to else (f"{frm} ถึง {to}" if frm else f"ถึง {to}")
+        parts.append(f"{rng} เหลือ {p}")
+    return base + (f" ({'; '.join(parts)})" if parts else "")
 
 
 def _resolve_diesel_price_for_date(d: date, cfg: OatsideConfig) -> tuple[float | None, str, date | None]:
@@ -1562,7 +1619,6 @@ def surcharge_billed_day(
 
     rows: list[dict] = []
     total = 0
-    pct = float(cfg.one_trip_surcharge_pct)
     for (plate, billed) in sorted(keys, key=lambda x: (x[1], x[0])):
         n = len(by_billed.get((plate, billed), []))
         if billed in no_work:
@@ -1571,6 +1627,7 @@ def surcharge_billed_day(
         action = ov.get("action", "")
         note = ov.get("note", "")
         rate = trip_rate_baht(billed, cfg)
+        pct = one_trip_pct_for_date(billed, cfg)
 
         if n >= 2:
             if action != "include_50":
@@ -1630,11 +1687,11 @@ def billed_day_audit_rows(
             keys.add((plate, d))
     fifty_key = {(r["plate"], r["dest_date"]): r for r in fifty_rows}
     rows: list[dict] = []
-    pct = cfg.one_trip_surcharge_pct
     for (plate, billed) in sorted(keys, key=lambda x: (x[1], x[0])):
         lst = by_pd.get((plate, billed), [])
         n = len(lst)
         rate = trip_rate_baht(billed, cfg)
+        pct = one_trip_pct_for_date(billed, cfg)
         base = n * rate
         fr = fifty_key.get((plate, billed))
         sur = int(fr["surcharge_baht"]) if fr else 0
@@ -1988,10 +2045,9 @@ def no_work_outbound_rows(trips: list[Trip], cfg: OatsideConfig) -> tuple[list[d
     first_no_work = first_no_work_trip_by_plate_recovery_day(trips, cfg)
     rows: list[dict] = []
     total = 0
-    pct = float(cfg.one_trip_surcharge_pct)
     for (plate, R), t0 in sorted(first_no_work.items(), key=lambda x: (x[0][1], x[0][0])):
         rate = trip_rate_baht(R, cfg)
-        sur = int(round(rate * pct / 100.0))
+        sur = int(round(rate * one_trip_pct_for_date(R, cfg) / 100.0))
         rows.append(
             {
                 "dest_date": R,
@@ -2032,13 +2088,12 @@ def double_origin_um_hints(unmatched: list[tuple[str, Leg, str]]) -> list[dict]:
 def trip_no_work_outbound_baht(
     t: Trip, first_no_work: dict[tuple[str, date], Trip], cfg: OatsideConfig
 ) -> int:
-    pct = float(cfg.one_trip_surcharge_pct)
     for R in cfg.outbound_half_dest_dates:
         ft = first_no_work.get((t.plate, R))
         if ft is None or id(ft) != id(t):
             continue
         rate = trip_rate_baht(R, cfg)
-        return int(round(rate * pct / 100.0))
+        return int(round(rate * one_trip_pct_for_date(R, cfg) / 100.0))
     return 0
 
 
@@ -2294,7 +2349,7 @@ def write_excel(
     info.append(["Matcher",
         f"Greedy min-travel; feasible if Dest_In>=Origin_Out and travel<={cfg.max_travel_h}h"])
     info.append(["Surcharge_50pct_1Trip",
-        f"If exactly 1 matched trip on Dest_In day -> add {cfg.one_trip_surcharge_pct:.0f}% of trip rate. "
+        f"If exactly 1 matched trip on Dest_In day -> add {one_trip_pct_label(cfg)} of trip rate. "
         f"Overrides: {_overrides_json_path()} (exclude_50 / include_50)"])
     info.append(["Base_trips_revenue_baht", base_baht])
     info.append(["Manual_extra_trips_baht", sum_manual_extra_baht(cfg)])
@@ -2350,10 +2405,10 @@ def write_excel(
     else:
         b_line = (
             f"ค่าชดเชยเที่ยวขาด (min {cfg.min_trips_per_truck}/คัน/วัน) — ไม่เก็บเงิน "
-            f"(ใช้ชาร์จ {cfg.one_trip_surcharge_pct:.0f}% วันละ 1 เที่ยวแทน)"
+            f"(ใช้ชาร์จ {one_trip_pcts_short(cfg)}% วันละ 1 เที่ยวแทน)"
         )
     cs.append(["B", b_line, min_trip_extra_baht])
-    cs.append(["C", f"ชาร์จ {cfg.one_trip_surcharge_pct:.0f}% วันที่วิ่งได้ 1 เที่ยว (หลัง override)", fifty_total_baht])
+    cs.append(["C", f"ชาร์จ {one_trip_pct_label(cfg)} วันที่วิ่งได้ 1 เที่ยว (หลัง override)", fifty_total_baht])
     cs.append(
         [
             "D",
@@ -2379,7 +2434,7 @@ def write_excel(
     al.append([
         "Dest_In_date", "Plate", "Site",
         "เที่ยว", "เรท(฿)", "ค่าเที่ยว(฿)",
-        f"+{cfg.one_trip_surcharge_pct:.0f}%(฿)", "ขากลับ(฿)", "รวมวันนี้(฿)",
+        f"+{one_trip_pcts_short(cfg)}%(฿)", "ขากลับ(฿)", "รวมวันนี้(฿)",
         "เหตุผลการคิดเงิน",
     ])
     for r in audit_rows:
@@ -2545,7 +2600,7 @@ def write_excel(
         "Trips_that_day",
         "Auto_1trip_rule_Y/N", "Override_action", "Override_note",
         "Window_Origin_In", "Window_End",
-        "Trip_rate_baht", f"Surcharge_baht_{cfg.one_trip_surcharge_pct:.0f}pct",
+        "Trip_rate_baht", f"Surcharge_baht_{one_trip_pcts_short(cfg).replace('/', '_')}pct",
     ])
     for r in fifty_rows:
         lt.append([
@@ -2792,7 +2847,8 @@ def html_fifty_surcharge_badge(fr: dict, cfg: OatsideConfig) -> str:
         return ""
     rate = int(fr.get("trip_rate_baht", 0) or 0)
     kind = str(fr.get("fifty_kind") or "")
-    pct = float(cfg.one_trip_surcharge_pct)
+    # % จริงของแถวนี้ (รองรับช่วงลด % เช่น 25% ตั้งแต่ 16/6/26) — คิดย้อนจากยอดจริง
+    pct = round(amt * 100.0 / rate) if rate > 0 else float(cfg.one_trip_surcharge_pct)
     if kind == "blank_run":
         label = f"ตีเปล่า +{pct:.0f}%"
         cls = "blankrun"
@@ -3096,6 +3152,88 @@ def _tr_prepend_day_band(html: str, day: date) -> str:
     return html
 
 
+def orphan_money_row_tuples(
+    trips: list[Trip],
+    fifty_rows: list[dict],
+    ret_by_pd: dict[tuple[str, date], int],
+    deadhead_by_pd: dict[tuple[str, date], int],
+    cfg: OatsideConfig,
+    *,
+    include_plate_column: bool,
+    only_plate: str | None = None,
+) -> list[tuple[datetime, tuple[Any, ...], str]]:
+    """แถวเงินของ (ทะเบียน×วัน) ที่ไม่มีแถวเที่ยว matched ให้เกาะ — เช่นสิ้นเดือนขึ้นของแล้ว
+    เที่ยวไปจบรอบหน้า (no_finish 100% / ขากลับ manual) — ใส่เป็นแถวแยกในตารางเที่ยว
+    เพื่อให้ผลรวมหน้าเที่ยว (และ Excel ตามที่เห็น) = หน้าสรุป."""
+    trip_days = {(t.plate, t.trip_date) for t in trips}
+    plate_days: dict[str, list[date]] = defaultdict(list)
+    for p, d in trip_days:
+        plate_days[p].append(d)
+    orphans: dict[tuple[str, date], dict[str, int]] = {}
+
+    def _o(plate: str, day: date) -> dict[str, int]:
+        return orphans.setdefault((plate, day), {"dw50": 0, "dw100": 0, "dh": 0, "ret": 0})
+
+    for r in fifty_rows:
+        if str(r.get("fifty_kind") or "") != "no_finish_day":
+            continue
+        plate, day = str(r.get("plate") or ""), r.get("dest_date")
+        if not plate or day is None:
+            continue
+        if any(d > day for d in plate_days.get(plate, [])):
+            continue  # มีเที่ยวถัดไปให้เกาะตามปกติ (attach_no_finish_to_next_trip)
+        _o(plate, day)["dw100"] += int(r.get("surcharge_baht") or 0)
+    for (plate, day), amt in ret_by_pd.items():
+        if int(amt or 0) and (plate, day) not in trip_days:
+            _o(plate, day)["ret"] += int(amt)
+    for (plate, day), amt in deadhead_by_pd.items():
+        if int(amt or 0) and (plate, day) not in trip_days:
+            _o(plate, day)["dh"] += int(amt)
+
+    def money_td(n: int) -> str:
+        return f"<td class='money'>{fmt_money(n)}</td>" if n else "<td>—</td>"
+
+    out: list[tuple[datetime, tuple[Any, ...], str]] = []
+    for (plate, day), o in sorted(orphans.items(), key=lambda x: (x[0][1], x[0][0])):
+        if only_plate is not None and plate != only_plate:
+            continue
+        if not any(o.values()):
+            continue
+        site = site_for_plate(plate)
+        labels = []
+        if o["dw100"]:
+            labels.append("รอทั้งวัน 100%")
+        if o["dw50"]:
+            labels.append("ค่าเสียเวลา")
+        if o["ret"] or o["dh"]:
+            labels.append("ขากลับ/ตีเปล่า")
+        badge = f" <span class='badge fulltrip'>ไม่มีเที่ยวจบวันนี้ — {esc(' + '.join(labels))}</span>"
+        if include_plate_column:
+            head = (
+                f"<tr data-plate='{esc(plate)}'><td>{day}</td><td>{day}</td>"
+                f"<td><span class='badge {'bigc' if site == 'BigC' else 'lcb'}'>{site}</span></td>"
+                f"<td><a href='plates/{esc(plate)}.html'>{esc(plate)}</a>{badge}</td>"
+            )
+        else:
+            head = (
+                f"<tr data-plate='{esc(plate)}'><td>{day}</td><td>{day}</td>"
+                f"<td>{site}{badge}</td>"
+            )
+        html = (
+            head
+            + "<td>—</td>" * 11
+            + "<td>—</td>"
+            + money_td(o["dw50"]) + money_td(o["dw100"]) + money_td(o["dh"]) + money_td(o["ret"])
+            + "</tr>"
+        )
+        html = _tr_prepend_day_band(html, day)
+        out.append(
+            (datetime.combine(day, datetime.min.time()).replace(hour=23, minute=59),
+             (3, plate, "", ""), html)
+        )
+    return out
+
+
 def interleaved_matched_unmatched_rows_html(
     trips: list[Trip],
     unmatched: list[tuple[str, Leg, str]],
@@ -3105,9 +3243,12 @@ def interleaved_matched_unmatched_rows_html(
     include_plate_link: bool = True,
     include_plate_column: bool = True,
     leg_timeline_by_plate: dict[str, list[Leg]] | None = None,
+    extra_rows: list[tuple[datetime, tuple[Any, ...], str]] | None = None,
 ) -> str:
     """Sort matched by Origin_In time; unmatched by leg t_in (UM-O=Origin, UM-D=Dest)."""
     rows: list[tuple[datetime, tuple[Any, ...], str]] = []
+    if extra_rows:
+        rows.extend(extra_rows)
     for t in trips:
         if plate is not None and t.plate != plate:
             continue
@@ -3238,7 +3379,7 @@ def write_html(
         f"สร้าง {datetime.now():%Y-%m-%d %H:%M} | ต้นทาง: {esc(Path(origin_label).name)} | "
         f"เรท: {config_rate_summary(cfg)} ฿/เที่ยว | "
         f"min {cfg.min_trips_per_truck} เที่ยว/คัน/วัน | "
-        f"+{cfg.one_trip_surcharge_pct:.0f}% วันที่วิ่ง 1 เที่ยว | "
+        f"+{one_trip_pct_label(cfg)} วันที่วิ่ง 1 เที่ยว | "
         f"max travel {cfg.max_travel_h}h"
     )
     if not cfg.charge_min_trip_shortfall:
@@ -3290,6 +3431,9 @@ def write_html(
         include_plate_link=True,
         include_plate_column=True,
         leg_timeline_by_plate=leg_timeline_by_plate,
+        extra_rows=orphan_money_row_tuples(
+            trips, fifty_rows, ret_by_pd, deadhead_by_pd, cfg, include_plate_column=True
+        ),
     )
 
     def trip_row_plate(t: Trip) -> str:
@@ -3458,7 +3602,7 @@ def write_html(
 <div class='nav'><a href='index.html'>&larr; สรุปภาพรวม</a> · <a href='exports/00_Full_Workbook.xlsx'>Excel รวมทุกชีต</a></div>
 <div class='panel'><div class='panel-title-row'><h3>เที่ยวทั้งหมด (matched + unmatched)</h3><a class='xlsx-dl' href='exports/05_Trip_Detail.xlsx' download onclick='event.stopPropagation()'>ดาวน์โหลด Excel (Trip Detail)</a></div>
 <p class='sub'>เรียงตามเวลา (matched ใช้ Origin In · unmatched ใช้เวลาขา Origin/Destination) — UM-O/UM-D เว้นฝั่งที่ยังไม่มีคู่เป็น —<br>
-<b>ค่าเงิน:</b> ค่าขนส่ง = เรทวัน Dest_In ของเที่ยวนั้น · <b>เสียเวลา+50%/+100%</b> = ยอดรวมส่วนเพิ่ม fifty ของ (ทะเบียน×วัน Dest_In) แสดงที่แถวแรกของวันนั้น — <b>ไม่ได้คิดจากชั่วโมงในช่อง Dest Wait โดยตรง</b> (สีส้ม = แค่เตือนว่ารอปลายทางเกินเกณฑ์) · <b>ขากลับ(฿)</b> = ยอดจาก <code>manual_return_trips</code> แสดงที่แถวแรกของวันนั้น (ไม่เพิ่มจำนวนเที่ยว matched) · <b style='color:#b42318'>ช่องแดง ไม่มีใบงาน = ไม่พบเลขใบงานในไฟล์ลูกค้า ({_n_cust_missing} เที่ยว) — รอตรวจกับใบงานจริง</b> · ในช่องเดลี่: <span class='job-nocust'>เหลือง</span> = เลขนี้ไม่มีในไฟล์ลูกค้า, <span class='job-conflict'>แดง</span> = ลูกค้าลงเลขนี้เป็นคนละทะเบียน (ชี้เมาส์ดูว่าลงเป็นคันไหน)</p>
+<b>ค่าเงิน:</b> ค่าขนส่ง = เรทวัน Dest_In ของเที่ยวนั้น · <b>เสียเวลา+50%/+100%</b> = ยอดรวมส่วนเพิ่ม fifty ของ (ทะเบียน×วัน Dest_In) แสดงที่แถวแรกของวันนั้น — <b>ไม่ได้คิดจากชั่วโมงในช่อง Dest Wait โดยตรง</b> (สีส้ม = แค่เตือนว่ารอปลายทางเกินเกณฑ์) · <b>ขากลับ(฿)</b> = ยอดจาก <code>manual_return_trips</code> แสดงที่แถวแรกของวันนั้น (ไม่เพิ่มจำนวนเที่ยว matched) · วันที่มีค่ารอ/ขากลับแต่ไม่มีเที่ยวจบ (เช่นสิ้นเดือน เที่ยวไปจบรอบหน้า) แสดงเป็นแถวแยกของวันนั้น เพื่อให้ผลรวมตาราง = หน้าสรุป · <b style='color:#b42318'>ช่องแดง ไม่มีใบงาน = ไม่พบเลขใบงานในไฟล์ลูกค้า ({_n_cust_missing} เที่ยว) — รอตรวจกับใบงานจริง</b> · ในช่องเดลี่: <span class='job-nocust'>เหลือง</span> = เลขนี้ไม่มีในไฟล์ลูกค้า, <span class='job-conflict'>แดง</span> = ลูกค้าลงเลขนี้เป็นคนละทะเบียน (ชี้เมาส์ดูว่าลงเป็นคันไหน)</p>
 <div class='filter-bar'><label for='tripsPlateFilter'>กรองทะเบียน</label><select id='tripsPlateFilter'><option value=''>ทุกคัน</option>{_trips_plate_opts}</select><label for='tripsPlateQuery' style='margin-left:6px'>ค้นหา</label><input id='tripsPlateQuery' type='search' placeholder='พิมพ์ค้นหา...' autocomplete='off'></div>
 <details class='col-picker' id='tripsAllTableColPicker'><summary>แสดง / ซ่อนคอลัมน์ (เลือกได้เหมือน Excel)</summary><div class='col-picker-grid' id='tripsAllTableColInner'></div><p style='margin:0 0 10px'><button type='button' class='xlsx-dl' id='tripsAllTableColReset'>แสดงทุกคอลัมน์</button></p></details>
 <div class='export-bar'><button type='button' class='exp-btn' id='tripsAllTableExpPrint'>🖨️ พิมพ์ / PDF (เปิดหน้าตารางแยก)</button><button type='button' class='exp-btn' id='tripsAllTableExpXls'>📊 Excel (ตามที่เห็น)</button><button type='button' class='exp-btn' id='tripsAllTableExpPng'>🖼️ บันทึกรูป PNG</button></div>
@@ -3535,6 +3679,10 @@ def write_html(
             include_plate_link=False,
             include_plate_column=False,
             leg_timeline_by_plate=leg_timeline_by_plate,
+            extra_rows=orphan_money_row_tuples(
+                trips, fifty_rows, ret_by_pd, deadhead_by_pd, cfg,
+                include_plate_column=False, only_plate=p,
+            ),
         )
         pg = f"""<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
 <title>{esc(p)}</title><style>{css}</style></head><body>

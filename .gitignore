@@ -157,3 +157,45 @@ ProjectYK_System/app/oatside/_last_build.json
 ProjectYK_System/app/oatside/*.bak-*
 gdrive_token.json
 ProjectYK_System/app/uploads/
+
+# ---------------------------------------------------------------------------
+# Working-tree cleanup 8 ก.ค. 2026 — secrets, local state, generated output
+# ---------------------------------------------------------------------------
+
+# GitHub 2FA recovery codes (NEVER commit — account takeover secret)
+github-recovery-codes.txt
+
+# Local dev scratch at repo root (not source)
+hdr
+ProjectYK_System/tools/_file_index.txt
+ProjectYK_System/tools/_lcb_mixed_compare.json
+ProjectYK_System/tools/_ayu_mao_deploy.ps1
+ProjectYK_System/tools/_restart_verify.ps1
+ProjectYK_System/app/charin_payload.json
+ProjectYK_System/app/jan_lcb_full.txt
+ProjectYK_System/app/local_runct.json
+ProjectYK_System/app/local_runs.json
+
+# App runtime caches / generated (re-creatable)
+ProjectYK_System/app/.coverage
+ProjectYK_System/app/_ar_cache/
+ProjectYK_System/app/_kb_payout_cache/
+ProjectYK_System/app/_todo_media/
+ProjectYK_System/app/tmp_uploads/
+ProjectYK_System/app/reports/
+ProjectYK_System/app/oatside/oatside_job_numbers.json
+
+# Preflight / cross-check output + DB backups (re-creatable, contain business data)
+reports/preflight_payrun_*.json
+reports/preflight_unresolved_queue/
+reports/lcb_fuel_crosscheck_*
+reports/daily_lcb_backup_*.json
+reports/BIGC_IMPORT_STATUS_for_oh.md
+reports/เทียบไฟล์*
+
+# Oatside reports — builder output, re-creatable (was tracked; now ignored)
+Oatside/TransportRateCalculator/reports/
+Oatside/Oatside_PG_Trip_Summary_By_Site.xlsx
+
+# Oatside raw payroll xlsx (business data)
+Oatside/Y.K._Logistics*.xlsx
