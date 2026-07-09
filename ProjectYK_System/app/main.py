@@ -583,6 +583,18 @@ LOG_DIR = Path(__file__).resolve().parent / "logs"
 LOG_FILE = LOG_DIR / "app.log"
 
 
+class _DropClientDisconnect(logging.Filter):
+    """asyncio โยน ConnectionResetError ทุกครั้งที่ client ตัดสายกลางคัน (uptime check /
+    ปิดแท็บ) — ไม่ใช่บั๊ก แต่ท่วม log จนบัง error จริงบนหน้า 🖥️ สุขภาพเครื่อง."""
+
+    _CLIENT_GONE = (ConnectionResetError, ConnectionAbortedError, BrokenPipeError)
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.name != "asyncio" or not record.exc_info:
+            return True
+        return not isinstance(record.exc_info[1], self._CLIENT_GONE)
+
+
 def _setup_file_logging() -> None:
     try:
         LOG_DIR.mkdir(exist_ok=True)
@@ -590,6 +602,7 @@ def _setup_file_logging() -> None:
                                       encoding="utf-8", delay=True)
         handler.setFormatter(logging.Formatter(
             "%(asctime)s %(levelname)s %(name)s %(message)s", "%Y-%m-%d %H:%M:%S"))
+        handler.addFilter(_DropClientDisconnect())
         handler.setLevel(logging.WARNING)   # เก็บ WARNING ขึ้นไป — ไม่ spam access log
         for name in ("", "uvicorn.error", "yk.app"):
             lg = logging.getLogger(name)
@@ -10852,7 +10865,8 @@ def todo_page(request: Request, q: str = "", cat: str = ""):
         "media_of": lambda t: [m for m in (t.media_json or "").split(",") if m],
         "suggests": suggests, "can_scan": is_admin,
         "scanned": request.query_params.get("scanned", ""),
-        "scan_err": request.query_params.get("scan_err", ""),
+        "scan_err": (request.query_params.get("scan_err", "")
+                     or (get_setting("todo_scan_err", "") if is_admin else "")),
     })
     return templates.TemplateResponse(request, "todo.html", ctx)
 
@@ -11052,14 +11066,25 @@ _TODO_SCAN_LOCK = threading.Lock()   # กันสแกนซ้อน (ปุ
 
 
 def _todo_scan_run() -> dict:
-    """รันสแกน + จดเวลาไว้ใน AppSetting (ใช้ทั้งปุ่มและ auto-trigger)."""
+    """รันสแกน + จดเวลา/ผลไว้ใน AppSetting (ใช้ทั้งปุ่มและ auto-trigger).
+
+    todo_scan_err = ข้อความพังของรอบล่าสุด ("" = รอบล่าสุดสำเร็จ) — โชว์บน /todo
+    และเป็นตัวบอก _todo_scan_maybe_auto ว่าให้ลองใหม่เร็วขึ้น."""
     from services import todo_scan
 
     if not _TODO_SCAN_LOCK.acquire(blocking=False):
         return {"skipped": "กำลังสแกนอยู่แล้ว"}
     try:
         set_setting("todo_scan_last", datetime.utcnow().isoformat())
-        return todo_scan.scan()
+        try:
+            res = todo_scan.scan()
+        except Exception as e:
+            set_setting("todo_scan_err", str(e)[:300])
+            raise
+        set_setting("todo_scan_err",
+                    f"AI ล่มบางส่วน — คัดไม่ครบ {res['failed']} ก้อน จะลองใหม่ให้เอง"
+                    if res.get("failed") else "")
+        return res
     finally:
         _TODO_SCAN_LOCK.release()
 
@@ -11067,14 +11092,16 @@ def _todo_scan_run() -> dict:
 def _todo_scan_maybe_auto() -> None:
     """auto-scan รายวัน: ถ้ารอบล่าสุดเกิน 20 ชม. เด้ง thread สแกนเบื้องหลัง
     (เรียกตอน admin เปิด /todo — ไม่หน่วงหน้า; พังเงียบได้ รอบหน้า/ปุ่มลองใหม่).
-    มาร์กเวลาแบบ sync ก่อนเด้ง thread — โปรเซสหนึ่งเด้งอย่างมากวันละครั้ง."""
+    มาร์กเวลาแบบ sync ก่อนเด้ง thread — โปรเซสหนึ่งเด้งอย่างมากวันละครั้ง.
+    รอบล่าสุดพัง (AI ล่ม) → ลองใหม่ใน 1 ชม. ไม่ใช่เงียบไปทั้งวัน."""
     from services import line_archive
 
     if line_archive.db_path() is None:
         return  # เครื่องนี้ไม่มีคลังไลน์ (dev/test) — ไม่มีอะไรให้สแกน
     last = get_setting("todo_scan_last", "")
+    gap = timedelta(hours=1) if get_setting("todo_scan_err", "") else timedelta(hours=20)
     try:
-        if last and datetime.utcnow() - datetime.fromisoformat(last) < timedelta(hours=20):
+        if last and datetime.utcnow() - datetime.fromisoformat(last) < gap:
             return
     except ValueError:
         pass

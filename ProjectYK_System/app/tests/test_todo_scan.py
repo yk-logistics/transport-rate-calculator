@@ -174,6 +174,7 @@ def test_scan_error_shows_message(clients, monkeypatch):
         raise RuntimeError("เรียก AI ไม่สำเร็จ (URLError) — ลองใหม่อีกครั้ง")
 
     monkeypatch.setattr(ai_assist, "chat_qwen", boom)
+    monkeypatch.setattr(ai_assist, "claude_available", lambda: False)
     r = c_admin.post("/todo/scan-line", follow_redirects=True)
     assert r.status_code == 200 and "ไม่สำเร็จ" in r.text
 
@@ -185,3 +186,132 @@ def test_ai_bogus_ids_ignored(clients, monkeypatch):
     c_admin.post("/todo/scan-line")
     with Session(engine) as s:
         assert s.exec(select(TodoSuggest)).first() is None
+
+
+# ---- Qwen ล่ม (gateway ฟรี 9arm ตอบ content ว่างทั้งวัน 9ก.ค.) → ต้องมีทางรอด ----
+
+def _qwen_down(monkeypatch):
+    def boom(messages, **kw):
+        raise RuntimeError("AI ไม่ได้ส่งคำตอบกลับมา — ลองใหม่อีกครั้ง")
+
+    monkeypatch.setattr(ai_assist, "chat_qwen", boom)
+
+
+def _add_line_msgs(n: int, start_id: int = 100) -> None:
+    """เติมข้อความ 'เป็นงาน' n ข้อความในคลังไลน์ปลอม (ข้อความไม่ซ้ำ — ไม่โดน dedupe)."""
+    con = sqlite3.connect(os.environ["YK_LINE_DB"])
+    con.executemany("INSERT INTO line_message VALUES (?,?,?,?,?,?,?,?,NULL,0)", [
+        (start_id + i, f"x{i}", 'g1', 'u1', 'text',
+         f"ขอเปลี่ยนยางรถคันที่ {i} ด่วนครับ", None, _ts(50)) for i in range(n)])
+    con.commit()
+    con.close()
+
+
+def test_qwen_down_falls_back_to_claude(clients, monkeypatch):
+    """Qwen ล่ม = กล่องรอคัดต้องไม่ตาย — Claude (haiku) คัดแทน."""
+    c_admin, _ = clients
+    _qwen_down(monkeypatch)
+    seen = {}
+
+    def fake_claude(prompt, cwd=None, timeout=180, model=None):
+        seen["prompt"] = prompt
+        seen["model"] = model
+        return ('[{"id": 3, "summary": "เปลี่ยนยางหลัง 2 เส้น รถ 72-1219", '
+                '"category": "แจ้งซ่อม"}]')
+
+    monkeypatch.setattr(ai_assist, "claude_available", lambda: True)
+    monkeypatch.setattr(ai_assist, "chat_claude", fake_claude)
+
+    r = c_admin.post("/todo/scan-line", follow_redirects=False)
+    assert r.status_code == 303 and "scanned=1" in r.headers["location"]
+    assert "[3]" in seen["prompt"]          # ก้อนเดิมถูกส่งต่อให้ Claude
+    assert seen["model"] == "haiku"         # งานคัดกรองปริมาณเยอะ — ห้ามใช้รุ่นแพง
+    with Session(engine) as s:
+        sg = s.exec(select(TodoSuggest)).one()
+    assert sg.line_msg_id == 3 and sg.category == "แจ้งซ่อม"
+
+
+def test_claude_fallback_capped_per_run(clients, monkeypatch):
+    """สำรอง Claude กินโควต้า Max ของโอ — จำกัดจำนวนก้อนต่อรอบ ก้อนที่เกินข้ามไป
+    (ข้อความยังไม่ถูกจดว่าเสนอแล้ว → รอบหน้าได้สแกนใหม่)."""
+    c_admin, _ = clients
+    _add_line_msgs(30)                      # รวมของเดิม → 2 ก้อน (25/ก้อน)
+    _qwen_down(monkeypatch)
+    calls = []
+    monkeypatch.setattr(todo_scan, "_MAX_CLAUDE_CHUNKS", 1)
+    monkeypatch.setattr(ai_assist, "claude_available", lambda: True)
+    monkeypatch.setattr(ai_assist, "chat_claude",
+                        lambda prompt, **kw: calls.append(1) or "[]")
+
+    res = todo_scan.scan()
+    assert len(calls) == 1                  # ก้อนที่ 2 ไม่ยิง Claude ซ้ำ
+    assert res["failed"] == 1 and res["added"] == 0
+    with Session(engine) as s:
+        assert s.exec(select(TodoSuggest)).first() is None
+
+
+def test_all_chunks_failed_raises(clients, monkeypatch):
+    """AI ล่มทั้งคู่ = ต้องรู้ว่ายังไม่ได้สแกน (ไม่ใช่รายงานว่าเสร็จแล้วเจอ 0 งาน)."""
+    c_admin, _ = clients
+    _qwen_down(monkeypatch)
+    monkeypatch.setattr(ai_assist, "claude_available", lambda: True)
+    monkeypatch.setattr(ai_assist, "chat_claude", lambda prompt, **kw:
+                        (_ for _ in ()).throw(RuntimeError("เรียก Claude ไม่สำเร็จ")))
+    with pytest.raises(RuntimeError):
+        todo_scan.scan()
+
+
+# ---- auto-scan พังแล้วต้องลองใหม่ ไม่ใช่เงียบไป 20 ชม. ------------------------
+
+class _SyncThread:
+    """รัน target ทันทีตอน .start() — ให้เทสต์เห็นผล auto-scan โดยไม่ต้องรอ thread."""
+
+    def __init__(self, target=None, daemon=None, **kw):
+        self._target = target
+
+    def start(self):
+        self._target()
+
+
+def test_failed_auto_scan_retries_within_hour(clients, monkeypatch):
+    c_admin, _ = clients
+    monkeypatch.setattr(appmod.threading, "Thread", _SyncThread)
+    monkeypatch.setattr(ai_assist, "claude_available", lambda: False)
+    calls = []
+
+    def boom(messages, **kw):
+        calls.append(1)
+        raise RuntimeError("AI ไม่ได้ส่งคำตอบกลับมา — ลองใหม่อีกครั้ง")
+
+    monkeypatch.setattr(ai_assist, "chat_qwen", boom)
+
+    two_hours_ago = (datetime.utcnow() - timedelta(hours=2)).isoformat()
+    # รอบก่อนสำเร็จ 2 ชม.ที่แล้ว → ยังไม่ถึงรอบวันถัดไป ไม่ต้องสแกน
+    appmod.set_setting("todo_scan_last", two_hours_ago)
+    appmod.set_setting("todo_scan_err", "")
+    c_admin.get("/todo")
+    assert calls == []
+
+    # รอบก่อน "พัง" → ต้องลองใหม่ (1 ชม.) ไม่ใช่รอครบ 20 ชม.
+    appmod.set_setting("todo_scan_last", two_hours_ago)
+    appmod.set_setting("todo_scan_err", "AI ล่ม")
+    c_admin.get("/todo")
+    assert len(calls) == 1
+    assert appmod.get_setting("todo_scan_err")     # ยังพัง → จดไว้
+
+    # สแกนสำเร็จ → ล้างธงพัง กลับไปวันละครั้งตามเดิม
+    monkeypatch.setattr(ai_assist, "chat_qwen", lambda messages, **kw: "[]")
+    appmod.set_setting("todo_scan_last", two_hours_ago)
+    c_admin.get("/todo")
+    assert appmod.get_setting("todo_scan_err") == ""
+    c_admin.get("/todo")
+    assert len(calls) == 1                          # ไม่สแกนซ้ำเพราะยังไม่ถึงรอบ
+
+
+def test_saved_scan_error_shows_on_todo_page(clients):
+    """โอต้องเห็นบนหน้า /todo ว่าสแกนล่าสุดพัง — ไม่ใช่ต้องไปเปิด log เอง."""
+    c_admin, c_off = clients
+    appmod.set_setting("todo_scan_last", datetime.utcnow().isoformat())
+    appmod.set_setting("todo_scan_err", "AI ไม่ได้ส่งคำตอบกลับมา")
+    assert "AI ไม่ได้ส่งคำตอบกลับมา" in c_admin.get("/todo").text
+    assert "AI ไม่ได้ส่งคำตอบกลับมา" not in c_off.get("/todo").text

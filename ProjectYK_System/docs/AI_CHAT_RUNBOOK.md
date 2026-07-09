@@ -17,6 +17,11 @@
 - **Qwen (ฟรี)** — ใช้ได้ทันที: REST `gateway.9arm.co/v1/chat/completions` คีย์ `YK_QWEN_KEY`
   (secret #8 ใน `SECRETS_INVENTORY.md`). Gotcha: ต้องตั้ง `user-agent` เอง (WAF บล็อก UA Python)
   และห้ามใช้ท่า `/v1/messages` (คืน content ว่าง).
+- **⚠️ gateway ฟรี ล่มเป็นวันๆ ได้ (9 ก.ค. 2026):** ตอบ HTTP 200 `finish_reason=stop` แต่
+  `content=""` + `completion_tokens=1` **ทุก prompt** (แม้ "1+1 เท่ากับเท่าไหร่") ทั้งท่า
+  chat/completions, /v1/messages และ streaming — ฝั่งเราไม่ผิด รอ 9arm แก้.
+  วิธีเช็คเร็ว: ยิง 1 prompt สั้น ถ้า `completion_tokens<=1` = gateway ล่ม.
+  ทุกจุดที่เรียก Qwen ต้องมีทางรอด: `rewrite_todo()` และ `todo_scan.scan()` ตก Claude อัตโนมัติ.
 - **Claude (Max ของโอ)** — ผ่าน `claude -p` headless เท่านั้น (เอา token Max ยิง API ตรง =
   ผิด ToS; `claude -p` ได้; **โควต้าแชร์กับเซสชันทำงานของโอ**). จำกัดเครื่องมือ
   `--allowedTools Read,Grep,Glob` = guard อ่านอย่างเดียวจริง ระดับเทคนิค.

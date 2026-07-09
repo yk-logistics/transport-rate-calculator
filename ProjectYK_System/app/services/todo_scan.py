@@ -1,7 +1,9 @@
 """เฟส 4 LINE→todo: สแกนข้อความไลน์ → เสนองานเข้ากล่องรอคัด (TodoSuggest).
 
 กฎยืน: AI ได้แค่ "เสนอ" — แถว pending รอโอกดรับบนหน้า /todo ถึงจะเกิด TodoItem จริง.
-ใช้ Qwen ฟรี (chat_qwen) ตัวเดียว — งานคัดกรองปริมาณเยอะ ไม่ควรกินโควต้า Max.
+ใช้ Qwen ฟรี (chat_qwen) ก่อนเสมอ — งานคัดกรองปริมาณเยอะ ไม่ควรกินโควต้า Max;
+Qwen ล่ม (gateway ฟรี ล่มยาวได้ — 9ก.ค. คืน content ว่างทุก prompt) ค่อยตก Claude
+haiku จำกัด _MAX_CLAUDE_CHUNKS ก้อนต่อรอบ.
 """
 import json
 import re
@@ -17,6 +19,8 @@ from services import ai_assist, line_archive
 _KEYWORDS = ("ซ่อม", "เสีย", "แตก", "รั่ว", "พัง", "เปลี่ยน", "เบิก", "ขอ", "สั่ง",
              "ซื้อ", "แจ้ง", "ด่วน", "พรุ่งนี้", "อย่าลืม", "ฝาก", "ต้อง", "ตรวจ",
              "เคลม", "ครบกำหนด", "ภาษี", "ประกัน", "ต่อทะเบียน", "นัด", "ติดต่อ")
+
+_MAX_CLAUDE_CHUNKS = 4   # เพดานก้อนที่ยอมให้ตกไป Claude ต่อรอบ (≈100 ข้อความ/วัน)
 
 _SYSTEM = (
     "คุณช่วยคัดข้อความจากกลุ่มไลน์ของบริษัทขนส่ง ว่าข้อความไหนเป็น \"งานที่ต้องมีคนทำต่อ\"\n"
@@ -42,8 +46,9 @@ def _prefilter(text: str) -> bool:
 def scan(hours: int = 26) -> dict:
     """สแกนข้อความ text ย้อนหลัง N ชม. → เติมแถว pending ใหม่ใน TodoSuggest.
 
-    dedupe ถาวรด้วย line_msg_id (เคยเสนอ/เคยซ่อนแล้วไม่เสนอซ้ำ). คืน dict สรุปจำนวน.
-    พัง (archive ไม่มี / AI ล่ม) โยน RuntimeError ข้อความภาษาคน."""
+    dedupe ถาวรด้วย line_msg_id (เคยเสนอ/เคยซ่อนแล้วไม่เสนอซ้ำ). คืน dict สรุปจำนวน
+    (failed = ก้อนที่ AI ล่ม — เสนอได้บางส่วน). พังทุกก้อน / archive ไม่มี
+    โยน RuntimeError ข้อความภาษาคน."""
     since = (datetime.now() - timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M")
     try:
         msgs = line_archive.recent_text_messages(since)
@@ -62,15 +67,33 @@ def scan(hours: int = 26) -> dict:
         seen_txt.add(key)
         cand.append(m)
     added = 0
-    for i in range(0, len(cand), 25):   # หั่นก้อน — Qwen context 128k
-        chunk = cand[i:i + 25]
+    failed = 0
+    last_err = ""
+    claude_left = _MAX_CLAUDE_CHUNKS
+    chunks = [cand[i:i + 25] for i in range(0, len(cand), 25)]   # หั่นก้อน — Qwen context 128k
+    for chunk in chunks:
         ids = {m["id"]: m for m in chunk}
         listing = "\n".join(
             f"[{m['id']}] {(m['who'] or '?')}@{(m['group_name'] or '?')}: "
             f"{m['text'][:300]}" for m in chunk)
-        raw = ai_assist.chat_qwen(
-            [{"role": "system", "content": _SYSTEM},
-             {"role": "user", "content": listing}], max_tokens=2000)
+        try:
+            raw = ai_assist.chat_qwen(
+                [{"role": "system", "content": _SYSTEM},
+                 {"role": "user", "content": listing}], max_tokens=2000)
+        except RuntimeError as e:
+            # ก้อนที่ข้ามยังไม่ถูกจดว่าเสนอแล้ว → รอบหน้าได้คัดใหม่ (หน้าต่าง 26 ชม.)
+            last_err = str(e)
+            if claude_left <= 0 or not ai_assist.claude_available():
+                failed += 1
+                continue
+            claude_left -= 1
+            try:
+                raw = ai_assist.chat_claude(
+                    _SYSTEM + "\n\nรายการข้อความ:\n" + listing, timeout=180, model="haiku")
+            except RuntimeError as e2:
+                last_err = str(e2)
+                failed += 1
+                continue
         m2 = re.search(r"\[.*\]", raw, re.S)
         try:
             items = json.loads(m2.group()) if m2 else []
@@ -89,4 +112,6 @@ def scan(hours: int = 26) -> dict:
                     category=str(it.get("category") or "").strip() or "งาน"))
                 added += 1
             s.commit()
-    return {"scanned": len(msgs), "candidates": len(cand), "added": added}
+    if chunks and failed == len(chunks):
+        raise RuntimeError(f"สแกนไม่สำเร็จ — AI ล่มทุกก้อน: {last_err}")
+    return {"scanned": len(msgs), "candidates": len(cand), "added": added, "failed": failed}
