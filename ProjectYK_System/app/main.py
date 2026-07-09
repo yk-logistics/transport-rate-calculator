@@ -6269,19 +6269,12 @@ def _apply_maint_form(rec: MaintRecord, form, s: Session) -> None:
     rec.vendor_id = int(vendor_raw) if vendor_raw.strip() else None
     rec.receipt_ref = (form.get("invoice_no") or "").strip()
     rec.paid_by = (form.get("paid_by") or "cash").strip()
-    try:
-        rec.parts_cost = float(form.get("parts_cost") or 0)
-    except ValueError:
-        rec.parts_cost = 0.0
-    try:
-        rec.labor_cost = float(form.get("labor_cost") or 0)
-    except ValueError:
-        rec.labor_cost = 0.0
-    try:
-        rec.other_cost = float(form.get("other_cost") or 0)
-    except ValueError:
-        rec.other_cost = 0.0
-    rec.total_cost = (rec.parts_cost or 0) + (rec.labor_cost or 0) + (rec.other_cost or 0)
+    # v49: ยอดไม่รับจากฟอร์มหัวบิลแล้ว — มาจากบรรทัดรายการที่เดียว (เลิกกรอกซ้ำ 2 ที่
+    # ที่เคยทำให้ยอดกับรายการไม่ตรงกันเงียบๆ); บันทึกเก่าที่ยอดคีย์มือไว้ถูกคงไว้
+    if rec.id:
+        _recompute_maint_costs(s, rec)
+    else:
+        rec.total_cost = (rec.parts_cost or 0) + (rec.labor_cost or 0) + (rec.other_cost or 0)
     rec.notes = (form.get("notes") or "").strip()
     rec.updated_at = datetime.utcnow()
 

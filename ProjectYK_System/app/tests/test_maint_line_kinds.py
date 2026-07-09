@@ -43,13 +43,20 @@ def client():
         yield c
 
 
-def _new_record(client, **extra) -> int:
-    data = {"work_date": "2026-06-28", "kind": "tire_change", "status": "done",
-            "plate_raw": "71-8005", "paid_by": "cash"}
-    data.update(extra)
-    client.post("/maint/records/new", data=data)
+def _new_record(client, **manual_costs) -> int:
+    """สร้างบันทึกซ่อมผ่านฟอร์ม; manual_costs = ยอดที่คีย์มือไว้ "สมัยก่อน v49"
+    (ตั้งตรงใน DB เพราะฟอร์มไม่มีช่องให้กรอกแล้ว)."""
+    client.post("/maint/records/new", data={
+        "work_date": "2026-06-28", "kind": "tire_change", "status": "done",
+        "plate_raw": "71-8005", "paid_by": "cash"})
     with Session(engine) as s:
-        return s.exec(select(MaintRecord).order_by(MaintRecord.id.desc())).first().id
+        rec = s.exec(select(MaintRecord).order_by(MaintRecord.id.desc())).first()
+        if manual_costs:
+            for k, v in manual_costs.items():
+                setattr(rec, k, float(v))
+            rec.total_cost = rec.parts_cost + rec.labor_cost + rec.other_cost
+            s.add(rec); s.commit(); s.refresh(rec)
+        return rec.id
 
 
 def _add_line(client, rec_id, name, qty, price, kind):
@@ -79,7 +86,7 @@ def test_real_bill_71_8005_sums_by_kind(client):
 
 def test_manual_cost_kept_when_no_line_of_that_kind(client):
     """บันทึกเก่า: ค่าแรงคีย์มือ 900 + เพิ่มบรรทัดอะไหล่ → ค่าแรงต้องไม่ถูกล้างเป็น 0."""
-    rec_id = _new_record(client, labor_cost="900")
+    rec_id = _new_record(client, labor_cost=900)
     _add_line(client, rec_id, "ผ้าเบรก", 2, 300, "part")
 
     r = _rec(rec_id)
@@ -90,7 +97,7 @@ def test_manual_cost_kept_when_no_line_of_that_kind(client):
 
 def test_manual_parts_cost_kept_when_only_labor_line(client):
     """คีย์ค่าอะไหล่มือ 1,000 แล้วเพิ่มบรรทัด 'ค่าแรง' → ค่าอะไหล่ต้องไม่หาย."""
-    rec_id = _new_record(client, parts_cost="1000")
+    rec_id = _new_record(client, parts_cost=1000)
     _add_line(client, rec_id, "ค่าแรงถอดประกอบ", 1, 500, "labor")
 
     r = _rec(rec_id)
@@ -121,6 +128,40 @@ def test_line_kind_defaults_to_part(client):
     with Session(engine) as s:
         assert s.exec(select(MaintPart)).one().kind == "part"
     assert _rec(rec_id).parts_cost == 5000.0
+
+
+def test_header_form_has_no_manual_cost_inputs(client):
+    """v49: เลิกกรอกยอดซ้ำ 2 ที่ — ยอดมาจากรายการอย่างเดียว (ช่องกรอกมือหายไป)."""
+    rec_id = _new_record(client)
+    body = client.get(f"/maint/records/{rec_id}").text
+    assert 'name="parts_cost"' not in body
+    assert 'name="labor_cost"' not in body
+    assert 'name="other_cost"' not in body
+
+
+def test_saving_header_does_not_wipe_line_totals(client):
+    """เคยเป็นกับดัก: แก้หัวบิล (วันที่/หมายเหตุ) แล้ว save → ยอดที่มาจากรายการต้องไม่หาย."""
+    rec_id = _new_record(client)
+    _add_line(client, rec_id, "น็อต", 8, 250, "part")
+    _add_line(client, rec_id, "ค่าแรง", 1, 500, "labor")
+
+    client.post(f"/maint/records/{rec_id}", data={
+        "work_date": "2026-06-29", "kind": "tire_change", "status": "done",
+        "plate_raw": "71-8005", "paid_by": "cash", "notes": "แก้วันที่"})
+
+    r = _rec(rec_id)
+    assert r.parts_cost == 2000.0 and r.labor_cost == 500.0 and r.total_cost == 2500.0
+    assert r.notes == "แก้วันที่"
+
+
+def test_saving_header_keeps_legacy_manual_costs(client):
+    """บันทึกเก่า (ยอดคีย์มือ ไม่มีบรรทัด) — save หัวบิลแล้วยอดต้องไม่ถูกล้างเป็น 0."""
+    rec_id = _new_record(client, parts_cost=1200, labor_cost=800)
+    client.post(f"/maint/records/{rec_id}", data={
+        "work_date": "2026-06-28", "kind": "repair", "status": "done",
+        "plate_raw": "71-8005", "paid_by": "cash"})
+    r = _rec(rec_id)
+    assert r.parts_cost == 1200.0 and r.labor_cost == 800.0 and r.total_cost == 2000.0
 
 
 def test_form_has_kind_selector_and_shows_line_kind(client):
