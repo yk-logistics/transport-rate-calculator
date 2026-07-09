@@ -546,9 +546,10 @@ class MaintRecord(SQLModel, table=True):
 
 
 class MaintPart(SQLModel, table=True):
-    """อะไหล่ที่ใช้ใน MaintRecord (line item)"""
+    """บรรทัดหนึ่งในบิลซ่อม (อะไหล่ / ค่าแรง / บริการ) — line item"""
     id: Optional[int] = Field(default=None, primary_key=True)
     maint_record_id: int = Field(foreign_key="maintrecord.id", index=True)
+    kind: str = "part"         # v49: part | labor | service (ดู MAINT_LINE_KINDS)
     part_id: Optional[int] = Field(default=None, foreign_key="part.id", index=True)
     part_name_raw: str = ""    # fallback ถ้าไม่มีใน Part master
     qty: float = 0.0
@@ -746,6 +747,13 @@ MAINT_STATUS = (
     ("in_progress",  "กำลังซ่อม"),
     ("done",         "เสร็จสิ้น"),
     ("cancelled",    "ยกเลิก"),
+)
+
+# v49: หมวดของแต่ละบรรทัดในบิลซ่อม — บิลร้านปนกันทั้ง 3 แบบในใบเดียว
+MAINT_LINE_KINDS = (
+    ("part",    "อะไหล่"),
+    ("labor",   "ค่าแรง"),
+    ("service", "บริการ"),
 )
 
 MAINT_PAID_BY = (

@@ -99,7 +99,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 48  # v48: Tire.tire_type+removal_reason, TireEvent.reason_code (ALTER — ระบบยางหยุดเลือด: คีย์บิล+รายงานหล่อ/แท้); v47: DealRecord+PlaceCache (โต๊ะเช็คดีล /quote/deal — create_all); v46: TodoSuggest (เฟส 4 กล่องรอคัดจากไลน์ — create_all); v45: AiChatLog (เฟส 3 /ai — create_all); v44: MediaArchive (G2 — create_all); v43: DocTemplate+DocIssue (A2 — create_all); v42: Vehicle.tank_liters (ALTER); v41: JobMedia; v40: LineGroupMap+LineJobSeen; v39: PartPermission; v38: DebtAccount; v37: AuditLog
+SCHEMA_VERSION = 49  # v49: MaintPart.kind (ALTER — คีย์บิลซ่อมเป็นรายการๆ แยกหมวด อะไหล่/ค่าแรง/บริการ); v48: Tire.tire_type+removal_reason, TireEvent.reason_code (ALTER — ระบบยางหยุดเลือด: คีย์บิล+รายงานหล่อ/แท้); v47: DealRecord+PlaceCache (โต๊ะเช็คดีล /quote/deal — create_all); v46: TodoSuggest (เฟส 4 กล่องรอคัดจากไลน์ — create_all); v45: AiChatLog (เฟส 3 /ai — create_all); v44: MediaArchive (G2 — create_all); v43: DocTemplate+DocIssue (A2 — create_all); v42: Vehicle.tank_liters (ALTER); v41: JobMedia; v40: LineGroupMap+LineJobSeen; v39: PartPermission; v38: DebtAccount; v37: AuditLog
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -399,6 +399,9 @@ def _apply_additive_migrations() -> None:
     _ensure_column("tire",      "tire_type",      "TEXT", default="new")
     _ensure_column("tire",      "removal_reason", "TEXT", default="")
     _ensure_column("tireevent", "reason_code",    "TEXT", default="")
+
+    # v48 → v49: หมวดของบรรทัดในบิลซ่อม — แถวเดิมทั้งหมดคืออะไหล่ (default 'part')
+    _ensure_column("maintpart", "kind", "TEXT", default="part")
 
     # v6 → v7: PayRunItem BIGC audit columns + PayRunAdjust table (created via
     # SQLModel.metadata.create_all; nothing ALTER-wise needed for new table).
@@ -6215,6 +6218,8 @@ def _maint_form_context(s: Session, record=None):
         "part_map": {p.id: p.name for p in parts},
         "part_unit_map": {p.id: p.unit for p in parts},
         "kinds": models.MAINT_KINDS,
+        "line_kinds": models.MAINT_LINE_KINDS,
+        "line_kind_th": dict(models.MAINT_LINE_KINDS),
         "paid_by": models.MAINT_PAID_BY,
         "today": date.today().isoformat(),
     }
@@ -6325,6 +6330,27 @@ def maint_record_delete(rec_id: int):
 
 
 # ---- MaintPart (line items) ----
+def _recompute_maint_costs(s: Session, rec: MaintRecord, force: tuple = ()) -> None:
+    """ยอดรวมของบันทึกซ่อม = ผลรวมบรรทัดแยกตามหมวด (v49).
+
+    หมวดไหน **ไม่มีบรรทัดเลย** ให้คงยอดที่คีย์มือไว้ — บันทึกเก่ามีแต่บรรทัดอะไหล่
+    กับค่าแรงที่คีย์มือ ห้ามล้างเป็น 0. `force` = หมวดที่เพิ่งลบบรรทัดสุดท้ายทิ้ง
+    (ต้องคำนวณใหม่ให้เป็น 0 จริงๆ)."""
+    lines = s.exec(select(MaintPart).where(MaintPart.maint_record_id == rec.id)).all()
+    sums = {"part": 0.0, "labor": 0.0, "service": 0.0}
+    for ln in lines:
+        sums[ln.kind if ln.kind in sums else "part"] += ln.total or 0
+    have = {ln.kind for ln in lines} | set(force)
+    if "part" in have:
+        rec.parts_cost = sums["part"]
+    if "labor" in have:
+        rec.labor_cost = sums["labor"]
+    if "service" in have:
+        rec.other_cost = sums["service"]      # บริการ → ช่อง "ค่าอื่นๆ" เดิม
+    rec.total_cost = (rec.parts_cost or 0) + (rec.labor_cost or 0) + (rec.other_cost or 0)
+    rec.updated_at = datetime.utcnow()
+
+
 @app.post("/maint/records/{rec_id}/parts/add")
 async def maint_part_add(request: Request, rec_id: int):
     form = await request.form()
@@ -6343,6 +6369,9 @@ async def maint_part_add(request: Request, rec_id: int):
         except ValueError:
             unit_price = 0.0
         name_raw = (form.get("part_name_raw") or "").strip()
+        kind = (form.get("kind") or "part").strip()
+        if kind not in dict(models.MAINT_LINE_KINDS):
+            kind = "part"
 
         # If no unit_price provided, try Part.default_price
         if unit_price == 0 and part_id:
@@ -6352,6 +6381,7 @@ async def maint_part_add(request: Request, rec_id: int):
 
         mp = MaintPart(
             maint_record_id=rec_id,
+            kind=kind,
             part_id=part_id,
             part_name_raw=name_raw,
             qty=qty,
@@ -6360,8 +6390,8 @@ async def maint_part_add(request: Request, rec_id: int):
         )
         s.add(mp)
 
-        # Auto stock-out if linked to a master Part
-        if part_id and qty > 0:
+        # Auto stock-out if linked to a master Part (ค่าแรง/บริการ ไม่ตัดสต็อก)
+        if part_id and qty > 0 and kind == "part":
             t = StockTxn(
                 txn_date=rec.work_date,
                 part_id=part_id,
@@ -6374,12 +6404,8 @@ async def maint_part_add(request: Request, rec_id: int):
             )
             s.add(t)
 
-        # Recompute parts_cost
         s.flush()
-        all_lines = s.exec(select(MaintPart).where(MaintPart.maint_record_id == rec_id)).all()
-        rec.parts_cost = sum(l.total or 0 for l in all_lines)
-        rec.total_cost = (rec.parts_cost or 0) + (rec.labor_cost or 0) + (rec.other_cost or 0)
-        rec.updated_at = datetime.utcnow()
+        _recompute_maint_costs(s, rec)
         s.add(rec)
         s.commit()
     return RedirectResponse(f"/maint/records/{rec_id}", status_code=303)
@@ -6403,15 +6429,89 @@ def maint_part_delete(rec_id: int, line_id: int):
             ).first()
             if dup:
                 s.delete(dup)
+        deleted_kind = mp.kind or "part"
         s.delete(mp)
         s.flush()
         rec = s.get(MaintRecord, rec_id)
         if rec:
-            all_lines = s.exec(select(MaintPart).where(MaintPart.maint_record_id == rec_id)).all()
-            rec.parts_cost = sum(l.total or 0 for l in all_lines)
-            rec.total_cost = (rec.parts_cost or 0) + (rec.labor_cost or 0) + (rec.other_cost or 0)
-            rec.updated_at = datetime.utcnow()
+            # force หมวดที่เพิ่งลบ — ลบบรรทัดสุดท้ายของหมวดนั้นแล้วยอดต้องเป็น 0
+            _recompute_maint_costs(s, rec, force=(deleted_kind,))
             s.add(rec)
+        s.commit()
+    return RedirectResponse(f"/maint/records/{rec_id}", status_code=303)
+
+
+# ---- 📷 อ่านบิลจากรูป (v49) — AI เสนอร่าง คนกดยืนยันถึงบันทึกจริง ---------------
+
+_BILL_IMG_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
+_BILL_MAX_BYTES = 12_000_000
+
+
+@app.post("/maint/records/{rec_id}/read-bill", response_class=HTMLResponse)
+async def maint_read_bill(request: Request, rec_id: int, photo: UploadFile = File(...)):
+    """อัปโหลดรูปบิล → ให้ Claude sonnet อ่าน → คืนหน้าเดิมพร้อม "ร่าง" ให้ตรวจก่อนกดเพิ่ม.
+
+    ไม่เขียน MaintPart ใดๆ ที่นี่ (กฎยืน: AI เสนอเท่านั้น)."""
+    from services import bill_ocr
+
+    with Session(engine) as s:
+        rec = s.get(MaintRecord, rec_id)
+        if rec is None:
+            return RedirectResponse("/maint/records", status_code=303)
+        ctx = _maint_form_context(s, rec)
+    ctx["record"] = rec
+
+    data = await photo.read()
+    if (photo.content_type or "") not in _BILL_IMG_TYPES:
+        ctx["ocr_err"] = "ไฟล์ต้องเป็นรูปภาพ (jpg/png/webp) — ถ่ายรูปบิลแล้วอัปโหลดใหม่"
+        return templates.TemplateResponse(request, "maint_record_form.html", ctx)
+    if len(data) > _BILL_MAX_BYTES:
+        ctx["ocr_err"] = "รูปใหญ่เกิน 12 MB — ถ่ายใหม่หรือย่อขนาดก่อน"
+        return templates.TemplateResponse(request, "maint_record_form.html", ctx)
+
+    # นามสกุลมาจากชื่อไฟล์ฝั่งผู้ใช้ — รับเฉพาะที่อนุญาต (กันไฟล์แปลกตกค้างใน uploads/)
+    ext = Path(photo.filename or "").suffix.lower()
+    if ext not in {".jpg", ".jpeg", ".png", ".webp"}:
+        ext = ".jpg"
+    dest_dir = _uploads_dir / "maint" / str(rec_id)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / f"bill_{datetime.now().strftime('%Y%m%d_%H%M%S')}{ext}"
+    dest.write_bytes(data)
+
+    ctx["ocr_image"] = f"/uploads/maint/{rec_id}/{dest.name}"
+    try:
+        ctx["ocr"] = bill_ocr.read_bill(str(dest))
+    except RuntimeError as e:
+        ctx["ocr_err"] = str(e)
+    return templates.TemplateResponse(request, "maint_record_form.html", ctx)
+
+
+@app.post("/maint/records/{rec_id}/parts/bulk-add")
+async def maint_parts_bulk_add(request: Request, rec_id: int):
+    """ยืนยันร่างจากรูปบิล → สร้างบรรทัดจริงทีเดียว (แถวที่ลบชื่อออก = ไม่เอา)."""
+    form = await request.form()
+    kinds = form.getlist("kind")
+    names = form.getlist("name")
+    qtys = form.getlist("qty")
+    prices = form.getlist("unit_price")
+    valid_kinds = dict(models.MAINT_LINE_KINDS)
+    with Session(engine) as s:
+        rec = s.get(MaintRecord, rec_id)
+        if rec is None:
+            return RedirectResponse("/maint/records", status_code=303)
+        for k, n, q, p in zip(kinds, names, qtys, prices):
+            name = (n or "").strip()
+            if not name:
+                continue
+            qty = _parse_float(q or "0")
+            price = _parse_float(p or "0")
+            s.add(MaintPart(
+                maint_record_id=rec_id,
+                kind=k if k in valid_kinds else "part",
+                part_name_raw=name, qty=qty, unit_price=price, total=qty * price))
+        s.flush()
+        _recompute_maint_costs(s, rec)
+        s.add(rec)
         s.commit()
     return RedirectResponse(f"/maint/records/{rec_id}", status_code=303)
 
