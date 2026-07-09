@@ -250,6 +250,17 @@ def test_claude_fallback_capped_per_run(clients, monkeypatch):
         assert s.exec(select(TodoSuggest)).first() is None
 
 
+def test_invented_category_normalized(clients, monkeypatch):
+    """วัดจริง 9ก.ค.: Claude แต่งหมวดเอง ('ฝากงาน'/'นัดหมาย') ทั้งที่สเปคมี 3 หมวด
+    — ต้องยุบเป็น 'งาน' ไม่งั้นรายการหมวดบน /todo บานปลาย."""
+    c_admin, _ = clients
+    monkeypatch.setattr(ai_assist, "chat_qwen", lambda messages, **kw:
+                        '[{"id": 3, "summary": "เปลี่ยนยาง", "category": "ฝากงาน"}]')
+    c_admin.post("/todo/scan-line")
+    with Session(engine) as s:
+        assert s.exec(select(TodoSuggest)).one().category == "งาน"
+
+
 def test_all_chunks_failed_raises(clients, monkeypatch):
     """AI ล่มทั้งคู่ = ต้องรู้ว่ายังไม่ได้สแกน (ไม่ใช่รายงานว่าเสร็จแล้วเจอ 0 งาน)."""
     c_admin, _ = clients

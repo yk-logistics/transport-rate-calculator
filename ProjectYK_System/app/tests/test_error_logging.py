@@ -41,13 +41,14 @@ def test_500_logged_to_file_and_friendly_page(client, monkeypatch):
     def boom(*a, **k):
         raise RuntimeError("จำลองพังเพื่อทดสอบ log")
     monkeypatch.setattr(appmod, "rate_find", boom)
-    if appmod.LOG_FILE.exists():
-        appmod.LOG_FILE.unlink()
+    # อ่านเฉพาะส่วนที่เพิ่มมาในเทสต์นี้ — ห้ามลบไฟล์: บน Windows ลบไฟล์ที่ log handler
+    # เปิดค้างไม่ได้ (เทสต์ก่อนหน้าอาจเขียน warning ไปแล้ว → PermissionError)
+    before = appmod.LOG_FILE.stat().st_size if appmod.LOG_FILE.exists() else 0
     r = client.get("/billing/fill-prices?month=2026-07")
     assert r.status_code == 500
     assert "ระบบขัดข้องชั่วคราว" in r.text          # หน้า error ภาษาคน ไม่ใช่ blank
     assert appmod.LOG_FILE.exists()
-    log = appmod.LOG_FILE.read_text(encoding="utf-8")
+    log = appmod.LOG_FILE.read_bytes()[before:].decode("utf-8", errors="replace")
     assert "จำลองพังเพื่อทดสอบ log" in log          # traceback ลงไฟล์
     assert "/billing/fill-prices" in log
     # server-health โชว์บรรทัด error
@@ -56,13 +57,12 @@ def test_500_logged_to_file_and_friendly_page(client, monkeypatch):
     assert "billing/fill-prices" in b
 
 
-# หมายเหตุลำดับ: เทสต์นี้ต้องอยู่ "หลัง" ตัวบน — มันเปิดไฟล์ log ค้างไว้ ทำให้
-# LOG_FILE.unlink() ของตัวบนพังด้วย PermissionError บน Windows
 def test_client_disconnect_noise_not_logged(client):
     """asyncio บน Windows โยน ConnectionResetError ทุกครั้งที่ client ตัดสายกลางคัน
     (uptime check/ปิดแท็บ) — ไม่ใช่บั๊ก แต่ท่วม log จนบัง error จริงบนหน้าสุขภาพเครื่อง."""
     import logging
 
+    before = appmod.LOG_FILE.stat().st_size if appmod.LOG_FILE.exists() else 0
     lg = logging.getLogger("asyncio")
     try:
         raise ConnectionResetError(10054, "An existing connection was forcibly closed")
@@ -71,6 +71,6 @@ def test_client_disconnect_noise_not_logged(client):
                  "_call_connection_lost(None)", exc_info=True)
     lg.error("asyncio พังจริงต้องเห็น")     # ปัญหาจริงของ asyncio ต้องไม่โดนกรองทิ้ง
 
-    log = appmod.LOG_FILE.read_text(encoding="utf-8", errors="replace")
+    log = appmod.LOG_FILE.read_bytes()[before:].decode("utf-8", errors="replace")
     assert "_call_connection_lost" not in log
     assert "asyncio พังจริงต้องเห็น" in log

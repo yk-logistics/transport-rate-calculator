@@ -20,7 +20,12 @@ _KEYWORDS = ("ซ่อม", "เสีย", "แตก", "รั่ว", "พ�
              "ซื้อ", "แจ้ง", "ด่วน", "พรุ่งนี้", "อย่าลืม", "ฝาก", "ต้อง", "ตรวจ",
              "เคลม", "ครบกำหนด", "ภาษี", "ประกัน", "ต่อทะเบียน", "นัด", "ติดต่อ")
 
-_MAX_CLAUDE_CHUNKS = 4   # เพดานก้อนที่ยอมให้ตกไป Claude ต่อรอบ (≈100 ข้อความ/วัน)
+# เพดานก้อนที่ยอมให้ตกไป Claude ต่อรอบ — วัดจริง 9ก.ค.: 90 ข้อความน่าสนใจ/26 ชม. = 4 ก้อน
+# ตั้ง 8 เผื่อวันหนัก (ก้อนเกินถูกข้าม ไม่หาย รอบหน้าคัดใหม่); ยิ่งเยอะยิ่งกินโควต้า Max ของโอ
+_MAX_CLAUDE_CHUNKS = 8
+
+# หมวดตามสเปค — AI (โดยเฉพาะ Claude) ชอบแต่งหมวดใหม่ เช่น "ฝากงาน"/"นัดหมาย"
+_CATEGORIES = ("แจ้งซ่อม", "งาน", "เบิกของ")
 
 _SYSTEM = (
     "คุณช่วยคัดข้อความจากกลุ่มไลน์ของบริษัทขนส่ง ว่าข้อความไหนเป็น \"งานที่ต้องมีคนทำต่อ\"\n"
@@ -104,12 +109,13 @@ def scan(hours: int = 26) -> dict:
                 if not isinstance(it, dict) or it.get("id") not in ids:
                     continue  # AI มั่ว id นอกก้อน — ทิ้ง
                 src = ids[it["id"]]
+                cat = str(it.get("category") or "").strip()
                 s.add(TodoSuggest(
                     line_msg_id=src["id"], group_name=src["group_name"] or "",
                     who=src["who"] or "", sent_at=str(src["sent_at"])[:16],
                     text=src["text"],
                     summary=str(it.get("summary") or "").strip() or src["text"][:120],
-                    category=str(it.get("category") or "").strip() or "งาน"))
+                    category=cat if cat in _CATEGORIES else "งาน"))
                 added += 1
             s.commit()
     if chunks and failed == len(chunks):
