@@ -4,6 +4,17 @@
 
 > **Agent bootstrap:** อ่านเฉพาะ **3 หัวข้อ `##` แรกจากด้านบนลงมา** (ไม่รวมบรรทัดนี้) — **ห้าม**อ่านทั้งไฟล์ทุกแชต. นโยบาย/การย้าย archive: [`ProjectYK_System/docs/CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md)
 
+## 2026-07-09 รอบสาม (🔴 "กดอ่านบิลแล้วไม่ขึ้นรายการ" — claude รันในสิทธิ์ SYSTEM ไม่ได้)
+
+- **โอรายงาน:** กดปุ่มอ่านบิลแล้วไม่มีรายการโผล่ · **ต้นเหตุไม่ใช่ OCR** — แอปเรียก `claude` ไม่ได้เลย
+- **root cause:** แอปรันเป็น **SYSTEM** (`Get-ScheduledTask YK_MVP_APP` → Principal.UserId=SYSTEM); claude บน Windows ต้องมี **Git bash หรือ PowerShell 7** — server ไม่มีทั้งคู่; `ssh yklog` ผ่านได้เพราะมี `C:\WINDOWS\system32\bash.exe` = **WSL (distro ผูกกับ user)** → SYSTEM ไม่มี → claude ตายใน 0.4 วิ `"Claude Code on Windows requires either Git for Windows (for bash) or PowerShell"` **และไม่ทิ้งร่องรอยใน log เลย**
+- **⚠️ บทเรียนของ agent:** เมื่อเช้าเทสต์ `chat_claude()` ในสิทธิ์ `yklog` ได้ OK แล้วรายงานโอว่า "Claude fallback ใช้ได้" → **เช็คผิดสิทธิ์** แปลว่าตัวสำรอง AI ของ todo_scan ก็ไม่เคยทำงานจริงบน production; ต่อไปทดสอบ subprocess บน server ต้องผ่าน `schtasks /RU SYSTEM` เท่านั้น (จดไว้ที่ memory `reference-test-claude-as-system`)
+- **แก้:** ① ติดตั้ง **Git for Windows** (`winget install --id Git.Git -e --scope machine --silent`, โอเคาะ) ② `ai_assist._claude_env()` เซ็ต `CLAUDE_CODE_GIT_BASH_PATH` เอง (override `YK_GIT_BASH`) + ย้าย `import subprocess` ขึ้น module level ③ `read-bill` ย้ายไป **`run_in_threadpool`** — `claude -p` blocking ~40 วิ เดิมค้าง event loop ทั้งแอปหยุดรับ request ④ อ่านบิลพัง → `_APP_LOG.warning` (โผล่บน /admin/server-health)
+- **พิสูจน์ในสิทธิ์ SYSTEM จริง (schtasks):** อ่าน**บิลลายมือ**ของโอ (ร้านประเสริฐทรัพย์การยาง 28/6/69) ได้ครบ 4 บรรทัด — บริการนอกสถานที่ 1,200 · ค่าแรง 500 · จุ๊บลมยางสลับกะทะ 2×200 · น็อตล้อ 8×250 = **4,100 ตรงยอดท้ายบิล** + ทะเบียน 71-8005 + วันที่ ✅ (ลายมือไทยอ่านได้จริง)
+- **🔒 สวิตช์คุมปุ่มอ่านบิล (โอสั่ง — กินโควต้า Claude Max ของโอ):** `AppSetting bill_ocr_mode` = `admin` (ค่าเริ่มต้น) | `all` | `off` ตั้งที่หน้า `/ai`; **ซ่อนปุ่ม + กัน route 403** (ยิงตรงไม่ผ่าน ไฟล์ไม่ถูกอัปโหลด ไม่เปลืองโควต้า/พื้นที่)
+- **gotcha:** ไฟล์ `.ps1` ที่ scp ไป server **ห้ามมีภาษาไทย** (parse พัง "string is missing the terminator"); `$pid` เป็นตัวแปรสงวนของ PowerShell — ใช้ชื่ออื่นตอนหา PID ของแอป
+- **verify:** 11 เทสต์ใหม่ (git bash env 5 + สวิตช์ 6) + ชุดเต็ม **600 ผ่าน**; deploy เขียว (marker `_bill_ocr_allowed`/`bill_ocr_mode`/`_claude_env`/`run_in_threadpool`); แอป live = SYSTEM pid 3108
+
 ## 2026-07-09 รอบสอง (🧾 บันทึกซ่อม: คีย์บิลเป็นรายการๆ แยกหมวด + 📷 AI อ่านบิลจากรูป — v49)
 
 - **โอสั่ง (ส่งรูปบิลร้านประเสริฐทรัพย์การยาง 28/6/69 รถ 71-8005):** "คีย์เป็นรายการๆ จำนวน/หน่วยละ + เลือกหมวด ค่าแรง/บริการ/อะไหล่ ได้ไหม แล้ว OCR ให้ Sonnet อ่านกรอกเลยได้ไหม"
