@@ -45,6 +45,24 @@
                {% if not claude_ok %}disabled{% endif %}>
         Claude เท่านั้น{% if not claude_ok %} <span class="text-slate-400">— ยังไม่ติดตั้งบนเครื่องนี้</span>{% endif %}
       </label>
+
+      <div class="pt-2 mt-2 border-t">
+        <div class="font-semibold text-slate-600 mb-1">📷 ปุ่มอ่านบิลจากรูป (หน้าบันทึกซ่อม)</div>
+        <div class="text-xs text-slate-400 mb-1.5">ใช้ Claude Sonnet อ่านรูป — กินโควต้า Max ของคุณ ใบละ ~40 วินาที</div>
+        <label class="flex gap-2 items-center">
+          <input type="radio" name="bill_ocr_mode" value="admin" {% if bill_ocr_mode == 'admin' %}checked{% endif %}>
+          เฉพาะแอดมิน <span class="text-slate-400">(แนะนำ — คนอื่นไม่เห็นปุ่ม)</span>
+        </label>
+        <label class="flex gap-2 items-center">
+          <input type="radio" name="bill_ocr_mode" value="all" {% if bill_ocr_mode == 'all' %}checked{% endif %}>
+          ทุกคนที่เข้าหน้าบันทึกซ่อมใช้ได้
+        </label>
+        <label class="flex gap-2 items-center">
+          <input type="radio" name="bill_ocr_mode" value="off" {% if bill_ocr_mode == 'off' %}checked{% endif %}>
+          ปิดทั้งระบบ <span class="text-slate-400">(ไม่มีใครใช้ได้ รวมทั้งแอดมิน)</span>
+        </label>
+      </div>
+
       <button class="bg-slate-700 hover:bg-slate-800 text-white rounded px-3 py-1 font-semibold">บันทึก</button>
     </form>
   </details>

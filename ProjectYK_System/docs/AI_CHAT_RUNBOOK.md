@@ -25,6 +25,15 @@
 - **Claude (Max ของโอ)** — ผ่าน `claude -p` headless เท่านั้น (เอา token Max ยิง API ตรง =
   ผิด ToS; `claude -p` ได้; **โควต้าแชร์กับเซสชันทำงานของโอ**). จำกัดเครื่องมือ
   `--allowedTools Read,Grep,Glob` = guard อ่านอย่างเดียวจริง ระดับเทคนิค.
+- **⚠️ ทดสอบ claude บน server ต้องทดสอบ "ในสิทธิ์ SYSTEM" เท่านั้น (9 ก.ค. 2026):**
+  แอปรันเป็น SYSTEM แต่ `ssh yklog` เป็นอีก user — claude บน Windows ต้องมี Git bash
+  หรือ PowerShell 7; `yklog` มี **WSL bash** (ผูกกับ user) จึงผ่าน ส่วน SYSTEM ไม่มี →
+  ตายทันที 0.4 วิ `"Claude Code on Windows requires either Git for Windows ... or PowerShell"`.
+  **แก้แล้ว:** ติดตั้ง Git for Windows (`winget install --id Git.Git -e --scope machine`)
+  + `ai_assist._claude_env()` เซ็ต `CLAUDE_CODE_GIT_BASH_PATH` ให้เอง (override: env `YK_GIT_BASH`).
+  วิธีทดสอบในสิทธิ์ SYSTEM: `schtasks /Create ... /RU SYSTEM /F` แล้ว `/Run` เขียนผลลงไฟล์.
+- **claude -p เป็น blocking ~40 วิ (OCR รูป)** — route ที่เรียกต้องผ่าน `run_in_threadpool`
+  ไม่งั้น event loop ค้าง ทั้งแอปหยุดรับ request
 
 ## Claude บน server — เปิดใช้แล้ว 5 ก.ค. 2026 ✅
 

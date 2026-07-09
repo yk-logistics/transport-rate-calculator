@@ -7,6 +7,7 @@
 import json
 import os
 import re
+import subprocess
 import urllib.request
 
 QWEN_BASE = os.getenv("YK_QWEN_BASE", "https://gateway.9arm.co")
@@ -130,6 +131,30 @@ def claude_available() -> bool:
     return _claude_exe() is not None
 
 
+# claude บน Windows ต้องมี Git bash หรือ PowerShell 7. แอปบน server รันเป็น SYSTEM
+# ซึ่ง **ไม่มี WSL distro** (WSL ผูกกับ user) → ต้องชี้ bash ให้ตรงๆ ไม่งั้นตายทันที
+# ("Claude Code on Windows requires either Git for Windows ... or PowerShell")
+_GIT_BASH_CANDIDATES = (
+    r"C:\Program Files\Git\bin\bash.exe",
+    r"C:\Program Files\Git\usr\bin\bash.exe",
+    r"C:\Program Files (x86)\Git\bin\bash.exe",
+)
+
+
+def _claude_env() -> dict:
+    """env สำหรับ claude -p — เติม CLAUDE_CONFIG_DIR + CLAUDE_CODE_GIT_BASH_PATH ให้เอง."""
+    env = dict(os.environ)
+    cfg = os.getenv("YK_CLAUDE_CONFIG", "").strip()
+    if cfg:
+        env["CLAUDE_CONFIG_DIR"] = cfg
+    if not env.get("CLAUDE_CODE_GIT_BASH_PATH"):
+        for p in (os.getenv("YK_GIT_BASH", "").strip(), *_GIT_BASH_CANDIDATES):
+            if p and os.path.exists(p):
+                env["CLAUDE_CODE_GIT_BASH_PATH"] = p
+                break
+    return env
+
+
 def chat_claude(prompt: str, cwd: str | None = None, timeout: int = 180,
                 model: str | None = None) -> str:
     """ถาม Claude ด้วย claude -p อ่านอย่างเดียว (Read,Grep,Glob) — คืนข้อความตอบ.
@@ -137,16 +162,11 @@ def chat_claude(prompt: str, cwd: str | None = None, timeout: int = 180,
     model: alias ของ CLI ("haiku"/"sonnet"/"opus") — None = รุ่น default ของ CLI.
     ตั้ง CLAUDE_CONFIG_DIR ชี้โปรไฟล์ที่ login ไว้ได้ผ่าน env YK_CLAUDE_CONFIG
     (จำเป็นบน server: แอปรันเป็น SYSTEM แต่ Max login อยู่โปรไฟล์ yklog)."""
-    import subprocess
-
     exe = _claude_exe()
     if not exe:
         raise RuntimeError("เครื่องนี้ยังไม่ได้ติดตั้ง/ล็อกอิน claude CLI — ใช้ Qwen ไปก่อน "
                            "(วิธีติดตั้งอยู่ใน docs/AI_CHAT_RUNBOOK.md)")
-    env = dict(os.environ)
-    cfg = os.getenv("YK_CLAUDE_CONFIG", "").strip()
-    if cfg:
-        env["CLAUDE_CONFIG_DIR"] = cfg
+    env = _claude_env()
     cmd = [exe, "-p", prompt, "--allowedTools", "Read,Grep,Glob"]
     if model:
         cmd += ["--model", model]

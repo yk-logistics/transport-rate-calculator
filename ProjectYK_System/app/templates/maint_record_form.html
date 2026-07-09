@@ -120,7 +120,9 @@
 <div class="mt-6 p-4 bg-slate-50 border rounded-lg">
   <h2 class="font-semibold mb-2">📄 รายการในบิล (อะไหล่ / ค่าแรง / บริการ)</h2>
 
-  {# ==== 📷 อ่านบิลจากรูป — AI เสนอร่าง โอตรวจแล้วกดเพิ่ม (v49) ==== #}
+  {# ==== 📷 อ่านบิลจากรูป — AI เสนอร่าง โอตรวจแล้วกดเพิ่ม (v49)
+       เห็นเฉพาะคนที่ได้รับอนุญาต (สวิตช์ที่หน้า /ai) — กินโควต้า Claude Max ของโอ ==== #}
+  {% if can_read_bill %}
   <form method="post" action="/maint/records/{{ record.id }}/read-bill"
         enctype="multipart/form-data" class="flex flex-wrap items-center gap-2 mb-3">
     <span class="text-sm text-slate-600">📷 ถ่ายรูปบิลแล้วให้ AI กรอกให้:</span>
@@ -129,6 +131,7 @@
     <button class="btn bg-violet-600 text-white hover:bg-violet-700 text-sm">อ่านบิล</button>
     <span class="text-xs text-slate-400">AI แค่กรอกร่างให้ — ต้องตรวจแล้วกด "เพิ่มเข้าบิล" เอง</span>
   </form>
+  {% endif %}
 
   {% if ocr_err %}
   <div class="mb-3 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
@@ -246,7 +249,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="7" class="py-3 text-center text-slate-400">ยังไม่มีรายการ — คีย์ทีละบรรทัดตามบิล (หรือกด "อ่านบิล" ให้ AI กรอกร่างให้)</td></tr>
+      <tr><td colspan="7" class="py-3 text-center text-slate-400">ยังไม่มีรายการ — คีย์ทีละบรรทัดตามบิล{% if can_read_bill %} (หรือให้ AI กรอกร่างจากรูปให้){% endif %}</td></tr>
       {% endfor %}
     </tbody>
     {% if maint_parts %}

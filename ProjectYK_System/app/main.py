@@ -692,6 +692,7 @@ app.add_middleware(PreviewAuthMiddleware)
 # RBAC middleware: enforces login + permission matrix. Defined here, but it needs
 # request.session, so it is added BEFORE SessionMiddleware (later add_middleware =
 # outer wrapper). Result: Session wraps RBAC -> session is populated when RBAC runs.
+from starlette.concurrency import run_in_threadpool  # noqa: E402
 from starlette.middleware.base import BaseHTTPMiddleware  # noqa: E402
 from starlette.middleware.sessions import SessionMiddleware  # noqa: E402
 
@@ -6243,6 +6244,7 @@ def maint_record_edit(request: Request, rec_id: int):
         ctx = _maint_form_context(s, rec)
     ctx["request"] = request
     ctx["record"] = rec
+    ctx["can_read_bill"] = _bill_ocr_allowed(request)
     return templates.TemplateResponse(request, "maint_record_form.html", ctx)
 
 
@@ -6440,6 +6442,18 @@ _BILL_IMG_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
 _BILL_MAX_BYTES = 12_000_000
 
 
+def _bill_ocr_allowed(request: Request) -> bool:
+    """ปุ่มอ่านบิลกินโควต้า Claude Max ของโอ — ค่าเริ่มต้นจึงเปิดเฉพาะแอดมิน.
+    โอสลับโหมดได้ที่หน้า /ai: admin | all | off"""
+    from auth import current_user
+
+    mode = get_setting("bill_ocr_mode", "admin")
+    if mode == "off":
+        return False
+    user = current_user(request)
+    return bool(user and (mode == "all" or user.role == "admin"))
+
+
 @app.post("/maint/records/{rec_id}/read-bill", response_class=HTMLResponse)
 async def maint_read_bill(request: Request, rec_id: int, photo: UploadFile = File(...)):
     """อัปโหลดรูปบิล → ให้ Claude sonnet อ่าน → คืนหน้าเดิมพร้อม "ร่าง" ให้ตรวจก่อนกดเพิ่ม.
@@ -6447,12 +6461,15 @@ async def maint_read_bill(request: Request, rec_id: int, photo: UploadFile = Fil
     ไม่เขียน MaintPart ใดๆ ที่นี่ (กฎยืน: AI เสนอเท่านั้น)."""
     from services import bill_ocr
 
+    if not _bill_ocr_allowed(request):
+        raise HTTPException(403, "ปุ่มอ่านบิลเปิดให้เฉพาะผู้ที่ได้รับอนุญาต")
     with Session(engine) as s:
         rec = s.get(MaintRecord, rec_id)
         if rec is None:
             return RedirectResponse("/maint/records", status_code=303)
         ctx = _maint_form_context(s, rec)
     ctx["record"] = rec
+    ctx["can_read_bill"] = True
 
     data = await photo.read()
     if (photo.content_type or "") not in _BILL_IMG_TYPES:
@@ -6473,8 +6490,12 @@ async def maint_read_bill(request: Request, rec_id: int, photo: UploadFile = Fil
 
     ctx["ocr_image"] = f"/uploads/maint/{rec_id}/{dest.name}"
     try:
-        ctx["ocr"] = bill_ocr.read_bill(str(dest))
+        # read_bill เรียก claude -p แบบ blocking ~40 วิ — ห้ามรันบน event loop
+        # (ไม่งั้นทั้งแอปค้างรอ ทุกคนเปิดหน้าอื่นไม่ได้)
+        ctx["ocr"] = await run_in_threadpool(bill_ocr.read_bill, str(dest))
     except RuntimeError as e:
+        # ลง log ด้วย — 9ก.ค. อ่านบิลพังบน server แล้วไม่ทิ้งร่องรอยอะไรเลย
+        _APP_LOG.warning("อ่านบิลไม่สำเร็จ rec=%s: %s", rec_id, e)
         ctx["ocr_err"] = str(e)
     return templates.TemplateResponse(request, "maint_record_form.html", ctx)
 
@@ -11303,15 +11324,20 @@ def ai_page(request: Request):
         logs = s.exec(select(AiChatLog).order_by(AiChatLog.id.desc()).limit(20)).all()
     ctx = base_context(request)
     ctx.update({"claude_ok": ai_assist.claude_available(), "logs": logs,
-                "draft_provider": get_setting("ai_draft_provider", "auto")})
+                "draft_provider": get_setting("ai_draft_provider", "auto"),
+                "bill_ocr_mode": get_setting("bill_ocr_mode", "admin")})
     return templates.TemplateResponse(request, "ai.html", ctx)
 
 
 @app.post("/ai/settings")
-def ai_settings(request: Request, draft_provider: str = Form("auto")):
-    """ตั้งค่าปุ่ม ✨ เรียบเรียง (หน้า /todo) — auto = Qwen ก่อน ล่มค่อยสลับ Claude."""
+def ai_settings(request: Request, draft_provider: str = Form("auto"),
+                bill_ocr_mode: str = Form("")):
+    """ตั้งค่าปุ่ม ✨ เรียบเรียง (หน้า /todo) — auto = Qwen ก่อน ล่มค่อยสลับ Claude.
+    + สวิตช์ปุ่ม 📷 อ่านบิล (กินโควต้า Claude Max ของโอ)."""
     if draft_provider in ("auto", "qwen", "claude"):
         set_setting("ai_draft_provider", draft_provider)
+    if bill_ocr_mode in ("admin", "all", "off"):
+        set_setting("bill_ocr_mode", bill_ocr_mode)
     return RedirectResponse("/ai", status_code=303)
 
 
