@@ -68,8 +68,10 @@
                       hx-on::after-request="this.textContent='✨ เรียบเรียง'"
                       class="text-violet-500 hover:text-violet-700" title="ให้ AI แก้คำผิด+จัดหมวด (เป็น draft — ยังไม่บันทึกจนกว่าจะกดใช้)">✨ เรียบเรียง</button>
               <details class="inline"><summary class="cursor-pointer hover:text-slate-600">แก้ไข</summary>
-                <form method="post" action="/todo/{{ t.id }}/update" class="flex gap-1.5 mt-1.5 flex-wrap items-center bg-slate-50 rounded-lg p-2">
-                  <input name="text" value="{{ t.text }}" class="border rounded px-2 py-0.5 w-64 text-sm">
+                <form method="post" action="/todo/{{ t.id }}/update" enctype="multipart/form-data"
+                      class="flex gap-1.5 mt-1.5 flex-wrap items-center bg-slate-50 rounded-lg p-2">
+                  {# textarea: โน้ตจากไลน์มีหลายบรรทัด — input บรรทัดเดียวทำบรรทัดหาย #}
+                  <textarea name="text" rows="3" class="border rounded px-2 py-1 w-full text-sm font-sans">{{ t.text }}</textarea>
                   <input name="category" value="{{ t.category }}" list="cats" placeholder="หมวด" class="border rounded px-2 py-0.5 w-28 text-sm">
                   <select name="priority" class="border rounded px-1 py-0.5 text-sm">
                     <option value="0" {% if t.priority==0 %}selected{% endif %}>ปกติ</option>
@@ -77,6 +79,23 @@
                     <option value="2" {% if t.priority==2 %}selected{% endif %}>ด่วนมาก</option>
                   </select>
                   <input type="date" name="due_date" value="{{ t.due_date or '' }}" class="border rounded px-1 py-0.5 text-sm">
+
+                  {% if pics %}
+                  <div class="w-full flex gap-2 flex-wrap items-start border-t pt-1.5 mt-0.5">
+                    <span class="text-xs text-slate-400 mt-1">ติ๊กรูปที่จะลบ:</span>
+                    {% for m in pics %}
+                    <label class="relative cursor-pointer" title="ติ๊ก = ลบรูปนี้ตอนกดบันทึก">
+                      <img src="/todo/media/{{ t.id }}/{{ m }}" class="h-12 w-12 object-cover rounded border">
+                      <input type="checkbox" name="remove_media" value="{{ m }}" class="absolute -top-1 -right-1 accent-rose-600">
+                    </label>
+                    {% endfor %}
+                  </div>
+                  {% endif %}
+
+                  <label class="w-full text-xs text-slate-500 flex gap-1.5 items-center">
+                    เพิ่มรูป
+                    <input type="file" name="photos" accept="image/*" multiple class="text-xs">
+                  </label>
                   <button class="bg-slate-800 text-white rounded px-2.5 py-0.5 text-sm">บันทึก</button>
                 </form>
                 <form method="post" action="/todo/{{ t.id }}/delete" class="inline" onsubmit="return confirm('ลบโน้ตนี้?')">

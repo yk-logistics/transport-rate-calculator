@@ -11025,20 +11025,59 @@ async def todo_add(request: Request):
     return RedirectResponse("/todo", status_code=303)
 
 
+_TODO_MEDIA_EXT = (".jpg", ".jpeg", ".png", ".webp", ".heic")
+
+
+def _todo_media_drop(item_id: int, names: list[str], remove: set[str]) -> list[str]:
+    """ลบรูปที่ติ๊กไว้ — เทียบกับรายชื่อรูปของโน้ตนั้นเท่านั้น (ชื่อมาจากฟอร์ม
+    จะลบไฟล์นอกโฟลเดอร์ไม่ได้)."""
+    keep = []
+    for m in names:
+        if m in remove:
+            (_TODO_MEDIA / str(item_id) / m).unlink(missing_ok=True)
+        else:
+            keep.append(m)
+    return keep
+
+
+async def _todo_media_append(item_id: int, names: list[str], files) -> list[str]:
+    """เพิ่มรูปต่อท้าย — เลขไฟล์นับต่อจากเลขสูงสุดเดิม (ลบรูปแรกไปแล้วต้องไม่ทับรูปที่เหลือ)."""
+    n = max((int(Path(m).stem) for m in names if Path(m).stem.isdigit()), default=0)
+    for f in files:
+        if not getattr(f, "filename", ""):
+            continue
+        ext = Path(f.filename).suffix.lower()
+        if ext not in _TODO_MEDIA_EXT:
+            continue
+        d = _TODO_MEDIA / str(item_id)
+        d.mkdir(parents=True, exist_ok=True)
+        n += 1
+        (d / f"{n}{ext}").write_bytes(await f.read())
+        names.append(f"{n}{ext}")
+    return names
+
+
 @app.post("/todo/{item_id}/update")
-def todo_update(item_id: int, request: Request, text: str = Form(""), category: str = Form(""),
-                priority: str = Form("0"), due_date: str = Form("")):
+async def todo_update(item_id: int, request: Request):
+    """แก้โน้ต + เพิ่ม/ลบรูป (โอสั่ง 9ก.ค.) — เจ้าของโน้ตเท่านั้น."""
     from auth import current_user
 
     user = current_user(request)
+    form = await request.form()
     with Session(engine) as s:
         t = s.get(TodoItem, item_id)
         if t and user and t.username == user.username:
-            if text.strip():
-                t.text = text.strip()
-            t.category = category.strip()
-            t.priority = int(priority or 0)
-            t.due_date = date.fromisoformat(due_date) if due_date.strip() else None
+            text = (form.get("text") or "").strip()
+            if text:
+                t.text = text
+            t.category = (form.get("category") or "").strip()
+            t.priority = int(form.get("priority") or 0)
+            due_raw = (form.get("due_date") or "").strip()
+            t.due_date = date.fromisoformat(due_raw) if due_raw else None
+            names = [m for m in (t.media_json or "").split(",") if m]
+            names = _todo_media_drop(item_id, names, set(form.getlist("remove_media")))
+            names = await _todo_media_append(item_id, names, form.getlist("photos"))
+            t.media_json = ",".join(names)
             s.add(t)
             s.commit()
     return RedirectResponse("/todo", status_code=303)
