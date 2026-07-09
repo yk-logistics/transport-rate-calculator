@@ -119,9 +119,13 @@
   {# ==== เฟส 4: กล่องรอคัดจากไลน์ — AI สแกนรายวันแล้วเสนอ โอกดรับ/ซ่อน (admin)
        โอสั่ง 6ก.ค.: ย้ายลงท้ายรายการงาน ไม่บังโน้ตของตัวเอง (inbox-bottom-jul6) ==== #}
   {% if can_scan %}
-  <div class="mb-4 bg-sky-50 border-2 border-sky-200 rounded-2xl p-3">
-    <div class="flex justify-between items-center flex-wrap gap-2 mb-1">
-      <div class="font-bold text-sky-800">📥 จากไลน์ รอคัด{% if suggests %} ({{ suggests|length }}){% endif %}</div>
+  {# โอสั่ง 9ก.ค.: พับเก็บได้เหมือนหัวข้อ "เสร็จแล้ว" — กางเองเมื่อเพิ่งสแกน/สแกนพัง #}
+  <details {% if scanned or scan_err %}open {% endif %}class="mb-4 bg-sky-50 border-2 border-sky-200 rounded-2xl p-3">
+    <summary class="cursor-pointer font-bold text-sky-800 select-none">
+      📥 จากไลน์ รอคัด{% if suggests %} ({{ suggests|length }}){% endif %}
+      {% if scan_err %}<span class="text-rose-600 font-normal">⚠️</span>{% endif %}
+    </summary>
+    <div class="flex justify-end mb-1 mt-1">
       <form method="post" action="/todo/scan-line">
         <button class="text-xs bg-white border border-sky-300 hover:bg-sky-100 rounded-lg px-2.5 py-1">🔍 สแกนไลน์ตอนนี้</button>
       </form>
@@ -152,7 +156,7 @@
     {% else %}
     <div class="text-xs text-slate-400">ยังไม่มีข้อเสนอค้าง — ระบบสแกนให้เองวันละครั้ง หรือกดสแกนเองได้</div>
     {% endif %}
-  </div>
+  </details>
   {% endif %}
 
   {% if done_items %}

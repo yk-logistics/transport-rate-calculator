@@ -319,6 +319,29 @@ def test_failed_auto_scan_retries_within_hour(clients, monkeypatch):
     assert len(calls) == 1                          # ไม่สแกนซ้ำเพราะยังไม่ถึงรอบ
 
 
+def test_suggest_box_is_collapsible_and_closed_by_default(clients, monkeypatch):
+    """โอสั่ง 9ก.ค.: กล่องรอคัดต้องพับเก็บได้เหมือนหัวข้อ "เสร็จแล้ว" (คลิกหัวข้อ = ขยาย/ซ่อน)."""
+    c_admin, _ = clients
+    _fake_classify(monkeypatch)
+    c_admin.post("/todo/scan-line")
+    body = c_admin.get("/todo").text
+    box = body[body.index("จากไลน์ รอคัด") - 300:body.index("จากไลน์ รอคัด") + 100]
+    assert "<details" in box and "<summary" in box
+    assert "<details open" not in box          # ปิดไว้ก่อน ไม่บังโน้ตของโอ
+
+
+def test_suggest_box_opens_when_there_is_news(clients, monkeypatch):
+    """เพิ่งสแกนเสร็จ/สแกนพัง → กางให้เห็นเลย ไม่ต้องคลิกหา."""
+    c_admin, _ = clients
+    _fake_classify(monkeypatch)
+    r = c_admin.post("/todo/scan-line", follow_redirects=True)
+    assert "<details open" in r.text
+
+    appmod.set_setting("todo_scan_last", datetime.utcnow().isoformat())
+    appmod.set_setting("todo_scan_err", "AI ล่ม")
+    assert "<details open" in c_admin.get("/todo").text
+
+
 def test_saved_scan_error_shows_on_todo_page(clients):
     """โอต้องเห็นบนหน้า /todo ว่าสแกนล่าสุดพัง — ไม่ใช่ต้องไปเปิด log เอง."""
     c_admin, c_off = clients
