@@ -21,6 +21,11 @@ _LABOR = ("ค่าแรง", "ค่าถอด", "ค่าประกอ�
 _SERVICE = ("บริการ", "ตรวจ", "เช็ค", "อัดจารบี", "เปลี่ยนถ่าย", "ค่าเดินทาง", "ล้าง")
 _PLATE_RE = re.compile(r"^\d{2}-\d{4}$")
 _DATE_RE = re.compile(r"^\s*(\d{1,2})/(\d{1,2})/(\d{2,4})\s*$")
+# ของจริง 189 แถวเขียนแบบ "20 เม.ย. 20" / "3 ก.ย. 2563"
+_TH_MONTHS = ("ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
+              "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค.")
+_TH_DATE_RE = re.compile(r"^\s*(\d{1,2})\s*(" + "|".join(re.escape(m) for m in _TH_MONTHS)
+                         + r")\s*(\d{2,4})\s*$")
 _REQUIRED_HEADERS = ("วันที่", "บริษัท", "รายละเอียด", "จำนวน", "ราคา", "รวม", "ราคาสุทธิ")
 
 
@@ -52,9 +57,32 @@ def _num(v) -> float:
         return 0.0
 
 
+def _year_to_ce(y: int, digits: int) -> int | None:
+    if digits == 4:
+        year = y - 543 if y >= 2500 else y
+        return year if 1990 <= year <= 2100 else None
+    if 60 <= y <= 79:              # พ.ศ. 2 หลัก (2560-2579)
+        return 2500 + y - 543
+    if 15 <= y <= 40:              # ค.ศ. 2 หลัก — ข้อมูลบริษัทเริ่ม 2018
+        return 2000 + y            # '00'/'02'/'11' = พิมพ์ผิด → ลง issue
+    return None
+
+
 def parse_date(raw: str, today: date | None = None) -> date | None:
-    """dd/mm/yy(yy) — พ.ศ./ค.ศ. ปนกันในไฟล์เดียว. อ่านไม่ออก/อนาคต = None."""
+    """dd/mm/yy(yy) หรือ "20 เม.ย. 20" — พ.ศ./ค.ศ. ปนกันในไฟล์เดียว.
+    อ่านไม่ออก/อนาคต = None (ห้ามเดา)."""
     today = today or date.today()
+    th = _TH_DATE_RE.match(str(raw or ""))
+    if th:
+        year = _year_to_ce(int(th.group(3)), len(th.group(3)))
+        if year is None:
+            return None
+        try:
+            out = date(year, _TH_MONTHS.index(th.group(2)) + 1, int(th.group(1)))
+        except ValueError:
+            return None
+        return None if out > today else out
+
     m = _DATE_RE.match(str(raw or ""))
     if not m:
         return None

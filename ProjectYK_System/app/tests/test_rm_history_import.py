@@ -115,3 +115,30 @@ def test_blank_net_line_still_counted(session):
     rmi.import_tab(session, "lcb", SHEET_ID, "71-6802", p, dry_run=False)
     rec = session.exec(select(MaintRecord)).one()
     assert rec.other_cost == 180.0 and rec.total_cost == 180.0
+
+
+def test_missing_vehicle_created_when_flag_on(session):
+    """โอเคาะ 10ก.ค.: รถเก่า/ขายแล้วที่ไม่มีในระบบ → สร้างให้ status='sold'
+    (ทุกจุดที่นับกำลังรถกรองเฉพาะ active → ปฏิทิน/รายงานไม่เพี้ยน)"""
+    p = _parsed(plate="63-8421")
+    stats = rmi.import_tab(session, "lcb", SHEET_ID, "63-8421", p,
+                           dry_run=False, create_vehicles=True)
+    v = session.exec(select(Vehicle).where(Vehicle.plate_no == "63-8421")).one()
+    assert v.status == "sold" and v.home_site_code == "LCB"
+    assert stats["new_vehicles"] == ["63-8421"] and stats["bills"] == 1
+
+
+def test_missing_vehicle_dry_run_creates_nothing(session):
+    p = _parsed(plate="63-8421")
+    stats = rmi.import_tab(session, "lcb", SHEET_ID, "63-8421", p,
+                           dry_run=True, create_vehicles=True)
+    assert stats["new_vehicles"] == ["63-8421"] and stats["bills"] == 1   # นับให้เห็นด้วย
+    assert session.exec(select(Vehicle).where(Vehicle.plate_no == "63-8421")).first() is None
+    assert session.exec(select(MaintRecord)).first() is None
+
+
+def test_missing_vehicle_skipped_when_flag_off(session):
+    p = _parsed(plate="63-8421")
+    stats = rmi.import_tab(session, "lcb", SHEET_ID, "63-8421", p, dry_run=False)
+    assert stats["skipped_tab"] == 1 and stats["bills"] == 0
+    assert session.exec(select(Vehicle).where(Vehicle.plate_no == "63-8421")).first() is None

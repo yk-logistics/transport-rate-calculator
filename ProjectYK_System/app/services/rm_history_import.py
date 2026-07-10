@@ -23,6 +23,9 @@ SHEETS = {
     "lcb":     "169mraSWWU0l9HOL7_dkKCVIMZU5vlaWXspAK2ItDUnQ",
 }
 
+# ไซท์ประจำของแต่ละไฟล์ (ใช้ตอนสร้างรถเก่าที่ไม่มีในระบบ)
+SITE_OF = {"bigc": "BIGC", "wangnoi": "AYU", "lcb": "LCB"}
+
 
 def make_import_key(file_slug: str, sheet_id: str, tab: str, first_row: int) -> str:
     """ขึ้นต้นด้วย rm:<file>: เพื่อให้ rollback กรองตามไฟล์ได้ (sha1 ล้วนกรองไม่ได้)."""
@@ -55,14 +58,25 @@ def _find_or_create_vendor(session: Session, name: str, dry_run: bool) -> tuple[
 
 
 def import_tab(session: Session, file_slug: str, sheet_id: str, tab: str,
-               parsed: ParsedTab, dry_run: bool = True) -> dict:
+               parsed: ParsedTab, dry_run: bool = True,
+               create_vehicles: bool = False) -> dict:
     stats: dict = {"bills": 0, "lines": 0, "skipped_dup": 0, "skipped_tab": 0,
-                   "new_vendors": [], "system_net": 0.0, "blank_net_lines": 0,
-                   "blank_net_baht": 0.0}
+                   "new_vendors": [], "new_vehicles": [], "system_net": 0.0,
+                   "blank_net_lines": 0, "blank_net_baht": 0.0}
 
     vehicle = None
     if parsed.plate:
         vehicle = session.exec(select(Vehicle).where(Vehicle.plate_no == parsed.plate)).first()
+    if vehicle is None and parsed.plate and create_vehicles and parsed.bills:
+        # รถเก่า/ขายแล้วที่ไม่มีในทะเบียนปัจจุบัน — สร้างเป็น status='sold'
+        # (ทุกจุดที่นับกำลังรถ/ดรอปดาวน์กรองเฉพาะ active → ปฏิทินและรายงานไม่เพี้ยน)
+        stats["new_vehicles"].append(parsed.plate)
+        vehicle = Vehicle(plate_no=parsed.plate, status="sold",
+                          home_site_code=SITE_OF.get(file_slug, ""))
+        if not dry_run:                     # dry-run: ใช้เป็นตัวนับเฉยๆ ไม่แตะ DB
+            session.add(vehicle)
+            session.commit()
+            session.refresh(vehicle)
     if vehicle is None:
         stats["skipped_tab"] = 1
         return stats

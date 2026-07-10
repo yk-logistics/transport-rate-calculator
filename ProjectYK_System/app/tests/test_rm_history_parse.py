@@ -23,7 +23,18 @@ def test_parse_date_ok(raw, expect):
     assert rm.parse_date(raw, today=date(2026, 7, 9)) == expect
 
 
-@pytest.mark.parametrize("raw", ["", "-", "31/02/24", "13/05/29", "13/05/02", "abc", "45123"])
+@pytest.mark.parametrize("raw,expect", [
+    ("20 เม.ย. 20", date(2020, 4, 20)),     # ของจริง: 189 แถวเขียนแบบนี้
+    ("15 ก.ค. 20", date(2020, 7, 15)),
+    ("3 ก.ย. 2563", date(2020, 9, 3)),      # พ.ศ. เต็ม
+    (" 4 ส.ค. 20 ", date(2020, 8, 4)),
+])
+def test_parse_date_thai_month(raw, expect):
+    assert rm.parse_date(raw, today=date(2026, 7, 9)) == expect
+
+
+@pytest.mark.parametrize("raw", ["", "-", "31/02/24", "13/05/29", "13/05/02", "abc", "45123",
+                                 "20 ??? 20"])
 def test_parse_date_refuses(raw):
     """/29 = อนาคต · /02 = กำกวม · 31/02 = ไม่มีจริง → None (ไปลง issue)"""
     assert rm.parse_date(raw, today=date(2026, 7, 9)) is None

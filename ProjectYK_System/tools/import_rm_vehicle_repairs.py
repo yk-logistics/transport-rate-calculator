@@ -64,13 +64,14 @@ def sheet_checkpoint(values: list, formulas: list) -> tuple[float, float, int] |
     return shown, round(ours, 2), c_i
 
 
-def run(file_slug: str, apply: bool) -> None:
+def run(file_slug: str, apply: bool, create_vehicles: bool = False) -> None:
     sheet_id = rmi.SHEETS[file_slug]
     data, formulas = fetch(sheet_id)
 
     total = {"bills": 0, "lines": 0, "skipped_dup": 0, "skipped_tab": 0, "blank_net_lines": 0}
     blank_baht = 0.0
     vendors: list[str] = []
+    new_vehicles: list[str] = []
     issues: list[dict] = []
     skipped_tabs: list[str] = []
     checks: list[tuple] = []
@@ -80,13 +81,15 @@ def run(file_slug: str, apply: bool) -> None:
     with Session(engine) as s:
         for tab, values in data.items():
             parsed = rm.parse_tab(tab, values)
-            st = rmi.import_tab(s, file_slug, sheet_id, tab, parsed, dry_run=not apply)
+            st = rmi.import_tab(s, file_slug, sheet_id, tab, parsed, dry_run=not apply,
+                                create_vehicles=create_vehicles)
             for k in total:
                 total[k] += st[k]
             blank_baht = round(blank_baht + st["blank_net_baht"], 2)
             for v in st["new_vendors"]:
                 if v not in vendors:
                     vendors.append(v)
+            new_vehicles += st["new_vehicles"]
             issues += [{"tab": tab, **i} for i in parsed.issues]
             if st["skipped_tab"]:
                 skipped_tabs.append(tab)
@@ -109,8 +112,11 @@ def run(file_slug: str, apply: bool) -> None:
           f"แท็บที่ข้าม {total['skipped_tab']}")
     print(f"บรรทัดที่ชีทไม่กรอกช่องสุทธิ (โอสั่งให้นับ): {total['blank_net_lines']} บรรทัด "
           f"= {blank_baht:,.2f} บาท")
+    if new_vehicles:
+        print(f"\nรถที่จะถูกสร้างใหม่ (status=sold — ไม่นับเป็นกำลังรถ) {len(new_vehicles)} คัน:"
+              f"\n  {', '.join(new_vehicles)}")
     if skipped_tabs:
-        print(f"\nแท็บที่ข้าม (จับคู่รถไม่ได้): {', '.join(skipped_tabs)}")
+        print(f"\nแท็บที่ข้าม (ไม่ใช่ทะเบียนรถ): {', '.join(skipped_tabs)}")
     if vendors:
         print(f"\nร้านใหม่ที่จะถูกสร้าง ({len(vendors)}): {', '.join(vendors[:25])}"
               + (" ..." if len(vendors) > 25 else ""))
@@ -146,6 +152,8 @@ def main() -> None:
     ap.add_argument("--apply", action="store_true")
     ap.add_argument("--rollback", action="store_true")
     ap.add_argument("--yes", action="store_true")
+    ap.add_argument("--create-vehicles", action="store_true",
+                    help="สร้างรถเก่าที่ไม่มีในระบบเป็น status=sold")
     a = ap.parse_args()
 
     slugs = list(rmi.SHEETS) if a.file == "all" else [a.file]
@@ -158,7 +166,7 @@ def main() -> None:
                     print(f"  ลบแล้ว {rmi.rollback_file(s, slug, dry_run=False)} บิล")
         return
     for slug in slugs:
-        run(slug, apply=a.apply)
+        run(slug, apply=a.apply, create_vehicles=a.create_vehicles)
 
 
 if __name__ == "__main__":
