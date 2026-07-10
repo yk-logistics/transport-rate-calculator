@@ -130,8 +130,9 @@ def parse_tab(tab_title: str, values: list[list[str]]) -> ParsedTab:
             break
 
     def cell(row, name):
-        j = col[name]
-        return row[j] if len(row) > j else ""
+        """คอลัมน์ที่ไม่บังคับ (ส่วนลด/ภาษี/เลขกิโลเมตร) บางแท็บไม่มีเลย → คืนค่าว่าง"""
+        j = col.get(name)
+        return row[j] if j is not None and len(row) > j else ""
 
     cur: Bill | None = None
     for i in range(hdr + 1, len(values) + 1):
@@ -159,14 +160,19 @@ def parse_tab(tab_title: str, values: list[list[str]]) -> ParsedTab:
                              "raw": detail})
             continue
         total = _num(cell(row, "รวม")) or _num(cell(row, "จำนวน")) * _num(cell(row, "ราคา"))
+        discount = _num(cell(row, "ส่วนลด"))
+        vat = _num(cell(row, "ภาษีมูลค่าเพิ่ม"))
+        net = _num(cell(row, "ราคาสุทธิ"))
+        # "ราคาสุทธิ" = เงินที่จ่ายจริง → ยึดเป็นความจริง; ให้ vat ปิดส่วนต่าง
+        # (ของจริง: บางบรรทัดใส่ VAT ในช่องสุทธิแต่ไม่กรอกช่อง VAT; บางบรรทัดชื่อ "VAT"
+        #  มียอดเฉพาะช่องสุทธิ) — ช่องสุทธิว่าง = นับจาก รวม−ส่วนลด+VAT ตามเดิม (โอเคาะ 9ก.ค.)
+        if net > 0:
+            vat = round(net - (total - discount), 2)
         cur.lines.append({
             "kind": classify_kind(detail), "name": detail,
             "qty": _num(cell(row, "จำนวน")) or 1.0,
             "unit_price": _num(cell(row, "ราคา")),
-            "total": total,
-            "discount": _num(cell(row, "ส่วนลด")),
-            "vat": _num(cell(row, "ภาษีมูลค่าเพิ่ม")),
-            "net": _num(cell(row, "ราคาสุทธิ")),
+            "total": total, "discount": discount, "vat": vat, "net": net,
         })
 
     p.bills = [b for b in p.bills if b.lines]     # บิลที่ไม่มีบรรทัดเลย = ไม่มีความหมาย
