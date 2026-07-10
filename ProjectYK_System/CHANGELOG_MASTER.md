@@ -11,6 +11,13 @@
 - **CLAUDE.md เพิ่มหมวด "โหมด Opus":** อ่าน FABLE_MINDSET เซสชันแรก · เรื่องเล็กตัดสินใจเอง · เงียบระหว่างทำ · จด memory ในเทิร์นที่รู้ · เรียกสกิลเมื่อเข้าเงื่อนไข
 - **ทดสอบกับ Opus จริง (โจทย์ซ้อม pre-close LCB, read-only):** ✅ เรียก yk-money-task เองตั้งแต่เทิร์นแรก ✅ read-only เป๊ะ ✅ เช็คของจริงไม่ท่องเอกสาร ❌ ไม่เช็คชีทสด (สาเหตุ: runbook ชี้ ground truth เป็น Excel local) → **แก้ที่ต้นเหตุ:** เพิ่มข้อ 0 ใน PAYROLL_CYCLE_CLOSE_RUNBOOK §2 — ตรวจความพร้อมล่วงหน้าต้องเช็คชีทสด (ใส่ sheet id LCB แล้ว)
 
+## 2026-07-10 รอบสอง (📥 กล่องบิลรอคัด v51 + หน้าบันทึกซ่อมโชว์/ค้นรายการ + อุดบั๊ก 422 ทั้งระบบ)
+
+- **หน้าบันทึกซ่อม (โอสั่ง):** คอลัมน์ อาการ/งาน โชว์รายการในบิล (4 ชื่อแรก +N) + ช่อง 🔎 ค้นอะไหล่ server-side (ค้น "น็อตล้อ" เจอ 86 บิล / "แบตเตอรี่" 140 ใน <0.1s; แถบสรุปนับตามผลค้นหา); โอกดกรองแล้วเจอ 422 → root cause: ฟอร์มส่ง `vehicle_id=""` ชนพารามิเตอร์ int (บั๊กแฝงเดิม) → แก้เป็น str+`_parse_int` และ **audit ทั้งระบบพบอีกหน้าเดียว `/maint/inspections` แก้แล้ว** (billing/submissions รับ str อยู่แล้ว, ฟอร์ม POST แกะ form เอง)
+- **📥 กล่องบิลรอคัด (v51 — โอสั่ง "ถ่ายบิลค้างเยอะ + ทยอยเข้าเรื่อยๆ ต้องคิวเบื้องหลัง"):** `/maint/bills` อัปโหลดหลายรูป = ตั้งคิวทันทีไม่เรียก AI ใน request → worker thread เดียวอ่านทีละใบ (`bill_ocr.read_bill`, lock กันซ้อน, `bill_ocr_mode=off` หยุดคิว) → การ์ดร่างแก้ได้ทุกช่อง + ทะเบียน prefill จาก OCR → คัด 3 ทาง: ➕ เข้ารถ (MaintRecord ผ่าน `_recompute` v50) / 📦 เข้า Stock (Part find-or-create + StockTxn in — ใส่ทะเบียนตอนเบิกออกตาม flow v49) / 🗑 ทิ้ง (เก็บรูปตรวจย้อน); **restart-safe**: คิวคือแถว pending ใน DB, `reading` ค้าง >10 นาทีตีกลับเอง; แบ่งเขตกับ RM History ชัด (ชีท=ของเก่า กล่องนี้=บิลใหม่) — สเปค `2026-07-10-bill-inbox-ocr-queue-design.md`
+- **verify:** TDD 17 เทสต์ใหม่ (list/search 7 + inspections 2 + inbox 10) + regression 37 + deploy เขียวครบเกณฑ์ (marker/health/route/ตาราง billinbox บน production/SCHEMA 51)
+- **POD (โอถามระหว่างทาง):** การ์ด "ไม่เจอแถวเดลี่เข้าเค้า" ของกลุ่ม NHL = เลขอยู่ในรูป ticket ไม่มีข้อความประกบ + เดลี่ LCB ยังไม่เข้า (คีย์ 15ก.ค.) — เฟสถัดไปใช้ worker OCR ตัวเดียวกันอ่านรูป POD แล้วเสนอจับคู่
+
 ## 2026-07-10 (🗄️ ดึงประวัติซ่อม 2018-2026 จาก RM History เข้าระบบ — 8,237 บิล / 16.67 ล้านบาท)
 
 - **ทำตามสเปค+แผน 2026-07-09 (โอเคาะทุกจุดตัดสิน):** schema v50 (MaintPart.discount/vat + MaintRecord.discount/vat/import_key + partial unique index `ux_maintrecord_import_key`) → parser บริสุทธิ์ `services/rm_history.py` → ชั้นเขียน `services/rm_history_import.py` (idempotent + rollback ตาม prefix `rm:<file>:`) → CLI `tools/import_rm_vehicle_repairs.py` (ตัวเก่า `import_rm_history.py` ของ เม.ย. อ่าน .xlsx คนละงาน — ไม่ทับ)
