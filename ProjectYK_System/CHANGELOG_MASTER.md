@@ -4,6 +4,13 @@
 
 > **Agent bootstrap:** อ่านเฉพาะ **3 หัวข้อ `##` แรกจากด้านบนลงมา** (ไม่รวมบรรทัดนี้) — **ห้าม**อ่านทั้งไฟล์ทุกแชต. นโยบาย/การย้าย archive: [`ProjectYK_System/docs/CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md)
 
+## 2026-07-10 รอบสอง (🧰 ชุดเครื่องมือ Opus — สกิลโปรเจกต์ 3 ตัว + โหมด Opus ใน CLAUDE.md)
+
+- **บริบท:** Fable ออกจาก Plan Max 12 ก.ค. 23:59 PT (≈13 ก.ค. 14:00 ไทย — ขยายจากเดิม 7 ก.ค.) → เตรียมให้ Opus ทำงานได้ใกล้เคียงเดิม โดยเปลี่ยนจาก "เอกสารให้อ่าน" เป็น "กลไกที่เด้งเอง"
+- **สกิลโปรเจกต์ชุดแรกใน `.claude/skills/`:** `yk-money-task` (กฎเหล็กงานเงิน + ตาราง pay cycle + ชี้ runbook ต่อชนิดงาน) · `yk-deploy` (deploy+เกณฑ์เขียว+gotcha ที่เคยเจ็บ) · `yk-session-close` (พิธีปิดเซสชัน สมองถาวร 3 ที่)
+- **CLAUDE.md เพิ่มหมวด "โหมด Opus":** อ่าน FABLE_MINDSET เซสชันแรก · เรื่องเล็กตัดสินใจเอง · เงียบระหว่างทำ · จด memory ในเทิร์นที่รู้ · เรียกสกิลเมื่อเข้าเงื่อนไข
+- **ทดสอบกับ Opus จริง (โจทย์ซ้อม pre-close LCB, read-only):** ✅ เรียก yk-money-task เองตั้งแต่เทิร์นแรก ✅ read-only เป๊ะ ✅ เช็คของจริงไม่ท่องเอกสาร ❌ ไม่เช็คชีทสด (สาเหตุ: runbook ชี้ ground truth เป็น Excel local) → **แก้ที่ต้นเหตุ:** เพิ่มข้อ 0 ใน PAYROLL_CYCLE_CLOSE_RUNBOOK §2 — ตรวจความพร้อมล่วงหน้าต้องเช็คชีทสด (ใส่ sheet id LCB แล้ว)
+
 ## 2026-07-10 (🗄️ ดึงประวัติซ่อม 2018-2026 จาก RM History เข้าระบบ — 8,237 บิล / 16.67 ล้านบาท)
 
 - **ทำตามสเปค+แผน 2026-07-09 (โอเคาะทุกจุดตัดสิน):** schema v50 (MaintPart.discount/vat + MaintRecord.discount/vat/import_key + partial unique index `ux_maintrecord_import_key`) → parser บริสุทธิ์ `services/rm_history.py` → ชั้นเขียน `services/rm_history_import.py` (idempotent + rollback ตาม prefix `rm:<file>:`) → CLI `tools/import_rm_vehicle_repairs.py` (ตัวเก่า `import_rm_history.py` ของ เม.ย. อ่าน .xlsx คนละงาน — ไม่ทับ)
