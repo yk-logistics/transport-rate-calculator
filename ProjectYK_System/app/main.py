@@ -6162,13 +6162,16 @@ def maint_record_list(
     request: Request,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
-    vehicle_id: Optional[int] = None,
+    # รับเป็น str แล้วแปลงเอง — ฟอร์มกรองส่ง vehicle_id="" มาเสมอ ถ้าประกาศ int
+    # FastAPI ตีกลับ 422 ทั้งหน้า (โอเจอจริง 10ก.ค. ตอนกดกรองพร้อมช่องค้นหา)
+    vehicle_id: str = "",
     kind: Optional[str] = None,
     status: Optional[str] = None,
     q: str = "",
 ):
     df = _parse_date(date_from or "")
     dt = _parse_date(date_to or "")
+    vehicle_id = _parse_int(vehicle_id or "")
     q = (q or "").strip()
     with Session(engine) as s:
         qy = select(MaintRecord)

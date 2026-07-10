@@ -83,6 +83,28 @@ def test_search_matches_work_done_too(client):
     assert "M000002" in body and "M000001" not in body
 
 
+def test_filter_form_submits_empty_fields_without_422(client):
+    """ของจริง 10ก.ค.: กดปุ่ม 'กรอง' ฟอร์มส่งทุกช่องรวม vehicle_id ว่าง →
+    เดิม FastAPI ตีกลับ 422 int_parsing ทั้งหน้า (บั๊กแฝง — ช่องค้นหาใหม่ทำให้เจอ)."""
+    r = client.get("/maint/records?date_from=&date_to=&vehicle_id=&kind=&status=&q=น็อตล้อ")
+    assert r.status_code == 200
+    assert "M000001" in r.text and "M000002" not in r.text
+
+
+def test_filter_vehicle_id_still_works_as_number(client):
+    with Session(engine) as s:
+        from models import Vehicle
+        v = Vehicle(plate_no="71-8005", status="active")
+        s.add(v); s.commit(); s.refresh(v)
+        rec = s.exec(select(MaintRecord).where(MaintRecord.record_no == "M000001")).one()
+        rec.vehicle_id = v.id
+        s.add(rec); s.commit()
+        vid = v.id
+    r = client.get(f"/maint/records?vehicle_id={vid}")
+    assert r.status_code == 200
+    assert "M000001" in r.text and "M000002" not in r.text
+
+
 def test_search_no_hit_shows_empty(client):
     body = client.get("/maint/records?q=ไม่มีทางเจอสิ่งนี้").text
     assert "M000001" not in body and "M000002" not in body
