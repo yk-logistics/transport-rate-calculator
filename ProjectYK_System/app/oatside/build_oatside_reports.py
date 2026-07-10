@@ -1568,27 +1568,84 @@ def _expand_no_work_dates(cfg: OatsideConfig) -> frozenset[date]:
     return frozenset(out)
 
 
-_NO_FINISH_MIN_ORIGIN_DWELL_H = 1.0
+_NO_FINISH_MIN_ORIGIN_DWELL_H = 1.0  # แตะต้นทางอย่างน้อยเท่านี้ถึงนับว่ารถ active วันนั้น (ตัด GPS noise)
+_NO_FINISH_DEST_STUCK_MIN_H = 8.0    # ติดค้างปลายทาง (leg เดียว) ในวันนั้นถึงเก็บ 100%
+_NO_FINISH_ORIGIN_QUEUE_H = 6.0      # แช่ต้นทางถึงขั้นนี้ = รอคิว/โหลดของที่โรงงาน — ไม่เก็บ
 
 
-def _factory_active_dates_by_plate(
+def _dwell_hours_on_day(leg: Leg, d: date) -> float:
+    """ชั่วโมงที่ leg คาบเกี่ยวกับวันปฏิทิน d (ตัดเฉพาะช่วงที่ตกในวันนั้น)."""
+    a = max(leg.t_in, datetime.combine(d, datetime.min.time()))
+    b = min(leg.t_out, datetime.combine(d + timedelta(days=1), datetime.min.time()))
+    if b <= a:
+        return 0.0
+    return (b - a).total_seconds() / 3600.0
+
+
+def _no_finish_day_decisions(
+    trips: list[Trip],
     origin_legs: list[Leg],
-    dest_legs: list[Leg],  # kept for signature compat; not used
+    dest_legs: list[Leg],
     cfg: OatsideConfig,
-) -> dict[str, set[date]]:
-    """รถคันไหน มี GPS เข้าต้นทาง (Oatside) วันไหนบ้าง — ใช้ตัดสินวัน 0 เที่ยว = เก็บ 100% หรือไม่.
-       เกณฑ์: ต้องเข้าต้นทาง (ไม่นับการเข้าปลายทางอย่างเดียว) และ dwell >= 1 ชม. (ตัด GPS noise)."""
-    out: dict[str, set[date]] = defaultdict(set)
+) -> dict[tuple[str, date], dict[str, Any]]:
+    """ตัดสินวัน 0 เที่ยวจบ ต่อ (plate, วัน) — เก็บ 100% หรือไม่ + เหตุผลไทยสำหรับบรรทัดตรวจทาน.
+
+    กฎ ก.ค. 2026 (ปรับตามคำตัดสิน DHL ไฟล์ IV2606-020 มิ.ย. — บั๊กที่โอจับได้ 8 ก.ค.):
+      1) ติดค้างปลายทาง: dest leg เดียวคาบวันนั้น >= _NO_FINISH_DEST_STUCK_MIN_H ชม.
+         → เก็บ 100% (เคส 10/6, 18/6 — DHL จ่าย); หักช่วงจอดฝากลาน customer_idle_windows ก่อน
+      2) ไม่งั้น แช่ต้นทาง >= _NO_FINISH_ORIGIN_QUEUE_H ชม. → ไม่เก็บ
+         (รอคิว/โหลดของที่ Oatside — เคส 9/6, 17/6, 3/6 — DHL ตัดหมด)
+      3) ไม่งั้น แตะต้นทาง >= _NO_FINISH_MIN_ORIGIN_DWELL_H ชม. + มีเที่ยวจบก่อนหน้าวันนั้นแล้ว
+         → เก็บ (standby ระหว่างงาน — เคส 12/6, 20/6 — DHL จ่ายจริง ห้ามตัดทิ้ง)
+      4) นอกนั้นไม่เก็บ (รวมรถใหม่ที่ยังไม่มีเที่ยวแรก — เคส 22/6 รถ 71-8009 — DHL ตัด)"""
+    origin_h: dict[tuple[str, date], float] = defaultdict(float)
     for leg in origin_legs:
-        dwell_h = (leg.t_out - leg.t_in).total_seconds() / 3600.0
-        if dwell_h < _NO_FINISH_MIN_ORIGIN_DWELL_H:
-            continue
         d = leg.t_in.date()
-        if _date_in_report_window(d, cfg):
-            out[leg.plate].add(d)
-        d2 = leg.t_out.date()
-        if d2 != d and _date_in_report_window(d2, cfg):
-            out[leg.plate].add(d2)
+        while d <= leg.t_out.date():
+            h = _dwell_hours_on_day(leg, d)
+            if h > 0 and _date_in_report_window(d, cfg):
+                origin_h[(leg.plate, d)] += h
+            d = d + timedelta(days=1)
+
+    dest_stuck_h: dict[tuple[str, date], float] = defaultdict(float)  # max ต่อ leg เดียว (ค้างนอนข้ามคืนปกติไม่รวมกันจนเกินเกณฑ์)
+    for leg in dest_legs:
+        d = leg.t_in.date()
+        while d <= leg.t_out.date():
+            h = _dwell_hours_on_day(leg, d)
+            if h > 0:
+                a = max(leg.t_in, datetime.combine(d, datetime.min.time()))
+                b = min(leg.t_out, datetime.combine(d + timedelta(days=1), datetime.min.time()))
+                for w in cfg.customer_idle_windows:
+                    if w.plate == leg.plate:
+                        h -= w.overlap_hours(a, b)
+            if h > 0 and _date_in_report_window(d, cfg):
+                k = (leg.plate, d)
+                dest_stuck_h[k] = max(dest_stuck_h[k], h)
+            d = d + timedelta(days=1)
+
+    first_trip_done: dict[str, datetime] = {}
+    for t in trips:
+        cur = first_trip_done.get(t.plate)
+        if cur is None or t.d_out < cur:
+            first_trip_done[t.plate] = t.d_out
+
+    out: dict[tuple[str, date], dict[str, Any]] = {}
+    for k in set(origin_h) | set(dest_stuck_h):
+        plate, d = k
+        oh = origin_h.get(k, 0.0)
+        dh = dest_stuck_h.get(k, 0.0)
+        if dh >= _NO_FINISH_DEST_STUCK_MIN_H:
+            out[k] = {"charge": True, "why": f"รถติดค้างปลายทาง {dh:.1f} ชม."}
+        elif oh >= _NO_FINISH_ORIGIN_QUEUE_H:
+            out[k] = {"charge": False, "why": f"รถแช่ต้นทาง {oh:.1f} ชม. (รอคิว/โหลดของ ไม่ใช่ติดค้างปลายทาง)"}
+        elif oh >= _NO_FINISH_MIN_ORIGIN_DWELL_H:
+            fd = first_trip_done.get(plate)
+            if fd is not None and fd < datetime.combine(d, datetime.min.time()):
+                out[k] = {"charge": True, "why": f"รถ standby ระหว่างเที่ยว (เข้าต้นทาง {oh:.1f} ชม. ไม่จบเที่ยว)"}
+            else:
+                out[k] = {"charge": False, "why": "ยังไม่มีเที่ยวจบก่อนหน้า (รถเพิ่งเข้าประจำการ)"}
+        else:
+            out[k] = {"charge": False, "why": "รถไม่ได้เข้าโรงงาน"}
     return out
 
 
@@ -1606,16 +1663,16 @@ def surcharge_billed_day(
        Override key: (plate, billed_day)
     """
     no_work = _expand_no_work_dates(cfg)
-    active_dates = _factory_active_dates_by_plate(origin_legs, dest_legs, cfg)
+    decisions = _no_finish_day_decisions(trips, origin_legs, dest_legs, cfg)
 
     by_billed: dict[tuple[str, date], list[Trip]] = defaultdict(list)
     for t in trips:
         by_billed[(t.plate, t.trip_date)].append(t)
 
     keys: set[tuple[str, date]] = set(by_billed.keys())
-    for plate, dates in active_dates.items():
-        for d in dates:
-            keys.add((plate, d))
+    for k, dec in decisions.items():
+        if dec["charge"]:
+            keys.add(k)
 
     rows: list[dict] = []
     total = 0
@@ -1641,7 +1698,8 @@ def surcharge_billed_day(
             fifty_kind = "one_trip_billed_day"
         else:
             # n == 0
-            if plate not in active_dates or billed not in active_dates[plate]:
+            dec = decisions.get((plate, billed))
+            if not dec or not dec["charge"]:
                 continue
             if action == "exclude_50":
                 continue
@@ -1677,14 +1735,12 @@ def billed_day_audit_rows(
 ) -> list[dict]:
     """Per (plate, billed_day): บรรทัดอธิบายการเก็บเงินเป็นภาษาไทย — แทน origin_day_audit_rows เดิม."""
     no_work = _expand_no_work_dates(cfg)
-    active_dates = _factory_active_dates_by_plate(origin_legs, dest_legs, cfg)
+    decisions = _no_finish_day_decisions(trips, origin_legs, dest_legs, cfg)
     by_pd: dict[tuple[str, date], list[Trip]] = defaultdict(list)
     for t in trips:
         by_pd[(t.plate, t.trip_date)].append(t)
     keys: set[tuple[str, date]] = set(by_pd.keys())
-    for plate, dates in active_dates.items():
-        for d in dates:
-            keys.add((plate, d))
+    keys.update(decisions.keys())
     fifty_key = {(r["plate"], r["dest_date"]): r for r in fifty_rows}
     rows: list[dict] = []
     for (plate, billed) in sorted(keys, key=lambda x: (x[1], x[0])):
@@ -1709,8 +1765,11 @@ def billed_day_audit_rows(
         elif n == 1:
             fifty_rule = f"เก็บ {pct:.0f}% อัตโนมัติ (จบ 1 เที่ยว)"
         elif n == 0:
-            if plate in active_dates and billed in active_dates[plate]:
-                fifty_rule = "เก็บ 100% = 1 เรทเต็ม (รถเข้าโรงงานแต่ไม่จบเที่ยว)"
+            dec = decisions.get((plate, billed))
+            if dec and dec["charge"]:
+                fifty_rule = f"เก็บ 100% = 1 เรทเต็ม ({dec['why']})"
+            elif dec:
+                fifty_rule = f"ไม่เก็บ — {dec['why']}"
             else:
                 fifty_rule = "ไม่เก็บ (รถไม่ได้เข้าโรงงาน)"
         else:
