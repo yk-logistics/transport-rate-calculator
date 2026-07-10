@@ -223,3 +223,10 @@ def test_bills_page_shows_queue_and_ready_draft(clients, monkeypatch):
     assert "น็อตล้อ อีซูซุ" in body                 # ร่างโผล่
     assert 'value="71-8005"' in body                # ทะเบียนที่ OCR อ่านได้ prefill
     assert "to-stock" in body and "to-record" in body
+
+
+def test_new_record_form_links_to_inbox_for_admin_only(clients):
+    """โอเปิดหน้า 'สร้างใหม่' แล้วหาปุ่มไม่เจอ (10ก.ค.) — ต้องมีทางลัดไปกล่องบิล."""
+    c_admin, c_off = clients
+    assert 'href="/maint/bills"' in c_admin.get("/maint/records/new").text
+    assert 'href="/maint/bills"' not in c_off.get("/maint/records/new").text

@@ -6288,6 +6288,7 @@ def maint_record_new(request: Request):
         ctx = _maint_form_context(s)
     ctx["request"] = request
     ctx["record"] = None
+    ctx["can_read_bill"] = _bill_ocr_allowed(request)   # ปุ่มลัดไป 📥 กล่องบิล
     return templates.TemplateResponse(request, "maint_record_form.html", ctx)
 
 

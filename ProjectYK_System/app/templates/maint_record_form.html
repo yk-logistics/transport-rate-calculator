@@ -8,6 +8,10 @@
   </h1>
   <div class="flex gap-2">
     <a href="/maint/records" class="btn bg-slate-200 hover:bg-slate-300">← กลับ</a>
+    {% if can_read_bill and not record %}
+    <a href="/maint/bills" class="btn bg-violet-600 text-white hover:bg-violet-700"
+       title="ถ่ายรูปบิลแล้วให้ AI กรอกให้ — ไม่ต้องคีย์ฟอร์มนี้เอง">📥 มีรูปบิล? โยนเข้ากล่องบิล</a>
+    {% endif %}
     {% if record %}
     <form method="post" action="/maint/records/{{ record.id }}/delete" onsubmit="return confirm('ลบบันทึกนี้?')">
       <button class="btn bg-rose-600 text-white hover:bg-rose-700">🗑 ลบ</button>
