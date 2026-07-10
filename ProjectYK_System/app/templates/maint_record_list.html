@@ -6,6 +6,7 @@
   <h1 class="text-2xl font-bold">📋 บันทึกซ่อม</h1>
   <div class="flex gap-2">
     <a href="/maint" class="btn bg-slate-200 hover:bg-slate-300">← Dashboard</a>
+    {% if can_read_bill %}<a href="/maint/bills" class="btn bg-violet-600 text-white hover:bg-violet-700">📥 กล่องบิล</a>{% endif %}
     <a href="/maint/records/new" class="btn bg-orange-600 text-white hover:bg-orange-700">+ สร้างใหม่</a>
   </div>
 </div>

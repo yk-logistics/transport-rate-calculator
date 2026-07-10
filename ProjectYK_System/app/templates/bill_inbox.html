@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}กล่องบิลรอคัด{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto">
+  <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
+    <h1 class="text-2xl font-bold">📥 กล่องบิลรอคัด
+      <span class="text-base font-normal text-slate-500">(รอคัด {{ ready|length }}{% if n_pending %} · กำลังอ่าน {{ n_pending }}{% endif %})</span>
+    </h1>
+    <a href="/maint/records" class="text-sm text-sky-600 hover:underline">→ บันทึกซ่อม</a>
+  </div>
+
+  {# ==== อัปโหลดกองรูป — ตั้งคิวทันที ไม่รอ AI (ปิดหน้าได้เลย) ==== #}
+  <form method="post" action="/maint/bills/upload" enctype="multipart/form-data"
+        class="mb-4 p-3 bg-violet-50 border-2 border-violet-200 rounded-2xl flex flex-wrap items-center gap-2">
+    <span class="text-sm font-semibold text-violet-900">📷 โยนรูปบิลเข้ากอง:</span>
+    <input type="file" name="photos" accept="image/*" multiple required class="text-sm bg-white border rounded px-2 py-1">
+    <button class="btn bg-violet-600 text-white hover:bg-violet-700">อัปโหลด</button>
+    <span class="text-xs text-slate-500">เลือกได้ทีละหลายสิบรูป — ระบบทยอยอ่านเองเบื้องหลัง (~40 วิ/ใบ) กลับมาคัดตอนว่างได้</span>
+  </form>
+
+  {% if request.query_params.get('saved') %}
+  <div class="mb-3 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+    ✅ รับเข้ากองแล้ว {{ request.query_params.get('saved') }} รูป — กำลังทยอยอ่าน รีเฟรชหน้าเพื่อดูสถานะ
+  </div>
+  {% endif %}
+  {% if n_pending %}
+  <div class="mb-3 text-sm text-sky-700 bg-sky-50 border border-sky-200 rounded-lg px-3 py-2">
+    ⏳ กำลังอ่านอยู่ {{ n_pending }} ใบ — ไม่ต้องเฝ้า ระบบอ่านต่อเองแม้ปิดหน้านี้
+  </div>
+  {% endif %}
+
+  {# ==== ใบที่อ่านพัง ==== #}
+  {% if failed %}
+  <details open class="mb-4 bg-rose-50 border-2 border-rose-200 rounded-2xl p-3">
+    <summary class="cursor-pointer font-bold text-rose-800 select-none">⚠️ อ่านไม่สำเร็จ ({{ failed|length }})</summary>
+    <div class="space-y-2 mt-2">
+      {% for r in failed %}
+      <div class="bg-white rounded-xl border border-rose-100 p-2 flex gap-3 items-center">
+        <a href="/uploads/{{ r.photo_path }}" target="_blank"><img src="/uploads/{{ r.photo_path }}" class="h-16 w-16 object-cover rounded border"></a>
+        <div class="flex-1 text-sm text-rose-700">{{ r.error }}</div>
+        <form method="post" action="/maint/bills/{{ r.id }}/retry"><button class="text-xs bg-white border border-rose-300 rounded px-2 py-1 hover:bg-rose-100">🔁 ลองใหม่</button></form>
+        <form method="post" action="/maint/bills/{{ r.id }}/dismiss"><button class="text-xs text-slate-400 underline">ทิ้ง</button></form>
+      </div>
+      {% endfor %}
+    </div>
+  </details>
+  {% endif %}
+
+  {# ==== รอคัด: ร่างแก้ได้ทุกช่อง → เข้ารถ / เข้า Stock / ทิ้ง ==== #}
+  {% for r, d in ready %}
+  <div class="mb-4 bg-white border-2 border-slate-200 rounded-2xl p-3">
+    <div class="flex gap-3 flex-wrap">
+      <a href="/uploads/{{ r.photo_path }}" target="_blank" title="เปิดรูปเต็ม">
+        <img src="/uploads/{{ r.photo_path }}" class="h-40 w-32 object-cover rounded-lg border">
+      </a>
+      <div class="flex-1 min-w-0">
+        <div class="text-sm text-slate-500 mb-1">
+          {% if d.vendor %}ร้าน <b class="text-slate-700">{{ d.vendor }}</b> · {% endif %}
+          {% if d.work_date %}วันที่บิล <b class="text-slate-700">{{ d.work_date }}</b> · {% endif %}
+          ยอดที่อ่านได้ <b class="text-slate-700 font-mono">{{ '{:,.2f}'.format(d.sum_lines or 0) }}</b>
+          {% if d.mismatch %}<span class="text-amber-700 bg-amber-50 border border-amber-300 rounded px-1.5 ml-1">⚠ ยอดท้ายบิล {{ '{:,.2f}'.format(d.total or 0) }} ไม่ตรงผลบวก</span>{% endif %}
+        </div>
+
+        <form method="post" id="bill-{{ r.id }}">
+          <table class="w-full text-sm bg-slate-50 rounded-lg">
+            <thead class="text-xs text-slate-500">
+              <tr><th class="text-left py-1 px-2">หมวด</th><th class="text-left py-1 px-2">รายการ</th>
+                  <th class="text-right py-1 px-2">จำนวน</th><th class="text-right py-1 px-2">หน่วยละ</th></tr>
+            </thead>
+            <tbody>
+              {% for ln in d.lines or [] %}
+              <tr>
+                <td class="py-0.5 px-2">
+                  <select name="kind" class="border rounded px-1 py-0.5 text-xs">
+                    {% for code, label in line_kinds %}
+                    <option value="{{ code }}" {% if code == ln.kind %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td class="py-0.5 px-2"><input name="name" value="{{ ln.name }}" class="border rounded px-1 py-0.5 w-full"></td>
+                <td class="py-0.5 px-2"><input name="qty" value="{{ ln.qty }}" class="border rounded px-1 py-0.5 w-16 text-right font-mono"></td>
+                <td class="py-0.5 px-2"><input name="unit_price" value="{{ ln.unit_price }}" class="border rounded px-1 py-0.5 w-24 text-right font-mono"></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <div class="text-xs text-slate-400 mt-1">ลบชื่อรายการออก = ไม่เอาแถวนั้น</div>
+
+          <div class="flex flex-wrap items-end gap-2 mt-2">
+            <div>
+              <label class="text-xs text-slate-500 block">ทะเบียนรถ</label>
+              <input name="plate_raw" list="plates" value="{{ d.plate or '' }}"
+                     class="border rounded px-2 py-1 text-sm w-32 font-mono">
+            </div>
+            <div>
+              <label class="text-xs text-slate-500 block">วันที่</label>
+              <input type="date" name="work_date" value="{{ d.work_date or '' }}" class="border rounded px-2 py-1 text-sm">
+            </div>
+            <div>
+              <label class="text-xs text-slate-500 block">ร้าน</label>
+              <input name="vendor_name" value="{{ d.vendor or '' }}" class="border rounded px-2 py-1 text-sm w-44">
+            </div>
+            <button formaction="/maint/bills/{{ r.id }}/to-record"
+                    class="btn bg-emerald-600 text-white hover:bg-emerald-700">➕ เข้ารถ (สร้างบิลซ่อม)</button>
+            <button formaction="/maint/bills/{{ r.id }}/to-stock"
+                    class="btn bg-sky-600 text-white hover:bg-sky-700"
+                    title="รับเข้าคลัง ยังไม่ผูกทะเบียน — ตอนเบิกใช้ค่อยระบุรถ">📦 เข้า Stock</button>
+          </div>
+        </form>
+        <form method="post" action="/maint/bills/{{ r.id }}/dismiss" class="mt-1">
+          <button class="text-xs text-slate-400 underline" onclick="return confirm('ทิ้งใบนี้?')">🗑 ทิ้ง (ไม่ใช่บิล/รูปซ้ำ)</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  {% if not n_pending and not failed %}
+  <div class="text-center text-slate-400 py-8">ไม่มีใบรอคัด — โยนรูปเข้ากองได้เลย</div>
+  {% endif %}
+  {% endfor %}
+
+  <datalist id="plates">
+    {% for v in vehicles %}<option value="{{ v.plate_no }}">{% endfor %}
+  </datalist>
+
+  {# ==== เสร็จแล้ว (พับได้ เหมือน /todo) ==== #}
+  {% if done %}
+  <details class="mt-6">
+    <summary class="cursor-pointer text-sm text-slate-500 font-semibold">✅ คัดแล้ว ({{ done|length }} ล่าสุด)</summary>
+    <div class="space-y-1 mt-2">
+      {% for r in done %}
+      <div class="text-sm text-slate-500 flex gap-2 items-center">
+        <a href="/uploads/{{ r.photo_path }}" target="_blank" class="text-sky-600 hover:underline">รูป #{{ r.id }}</a>
+        <span>{{ r.updated_at | dmy_hm }}</span>
+        {% if r.done_action.startswith('record:') %}
+        <a href="/maint/records/{{ r.done_action.split(':')[1] }}" class="text-emerald-700 hover:underline">→ บิลซ่อม</a>
+        {% elif r.done_action == 'stock' %}<span class="text-sky-700">→ เข้า Stock</span>
+        {% else %}<span>ทิ้ง</span>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </details>
+  {% endif %}
+</div>
+{% endblock %}

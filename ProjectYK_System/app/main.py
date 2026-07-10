@@ -38,6 +38,7 @@ from models import (
     AppSetting,
     AppUser,
     BigcBranch,
+    BillInbox,
     Customer,
     DailyJob,
     DailyJobFee,
@@ -99,7 +100,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 50  # v50: MaintPart.discount/vat + MaintRecord.discount/vat/import_key (ALTER — ดึงประวัติซ่อมย้อนหลังจาก RM History sheets); v49: MaintPart.kind (ALTER — คีย์บิลซ่อมเป็นรายการๆ แยกหมวด อะไหล่/ค่าแรง/บริการ); v48: Tire.tire_type+removal_reason, TireEvent.reason_code (ALTER — ระบบยางหยุดเลือด: คีย์บิล+รายงานหล่อ/แท้); v47: DealRecord+PlaceCache (โต๊ะเช็คดีล /quote/deal — create_all); v46: TodoSuggest (เฟส 4 กล่องรอคัดจากไลน์ — create_all); v45: AiChatLog (เฟส 3 /ai — create_all); v44: MediaArchive (G2 — create_all); v43: DocTemplate+DocIssue (A2 — create_all); v42: Vehicle.tank_liters (ALTER); v41: JobMedia; v40: LineGroupMap+LineJobSeen; v39: PartPermission; v38: DebtAccount; v37: AuditLog
+SCHEMA_VERSION = 51  # v51: BillInbox (create_all — กล่องบิลรอคัด: อัปโหลดกองรูป→OCR คิวเบื้องหลัง→คัดเข้ารถ/Stock); v50: MaintPart.discount/vat + MaintRecord.discount/vat/import_key (ALTER — ดึงประวัติซ่อมย้อนหลังจาก RM History sheets); v49: MaintPart.kind (ALTER — คีย์บิลซ่อมเป็นรายการๆ แยกหมวด อะไหล่/ค่าแรง/บริการ); v48: Tire.tire_type+removal_reason, TireEvent.reason_code (ALTER — ระบบยางหยุดเลือด: คีย์บิล+รายงานหล่อ/แท้); v47: DealRecord+PlaceCache (โต๊ะเช็คดีล /quote/deal — create_all); v46: TodoSuggest (เฟส 4 กล่องรอคัดจากไลน์ — create_all); v45: AiChatLog (เฟส 3 /ai — create_all); v44: MediaArchive (G2 — create_all); v43: DocTemplate+DocIssue (A2 — create_all); v42: Vehicle.tank_liters (ALTER); v41: JobMedia; v40: LineGroupMap+LineJobSeen; v39: PartPermission; v38: DebtAccount; v37: AuditLog
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -6243,6 +6244,7 @@ def maint_record_list(
             "status": status,
             "q": q,
             "line_summary": line_summary,
+            "can_read_bill": _bill_ocr_allowed(request),
             "total_count": len(records),
             "total_cost": total_cost,
             "sum_parts": sum_parts,
@@ -6559,6 +6561,252 @@ async def maint_read_bill(request: Request, rec_id: int, photo: UploadFile = Fil
         _APP_LOG.warning("อ่านบิลไม่สำเร็จ rec=%s: %s", rec_id, e)
         ctx["ocr_err"] = str(e)
     return templates.TemplateResponse(request, "maint_record_form.html", ctx)
+
+
+# ---- 📥 กล่องบิลรอคัด (v51) — อัปโหลดกองรูป → OCR คิวเบื้องหลัง → คัดเข้ารถ/Stock ----
+# สเปค: docs/superpowers/specs/2026-07-10-bill-inbox-ocr-queue-design.md
+# กฎยืน: AI เขียนได้แค่ BillInbox — MaintRecord/StockTxn เกิดตอนคนกดยืนยันเท่านั้น
+
+import threading  # noqa: E402  (บรรทัด import หลักอยู่ท้ายไฟล์ — ที่นี่รันก่อน)
+
+_BILL_INBOX_LOCK = threading.Lock()      # worker ตัวเดียวทั้งโปรเซส (claude 40วิ/ใบ)
+_BILL_INBOX_STALE_MIN = 10               # reading ค้างเกินนี้ = ตายกลางทาง ตีกลับ pending
+
+
+def _bill_inbox_pass() -> None:
+    """อ่านทุกแถว pending ทีละใบจนหมด — เรียกใน thread (ห้ามเรียกบน event loop).
+
+    คิวคือ DB: แอป restart แล้ว pass ถัดไปอ่านต่อเอง; ใบพังไม่ล้มทั้งคิว."""
+    from services import bill_ocr
+
+    if not _BILL_INBOX_LOCK.acquire(blocking=False):
+        return
+    try:
+        with Session(engine) as s:      # แถว reading ค้าง (แอปดับกลางคัน) → คืนคิว
+            stale = datetime.utcnow() - timedelta(minutes=_BILL_INBOX_STALE_MIN)
+            for row in s.exec(select(BillInbox).where(BillInbox.status == "reading",
+                                                      BillInbox.updated_at < stale)).all():
+                row.status = "pending"
+                s.add(row)
+            s.commit()
+        while True:
+            if get_setting("bill_ocr_mode", "admin") == "off":
+                return                   # โอปิดสวิตช์ = คิวหยุด (กันโควต้า)
+            with Session(engine) as s:
+                row = s.exec(select(BillInbox).where(BillInbox.status == "pending")
+                             .order_by(BillInbox.id)).first()
+                if row is None:
+                    return
+                row.status = "reading"
+                row.updated_at = datetime.utcnow()
+                s.add(row); s.commit()
+                rid, photo = row.id, row.photo_path
+            try:
+                draft = bill_ocr.read_bill(str(_uploads_dir / photo))
+                ok, payload = True, json.dumps(draft, ensure_ascii=False)
+            except Exception as e:       # RuntimeError ภาษาคน / พังอื่นๆ — จดแล้วไปใบถัดไป
+                ok, payload = False, str(e)[:300]
+            with Session(engine) as s:
+                row = s.get(BillInbox, rid)
+                if row is None or row.status != "reading":
+                    continue
+                if ok:
+                    row.status, row.ocr_json, row.error = "ready", payload, ""
+                else:
+                    row.status, row.error = "failed", payload
+                row.updated_at = datetime.utcnow()
+                s.add(row); s.commit()
+    finally:
+        _BILL_INBOX_LOCK.release()
+
+
+def _bill_inbox_kick() -> None:
+    """เด้ง worker เบื้องหลัง (อัปโหลดเสร็จ/เปิดหน้า) — ซ้อนกันไม่ได้เพราะ lock."""
+    threading.Thread(target=_bill_inbox_pass, daemon=True).start()
+
+
+def _bill_inbox_row(s: Session, bill_id: int, want_status: str = "ready") -> BillInbox:
+    row = s.get(BillInbox, bill_id)
+    if row is None or row.status != want_status:
+        raise HTTPException(404, "ไม่พบใบนี้ในกล่อง (อาจถูกคัดไปแล้ว)")
+    return row
+
+
+@app.get("/maint/bills", response_class=HTMLResponse)
+def bill_inbox_page(request: Request):
+    if not _bill_ocr_allowed(request):
+        raise HTTPException(403, "กล่องบิลเปิดให้เฉพาะผู้ที่ได้รับอนุญาต")
+    _bill_inbox_kick()                   # มีของค้างก็อ่านต่อ (เช่นหลัง restart)
+    with Session(engine) as s:
+        rows = s.exec(select(BillInbox).order_by(BillInbox.id.desc()).limit(300)).all()
+        vehicles = s.exec(select(Vehicle).where(Vehicle.status == "active")
+                          .order_by(Vehicle.plate_no)).all()
+    ready, failed, done = [], [], []
+    n_pending = 0
+    for r in rows:
+        if r.status in ("pending", "reading"):
+            n_pending += 1
+        elif r.status == "ready":
+            try:
+                draft = json.loads(r.ocr_json or "{}")
+            except json.JSONDecodeError:
+                draft = {}
+            ready.append((r, draft))
+        elif r.status == "failed":
+            failed.append(r)
+        else:
+            done.append(r)
+    ctx = base_context(request)
+    ctx.update({"ready": ready, "failed": failed, "done": done[:50],
+                "n_pending": n_pending, "vehicles": vehicles,
+                "line_kinds": models.MAINT_LINE_KINDS})
+    return templates.TemplateResponse(request, "bill_inbox.html", ctx)
+
+
+@app.post("/maint/bills/upload")
+async def bill_inbox_upload(request: Request):
+    """รับหลายรูปทีเดียว — เซฟ + ตั้งคิวทันที **ไม่เรียก AI ใน request** (จบไว ปิดหน้าได้)."""
+    from auth import current_user
+
+    if not _bill_ocr_allowed(request):
+        raise HTTPException(403, "กล่องบิลเปิดให้เฉพาะผู้ที่ได้รับอนุญาต")
+    user = current_user(request)
+    form = await request.form()
+    saved = 0
+    with Session(engine) as s:
+        for f in form.getlist("photos"):
+            if not getattr(f, "filename", ""):
+                continue
+            if (getattr(f, "content_type", "") or "") not in _BILL_IMG_TYPES:
+                continue
+            data = await f.read()
+            if not data or len(data) > _BILL_MAX_BYTES:
+                continue
+            ext = Path(f.filename).suffix.lower()
+            if ext not in {".jpg", ".jpeg", ".png", ".webp"}:
+                ext = ".jpg"             # นามสกุลมาจากผู้ใช้ — ล็อก whitelist (บทเรียน v49)
+            row = BillInbox(uploaded_by=(user.username if user else ""))
+            s.add(row); s.commit(); s.refresh(row)
+            d = _uploads_dir / "bill_inbox"
+            d.mkdir(parents=True, exist_ok=True)
+            (d / f"{row.id}{ext}").write_bytes(data)
+            row.photo_path = f"bill_inbox/{row.id}{ext}"
+            s.add(row); s.commit()
+            saved += 1
+    _bill_inbox_kick()
+    return RedirectResponse(f"/maint/bills?saved={saved}", status_code=303)
+
+
+@app.post("/maint/bills/{bill_id}/retry")
+def bill_inbox_retry(bill_id: int, request: Request):
+    if not _bill_ocr_allowed(request):
+        raise HTTPException(403)
+    with Session(engine) as s:
+        row = _bill_inbox_row(s, bill_id, want_status="failed")
+        row.status, row.error = "pending", ""
+        row.updated_at = datetime.utcnow()
+        s.add(row); s.commit()
+    _bill_inbox_kick()
+    return RedirectResponse("/maint/bills", status_code=303)
+
+
+@app.post("/maint/bills/{bill_id}/dismiss")
+def bill_inbox_dismiss(bill_id: int, request: Request):
+    if not _bill_ocr_allowed(request):
+        raise HTTPException(403)
+    with Session(engine) as s:
+        row = s.get(BillInbox, bill_id)
+        if row is None or row.status not in ("ready", "failed"):
+            raise HTTPException(404, "ไม่พบใบนี้ในกล่อง")
+        row.status, row.done_action = "dismissed", "dismissed"
+        row.updated_at = datetime.utcnow()
+        s.add(row); s.commit()          # เก็บแถว+รูปไว้ตรวจย้อน ไม่ลบไฟล์
+    return RedirectResponse("/maint/bills", status_code=303)
+
+
+def _form_lines(form) -> list[dict]:
+    """แถวจากตารางร่าง (ชื่อว่าง = คนลบทิ้ง ไม่เอา) — โครงเดียวกับ bulk-add v49.
+    ฟอร์มเข้า Stock ไม่ส่งช่อง 'หมวด' มา → default เป็นอะไหล่"""
+    valid = dict(models.MAINT_LINE_KINDS)
+    kinds = form.getlist("kind")
+    out = []
+    for i, (n, q, p) in enumerate(zip(form.getlist("name"), form.getlist("qty"),
+                                      form.getlist("unit_price"))):
+        name = (n or "").strip()
+        if not name:
+            continue
+        k = kinds[i] if i < len(kinds) else "part"
+        out.append({"kind": k if k in valid else "part", "name": name,
+                    "qty": _parse_float(q or "0"), "unit_price": _parse_float(p or "0")})
+    return out
+
+
+@app.post("/maint/bills/{bill_id}/to-record")
+async def bill_inbox_to_record(bill_id: int, request: Request):
+    """➕ เข้ารถ: สร้างบิลซ่อมจริงจากร่าง (คนแก้/ยืนยันแล้ว) → ใบนี้จบ."""
+    from services.rm_history_import import _find_or_create_vendor
+
+    if not _bill_ocr_allowed(request):
+        raise HTTPException(403)
+    form = await request.form()
+    lines = _form_lines(form)
+    plate = (form.get("plate_raw") or "").strip()
+    if not lines or not plate:
+        return RedirectResponse("/maint/bills?err=need_plate_lines", status_code=303)
+    with Session(engine) as s:
+        row = _bill_inbox_row(s, bill_id)
+        vehicle = s.exec(select(Vehicle).where(Vehicle.plate_no == plate)).first()
+        vendor_id, _new = _find_or_create_vendor(
+            s, (form.get("vendor_name") or "").strip(), dry_run=False)
+        rec = MaintRecord(
+            record_no=_gen_code(s, MaintRecord, "M", 6),
+            work_date=_parse_date(form.get("work_date") or "") or date.today(),
+            vehicle_id=(vehicle.id if vehicle else None), plate_raw=plate,
+            kind="repair", status="done", vendor_id=vendor_id,
+            paid_by=(form.get("paid_by") or "cash").strip(),
+            notes=f"จากกล่องบิล #{bill_id}")
+        s.add(rec); s.commit(); s.refresh(rec)
+        for l in lines:
+            s.add(MaintPart(maint_record_id=rec.id, kind=l["kind"],
+                            part_name_raw=l["name"], qty=l["qty"],
+                            unit_price=l["unit_price"], total=l["qty"] * l["unit_price"]))
+        s.flush()
+        _recompute_maint_costs(s, rec)
+        s.add(rec)
+        row.status, row.done_action = "done", f"record:{rec.id}"
+        row.updated_at = datetime.utcnow()
+        s.add(row); s.commit()
+        rec_id = rec.id
+    return RedirectResponse(f"/maint/records/{rec_id}", status_code=303)
+
+
+@app.post("/maint/bills/{bill_id}/to-stock")
+async def bill_inbox_to_stock(bill_id: int, request: Request):
+    """📦 เข้า Stock: รับของเข้าคลัง ยังไม่ผูกทะเบียน — ตอนเบิกใช้ในบิลซ่อมค่อยตัดออก
+    พร้อมทะเบียนตาม flow เดิม (auto stock-out ของ v49)."""
+    if not _bill_ocr_allowed(request):
+        raise HTTPException(403)
+    form = await request.form()
+    lines = _form_lines(form)
+    if not lines:
+        return RedirectResponse("/maint/bills?err=no_lines", status_code=303)
+    txn_date = _parse_date(form.get("work_date") or "") or date.today()
+    with Session(engine) as s:
+        row = _bill_inbox_row(s, bill_id)
+        for l in lines:
+            part = s.exec(select(Part).where(Part.name == l["name"])).first()
+            if part is None:
+                part = Part(code=_gen_code(s, Part, "P", 4), name=l["name"],
+                            category="other", default_price=l["unit_price"])
+                s.add(part); s.commit(); s.refresh(part)
+            s.add(StockTxn(txn_date=txn_date, part_id=part.id, direction="in",
+                           qty=l["qty"], unit_price=l["unit_price"],
+                           total_amount=l["qty"] * l["unit_price"],
+                           note=f"รับเข้าจากกล่องบิล #{bill_id}"))
+        row.status, row.done_action = "done", "stock"
+        row.updated_at = datetime.utcnow()
+        s.add(row); s.commit()
+    return RedirectResponse("/maint/bills", status_code=303)
 
 
 @app.post("/maint/records/{rec_id}/parts/bulk-add")

@@ -568,6 +568,23 @@ class MaintPart(SQLModel, table=True):
     note: str = ""
 
 
+class BillInbox(SQLModel, table=True):
+    """📥 กล่องบิลรอคัด (v51) — รูปบิลที่อัปโหลดเป็นกอง รอ OCR เบื้องหลังแล้วให้คนคัด.
+
+    กฎยืน: AI เขียนได้แค่ ocr_json/status ที่นี่ — MaintRecord/StockTxn เกิดตอนคน
+    กดยืนยันเท่านั้น. คิว = แถว status='pending' (restart แล้วอ่านต่อได้เอง)."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    photo_path: str = ""                 # relative ใต้ uploads/ เช่น bill_inbox/7.jpg
+    uploaded_by: str = ""
+    uploaded_at: datetime = Field(default_factory=datetime.utcnow)
+    # pending → reading → ready | failed → done | dismissed
+    status: str = Field(default="pending", index=True)
+    ocr_json: str = ""                   # ร่างจาก bill_ocr.read_bill (JSON)
+    error: str = ""                      # เหตุที่อ่านพัง (ภาษาคน — โชว์บนหน้า)
+    done_action: str = ""                # "record:<id>" | "stock" | "dismissed"
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class Tire(SQLModel, table=True):
     """เส้นยางแต่ละเส้น (lifecycle tracking)"""
     id: Optional[int] = Field(default=None, primary_key=True)
