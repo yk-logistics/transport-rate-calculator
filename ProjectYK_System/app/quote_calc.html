@@ -1295,6 +1295,9 @@ function generateResult() {
 
   if (factoryBlocks.length) {
     readFactoryBlocksFromEditor();
+    // ค่าฐานของบล็อกแรกตามวิซาร์ดเสมอ — กลับมาแก้แล้วกดคำนวณใหม่ต้องไม่ค้างค่าเดิม (บั๊กโอเจอ 10 ก.ค. 2026)
+    factoryBlocks[0].baseRate = w.baseRate;
+    factoryBlocks[0].baseIdx = w.baseIdx;
   } else {
     initFactoryBlocksFromWizard();
   }
@@ -1593,6 +1596,10 @@ function backToWizard() {
   document.getElementById('resultSection').classList.remove('visible');
   document.getElementById('wizardContainer').style.display = '';
   document.getElementById('progressBar').style.display = '';
+  // โชว์ค่าฐานที่ใช้จริงของบล็อกแรกในวิซาร์ด (เผื่อแก้ในตัวแก้ไขโรงงานมา) — กันค่าที่เห็นกับค่าที่คำนวณไม่ตรงกัน
+  if (factoryBlocks.length && !isNaN(parseFloat(factoryBlocks[0].baseRate))) {
+    document.getElementById('baseRate').value = factoryBlocks[0].baseRate;
+  }
   baseSelectHasInitialized = false; // ให้เริ่มต้น Base Rate เป็นช่วง “ราคาปัจจุบัน” ใหม่ทุกครั้งที่แก้ไข
   goStep(1);
 }
