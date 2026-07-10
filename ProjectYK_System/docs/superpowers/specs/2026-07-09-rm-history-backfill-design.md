@@ -96,7 +96,7 @@ python tools/import_rm_history.py --rollback --file lcb  # ลบทั้งช
 | 4 หลัก ≥ 2500 | ลบ 543 | `2566` → 2023 |
 | 4 หลัก 1990-2100 | ใช้เลย | `2021` → 2021 |
 | 2 หลัก 60-79 | พ.ศ. → `2500+xx−543` | `/67` → 2024 |
-| 2 หลัก 00-40 | ค.ศ. → `2000+xx` | `/20` → 2020 |
+| 2 หลัก 15-40 | ค.ศ. → `2000+xx` (ข้อมูลบริษัทเริ่ม 2018) | `/20` → 2020 |
 | อื่นๆ | **`None` + บันทึก issue** | `/29`, `/02` |
 
 เพิ่มด่านสุดท้าย: **วันที่ในอนาคต (> วันนี้) = ไม่รับ** บันทึกเป็น issue
@@ -113,8 +113,8 @@ python tools/import_rm_history.py --rollback --file lcb  # ลบทั้งช
 | `MaintRecord` | `discount`, `vat`, `import_key` |
 
 **gotcha SQLite:** `ALTER TABLE ... ADD COLUMN ... UNIQUE` ทำไม่ได้ → เพิ่มคอลัมน์ธรรมดา
-แล้วสร้าง index แยก: `CREATE UNIQUE INDEX IF NOT EXISTS ix_maintrecord_import_key
-ON maintrecord(import_key) WHERE import_key != ''` (partial index — แถวเดิมที่ค่าว่างไม่ชนกัน)
+แล้วสร้าง index แยก: `CREATE UNIQUE INDEX IF NOT EXISTS ux_maintrecord_import_key
+ON maintrecord(import_key) WHERE import_key != ''` (partial index — แถวเดิมที่ค่าว่างไม่ชนกัน; ห้ามตั้งชื่อ ix_ เพราะชนกับ index ที่ SQLModel สร้างเอง)
 
 **กติกายอด (แก้ `_recompute_maint_costs`):**
 
