@@ -52,7 +52,8 @@ def test_normalize_plate_ok(tab, expect):
 
 
 @pytest.mark.parametrize("tab", ["หน้ารวม", "ชีต3", "ตู้1", "รับรถ 8682",
-                                 "Stock  LCB", "แบตเตอรี่", "บษ2681"])
+                                 "Stock  LCB", "แบตเตอรี่", "บษ2681",
+                                 "00-0000", "0000"])   # แท็บขยะ ไม่ใช่ทะเบียนจริง
 def test_normalize_plate_rejects_non_vehicle(tab):
     assert rm.normalize_plate(tab) is None
 

@@ -109,7 +109,9 @@ def normalize_plate(tab_title: str) -> str | None:
     t = re.sub(r"\(.*?\)", "", str(tab_title or ""))
     t = re.sub(r"\s*อย\.?\s*$", "", t.strip())
     t = t.strip()
-    return t if _PLATE_RE.match(t) else None
+    if not _PLATE_RE.match(t) or t.replace("-", "") == "0" * 6:   # 00-0000 = แท็บขยะ
+        return None
+    return t
 
 
 def classify_kind(detail: str) -> str:
