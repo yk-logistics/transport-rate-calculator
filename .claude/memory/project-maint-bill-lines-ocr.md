@@ -40,3 +40,9 @@ worker thread คิว DB (restart-safe, `bill_ocr_mode=off` หยุดคิ
 📦เข้า Stock (ทะเบียนใส่ตอนเบิกออก) / 🗑ทิ้ง; แบ่งเขต: ชีท RM = ของเก่า, กล่องนี้ = บิลใหม่.
 บั๊ก 422 ฟอร์มกรอง (`vehicle_id=""` ชน int param) แก้ที่ /maint/records + /maint/inspections
 — route ใหม่ที่มี GET filter form ให้รับ str แล้ว `_parse_int` เสมอ.
+
+**รันจริงคืน 10→11 ก.ค.:** กอง 199 รูป HEIC → ready 186 = **1,211,541.02 บาท** รอโอคัด
+(failed 13 — ส่วนใหญ่ไม่ใช่บิลจริง AI ปฏิเสธถูก); wrapper พักเองข้ามเพดานโควต้า 2 รอบ
+(สคริปต์อยู่ scratchpad เซสชัน `quota-reset-auto-retry`: ocr_folder_driver.py + ocr_wrapper.ps1
+— ใช้ซ้ำกับกองต่อไปได้); gotcha: HEIC ต้องแปลงก่อน (pillow-heif venv แยก), timeout ทั้ง
+Bash tool ฆ่างานยาว → ต้อง Start-Process detached
