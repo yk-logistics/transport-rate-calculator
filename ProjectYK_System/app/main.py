@@ -5809,11 +5809,14 @@ def inspection_list(
     request: Request,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
-    vehicle_id: Optional[int] = None,
+    # str + _parse_int: ฟอร์มกรองส่ง vehicle_id="" — ประกาศ int จะ 422 ทั้งหน้า
+    # (บั๊กตระกูลเดียวกับ /maint/records 10ก.ค.)
+    vehicle_id: str = "",
     overall_status: Optional[str] = None,
 ):
     df = _parse_date(date_from or "")
     dt = _parse_date(date_to or "")
+    vehicle_id = _parse_int(vehicle_id or "")
     with Session(engine) as s:
         q = select(MaintInspection)
         if df:
