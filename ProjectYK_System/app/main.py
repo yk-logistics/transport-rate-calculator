@@ -6165,24 +6165,56 @@ def maint_record_list(
     vehicle_id: Optional[int] = None,
     kind: Optional[str] = None,
     status: Optional[str] = None,
+    q: str = "",
 ):
     df = _parse_date(date_from or "")
     dt = _parse_date(date_to or "")
+    q = (q or "").strip()
     with Session(engine) as s:
-        q = select(MaintRecord)
+        qy = select(MaintRecord)
         if df:
-            q = q.where(MaintRecord.work_date >= df)
+            qy = qy.where(MaintRecord.work_date >= df)
         if dt:
-            q = q.where(MaintRecord.work_date <= dt)
+            qy = qy.where(MaintRecord.work_date <= dt)
         if vehicle_id:
-            q = q.where(MaintRecord.vehicle_id == vehicle_id)
+            qy = qy.where(MaintRecord.vehicle_id == vehicle_id)
         if kind:
-            q = q.where(MaintRecord.kind == kind)
+            qy = qy.where(MaintRecord.kind == kind)
         if status:
-            q = q.where(MaintRecord.status == status)
-        records = s.exec(q.order_by(MaintRecord.work_date.desc(), MaintRecord.id.desc())).all()
+            qy = qy.where(MaintRecord.status == status)
+        if q:
+            # ค้น "เปลี่ยนอะไหล่อะไรไปเมื่อไหร่" — ชื่อบรรทัดในบิล + อาการ/งานที่พิมพ์มือ
+            like = f"%{q}%"
+            hit_ids = select(MaintPart.maint_record_id).where(
+                MaintPart.part_name_raw.like(like))          # type: ignore[union-attr]
+            qy = qy.where(
+                MaintRecord.id.in_(hit_ids)                   # type: ignore[union-attr]
+                | MaintRecord.work_done.like(like)            # type: ignore[union-attr]
+                | MaintRecord.symptom.like(like))             # type: ignore[union-attr]
+        records = s.exec(qy.order_by(MaintRecord.work_date.desc(), MaintRecord.id.desc())).all()
         vehicles = s.exec(select(Vehicle).order_by(Vehicle.plate_no)).all()
         vendors = s.exec(select(Vendor).order_by(Vendor.name)).all()
+
+        # รายการในบิลโชว์บนตารางเลย (โอสั่ง 10ก.ค. — ไม่ต้องคลิกเข้าทีละใบ)
+        # ดึงครั้งเดียวทั้งชุดแล้วยุบเหลือ 4 ชื่อแรก +ตัวนับ กันหน้า 8 พันแถวบวม
+        line_summary: dict[int, str] = {}
+        rec_ids = [r.id for r in records]
+        if rec_ids:
+            names: dict[int, list[str]] = {}
+            counts: dict[int, int] = {}
+            rows = s.exec(select(MaintPart.maint_record_id, MaintPart.part_name_raw)
+                          .where(MaintPart.maint_record_id.in_(rec_ids))     # type: ignore[union-attr]
+                          .order_by(MaintPart.id)).all()
+            for rid, name in rows:
+                name = (name or "").strip()
+                if not name:
+                    continue
+                counts[rid] = counts.get(rid, 0) + 1
+                if counts[rid] <= 4:
+                    names.setdefault(rid, []).append(name)
+            for rid, lst in names.items():
+                extra = counts[rid] - len(lst)
+                line_summary[rid] = " · ".join(lst) + (f" +{extra} รายการ" if extra > 0 else "")
 
     total_cost = sum(r.total_cost or 0 for r in records)
     sum_parts = sum(r.parts_cost or 0 for r in records)
@@ -6203,6 +6235,8 @@ def maint_record_list(
             "vehicle_id": vehicle_id,
             "kind": kind,
             "status": status,
+            "q": q,
+            "line_summary": line_summary,
             "total_count": len(records),
             "total_cost": total_cost,
             "sum_parts": sum_parts,

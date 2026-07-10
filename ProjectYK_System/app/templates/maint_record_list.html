@@ -47,6 +47,11 @@
       <option value="cancelled" {% if status == 'cancelled' %}selected{% endif %}>ยกเลิก</option>
     </select>
   </div>
+  <div>
+    <label class="text-xs text-slate-500 block">🔎 ค้นอะไหล่/รายการ</label>
+    <input type="text" name="q" value="{{ q or '' }}" placeholder="เช่น น็อตล้อ, แบตเตอรี่, ผ้าเบรก"
+           class="border rounded px-2 py-1 text-sm w-56">
+  </div>
   <button class="btn bg-slate-700 text-white">กรอง</button>
   <a href="/maint/records" class="btn bg-slate-200 hover:bg-slate-300">ล้าง</a>
 </form>
@@ -80,7 +85,10 @@
         <td class="py-1 px-2">{{ r.work_date }}</td>
         <td class="py-1 px-2">{{ r.plate_raw }}</td>
         <td class="py-1 px-2">{{ kind_map.get(r.kind, r.kind) }}</td>
-        <td class="py-1 px-2 text-slate-600 truncate max-w-sm">{{ r.work_done or r.symptom or '' }}</td>
+        <td class="py-1 px-2 text-slate-600 max-w-md">
+          {% if r.work_done or r.symptom %}<div class="truncate max-w-md">{{ r.work_done or r.symptom }}</div>{% endif %}
+          {% if line_summary.get(r.id) %}<div class="text-xs text-slate-400 truncate max-w-md">{{ line_summary[r.id] }}</div>{% endif %}
+        </td>
         <td class="py-1 px-2 text-slate-600">{{ vendor_map.get(r.vendor_id, '-') }}</td>
         <td class="py-1 px-2 text-right font-mono">{{ '{:,.0f}'.format(r.total_cost) }}</td>
         <td class="py-1 px-2 text-slate-600">{{ paid_map.get(r.paid_by, '-') }}</td>
