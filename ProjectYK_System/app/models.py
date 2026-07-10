@@ -528,8 +528,15 @@ class MaintRecord(SQLModel, table=True):
 
     labor_cost: float = 0.0        # ค่าแรง (แยกจากอะไหล่)
     parts_cost: float = 0.0        # Σ MaintPart.total
-    total_cost: float = 0.0        # labor + parts + extra
+    total_cost: float = 0.0        # (parts + labor + other) − discount + vat = เงินที่จ่ายจริง
     other_cost: float = 0.0
+
+    discount: float = 0.0          # v50: Σ MaintPart.discount
+    vat: float = 0.0               # v50: Σ MaintPart.vat
+    # v50: ลายเซ็นแถวต้นทาง "rm:<file>:<sha1>" — ว่าง = คนคีย์เอง (rollback ไม่แตะ)
+    # ห้ามใส่ index=True: SQLModel จะสร้าง ix_maintrecord_import_key แบบ **ไม่ unique**
+    # ชนชื่อกับ partial unique index ใน _apply_additive_migrations
+    import_key: str = ""
 
     paid_by: str = Field(default="cash", index=True)
     # cash | credit | petty_cash | deduct_driver
@@ -554,7 +561,9 @@ class MaintPart(SQLModel, table=True):
     part_name_raw: str = ""    # fallback ถ้าไม่มีใน Part master
     qty: float = 0.0
     unit_price: float = 0.0
-    total: float = 0.0
+    total: float = 0.0         # qty × unit_price (ก่อนหักส่วนลด ก่อน VAT — ตรงช่อง "รวม" ในบิล)
+    discount: float = 0.0      # v50: ส่วนลดต่อบรรทัด (จากบิลร้าน)
+    vat: float = 0.0           # v50: ภาษีมูลค่าเพิ่มต่อบรรทัด
     tire_id: Optional[int] = Field(default=None, foreign_key="tire.id")  # link to tire lifecycle
     note: str = ""
 

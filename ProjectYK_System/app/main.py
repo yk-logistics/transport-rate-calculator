@@ -99,7 +99,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 49  # v49: MaintPart.kind (ALTER — คีย์บิลซ่อมเป็นรายการๆ แยกหมวด อะไหล่/ค่าแรง/บริการ); v48: Tire.tire_type+removal_reason, TireEvent.reason_code (ALTER — ระบบยางหยุดเลือด: คีย์บิล+รายงานหล่อ/แท้); v47: DealRecord+PlaceCache (โต๊ะเช็คดีล /quote/deal — create_all); v46: TodoSuggest (เฟส 4 กล่องรอคัดจากไลน์ — create_all); v45: AiChatLog (เฟส 3 /ai — create_all); v44: MediaArchive (G2 — create_all); v43: DocTemplate+DocIssue (A2 — create_all); v42: Vehicle.tank_liters (ALTER); v41: JobMedia; v40: LineGroupMap+LineJobSeen; v39: PartPermission; v38: DebtAccount; v37: AuditLog
+SCHEMA_VERSION = 50  # v50: MaintPart.discount/vat + MaintRecord.discount/vat/import_key (ALTER — ดึงประวัติซ่อมย้อนหลังจาก RM History sheets); v49: MaintPart.kind (ALTER — คีย์บิลซ่อมเป็นรายการๆ แยกหมวด อะไหล่/ค่าแรง/บริการ); v48: Tire.tire_type+removal_reason, TireEvent.reason_code (ALTER — ระบบยางหยุดเลือด: คีย์บิล+รายงานหล่อ/แท้); v47: DealRecord+PlaceCache (โต๊ะเช็คดีล /quote/deal — create_all); v46: TodoSuggest (เฟส 4 กล่องรอคัดจากไลน์ — create_all); v45: AiChatLog (เฟส 3 /ai — create_all); v44: MediaArchive (G2 — create_all); v43: DocTemplate+DocIssue (A2 — create_all); v42: Vehicle.tank_liters (ALTER); v41: JobMedia; v40: LineGroupMap+LineJobSeen; v39: PartPermission; v38: DebtAccount; v37: AuditLog
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -402,6 +402,20 @@ def _apply_additive_migrations() -> None:
 
     # v48 → v49: หมวดของบรรทัดในบิลซ่อม — แถวเดิมทั้งหมดคืออะไหล่ (default 'part')
     _ensure_column("maintpart", "kind", "TEXT", default="part")
+
+    # v49 → v50: ส่วนลด/VAT ต่อบรรทัด + ลายเซ็นแถวต้นทาง (ดึงประวัติซ่อมย้อนหลัง)
+    _ensure_column("maintpart",   "discount",   "REAL", default="0")
+    _ensure_column("maintpart",   "vat",        "REAL", default="0")
+    _ensure_column("maintrecord", "discount",   "REAL", default="0")
+    _ensure_column("maintrecord", "vat",        "REAL", default="0")
+    _ensure_column("maintrecord", "import_key", "TEXT", default="")
+    if IS_SQLITE:
+        # ALTER ADD COLUMN ... UNIQUE ทำไม่ได้ใน SQLite → partial unique index
+        # (แถวที่คนคีย์เอง import_key='' ซ้ำกันได้ ไม่ชน)
+        with engine.begin() as conn:
+            conn.exec_driver_sql(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ux_maintrecord_import_key "
+                "ON maintrecord(import_key) WHERE import_key != ''")
 
     # v6 → v7: PayRunItem BIGC audit columns + PayRunAdjust table (created via
     # SQLModel.metadata.create_all; nothing ALTER-wise needed for new table).
@@ -6326,11 +6340,13 @@ def maint_record_delete(rec_id: int):
 
 # ---- MaintPart (line items) ----
 def _recompute_maint_costs(s: Session, rec: MaintRecord, force: tuple = ()) -> None:
-    """ยอดรวมของบันทึกซ่อม = ผลรวมบรรทัดแยกตามหมวด (v49).
+    """ยอดรวมของบันทึกซ่อม = ผลรวมบรรทัดแยกตามหมวด (v49) + ส่วนลด/VAT (v50).
 
     หมวดไหน **ไม่มีบรรทัดเลย** ให้คงยอดที่คีย์มือไว้ — บันทึกเก่ามีแต่บรรทัดอะไหล่
     กับค่าแรงที่คีย์มือ ห้ามล้างเป็น 0. `force` = หมวดที่เพิ่งลบบรรทัดสุดท้ายทิ้ง
-    (ต้องคำนวณใหม่ให้เป็น 0 จริงๆ)."""
+    (ต้องคำนวณใหม่ให้เป็น 0 จริงๆ).
+    total_cost = (อะไหล่+ค่าแรง+บริการ) − ส่วนลด + VAT = เงินที่จ่ายจริง
+    (บิลที่ไม่มีส่วนลด/VAT ได้ยอดเดิมเป๊ะ)"""
     lines = s.exec(select(MaintPart).where(MaintPart.maint_record_id == rec.id)).all()
     sums = {"part": 0.0, "labor": 0.0, "service": 0.0}
     for ln in lines:
@@ -6342,7 +6358,12 @@ def _recompute_maint_costs(s: Session, rec: MaintRecord, force: tuple = ()) -> N
         rec.labor_cost = sums["labor"]
     if "service" in have:
         rec.other_cost = sums["service"]      # บริการ → ช่อง "ค่าอื่นๆ" เดิม
-    rec.total_cost = (rec.parts_cost or 0) + (rec.labor_cost or 0) + (rec.other_cost or 0)
+    if lines:
+        rec.discount = sum(ln.discount or 0 for ln in lines)
+        rec.vat = sum(ln.vat or 0 for ln in lines)
+    rec.total_cost = round((rec.parts_cost or 0) + (rec.labor_cost or 0)
+                           + (rec.other_cost or 0) - (rec.discount or 0)
+                           + (rec.vat or 0), 2)
     rec.updated_at = datetime.utcnow()
 
 
