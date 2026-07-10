@@ -32,7 +32,21 @@ from db_config import engine                      # noqa: E402
 from services import rm_history as rm             # noqa: E402
 from services import rm_history_import as rmi     # noqa: E402
 
-KEY_FILE = next(Path(__file__).resolve().parents[2].glob("noble-history-*.json"))
+def _find_key_file() -> Path:
+    """service account key: dev = รากรีโป, server = YK_MVP\\app\\ (secret #7)."""
+    import os
+
+    env = os.getenv("YK_GSHEET_KEY", "").strip()
+    if env and Path(env).exists():
+        return Path(env)
+    for base in (Path(__file__).resolve().parents[2], APP):
+        hit = next(base.glob("noble-history-*.json"), None)
+        if hit:
+            return hit
+    raise FileNotFoundError("ไม่พบ noble-history-*.json (ตั้ง env YK_GSHEET_KEY ได้)")
+
+
+KEY_FILE = _find_key_file()
 _SUBTOTAL_RE = re.compile(r"SUBTOTAL\(\s*9\s*,\s*[A-Z]+(\d+)\s*:\s*[A-Z]+(\d+)\s*\)")
 
 
