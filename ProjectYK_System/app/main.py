@@ -6778,7 +6778,8 @@ async def bill_inbox_to_record(bill_id: int, request: Request):
         row.updated_at = datetime.utcnow()
         s.add(row); s.commit()
         rec_id = rec.id
-    return RedirectResponse(f"/maint/records/{rec_id}", status_code=303)
+    # กลับหน้ากล่องบิลต่อ (คัดใบถัดไปได้เลย) — ลิงก์ไปดูรายการอยู่ในแบนเนอร์
+    return RedirectResponse(f"/maint/bills?ok=record:{rec_id}", status_code=303)
 
 
 @app.post("/maint/bills/{bill_id}/to-stock")

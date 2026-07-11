@@ -23,6 +23,14 @@
     ✅ รับเข้ากองแล้ว {{ request.query_params.get('saved') }} รูป — กำลังทยอยอ่าน รีเฟรชหน้าเพื่อดูสถานะ
   </div>
   {% endif %}
+  {% set ok = request.query_params.get('ok') or '' %}
+  {% if ok.startswith('record:') %}
+  <div class="mb-3 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+    ✅ เข้ารถเรียบร้อย —
+    <a href="/maint/records/{{ ok.split(':')[1] }}" class="underline font-semibold">เปิดดูรายการซ่อมที่เพิ่งสร้าง</a>
+    หรือคัดใบถัดไปต่อได้เลย
+  </div>
+  {% endif %}
   {% if n_pending %}
   <div class="mb-3 text-sm text-sky-700 bg-sky-50 border border-sky-200 rounded-lg px-3 py-2">
     ⏳ กำลังอ่านอยู่ {{ n_pending }} ใบ — ไม่ต้องเฝ้า ระบบอ่านต่อเองแม้ปิดหน้านี้

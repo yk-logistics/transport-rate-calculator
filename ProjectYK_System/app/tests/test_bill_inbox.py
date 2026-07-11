@@ -166,6 +166,8 @@ def test_to_record_creates_bill_and_marks_done(clients, monkeypatch):
     with Session(engine) as s:
         rec = s.exec(select(MaintRecord)).one()
         lines = s.exec(select(MaintPart)).all()
+    # เข้ารถแล้วต้องกลับหน้ากล่องบิลต่อ (คัดใบถัดไปรัวๆ) — โอขอ 11 ก.ค.
+    assert r.headers["location"] == f"/maint/bills?ok=record:{rec.id}"
     assert rec.vehicle_id is not None and rec.total_cost == 3200.0
     assert rec.other_cost == 1200.0 and rec.parts_cost == 2000.0
     assert len(lines) == 2
