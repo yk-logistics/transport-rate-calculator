@@ -286,3 +286,25 @@ def test_to_record_plate_suffix_resolves_vehicle(clients, monkeypatch):
         rec = s.exec(select(MaintRecord)).one()
         assert rec.plate_raw == "71-8005"
         assert rec.vehicle_id is not None
+
+
+def test_dismiss_all_failed(clients, monkeypatch):
+    """ปุ่มทิ้งทั้งหมดที่อ่านไม่ผ่าน — ทิ้งเฉพาะ failed ไม่แตะ ready/pending."""
+    c_admin, _ = clients
+    _upload(c_admin, n=3)
+    rows = _rows()
+    with Session(engine) as s:
+        a, b, c = (s.get(BillInbox, r.id) for r in rows)
+        a.status, a.error = "failed", "ไม่ใช่บิล"
+        b.status, b.error = "failed", "อ่านไม่ออก"
+        c.status = "ready"
+        for x in (a, b, c):
+            s.add(x)
+        s.commit()
+        cid = c.id
+    r = c_admin.post("/maint/bills/dismiss-failed", follow_redirects=False)
+    assert r.status_code == 303
+    with Session(engine) as s:
+        st = {row.id: row.status for row in s.exec(select(BillInbox)).all()}
+    assert list(st.values()).count("dismissed") == 2
+    assert st[cid] == "ready"

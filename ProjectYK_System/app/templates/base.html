@@ -115,6 +115,8 @@
             <a href="/fuel/anomaly" class="block px-4 py-2 hover:bg-slate-100">⛽🚩 น้ำมันผิดปกติ</a>
             <a href="/fuel/line-compare" class="block px-4 py-2 hover:bg-slate-100">⛽💬 น้ำมันไลน์↔ระบบ</a>
             <a href="/maint" class="block px-4 py-2 hover:bg-slate-100">🔧 ซ่อม/ยาง/PM</a>
+            {% if bill_ocr_allowed(request) %}<a href="/maint/bills" class="block px-4 py-2 hover:bg-slate-100 pl-8">📥 กล่องบิลรอคัด</a>{% endif %}
+            <a href="/maint/tires/bill" class="block px-4 py-2 hover:bg-slate-100 pl-8">🛞 คีย์บิลยาง</a>
             <a href="/admin/submissions" class="block px-4 py-2 hover:bg-slate-100">📱 Driver (PWA)</a>
             <div class="border-t border-slate-100 my-1"></div>
             <a href="/petty-cash" class="block px-4 py-2 hover:bg-slate-100">สดย่อย</a>

@@ -951,6 +951,8 @@ def _can_see(request, prefix: str) -> bool:
 
 
 templates.env.globals["can_see"] = _can_see
+# เมนูกล่องบิล/OCR — late-bind ไปที่ _bill_ocr_allowed (นิยามอยู่ท้ายไฟล์)
+templates.env.globals["bill_ocr_allowed"] = lambda request: _bill_ocr_allowed(request)
 
 
 # P1: สิทธิ์ระดับชิ้นส่วนในหน้า (part) — ดู parts.py; ใช้ใน template:
@@ -6763,6 +6765,23 @@ def _resolve_plate(s: Session, raw: str):
         if len(hits) == 1:
             return hits[0], hits[0].plate_no
     return None, raw
+
+
+@app.post("/maint/bills/dismiss-failed")
+def bill_inbox_dismiss_failed(request: Request):
+    """🗑 ทิ้งทั้งหมดที่อ่านไม่ผ่าน — กันโอกดทีละใบ 25 คลิก (UX 12ก.ค.).
+    แตะเฉพาะ status='failed'; ready/pending ไม่เกี่ยว."""
+    if not _bill_ocr_allowed(request):
+        raise HTTPException(403)
+    with Session(engine) as s:
+        n = 0
+        for row in s.exec(select(BillInbox).where(BillInbox.status == "failed")).all():
+            row.status, row.done_action = "dismissed", "dismissed"
+            row.updated_at = datetime.utcnow()
+            s.add(row)
+            n += 1
+        s.commit()
+    return RedirectResponse(f"/maint/bills?dismissed={n}", status_code=303)
 
 
 @app.post("/maint/bills/{bill_id}/to-record")

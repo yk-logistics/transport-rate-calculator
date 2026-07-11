@@ -44,6 +44,12 @@
   {% if failed %}
   <details open class="mb-4 bg-rose-50 border-2 border-rose-200 rounded-2xl p-3">
     <summary class="cursor-pointer font-bold text-rose-800 select-none">⚠️ อ่านไม่สำเร็จ ({{ failed|length }})</summary>
+    <form method="post" action="/maint/bills/dismiss-failed" class="mt-2"
+          onsubmit="return confirm('ทิ้งทั้ง {{ failed|length }} ใบที่อ่านไม่ผ่าน? (ใบที่อยากเก็บ กด 🔁 ลองใหม่ ก่อน)')">
+      <button class="text-xs bg-white border border-rose-300 rounded px-2 py-1 hover:bg-rose-100">
+        🗑 ทิ้งทั้งหมด {{ failed|length }} ใบ (ดูเหตุผลด้านล่างก่อน — ใบไหนจะเก็บให้กดลองใหม่ก่อนทิ้ง)
+      </button>
+    </form>
     <div class="space-y-2 mt-2">
       {% for r in failed %}
       <div class="bg-white rounded-xl border border-rose-100 p-2 flex gap-3 items-center">
