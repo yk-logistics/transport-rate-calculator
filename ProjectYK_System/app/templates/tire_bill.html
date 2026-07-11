@@ -84,6 +84,7 @@
       <table class="w-full text-sm" id="rows-table">
         <thead>
           <tr class="text-left text-slate-500 border-b">
+            <th class="py-1 pr-2">รถ</th>
             <th class="py-1 pr-2">ตำแหน่ง</th>
             <th class="py-1 pr-2">ประเภท</th>
             <th class="py-1 pr-2">ยี่ห้อ</th>
@@ -98,7 +99,12 @@
         <tbody id="rows-body"></tbody>
       </table>
     </div>
-    <p class="text-xs text-slate-400 mt-2">ถ้าตำแหน่งนั้นมียางเก่าอยู่ ระบบจะถอดยางเก่าออก (พร้อมบันทึกเหตุ) ให้อัตโนมัติ</p>
+    <p class="text-xs text-slate-400 mt-2">
+      ถ้าตำแหน่งนั้นมียางเก่าอยู่ ระบบจะถอดยางเก่าออก (พร้อมบันทึกเหตุ) ให้อัตโนมัติ
+      &nbsp;·&nbsp; แต่ละเส้นเลือกรถคนละคันได้ — ค่าใช้จ่ายแยกเข้าคันนั้นให้เอง
+      &nbsp;·&nbsp; เลือก 📦 เก็บสต๊อก = ยังไม่ผูกรถ ไปกด "ใส่รถ" ที่หน้ารายการยางทีหลัง
+      (ค่าแรง/ค่าอื่นท้ายฟอร์มจะเข้าคันหลักเสมอ)
+    </p>
   </div>
 
   {# ---- ค่าอื่น + รวม ---- #}
@@ -137,10 +143,12 @@
 <script>
 const TIRE_TYPES = [{% for c,l in tire_types %}["{{c}}","{{l}}"]{% if not loop.last %},{% endif %}{% endfor %}];
 const REASONS = [{% for c,l in removal_reasons %}["{{c}}","{{l}}"]{% if not loop.last %},{% endif %}{% endfor %}];
+const VEHICLES = [{% for v in vehicles %}["{{v.id}}","{{v.plate_no}}"]{% if not loop.last %},{% endif %}{% endfor %}];
+const STOCK_OPT = '<option value="STOCK">📦 เก็บสต๊อก (ยังไม่ใส่รถ)</option>';
 
 function posOptions() {
   const src = document.getElementById('pos-template');
-  return '<option value="">—</option>' + src.innerHTML;
+  return '<option value="">—</option>' + STOCK_OPT + src.innerHTML;
 }
 function selectHtml(name, idx, opts) {
   return `<select name="${name}_${idx}" class="border rounded px-1 py-1 w-full text-sm">${opts}</select>`;
@@ -149,12 +157,26 @@ function optList(pairs) {
   return pairs.map(p => `<option value="${p[0]}">${p[1]}</option>`).join('');
 }
 
+function vehOptions() {
+  return '<option value="">คันหลัก (ตามหัวบิล)</option>'
+    + VEHICLES.map(v => `<option value="${v[0]}">${v[1]}</option>`).join('');
+}
+// เปลี่ยนรถของแถว -> โหลดตำแหน่งล้อของคันนั้นมาแทน (คงตัวเลือกสต๊อกไว้เสมอ)
+function onRowVehChange(sel, idx) {
+  const posSel = document.querySelector(`[name=pos_${idx}]`);
+  if (!sel.value) { posSel.innerHTML = posOptions(); return; }
+  fetch(`/maint/tires/bill/positions?vehicle_id=${sel.value}`)
+    .then(r => r.text())
+    .then(html => { posSel.innerHTML = '<option value="">—</option>' + STOCK_OPT + html; });
+}
+
 let rowIdx = 0;
 function addRow() {
   const idx = rowIdx++;
   const tr = document.createElement('tr');
   tr.className = "border-b";
   tr.innerHTML = `
+    <td class="py-1 pr-2 min-w-[130px]">${selectHtml('veh', idx, vehOptions())}</td>
     <td class="py-1 pr-2 min-w-[120px]">${selectHtml('pos', idx, posOptions())}</td>
     <td class="py-1 pr-2 min-w-[110px]">${selectHtml('type', idx, optList(TIRE_TYPES))}</td>
     <td class="py-1 pr-2"><input name="brand_${idx}" class="border rounded px-1 py-1 w-full text-sm" placeholder="Bridgestone"></td>
@@ -167,6 +189,8 @@ function addRow() {
   document.getElementById('rows-body').appendChild(tr);
   tr.querySelector('.del-row').addEventListener('click', () => { tr.remove(); recount(); recalc(); });
   tr.querySelector('.price-in').addEventListener('input', recalc);
+  const vehSel = tr.querySelector(`[name=veh_${idx}]`);
+  vehSel.addEventListener('change', () => onRowVehChange(vehSel, idx));
   recount();
 }
 function recount() {

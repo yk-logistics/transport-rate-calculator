@@ -8492,28 +8492,45 @@ async def maint_tire_bill_save(request: Request):
         if not v:
             raise HTTPException(404, "Vehicle not found")
 
-        rec = MaintRecord(
-            record_no=_gen_code(s, MaintRecord, "M", 6),
-            work_date=work_date,
-            vehicle_id=vehicle_id,
-            plate_raw=v.plate_no or "",
-            mile_snapshot=mile,
-            kind="tire_change",
-            status="done",
-            vendor_id=vendor_id,
-            paid_by=paid_by,
-            receipt_ref=receipt_ref,
-            mechanic_name=mechanic_name,
-        )
-        s.add(rec)
-        s.flush()  # get rec.id
+        # v52: แต่ละแถวเลือกปลายทางเอง — คันอื่น (veh_i) หรือเก็บสต๊อก (pos=STOCK)
+        # → แยก MaintRecord ตามคันปลายทาง ให้ค่าใช้จ่ายเข้าคันใครคันมัน
+        #   (สต๊อก = record ไร้คัน vehicle_id=None; ใส่รถทีหลังผ่าน /maint/tires/{id}/event)
+        recs: dict = {}          # dest_vehicle_id (None = สต๊อก) -> MaintRecord
+        parts_totals: dict = {}  # dest_vehicle_id -> Σ ราคายาง
 
-        parts_total = 0.0
-        changed = 0
+        def _rec_for(dest_id):
+            if dest_id in recs:
+                return recs[dest_id]
+            dv = s.get(Vehicle, dest_id) if dest_id else None
+            if dest_id and not dv:
+                raise HTTPException(404, f"Vehicle {dest_id} not found")
+            r = MaintRecord(
+                record_no=_gen_code(s, MaintRecord, "M", 6),
+                work_date=work_date,
+                vehicle_id=dest_id,
+                plate_raw=(dv.plate_no if dv else "สต๊อกยาง"),
+                mile_snapshot=(mile if dest_id == vehicle_id else 0.0),
+                kind="tire_change",
+                status="done",
+                vendor_id=vendor_id,
+                paid_by=paid_by,
+                receipt_ref=receipt_ref,
+                mechanic_name=mechanic_name,
+            )
+            s.add(r)
+            s.flush()  # get r.id
+            recs[dest_id] = r
+            parts_totals[dest_id] = 0.0
+            return r
+
         for i in range(row_count):
             pos = (form.get(f"pos_{i}") or "").strip().upper()
             if not pos:
                 continue
+            veh_raw = (form.get(f"veh_{i}") or "").strip()
+            dest_id = int(veh_raw) if veh_raw.isdigit() else vehicle_id
+            if pos == "STOCK":
+                dest_id = None
             ttype = (form.get(f"type_{i}") or "new").strip()
             brand = (form.get(f"brand_{i}") or "").strip()
             model = (form.get(f"model_{i}") or "").strip()
@@ -8523,18 +8540,8 @@ async def maint_tire_bill_save(request: Request):
             tread = _parse_float(form.get(f"tread_{i}") or "0")
             reason = (form.get(f"reason_{i}") or "").strip()
 
-            # displaced old tyre at this position -> unmount it explicitly with
-            # the reason, so the event trail (not just the Tire) records why.
-            # (mount below would auto-unmount too, but that event has no reason.)
-            for old in s.exec(select(Tire).where(
-                Tire.current_vehicle_id == vehicle_id,
-                Tire.current_position == pos,
-            )).all():
-                _apply_tire_event(
-                    s, old, event_type="unmount", event_date=work_date,
-                    mile=mile, reason_code=reason,
-                    note=f"ถอดออก (คีย์บิล {rec.record_no})",
-                )
+            rec = _rec_for(dest_id)
+            row_mile = mile if dest_id == vehicle_id else 0.0
 
             new_tire = Tire(
                 code=_gen_code(s, Tire, "T", 4),
@@ -8547,37 +8554,60 @@ async def maint_tire_bill_save(request: Request):
             s.add(new_tire)
             s.flush()
 
-            _apply_tire_event(
-                s, new_tire, event_type="mount", event_date=work_date,
-                mile=mile, to_vehicle_id=vehicle_id, to_position=pos,
-                tread_before=tread, tread_after=tread,
-                reason_code=reason,
-                note=f"คีย์บิล {rec.record_no}",
-            )
-            # link mount event to the record
-            ev = s.exec(select(TireEvent).where(
-                TireEvent.tire_id == new_tire.id
-            ).order_by(TireEvent.id.desc())).first()
-            if ev:
-                ev.maint_record_id = rec.id
-                s.add(ev)
+            if dest_id is not None:
+                # displaced old tyre at this position -> unmount it explicitly with
+                # the reason, so the event trail (not just the Tire) records why.
+                # (mount below would auto-unmount too, but that event has no reason.)
+                for old in s.exec(select(Tire).where(
+                    Tire.current_vehicle_id == dest_id,
+                    Tire.current_position == pos,
+                )).all():
+                    if old.id == new_tire.id:
+                        continue
+                    _apply_tire_event(
+                        s, old, event_type="unmount", event_date=work_date,
+                        mile=row_mile, reason_code=reason,
+                        note=f"ถอดออก (คีย์บิล {rec.record_no})",
+                    )
+
+                _apply_tire_event(
+                    s, new_tire, event_type="mount", event_date=work_date,
+                    mile=row_mile, to_vehicle_id=dest_id, to_position=pos,
+                    tread_before=tread, tread_after=tread,
+                    reason_code=reason,
+                    note=f"คีย์บิล {rec.record_no}",
+                )
+                # link mount event to the record
+                ev = s.exec(select(TireEvent).where(
+                    TireEvent.tire_id == new_tire.id
+                ).order_by(TireEvent.id.desc())).first()
+                if ev:
+                    ev.maint_record_id = rec.id
+                    s.add(ev)
 
             s.add(MaintPart(
                 maint_record_id=rec.id, part_id=None,
                 part_name_raw=f"ยาง {brand} {model} {spec}".strip(),
                 qty=1, unit_price=price, total=price,
                 tire_id=new_tire.id,
-                note=dict(models.TIRE_REMOVAL_REASONS).get(reason, reason),
+                note=("ซื้อเก็บสต๊อก" if dest_id is None
+                      else dict(models.TIRE_REMOVAL_REASONS).get(reason, reason)),
             ))
-            parts_total += price
-            changed += 1
+            parts_totals[dest_id] += price
 
         labor = _parse_float(form.get("labor_cost") or "0")
         other = _parse_float(form.get("other_cost") or "0")
-        rec.parts_cost = parts_total
-        rec.labor_cost = labor
-        rec.other_cost = other
-        rec.total_cost = parts_total + labor + other
+        # ค่าแรง/ค่าอื่นเข้าคันหลักของบิล — ถ้าบิลนี้ไม่มีแถวของคันหลัก (เช่น labor-only
+        # หรือซื้อสต๊อกล้วนแต่มีค่าแรง) สร้าง record คันหลักมารับไว้
+        if (labor or other) and vehicle_id not in recs:
+            _rec_for(vehicle_id)
+        for dest_id, r in recs.items():
+            pt = parts_totals[dest_id]
+            r.parts_cost = pt
+            r.labor_cost = labor if dest_id == vehicle_id else 0.0
+            r.other_cost = other if dest_id == vehicle_id else 0.0
+            r.total_cost = pt + r.labor_cost + r.other_cost
+            s.add(r)
 
         # keep vehicle odometer fresh when a reading was supplied
         if mile > 0 and mile > (v.current_mile or 0):

@@ -273,3 +273,90 @@ def test_bill_page_renders(client):
     r = client.get("/maint/tires/bill", follow_redirects=False)
     assert r.status_code == 200
     assert "คีย์บิลยาง" in r.text
+    # v52: per-row destination controls present
+    assert "เก็บสต๊อก" in r.text
+    assert "คันหลัก (ตามหัวบิล)" in r.text
+
+
+# ---------------------------------------------------------------------------
+# v52: per-row destination — เส้นไหนใส่คันไหน / เก็บสต๊อก (โอขอ 11 ก.ค. 2026)
+# ---------------------------------------------------------------------------
+
+def test_bill_row_to_other_vehicle_splits_records(client):
+    """One BR bill, 2 tires: row0 -> main vehicle, row1 -> another vehicle.
+    Cost must land on each vehicle's own MaintRecord (no lump on main)."""
+    _login_admin(client)
+    with Session(engine) as s:
+        va = Vehicle(plate_no="70-4000", truck_type="10W"); s.add(va)
+        vb = Vehicle(plate_no="70-4001", truck_type="10W"); s.add(vb)
+        s.commit(); s.refresh(va); s.refresh(vb)
+        vida, vidb = va.id, vb.id
+
+    form = {
+        "vehicle_id": str(vida), "work_date": "2026-07-11", "paid_by": "cash",
+        "receipt_ref": "BR-100", "labor_cost": "500",
+        "row_count": "2",
+        "pos_0": "FL", "type_0": "new", "brand_0": "WESTLAKE", "model_0": "AZ599",
+        "price_0": "9000", "reason_0": "worn",
+        "veh_1": str(vidb),
+        "pos_1": "FR", "type_1": "retread", "brand_1": "BR", "model_1": "X",
+        "price_1": "3000", "reason_1": "worn",
+    }
+    r = client.post("/maint/tires/bill", data=form, follow_redirects=False)
+    assert r.status_code in (302, 303)
+
+    with Session(engine) as s:
+        ta = s.exec(select(Tire).where(Tire.current_vehicle_id == vida)).all()
+        tb = s.exec(select(Tire).where(Tire.current_vehicle_id == vidb)).all()
+        assert len(ta) == 1 and ta[0].current_position == "FL"
+        assert len(tb) == 1 and tb[0].current_position == "FR"
+
+        reca = s.exec(select(MaintRecord).where(MaintRecord.vehicle_id == vida)).one()
+        recb = s.exec(select(MaintRecord).where(MaintRecord.vehicle_id == vidb)).one()
+        assert reca.parts_cost == 9000.0 and reca.labor_cost == 500.0
+        assert reca.total_cost == 9500.0
+        assert recb.parts_cost == 3000.0 and recb.labor_cost == 0.0
+        assert recb.total_cost == 3000.0
+        assert reca.receipt_ref == recb.receipt_ref == "BR-100"
+
+        # each record's part lines point at its own vehicle's tire
+        pa = s.exec(select(MaintPart).where(MaintPart.maint_record_id == reca.id)).all()
+        pb = s.exec(select(MaintPart).where(MaintPart.maint_record_id == recb.id)).all()
+        assert [p.tire_id for p in pa] == [ta[0].id]
+        assert [p.tire_id for p in pb] == [tb[0].id]
+
+
+def test_bill_row_to_stock_creates_unmounted_tire(client):
+    """Row with pos=STOCK -> tire exists in stock (no vehicle, no mount event),
+    cost carried on a vehicle-less record; mount later via the office flow."""
+    _login_admin(client)
+    with Session(engine) as s:
+        v = Vehicle(plate_no="70-4002", truck_type="10W"); s.add(v); s.commit(); s.refresh(v)
+        vid = v.id
+
+    form = {
+        "vehicle_id": str(vid), "work_date": "2026-07-11", "paid_by": "cash",
+        "receipt_ref": "BR-101",
+        "row_count": "2",
+        "pos_0": "FL", "type_0": "new", "brand_0": "WESTLAKE", "model_0": "AZ599",
+        "price_0": "9000", "reason_0": "worn",
+        "pos_1": "STOCK", "type_1": "new", "brand_1": "WESTLAKE", "model_1": "AZ599",
+        "price_1": "8500",
+    }
+    r = client.post("/maint/tires/bill", data=form, follow_redirects=False)
+    assert r.status_code in (302, 303)
+
+    with Session(engine) as s:
+        stock = s.exec(select(Tire).where(Tire.current_vehicle_id == None)).all()  # noqa: E711
+        assert len(stock) == 1
+        st = stock[0]
+        assert st.status == "new" and st.current_position == ""
+        assert st.purchase_price == 8500.0
+        assert s.exec(select(TireEvent).where(TireEvent.tire_id == st.id)).first() is None
+
+        stock_rec = s.exec(select(MaintRecord).where(
+            MaintRecord.vehicle_id == None)).one()  # noqa: E711
+        assert stock_rec.parts_cost == 8500.0
+        assert stock_rec.total_cost == 8500.0
+        mounted_rec = s.exec(select(MaintRecord).where(MaintRecord.vehicle_id == vid)).one()
+        assert mounted_rec.parts_cost == 9000.0
