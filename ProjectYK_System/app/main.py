@@ -6727,9 +6727,11 @@ def bill_inbox_dismiss(bill_id: int, request: Request):
 
 def _form_lines(form) -> list[dict]:
     """แถวจากตารางร่าง (ชื่อว่าง = คนลบทิ้ง ไม่เอา) — โครงเดียวกับ bulk-add v49.
-    ฟอร์มเข้า Stock ไม่ส่งช่อง 'หมวด' มา → default เป็นอะไหล่"""
+    ฟอร์มเข้า Stock ไม่ส่งช่อง 'หมวด' มา → default เป็นอะไหล่
+    v52: 'line_plate' ทะเบียนรายบรรทัด (ว่าง = ตามทะเบียนหลักของใบ)"""
     valid = dict(models.MAINT_LINE_KINDS)
     kinds = form.getlist("kind")
+    plates = form.getlist("line_plate")
     out = []
     for i, (n, q, p) in enumerate(zip(form.getlist("name"), form.getlist("qty"),
                                       form.getlist("unit_price"))):
@@ -6738,8 +6740,29 @@ def _form_lines(form) -> list[dict]:
             continue
         k = kinds[i] if i < len(kinds) else "part"
         out.append({"kind": k if k in valid else "part", "name": name,
-                    "qty": _parse_float(q or "0"), "unit_price": _parse_float(p or "0")})
+                    "qty": _parse_float(q or "0"), "unit_price": _parse_float(p or "0"),
+                    "plate": (plates[i] if i < len(plates) else "").strip()})
     return out
+
+
+def _resolve_plate(s: Session, raw: str):
+    """จับคู่ทะเบียนที่คนพิมพ์กับรถในระบบ — คืน (vehicle|None, ทะเบียนที่จะบันทึก).
+
+    โอสอน 11ก.ค.: บิลมักเขียนแค่เลขท้าย เช่น "8003" = 71-8003 → ถ้าเลขท้าย
+    ชี้รถได้คันเดียวให้ใช้คันนั้น; ชนกันหลายคัน/ไม่เจอ = เก็บตามที่พิมพ์ (ไม่เดา)."""
+    raw = (raw or "").strip()
+    if not raw:
+        return None, ""
+    v = s.exec(select(Vehicle).where(Vehicle.plate_no == raw)).first()
+    if v:
+        return v, v.plate_no
+    digits = re.sub(r"\D", "", raw)
+    if len(digits) >= 4:
+        hits = [vv for vv in s.exec(select(Vehicle)).all()
+                if re.sub(r"\D", "", vv.plate_no or "").endswith(digits)]
+        if len(hits) == 1:
+            return hits[0], hits[0].plate_no
+    return None, raw
 
 
 @app.post("/maint/bills/{bill_id}/to-record")
@@ -6752,34 +6775,48 @@ async def bill_inbox_to_record(bill_id: int, request: Request):
     form = await request.form()
     lines = _form_lines(form)
     plate = (form.get("plate_raw") or "").strip()
-    if not lines or not plate:
+    # ทุกแถวต้องมีทะเบียน: ของตัวเอง หรือ fallback ทะเบียนหลัก (v52 รายบรรทัด)
+    if not lines or any(not (l["plate"] or plate) for l in lines):
         return RedirectResponse("/maint/bills?err=need_plate_lines", status_code=303)
     with Session(engine) as s:
         row = _bill_inbox_row(s, bill_id)
-        vehicle = s.exec(select(Vehicle).where(Vehicle.plate_no == plate)).first()
         vendor_id, _new = _find_or_create_vendor(
             s, (form.get("vendor_name") or "").strip(), dry_run=False)
-        rec = MaintRecord(
-            record_no=_gen_code(s, MaintRecord, "M", 6),
-            work_date=_parse_date(form.get("work_date") or "") or date.today(),
-            vehicle_id=(vehicle.id if vehicle else None), plate_raw=plate,
-            kind="repair", status="done", vendor_id=vendor_id,
-            paid_by=(form.get("paid_by") or "cash").strip(),
-            notes=f"จากกล่องบิล #{bill_id}")
-        s.add(rec); s.commit(); s.refresh(rec)
+        work_date = _parse_date(form.get("work_date") or "") or date.today()
+        paid_by = (form.get("paid_by") or "cash").strip()
+
+        # แถวไหนคันไหนคันนั้น — จัดกลุ่มตามทะเบียน (คงลำดับที่เจอ)
+        groups: dict[str, list[dict]] = {}
         for l in lines:
-            s.add(MaintPart(maint_record_id=rec.id, kind=l["kind"],
-                            part_name_raw=l["name"], qty=l["qty"],
-                            unit_price=l["unit_price"], total=l["qty"] * l["unit_price"]))
-        s.flush()
-        _recompute_maint_costs(s, rec)
-        s.add(rec)
-        row.status, row.done_action = "done", f"record:{rec.id}"
+            key = l["plate"] or plate
+            groups.setdefault(key, []).append(l)
+
+        rec_ids = []
+        for plate_key, grp in groups.items():
+            vehicle, plate_full = _resolve_plate(s, plate_key)
+            rec = MaintRecord(
+                record_no=_gen_code(s, MaintRecord, "M", 6),
+                work_date=work_date,
+                vehicle_id=(vehicle.id if vehicle else None), plate_raw=plate_full,
+                kind="repair", status="done", vendor_id=vendor_id,
+                paid_by=paid_by,
+                notes=f"จากกล่องบิล #{bill_id}")
+            s.add(rec); s.commit(); s.refresh(rec)
+            for l in grp:
+                s.add(MaintPart(maint_record_id=rec.id, kind=l["kind"],
+                                part_name_raw=l["name"], qty=l["qty"],
+                                unit_price=l["unit_price"], total=l["qty"] * l["unit_price"]))
+            s.flush()
+            _recompute_maint_costs(s, rec)
+            s.add(rec)
+            rec_ids.append(rec.id)
+
+        ids = ",".join(str(i) for i in rec_ids)
+        row.status, row.done_action = "done", f"record:{ids}"
         row.updated_at = datetime.utcnow()
         s.add(row); s.commit()
-        rec_id = rec.id
     # กลับหน้ากล่องบิลต่อ (คัดใบถัดไปได้เลย) — ลิงก์ไปดูรายการอยู่ในแบนเนอร์
-    return RedirectResponse(f"/maint/bills?ok=record:{rec_id}", status_code=303)
+    return RedirectResponse(f"/maint/bills?ok=record:{ids}", status_code=303)
 
 
 @app.post("/maint/bills/{bill_id}/to-stock")

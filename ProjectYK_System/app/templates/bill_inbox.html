@@ -25,9 +25,12 @@
   {% endif %}
   {% set ok = request.query_params.get('ok') or '' %}
   {% if ok.startswith('record:') %}
+  {% set rec_ids = ok.split(':')[1].split(',') %}
   <div class="mb-3 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-    ✅ เข้ารถเรียบร้อย —
-    <a href="/maint/records/{{ ok.split(':')[1] }}" class="underline font-semibold">เปิดดูรายการซ่อมที่เพิ่งสร้าง</a>
+    ✅ เข้ารถเรียบร้อย{% if rec_ids|length > 1 %} (แยก {{ rec_ids|length }} คัน){% endif %} —
+    {% for rid in rec_ids %}
+    <a href="/maint/records/{{ rid }}" class="underline font-semibold">เปิดใบที่ {{ loop.index }}</a>{% if not loop.last %} · {% endif %}
+    {% endfor %}
     หรือคัดใบถัดไปต่อได้เลย
   </div>
   {% endif %}
@@ -73,7 +76,8 @@
           <table class="w-full text-sm bg-slate-50 rounded-lg">
             <thead class="text-xs text-slate-500">
               <tr><th class="text-left py-1 px-2">หมวด</th><th class="text-left py-1 px-2">รายการ</th>
-                  <th class="text-right py-1 px-2">จำนวน</th><th class="text-right py-1 px-2">หน่วยละ</th></tr>
+                  <th class="text-right py-1 px-2">จำนวน</th><th class="text-right py-1 px-2">หน่วยละ</th>
+                  <th class="text-left py-1 px-2" title="เว้นว่าง = ใช้ทะเบียนหลักด้านล่าง">ทะเบียน (ถ้าแยกคัน)</th></tr>
             </thead>
             <tbody>
               {% for ln in d.lines or [] %}
@@ -88,11 +92,16 @@
                 <td class="py-0.5 px-2"><input name="name" value="{{ ln.name }}" class="border rounded px-1 py-0.5 w-full"></td>
                 <td class="py-0.5 px-2"><input name="qty" value="{{ ln.qty }}" class="border rounded px-1 py-0.5 w-16 text-right font-mono"></td>
                 <td class="py-0.5 px-2"><input name="unit_price" value="{{ ln.unit_price }}" class="border rounded px-1 py-0.5 w-24 text-right font-mono"></td>
+                <td class="py-0.5 px-2"><input name="line_plate" list="plates" value=""
+                       placeholder="ตามใบ" class="border rounded px-1 py-0.5 w-24 font-mono text-xs"></td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
-          <div class="text-xs text-slate-400 mt-1">ลบชื่อรายการออก = ไม่เอาแถวนั้น</div>
+          <div class="text-xs text-slate-400 mt-1">
+            ลบชื่อรายการออก = ไม่เอาแถวนั้น · แถวไหนใส่ทะเบียนของตัวเอง = แยกไปใบซ่อมคันนั้น
+            (พิมพ์แค่เลขท้ายได้ เช่น 8003) · ว่าง = ตามทะเบียนหลักข้างล่าง
+          </div>
 
           <div class="flex flex-wrap items-end gap-2 mt-2">
             <div>

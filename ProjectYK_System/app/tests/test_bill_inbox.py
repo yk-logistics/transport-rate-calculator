@@ -232,3 +232,57 @@ def test_new_record_form_links_to_inbox_for_admin_only(clients):
     c_admin, c_off = clients
     assert 'href="/maint/bills"' in c_admin.get("/maint/records/new").text
     assert 'href="/maint/bills"' not in c_off.get("/maint/records/new").text
+
+
+# ---------------------------------------------------------------------------
+# v52: ทะเบียนรายบรรทัด — เส้นไหนคันไหนคีย์ในกล่องเลย (โอขอ 11 ก.ค. 2026)
+# ---------------------------------------------------------------------------
+
+def test_to_record_per_line_plate_splits_records(clients, monkeypatch):
+    """แถวที่กรอกทะเบียนของตัวเอง แยกไปใบซ่อมของคันนั้น; แถวว่างตามทะเบียนหลัก."""
+    c_admin, _ = clients
+    with Session(engine) as s:
+        s.add(Vehicle(plate_no="71-8006", status="active")); s.commit()
+    row = _ready_row(c_admin, monkeypatch)
+    r = c_admin.post(f"/maint/bills/{row.id}/to-record", data={
+        "plate_raw": "71-8005", "work_date": "2026-06-28",
+        "vendor_name": "ร้านประเสริฐทรัพย์การยาง",
+        "kind": ["service", "part"],
+        "name": ["บริการนอกสถานที่", "น็อตล้อ อีซูซุ"],
+        "qty": ["1", "8"], "unit_price": ["1200", "250"],
+        "line_plate": ["", "71-8006"],
+    }, follow_redirects=False)
+    assert r.status_code == 303
+
+    with Session(engine) as s:
+        recs = s.exec(select(MaintRecord).order_by(MaintRecord.id)).all()
+        assert len(recs) == 2
+        by_plate = {rec.plate_raw: rec for rec in recs}
+        assert set(by_plate) == {"71-8005", "71-8006"}
+        assert by_plate["71-8005"].total_cost == 1200.0
+        assert by_plate["71-8006"].total_cost == 2000.0
+        assert all(rec.vehicle_id is not None for rec in recs)
+        for rec in recs:
+            lines = s.exec(select(MaintPart).where(
+                MaintPart.maint_record_id == rec.id)).all()
+            assert len(lines) == 1
+        ids = ",".join(str(rec.id) for rec in recs)
+    assert r.headers["location"] == f"/maint/bills?ok=record:{ids}"
+    row2 = _rows()[0]
+    assert row2.status == "done" and row2.done_action == f"record:{ids}"
+
+
+def test_to_record_plate_suffix_resolves_vehicle(clients, monkeypatch):
+    """โอสอน: ทะเบียนในบิลมักเขียนแค่เลขท้าย เช่น 8005 = 71-8005 —
+    ถ้าเลขท้ายชี้รถได้คันเดียว ให้จับคู่และเก็บทะเบียนเต็ม."""
+    c_admin, _ = clients
+    row = _ready_row(c_admin, monkeypatch)
+    r = c_admin.post(f"/maint/bills/{row.id}/to-record", data={
+        "plate_raw": "8005", "work_date": "2026-06-28",
+        "kind": ["part"], "name": ["น็อตล้อ"], "qty": ["1"], "unit_price": ["250"],
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with Session(engine) as s:
+        rec = s.exec(select(MaintRecord)).one()
+        assert rec.plate_raw == "71-8005"
+        assert rec.vehicle_id is not None
