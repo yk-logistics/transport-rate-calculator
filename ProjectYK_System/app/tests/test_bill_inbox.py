@@ -352,3 +352,22 @@ def test_home_shows_bill_inbox_card_for_admin(clients, monkeypatch):
     assert "กล่องบิลรอคัด" in home
     # office (bill_ocr_mode=admin) ไม่เห็นการ์ด
     assert "กล่องบิลรอคัด" not in c_off.get("/").text
+
+
+def test_inbox_page_shows_today_progress(clients, monkeypatch):
+    """หัวกล่องบิลโชว์ 'คัดแล้ววันนี้ X ใบ' — นับ done+dismissed ที่อัปเดตวันนี้."""
+    c_admin, _ = clients
+    row = _ready_row(c_admin, monkeypatch)
+    c_admin.post(f"/maint/bills/{row.id}/dismiss")
+    page = c_admin.get("/maint/bills").text
+    assert "คัดแล้ววันนี้" in page and "1 ใบ" in page
+
+
+def test_nav_badge_when_bills_ready(clients, monkeypatch):
+    """เมนู 'หน้างาน' มีจุดแดงเมื่อกล่องบิลมีของ ready (cache 60 วิ)."""
+    c_admin, _ = clients
+    import main as m
+    m._NAV_BADGE_CACHE["at"] = None          # ล้าง cache ข้ามเทสต์
+    _ready_row(c_admin, monkeypatch)
+    m._NAV_BADGE_CACHE["at"] = None
+    assert "yk-nav-dot" in c_admin.get("/maint").text

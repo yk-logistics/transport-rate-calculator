@@ -39,6 +39,11 @@
     ⏳ กำลังอ่านอยู่ {{ n_pending }} ใบ — ไม่ต้องเฝ้า ระบบอ่านต่อเองแม้ปิดหน้านี้
   </div>
   {% endif %}
+  {% if done_today %}
+  <div class="mb-3 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+    💪 คัดแล้ววันนี้ {{ done_today }} ใบ — เหลือรอคัด {{ ready|length }} ใบ
+  </div>
+  {% endif %}
 
   {# ==== ใบที่อ่านพัง ==== #}
   {% if failed %}

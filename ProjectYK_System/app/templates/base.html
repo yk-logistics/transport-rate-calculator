@@ -107,8 +107,9 @@
         </div>
 
         {# ---- 2) หน้างาน ---- #}
+        {% set _badges = nav_badges(request) %}
         <div class="yk-menu relative">
-          <button type="button" class="yk-menu-btn px-3 py-1.5 rounded hover:bg-slate-700">หน้างาน ▾</button>
+          <button type="button" class="yk-menu-btn px-3 py-1.5 rounded hover:bg-slate-700 relative">หน้างาน ▾{% if _badges.bills %}<span class="yk-nav-dot absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-rose-500 rounded-full" title="กล่องบิลมี {{ _badges.bills }} ใบรอคัด"></span>{% endif %}</button>
           <div class="yk-menu-panel hidden absolute left-0 mt-1 z-50 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 py-1 min-w-[210px]">
             <a href="/daily" class="block px-4 py-2 hover:bg-slate-100">Daily (งานรายวัน)</a>
             <a href="/fuel" class="block px-4 py-2 hover:bg-slate-100">⛽ น้ำมัน</a>

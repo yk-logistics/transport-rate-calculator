@@ -17,7 +17,7 @@
 
 ## สถานะเงิน/รอบปัจจุบัน
 - [ปิดรอบ มิ.ย. 3 ไซท์แล้ว](project-jun-close-3sites.md) — finalize LCB#2 287,711.37 / AYU#18 263,793.34 / BIGC#4 132,031.03; **finalized ห้าม recompute**; แก้ราคาย้อนหลัง→กลไก C4
-- [📋 Pre-close LCB 2026-07](project-lcb-jul-preclose-audit.md) — ✅ 12ก.ค.: ทีมคีย์ตามทัน (เดลี่ 10-11/7, สดย่อย 11/7) **พร้อมปิดรอบ 15/7**; เล่มสดย่อย LCB จริง = gsheet "สดย่อย LCB" แท็บชื่อรอบ; ค้างยืนยัน 21/6 อาทิตย์ว่าง
+- [📋 Pre-close LCB 2026-07](project-lcb-jul-preclose-audit.md) — 12ก.ค.: ทีมคีย์ตามทัน (เดลี่ 10-11/7, สดย่อย 11/7) **แต่ 🔴 เดลี่ 21/6 ขาดจริง — สดย่อยมีงานรถ ≥15 รายการวันนั้น ต้องตามทีมคีย์ก่อนปิด 15/7 ไม่งั้นคนขับเงินขาด**; เล่มสดย่อย LCB จริง = gsheet "สดย่อย LCB" แท็บชื่อรอบ
 - [ปิดเซสชัน 1-3ก.ค.](project-jul3-session-close.md) — ([1ก.ค.](project-jul1-session-close.md) **local DB stale ห้าม push**)
 - [LCB+BigC มิ.ย. review](project-lcb-bigc-jun-payroll-review.md) — เกศศักดิ์/ธนวัฒน์ = HR ไม่ใช่บั๊ก
 - [LCB CY KB กติกา](project-lcb-cy-kb-fulls.md) — kb=5000−คีย์ ส่วนต่างเข้าบริษัท · [BigC มิ.ย. deposit/ภาษี](project-bigc-jun-deposit-tax-fuel.md) — ภาษีรอโอ

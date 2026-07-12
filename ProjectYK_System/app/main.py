@@ -958,6 +958,28 @@ templates.env.globals["can_see"] = _can_see
 # เมนูกล่องบิล/OCR — late-bind ไปที่ _bill_ocr_allowed (นิยามอยู่ท้ายไฟล์)
 templates.env.globals["bill_ocr_allowed"] = lambda request: _bill_ocr_allowed(request)
 
+# v53 UX: จุดแดงเมนู "หน้างาน" เมื่อกล่องบิลมีของ ready — cache 60 วิ กัน query ทุก page
+_NAV_BADGE_CACHE: dict = {"at": None, "bills": 0}
+
+
+def _nav_badge_counts(request) -> dict:
+    if not _bill_ocr_allowed(request):
+        return {"bills": 0}
+    now = datetime.utcnow()
+    if _NAV_BADGE_CACHE["at"] and (now - _NAV_BADGE_CACHE["at"]).total_seconds() < 60:
+        return {"bills": _NAV_BADGE_CACHE["bills"]}
+    try:
+        with Session(engine) as s:
+            n = len(s.exec(select(BillInbox.id).where(
+                BillInbox.status == "ready")).all())
+    except Exception:
+        n = 0
+    _NAV_BADGE_CACHE["at"], _NAV_BADGE_CACHE["bills"] = now, n
+    return {"bills": n}
+
+
+templates.env.globals["nav_badges"] = _nav_badge_counts
+
 
 # P1: สิทธิ์ระดับชิ้นส่วนในหน้า (part) — ดู parts.py; ใช้ใน template:
 #   {% if part_visible(request, 'daily.kb_col') %} / {% if part_editable(...) %}
@@ -6711,9 +6733,15 @@ def bill_inbox_page(request: Request):
             failed.append(r)
         else:
             done.append(r)
+    # v53 UX: แรงคืบวันนี้ — done+dismissed ที่อัปเดตตั้งแต่เที่ยงคืน (นับจากแถวที่โหลดมา)
+    midnight = datetime.combine(date.today(), datetime.min.time())
+    done_today = sum(1 for r in rows
+                     if r.status in ("done", "dismissed") and r.updated_at
+                     and r.updated_at >= midnight)
     ctx = base_context(request)
     ctx.update({"ready": ready, "failed": failed, "done": done[:50],
                 "n_pending": n_pending, "vehicles": vehicles,
+                "done_today": done_today,
                 "line_kinds": models.MAINT_LINE_KINDS})
     return templates.TemplateResponse(request, "bill_inbox.html", ctx)
 
