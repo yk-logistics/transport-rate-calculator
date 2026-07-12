@@ -6,6 +6,7 @@
 1. `ProjectYK_System/AGENT_BOOTSTRAP.md` (ไฟล์นี้)
 2. `ProjectYK_System/MODULE_REGISTRY.md`
 3. `ProjectYK_System/CHANGELOG_MASTER.md` — **เฉพาะหัวข้อล่าสุดไม่เกิน 3 หัวข้อ** (รายละเอียดนโยบาย: `ProjectYK_System/docs/CHANGELOG_POLICY.md`)
+3.5. **HANDOFF ล่าสุด**: `ProjectYK_System/docs/HANDOFF_FABLE_TO_OPUS_*.md` ตัววันที่ใหม่สุด — งานค้างรอ trigger + คำเตือนของสดที่ยังไม่ตกเอกสารอื่น (บทเรียน 12ก.ค.: agent ที่ข้ามไฟล์นี้เกือบเดินชนกับดักที่จดเตือนไว้แล้ว)
 4. **แผนงานปัจจุบัน (ก.ค. 2026):** `ProjectYK_System/docs/PLAN_STATUS.json` (สถานะรายการงาน — หน้า /admin/plan อ่านไฟล์นี้) + สเปคต่องาน `ProjectYK_System/docs/MVP_TASK_SPECS.md`
 5. เฉพาะงานโมดูลเครื่องคิดเรท/Oatside: `TransportRateCalculator/docs/CONTEXT_LOG.md` (ท้ายไฟล์) + `NEXT_ACTION_PLAN.md` — **ไฟล์ legacy** แผนหลักคือข้อ 4
 6. อ่านไฟล์ของโมดูลที่ผู้ใช้กำลังทำงานอยู่ (ตาม registry)
@@ -28,9 +29,9 @@
 - สเปกระบบ + เครื่องคิดเรท: **`ProjectYK_System/TransportRateCalculator/`** (`docs/`, `transport_rate_calculator.html`, `reports/`)
 - หลัง import → เปิด `/admin/promote` ลิงก์คนขับ + ทะเบียน
 
-## โฮสต์ทดลองบนคลาวด์ (ฟรี / พ่อ–คนใน)
-- คู่มือ: **`ProjectYK_System/docs/HOSTING_FREE_DEMO_TH.md`** — Neon Postgres + Render + `sqlite_to_postgres.py` + HTTP Basic (`YK_PREVIEW_*`)
-- รันบนเครื่องหลังได้ connection string จาก Neon: **`ProjectYK_System/tools/cloud_demo_setup.ps1`**
+## โฮสต์ทดลองบนคลาวด์ (ฟรี / พ่อ–คนใน) — **LEGACY อย่าใช้ deploy งานจริง**
+- **production จริงคือ `app.yklogistics.uk`** (server เครื่อง YK ผ่าน Tailscale) — deploy ตามสกิล `yk-deploy` / `docs/MVP_SERVER_DEPLOY.md` เท่านั้น
+- ของเดิม (demo ฟรี Neon+Render): `ProjectYK_System/docs/HOSTING_FREE_DEMO_TH.md` + `tools/cloud_demo_setup.ps1` — เก็บไว้อ้างอิง ไม่ใช่เส้นทางปัจจุบัน
 
 ## User-Friendly Command (for future chats)
 ผู้ใช้สามารถพิมพ์สั้นๆ ว่า:
