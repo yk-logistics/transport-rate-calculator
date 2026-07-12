@@ -23,6 +23,7 @@
 - [LCB CY KB กติกา](project-lcb-cy-kb-fulls.md) — kb=5000−คีย์ ส่วนต่างเข้าบริษัท · [BigC มิ.ย. deposit/ภาษี](project-bigc-jun-deposit-tax-fuel.md) — ภาษีรอโอ
 
 ## งานเสร็จล่าสุด (ก.ค.)
+- [🌙 กะดึก 13ก.ค.](project-lcb-jul-preclose-audit.md) — UX ครบ 8/8 + การ์ดซ่อมบำรุง/ใบวางบิลเลยกำหนดหน้าแรก + ค้นหากลาง 2 หมวดใหม่ + fix ตัวนับก่อน 7 โมง ([gotcha](project-utc-midnight-counter-gotcha.md)); deploy เขียว 2 รอบ push ครบ; **🔴 LCB เดลี่ขาด 3 วันอาทิตย์ 21/6+28/6+5/7 — เครื่องมือ tools/check_lcb_daily_keyed.py เช็คซ้ำได้**
 - [🧾💰 v52 ทะเบียนใบวางบิล + v53 ใบเสร็จ 3 สถานะ](project-invoice-registry.md) — 12ก.ค. deploy (schema 53): สร้างใบ→ประทับเลขกลับเดลี่อัตโนมัติ + /billing/invoices issued→received→paid|void + เตือนเกิน due; petty มี/ไม่มี/รอ + ปุ่มได้ใบเสร็จแล้ว; แก้บั๊กแฝง petty_save driver_obj; ค้าง: เบิกรายสัปดาห์ LCB (docs/WEEKLY_ADVANCE_LCB_SPEC.md รอโอเคาะ 5 ข้อ)
 - [📱 สแกนบิลมือถือโอ จบ](project-phone-bill-scan.md) — 10-12ก.ค.: 9,938 รูป → **กล่องบิล ready 306 ใบ = 3,789,714.72 บาท รอโอคัด**; ก.พ.219 พิสูจน์ไม่ซ้ำ RM (0/10); worker OCR task SYSTEM ใช้ซ้ำได้; กติกาโอ: IRISO/รพ./PTT ไม่เอา, เลขท้าย 8003=71-8003; gotcha MTP+claude -p+OAuth ใน start_mvp.bat
 - [🧮 /quote ค้างค่าเดิม แก้แล้ว](project-quote-recalc-stale-fix.md) — 10ก.ค. (dcd1714); **ไฟล์คู่ app↔TransportRateCalculator ต้อง byte-identical**
