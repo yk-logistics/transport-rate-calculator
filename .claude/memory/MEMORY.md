@@ -2,8 +2,9 @@
 
 ## กฎยืน (อ่านก่อนทุกงาน)
 - [🟢 มอบอำนาจเต็มแพลน MVP](project-jul3-session-close.md) — โอ 3ก.ค.: ลุยทุกงานในแพลนไม่ต้องรออนุมัติ ทำก่อนแก้ทีหลัง จดข้อสมมติ; กฎเงิน/ทำลายล้างยึดเดิม
-- [⚠️ Fable ถึง 7/7 + เฟส P](project-fable-deadline-and-phase-p.md) — งานเงิน/ออกแบบยากให้ Fable ก่อน 7ก.ค. + ทิ้ง runbook ให้ Opus
+- [⚠️ Fable ขยายถึง 12/7 (≈13ก.ค. 14:00 ไทย) + เฟส P](project-fable-deadline-and-phase-p.md) — หลังนั้นต้องเครดิต $10/$50 MTok; งานเงิน/ออกแบบยากให้ Fable ก่อนหมดเขต + ทิ้ง runbook ให้ Opus
 - [🧠 วิธีคิด Fable→Opus](project-fable-mindset-doc.md) — docs/FABLE_MINDSET_FOR_OPUS.md โมเดลใหญ่ตัวถัดไปอ่าน 1 ครั้งเซสชันแรก (8 นิสัย+จังหวะต่องาน)
+- [🧰 ชุดเครื่องมือ Opus](project-opus-toolkit.md) — 10ก.ค.: สกิล 3 ตัว .claude/skills (yk-money-task/yk-deploy/yk-session-close) + หมวด "โหมด Opus" ใน CLAUDE.md; เทสต์กับ Opus จริงผ่าน — สกิล trigger เอง; runbook ปิดรอบเพิ่มข้อ 0 เช็คชีทสด
 - [แพลน MVP](project-master-plan-jul26.md) — docs/MASTER_PLAN_2026-07.md + MVP_TASK_SPECS.md + PLAN_STATUS.json (อัปเดต%+scp ทุกครั้งที่จบงาน)
 - [กฎ: ใช้เวลาจริง](feedback-use-real-clock.md) — Get-Date ก่อนพูดถึงเวลาเสมอ ห้ามเดา
 - [กฎ: คู่มือส่งต่อโมเดลเล็ก](feedback-handoff-for-smaller-models.md) — ทุกงานทิ้ง runbook ให้ Haiku/Sonnet ทำต่อได้
@@ -25,6 +26,10 @@
 - [BigC มิ.ย. deposit/ภาษี/น้ำมัน](project-bigc-jun-deposit-tax-fuel.md) — ภาษี BigC รอโอตัดสิน
 
 ## งานเสร็จล่าสุด (ก.ค.)
+- [📱 สแกนบิลจากมือถือโอ](project-phone-bill-scan.md) — 10-11ก.ค.: ก็อป 9,938 รูป→PhoneBillScan/ (gitignored) คัดเจอบิล 2026 = 335 ใบ; **อัป มิ.ย.–ก.ค. 56 ใบเข้า BillInbox server แล้ว (pending) — โอเปิด /maint/bills คิว OCR เดินเอง**; ค้าง: ก.พ. 219 ใบสงสัยซ้ำ RM History + ปี 2025 ~1,300 candidates ยังไม่คัด; gotcha MTP นับไฟล์เพี้ยน + claude -p ต้องหนี CLAUDE.md/มัด call/จับ session limit
+- [🧮 บั๊ก /quote คำนวณใหม่ค้างค่าเดิม](project-quote-recalc-stale-fix.md) — 10ก.ค. แก้+deploy (dcd1714): บล็อกโรงงานเก่าทับค่าวิซาร์ด; verify jsdom harness; **ไฟล์คู่ app↔TransportRateCalculator ต้อง byte-identical**
+- [📋 Pre-close LCB 2026-07](project-lcb-jul-preclose-audit.md) — ✅ 12ก.ค. 01:00 เช็คชีทสด: **ทีมตามทันแล้ว เดลี่ถึง 10-11/7 + สดย่อยถึง 11/7 — ไฟแดงดับหมด พร้อมปิดรอบ 15/7**; เล่มสดย่อย LCB จริง = gsheet "สดย่อย LCB" แท็บชื่อรอบ (ไม่ใช่วังน้อยแท็บสัปดาห์); ค้างยืนยัน 21/6 อาทิตย์ว่าง; รายงาน reports/LCB_2026-07_PRECLOSE_2026-07-10.md
+- [🛠️ แก้กฎ no_finish Oatside ตาม DHL](project-oatside-jun-dhl-checkback.md) — 10ก.ค. (4eb9a4d, deploy แล้ว): เลิกเก็บวันรอคิวต้นทาง แต่คงวัน standby ที่ DHL จ่าย; replay มิ.ย. 143,264→93,952 vs DHL 92,704; เทสต์ 6 เคส; **ไม่ rebuild มิ.ย. บน server** + หมวด B ตรวจจบ=ไม่ใช่บั๊ก (นับวันคนละแบบ ~11k/เดือน noise — คงกติกาเดิม)
 - [🗄️ ประวัติซ่อม 2018-2026 เข้าระบบแล้ว](project-rm-history-backfill-done.md) — 10ก.ค. 8,237 บิล/16.67M จาก RM History sheets (v50); ยอดบนชีทเชื่อไม่ได้ (SUBTOTAL ค้าง ~6.1M มองไม่เห็น); ตกค้าง 00-0000 + รถป้ายอักษรไทย; กล่องบิล OCR = สเปคแล้วรอเขียน
 - [🧾 บิลซ่อมรายการๆ + 📷 OCR](project-maint-bill-lines-ocr.md) — 9ก.ค. v49 deploy: MaintPart.kind (อะไหล่/ค่าแรง/บริการ) + /maint/records/{id}/read-bill ให้ sonnet อ่านรูปบิล → ร่าง กดยืนยันถึงเขียน DB; **รอโอลองบิลลายมือ**
 - [🔎 กล่องรอคัดไลน์ไม่ตายเงียบ](project-todo-scan-claude-fallback.md) — 9ก.ค. Qwen gateway ล่ม content ว่างทุก prompt → ตก Claude haiku (เพดาน 8 ก้อน) + retry 1 ชม. + แบนเนอร์เตือน; log กรอง noise asyncio
@@ -37,7 +42,7 @@
 - [🧪 TradeLab บอทเทรดเงินสมมุติ](project-tradelab-paper-bot.md) — นอก repo: trade.yklogistics.uk; v2 (regime ADX + ATR stop + F&G + AI ข่าว) แข่ง v1/v2/hold; เกณฑ์: ชนะ buy&hold 1-3 เดือนค่อยคุยต่อ; **ห้ามปนงานเงิน YK**
 - [PWA icon /todo ลง Taskbar](project-pwa-todo-taskbar-icon.md) — DONE 5ก.ค. (542e806) hunk PWA เข้า HEAD แล้ว; รอโอลบ shortcut เก่า+Install ใหม่
 - [LINE→todo + AI จบครบ 4 เฟส](project-line-to-todo-ai-phases.md) — 5ก.ค. v46: /line→/todo · ✨ Qwen เรียบเรียง (สำรอง Claude) · หน้า /ai แชท · 📥 กล่องรอคัดจากไลน์ (วัดจริง 49 งาน); docs/AI_CHAT_RUNBOOK.md; gotcha 9arm REST: /v1/chat/completions + ตั้ง UA เอง
-- [AYU ก.ค. ✅ import แล้ว](project-ayu-jul-import-ready.md) — 314 งาน+60 น้ำมัน; **กติกา: AYU แก้ที่ชีทจริงเท่านั้น → re-import --wipe-prior; ห้าม wipe ถ้าเริ่มแก้ grid**
+- [AYU ก.ค. ✅ refresh 10ก.ค.](project-ayu-jul-import-ready.md) — 432 งาน+92 น้ำมัน ถึง 11/7 (server verify BIGC/LCB นิ่ง); **กติกา: AYU แก้ที่ชีทจริงเท่านั้น → re-import --wipe-prior; ห้าม wipe ถ้าเริ่มแก้ grid; -Apply ของ ps1 ไม่มี wipe ต้องรันมือ**
 - [🚀 Starlette migrated](project-starlette-migrated.md) — 4ก.ค.: fastapi 0.139/starlette 1.3.1, 0 CVE; **route ใหม่ต้อง TemplateResponse(request, name, ctx)**
 - [F4 น้ำมันไลน์↔ระบบ](project-f4-fuel-line-compare.md) — DONE 4ก.ค. ไม่ใช้ OCR: /fuel/line-compare parse ข้อความแจ้งเติม; ตกหล่นจริง 7 รายการรอทีม
 - [☀️ เซสชันกลางวัน 4ก.ค.](project-jul4-day-run.md) — G2/S3/F0/S5 done + F3 จูน + doc_no clean 208 + CVE multipart → แพลน 34/38
@@ -76,6 +81,7 @@
 - [🗡️ SpiritVale codex (นอก repo YK)](project-spiritvale-codex.md) — 9ก.ค. เก็บ baseline ก่อน EA (15ก.ค.) แล้ว; **gotcha: Paladin มาจาก Knight ไม่ใช่ Acolyte → HP archetype 100% vs 75%**; ค้างรายงานเทียบ 8 อาชีพ
 
 ## เครื่องมือ/อ้างอิงเทคนิค
+- [📊 Claude Usage widget บน desktop](reference-claude-usage-widget.md) — 11ก.ค.: PowerShell WPF อ่าน token CC → api.anthropic.com/api/oauth/usage (ต้องมี anthropic-beta: oauth-2025-04-20); gotcha IRM แปลง datetime เอง ห้าม Parse ซ้ำ
 - [🧪 แอปมี test suite จริง 545 tests](project-app-has-test-suite.md) — pytest ที่ app/tests/ (CLAUDE.md เคยบอกผิดว่าไม่มี); รันด้วย -X utf8 -p no:cacheprovider; conftest ใช้ throwaway SQLite
 - [📕 Runbook ปิดรอบเงินเดือน](reference-payroll-close-runbook.md) — docs/PAYROLL_CYCLE_CLOSE_RUNBOOK.md ให้โมเดลถัดไปปิดรอบ LCB 15ก.ค. เองได้ (กฎเหล็ก+checklist+gotcha)
 - [ไอเดียจาก Discord 9arm](reference-9arm-discord-ideas.md) — fallback Qwen→Claude ทำแล้ว; สลิปAPI/QR ไม่เอา; **gotcha: qwen-readonly ปนความจำ repo เราเข้าไปในคำตอบ — grep ยืนยันก่อนเชื่อ**
@@ -101,6 +107,7 @@
 - [HOME pwsh setup](reference-home-pwsh-terminal-setup.md) — ใช้ Windows Terminal กันวรรณยุกต์หาย
 - [Makcu macro_engine](reference-makcu-macro-engine.md) — ของส่วนตัวโอ นอก repo YK · [YT summarize](reference-yt-summarize.md) — yt-dlp captions → Qwen สรุปไทย
 - [Claude Code installs](claude-code-multiple-installs.md) — ตัวไหนรันจริงบนเครื่องโอ
+- [🌀 พัดลมโน้ตบุ๊กโอ (MSI GF63 โดน spoof ชื่อ)](reference-msi-laptop-fan-ec.md) — คุม EC ตรง (boost 0x98 bit7, โค้ง 0x72/0x8A); FanTuner GUI + tray icon + task MSI_FAN_TRAY ตั้งกลับตอนบูต; ดูรุ่นจริงจาก BaseBoard ไม่ใช่ ComputerSystem
 
 ## ประวัติ/โดเมน (มิ.ย. และก่อนหน้า)
 - [KB + ราคาคำนวณคนขับ](project-kb-driver-calc-price.md) — driver_calc_price=(override??rev)−kb
