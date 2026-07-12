@@ -60,6 +60,7 @@
 - **สลิป มิ.ย.:** [handover offtable](project-slip-handover-manual-offtable.md) · [น้ำมันวันเติมจริง](project-slip-fuel-fill-date.md) · [น้ำมันนอกตาราง](project-slip-offtable-fuel-display.md) · [ยกเลิกไม่รั่ว remark](project-slip-cancel-remark-leak.md) · [1 คน 1 หน้า](project-slip-one-page-per-driver.md) · [ลิตร+หักชัด](project-slip-fuel-deduct-clarity.md) · [route เต็ม](project-slip-route-display.md) · [แจกแจงสดย่อย](project-payroll-slip-petty-itemize.md) · [ZIP รายคน](project-payroll-slip-zip-per-driver.md)
 - **ไซท์/น้ำมัน:** [ย้าย 0556→0560](project-fuel-move-0556-0560.md) · [B7/B20 เกรด](project-fuel-b7b20-grade.md) · [BigC วันหยุด](project-bigc-holiday-anuloom.md) · [Jun AYU+BIGC status](project-jun-payroll-ayu-bigc-status.md) · [LCB deposit screenshot](project-lcb-deposit-jun-screenshot-reconcile.md) · [LCB audit รอบ 2](project-lcb-jun-audit-round2.md) · [LCB extra fees](project-lcb-driver-extra-fees.md) · [AYU-Yusen (PAUSED)](project-ayu-yusen-charter-pay.md)
 - [🗡️ SpiritVale (นอก repo)](project-spiritvale-codex.md) — Paladin จาก Knight ไม่ใช่ Acolyte; ค้างเทียบ 8 อาชีพ
+- [⏱️ gotcha เที่ยงคืน UTC](project-utc-midnight-counter-gotcha.md) — นับ "วันนี้" กับ timestamp utcnow ต้องใช้ _local_midnight_utc(); เทสต์ fail เฉพาะก่อน 7 โมง = คลาสนี้ (แก้แล้ว 13ก.ค.)
 
 ## เครื่องมือ/อ้างอิงเทคนิค
 - [📊 Claude Usage widget](reference-claude-usage-widget.md) — oauth/usage ต้องมี anthropic-beta header; IRM แปลง datetime เอง

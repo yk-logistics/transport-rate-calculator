@@ -75,10 +75,43 @@
 
   <div class="p-4 bg-white border rounded-lg">
     <h2 class="font-semibold mb-3">เมนูย่อย</h2>
+    {# UX ข้อ 8: เรียงตามที่ใช้บ่อย — งานประจำวัน (กล่องบิล/คีย์บิลยาง/บันทึกซ่อม)
+       ขึ้นก่อน setup ที่นานๆ ใช้ที (ร้านค้า/อะไหล่/ติดตั้งยางชุดแรก) #}
     <div class="grid grid-cols-2 gap-2 text-sm">
+      {% if bill_ocr_allowed(request) %}
+      {% set _mb = nav_badges(request) %}
+      <a href="/maint/bills" class="p-3 border border-violet-300 bg-violet-50 rounded hover:bg-violet-100">
+        📥 <strong>กล่องบิลรอคัด</strong>{% if _mb.bills %} <span class="ml-1 px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-xs font-semibold">{{ _mb.bills }}</span>{% endif %}<br>
+        <span class="text-xs text-slate-500">คัดบิลจากสแกนมือถือ → เข้ารถ/สต๊อก/ทิ้ง</span>
+      </a>
+      {% endif %}
+      <a href="/maint/tires/bill" class="p-3 border border-orange-300 bg-orange-50 rounded hover:bg-orange-100">
+        📋 <strong>คีย์บิลยาง</strong><br>
+        <span class="text-xs text-slate-500">บิลร้านยาง 1 ใบ → ยาง+ประวัติ+ค่าใช้จ่าย</span>
+      </a>
       <a href="/maint/records" class="p-3 border rounded hover:bg-slate-50">
         📋 <strong>บันทึกซ่อม</strong><br>
         <span class="text-xs text-slate-500">ประวัติซ่อมทั้งหมด</span>
+      </a>
+      <a href="/maint/tires" class="p-3 border rounded hover:bg-slate-50">
+        🛞 <strong>ยาง</strong><br>
+        <span class="text-xs text-slate-500">lifecycle + ตำแหน่ง</span>
+      </a>
+      <a href="/maint/tires/report" class="p-3 border rounded hover:bg-slate-50">
+        📊 <strong>รายงานความคุ้มยาง</strong><br>
+        <span class="text-xs text-slate-500">เงินหายไปไหน + หล่อ vs แท้ คุ้มกว่า</span>
+      </a>
+      <a href="/maint/pm" class="p-3 border rounded hover:bg-slate-50">
+        📅 <strong>PM Plan</strong><br>
+        <span class="text-xs text-slate-500">แผนบำรุง + แจ้งเตือนเลยกำหนด</span>
+      </a>
+      <a href="/maint/inspections" class="p-3 border rounded hover:bg-slate-50">
+        🔍 <strong>ตรวจสภาพรถ</strong><br>
+        <span class="text-xs text-slate-500">Monthly checklist ต่อคัน</span>
+      </a>
+      <a href="/maint/stock" class="p-3 border rounded hover:bg-slate-50">
+        📦 <strong>รับ-เบิก stock</strong><br>
+        <span class="text-xs text-slate-500">ปรับยอดสต็อก</span>
       </a>
       <a href="/maint/vendors" class="p-3 border rounded hover:bg-slate-50">
         🏪 <strong>ร้านค้า/อู่</strong><br>
@@ -88,37 +121,13 @@
         🔩 <strong>อะไหล่</strong><br>
         <span class="text-xs text-slate-500">master + stock</span>
       </a>
-      <a href="/maint/stock" class="p-3 border rounded hover:bg-slate-50">
-        📦 <strong>รับ-เบิก stock</strong><br>
-        <span class="text-xs text-slate-500">ปรับยอดสต็อก</span>
-      </a>
-      <a href="/maint/tires" class="p-3 border rounded hover:bg-slate-50">
-        🛞 <strong>ยาง</strong><br>
-        <span class="text-xs text-slate-500">lifecycle + ตำแหน่ง</span>
-      </a>
-      <a href="/maint/tires/setup" class="p-3 border border-orange-200 bg-orange-50 rounded hover:bg-orange-100">
-        ⚡ <strong>ติดตั้งยางชุดแรก</strong><br>
-        <span class="text-xs text-slate-500">Quick Setup ทุกตำแหน่งในหน้าเดียว</span>
-      </a>
-      <a href="/maint/tires/bill" class="p-3 border border-orange-300 bg-orange-50 rounded hover:bg-orange-100">
-        📋 <strong>คีย์บิลยาง</strong><br>
-        <span class="text-xs text-slate-500">บิลร้านยาง 1 ใบ → ยาง+ประวัติ+ค่าใช้จ่าย</span>
-      </a>
-      <a href="/maint/tires/report" class="p-3 border border-orange-300 bg-orange-50 rounded hover:bg-orange-100">
-        📊 <strong>รายงานความคุ้มยาง</strong><br>
-        <span class="text-xs text-slate-500">เงินหายไปไหน + หล่อ vs แท้ คุ้มกว่า</span>
-      </a>
-      <a href="/maint/pm" class="p-3 border rounded hover:bg-slate-50">
-        📅 <strong>PM Plan</strong><br>
-        <span class="text-xs text-slate-500">แผนบำรุง + แจ้งเตือนเลยกำหนด</span>
-      </a>
       <a href="/maint/vendor-prices" class="p-3 border rounded hover:bg-slate-50">
         📊 <strong>เทียบราคาร้าน</strong><br>
         <span class="text-xs text-slate-500">VendorPrice × Part — auto-learn</span>
       </a>
-      <a href="/maint/inspections" class="p-3 border rounded hover:bg-slate-50">
-        🔍 <strong>ตรวจสภาพรถ</strong><br>
-        <span class="text-xs text-slate-500">Monthly checklist ต่อคัน</span>
+      <a href="/maint/tires/setup" class="p-3 border rounded hover:bg-slate-50">
+        ⚡ <strong>ติดตั้งยางชุดแรก</strong><br>
+        <span class="text-xs text-slate-500">Quick Setup ทุกตำแหน่งในหน้าเดียว</span>
       </a>
     </div>
   </div>

@@ -145,6 +145,33 @@
   </a>
   {% endif %}
 
+  {# ---- ทะเบียนใบวางบิล v52: ใบเลยกำหนดรับเงิน — โผล่เฉพาะตอนมีของ ---- #}
+  {% if inv_overdue %}
+  <a href="/billing/invoices" class="bg-white border border-rose-200 rounded-xl p-4 hover:shadow-md transition block">
+    <div class="text-sm font-semibold mb-2">📒 ใบวางบิลเลยกำหนดรับเงิน</div>
+    <div class="text-2xl font-bold font-mono text-rose-600" id="home-inv-overdue">{{ inv_overdue }}</div>
+    <div class="text-xs text-slate-500 mt-1">จากทะเบียนใบวางบิลในระบบ — คลิกไล่ดู/ติ๊กรับเงิน</div>
+  </a>
+  {% endif %}
+
+  {# ---- ซ่อมบำรุงต้องดู: PM เลยกำหนด / ยางดอกต่ำ — โผล่เฉพาะตอนมีของ ---- #}
+  {% if maint_alert %}
+  <a href="/maint" class="bg-white border border-amber-300 rounded-xl p-4 hover:shadow-md transition block">
+    <div class="text-sm font-semibold mb-2">🔧 ซ่อมบำรุงต้องดู</div>
+    <div class="flex gap-6">
+      {% if maint_alert.pm_overdue %}
+      <div><div class="text-2xl font-bold font-mono text-rose-600">{{ maint_alert.pm_overdue }}</div>
+        <div class="text-xs text-slate-500">PM เลยกำหนด</div></div>
+      {% endif %}
+      {% if maint_alert.low_tread %}
+      <div><div class="text-2xl font-bold font-mono text-rose-600">{{ maint_alert.low_tread }}</div>
+        <div class="text-xs text-slate-500">ยางดอกต่ำ &lt;3mm</div></div>
+      {% endif %}
+    </div>
+    <div class="text-xs text-slate-400 mt-2">คลิกเข้า Dashboard ซ่อมบำรุง</div>
+  </a>
+  {% endif %}
+
   {# ---- แผนงาน MVP (admin) ---- #}
   {% if can_see(request, "/admin/users") and plan %}
   <a href="/admin/plan" class="bg-white border rounded-xl p-4 hover:shadow-md transition block">

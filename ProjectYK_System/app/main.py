@@ -1179,6 +1179,32 @@ def home(request: Request):
             fuel_flags = len(fa.scan(s, today - timedelta(days=7), today)["rows"])
         except Exception:
             fuel_flags = None
+        # ซ่อมบำรุงต้องดู: PM เลยกำหนด + ยางดอกต่ำ — โชว์การ์ดเฉพาะตอนมีของ
+        # (แนว TMS ทั่วไป: เห็นสถานะซ่อมบำรุงตั้งแต่หน้าแรก ไม่ต้องเข้า /maint)
+        maint_alert = None
+        try:
+            pm_plans = s.exec(select(PmPlan).where(PmPlan.status == "active")).all()
+            v_by_id = {v.id: v for v in s.exec(select(Vehicle)).all()}
+            pm_over = sum(
+                1 for p in pm_plans
+                if _pm_status(p, v_by_id.get(p.vehicle_id) if p.vehicle_id else None)["status"] == "overdue")
+            low_tread = len(s.exec(select(Tire).where(
+                Tire.status == "in_use", Tire.tread_depth_mm > 0,
+                Tire.tread_depth_mm < 3.0)).all())
+            if pm_over or low_tread:
+                maint_alert = {"pm_overdue": pm_over, "low_tread": low_tread}
+        except Exception:
+            pass
+        # ทะเบียนใบวางบิล (v52): ใบที่เลยกำหนดรับเงิน — read-only นับอย่างเดียว
+        # (กติกาเดียวกับ n_overdue หน้า /billing/invoices: issued/received + เลย due)
+        inv_overdue = None
+        try:
+            if perm_check(u.role, "/finance", "GET") != "deny":
+                inv_overdue = len(s.exec(select(Invoice).where(
+                    Invoice.status.in_(("issued", "received")),  # type: ignore[attr-defined]
+                    Invoice.due_date < today)).all()) or None
+        except Exception:
+            pass
     ar_sum = _home_ar_summary() if perm_check(u.role, "/finance", "GET") != "deny" \
         else {"overdue": None, "week": None}
 
@@ -1201,7 +1227,8 @@ def home(request: Request):
         "inbox_count": line_counts["inbox"], "pod_count": line_counts["pod"],
         "bill_ready": bill_ready, "bill_failed": bill_failed,
         "fuel_line_missing": line_counts.get("fuel_line"),
-        "fuel_flags": fuel_flags,
+        "fuel_flags": fuel_flags, "maint_alert": maint_alert,
+        "inv_overdue": inv_overdue,
         "ar_overdue": ar_sum["overdue"], "ar_week": ar_sum["week"],
         "today_d": today,
     })
@@ -6741,7 +6768,9 @@ def bill_inbox_page(request: Request):
         else:
             done.append(r)
     # v53 UX: แรงคืบวันนี้ — done+dismissed ที่อัปเดตตั้งแต่เที่ยงคืน (นับจากแถวที่โหลดมา)
-    midnight = datetime.combine(date.today(), datetime.min.time())
+    # updated_at เก็บเป็น UTC → เทียบกับเที่ยงคืนเวลาไทยต้องแปลงเป็น UTC ก่อน
+    # (ไม่งั้นช่วง 00:00-07:00 ไทย ตัวนับเป็น 0 ทั้งที่เพิ่งคัดไป)
+    midnight = _local_midnight_utc()
     done_today = sum(1 for r in rows
                      if r.status in ("done", "dismissed") and r.updated_at
                      and r.updated_at >= midnight)
@@ -9087,6 +9116,13 @@ async def maint_tire_event(tire_id: int, request: Request):
 # Detailed per-customer invoice templates come later (user deferred).
 # ==========================================================================
 
+def _local_midnight_utc() -> datetime:
+    """เที่ยงคืนของ "วันนี้" ตามเวลาเครื่อง (ไทย) แปลงเป็น UTC — ใช้เทียบกับ
+    timestamp ที่เก็บด้วย datetime.utcnow() (updated_at/at ทั้งระบบเก็บ UTC)."""
+    offset = datetime.now() - datetime.utcnow()   # ~+7 ชม. บนเครื่องไทย
+    return datetime.combine(date.today(), datetime.min.time()) - offset
+
+
 def _month_bounds(year: int, month: int) -> tuple[date, date]:
     start = date(year, month, 1)
     if month == 12:
@@ -11268,7 +11304,8 @@ def line_inbox(request: Request, days: int = 7):
         seen_rows = s.exec(select(models.LineJobSeen)).all()
         seen = {v.line_message_pk: v.status for v in seen_rows}
         # v53 UX: แรงคืบวันนี้ (รับ+ปัด ตั้งแต่เที่ยงคืน) — แบบเดียวกับกล่องบิล
-        _midnight = datetime.combine(date.today(), datetime.min.time())
+        # (at เก็บ UTC → เทียบเที่ยงคืนไทยแปลงเป็น UTC ก่อน เหมือนกล่องบิล)
+        _midnight = _local_midnight_utc()
         done_today = sum(1 for v in seen_rows if v.at and v.at >= _midnight)
     groups: list = []
     if la.db_path() is None:
