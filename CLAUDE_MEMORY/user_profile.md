@@ -29,4 +29,4 @@ metadata:
 - เขียน/แก้โค้ด
 - วิเคราะห์ข้อมูลจาก Excel/CSV
 - สร้างรายงาน/เอกสาร
-- deploy ไปยัง GitHub Pages
+- deploy ขึ้น server production `app.yklogistics.uk` (ตามสกิล `yk-deploy` — GitHub Pages เป็นของยุคเครื่องคิดเรทเก่า)

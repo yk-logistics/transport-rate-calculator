@@ -11,11 +11,11 @@ metadata:
 
 ## One Platform App
 
-- Stack: **FastAPI + SQLModel + SQLite** (dev) / PostgreSQL (prod)
+- Stack: **FastAPI + SQLModel + SQLite** (PostgreSQL รองรับผ่าน DATABASE_URL — ใช้เฉพาะ cloud demo legacy)
 - UI: **Jinja2 + HTMX + Tailwind CDN** (ไม่มี Node build)
 - Driver: **PWA** (ไม่ใช่ native app)
-- รันเครื่อง: `ProjectYK_System/app/start.bat`
-- DB path: `ProjectYK_System/app/app.db`
+- **Production จริง: `app.yklogistics.uk`** (server เครื่อง YK, SQLite, deploy ตามสกิล `yk-deploy`)
+- รันเครื่อง dev: `ProjectYK_System/app/start.bat` — **dev DB ว่าง ห้ามใช้ตัดสินข้อมูลจริง** (ดู `docs/DATA_TOPOLOGY.md`)
 
 ## เฟสที่ทำเสร็จแล้ว (ณ 2026-05-28)
 
@@ -49,13 +49,12 @@ metadata:
 `yk-logistics` — `transport-rate-calculator` repo บน Pages
 Path: `https://yk-logistics.github.io/transport-rate-calculator/`
 
-## งานที่ pending หลักๆ (2026-05-28)
+## งานที่ pending — อย่าอ่านจากไฟล์นี้ (ภาพเก่า พ.ค. เลิกใช้แล้ว)
 
-- AYU run 7: เคลียร์ unresolved 33 คน (23,716 บาท)
-- BigC unresolved queue pass 2 (7 คน)
-- Import Wizard: Employee/Vehicle master (dry-run/rollback)
-- TR Calculator: โอทด 6 โรง LINE → Export PDF
-- LCB fuel dispatch: bat + push Pages รอบใหม่
+สถานะงานจริงดูจากแหล่งสด 3 ที่เท่านั้น:
+1. `ProjectYK_System/docs/PLAN_STATUS.json` (หน้า /admin/plan)
+2. `ProjectYK_System/docs/HANDOFF_FABLE_TO_OPUS_*.md` ตัววันที่ใหม่สุด (งานค้างรอ trigger)
+3. `.claude/memory/MEMORY.md` + CHANGELOG 3 หัวข้อล่าสุด
 
-**Why:** track ว่าตอนนี้อยู่เฟสไหน และอะไรค้างอยู่
-**How to apply:** ดูก่อนเริ่มงาน เพื่อไม่ทำซ้ำสิ่งที่ทำไปแล้ว
+**Why:** รายการ pending ที่ฝังในไฟล์ static จะเก่าเสมอ — เคยมีรายการ พ.ค. ค้างอยู่ที่นี่ทั้งที่จบไปเดือนกว่าแล้ว
+**How to apply:** ห้าม copy รายการงานมาไว้ที่นี่อีก ชี้ไปแหล่งสดแทน
