@@ -9891,6 +9891,31 @@ def global_search(request: Request, q: str = ""):
                         "label": f"{x.customer_name} · {x.factory_name} · {x.price_offered:,.0f}"
                                  f" · {_QUOTE_STATUS_TH.get(x.status, x.status)}",
                         "href": f"/quote/{x.id}"} for x in quotes]})
+            # 13ก.ค.: เพิ่ม 2 หมวดที่เดิมต้องจำหน้าเอง — บันทึกซ่อม + ทะเบียนใบวางบิล (v52)
+            if allowed("/maint"):
+                mrecs = s.exec(select(MaintRecord).where(or_(
+                    MaintRecord.record_no.like(like),      # type: ignore[attr-defined]
+                    MaintRecord.plate_raw.like(like),      # type: ignore[attr-defined]
+                    MaintRecord.work_done.like(like),      # type: ignore[attr-defined]
+                    MaintRecord.symptom.like(like),        # type: ignore[attr-defined]
+                )).order_by(MaintRecord.work_date.desc()).limit(15)).all()  # type: ignore[union-attr,arg-type]
+                if mrecs:
+                    sections.append({"title": "🔧 บันทึกซ่อม", "items": [{
+                        "label": f"{r.record_no} · {r.work_date:%d/%m/%y} · {r.plate_raw}"
+                                 f" · {(r.work_done or r.symptom or '')[:40]}"
+                                 f" · {r.total_cost:,.0f} บาท",
+                        "href": f"/maint/records/{r.id}"} for r in mrecs]})
+            if allowed("/billing"):
+                invs = s.exec(select(Invoice).where(or_(
+                    Invoice.inv_no.like(like),             # type: ignore[attr-defined]
+                    Invoice.cust_label.like(like),         # type: ignore[attr-defined]
+                )).order_by(Invoice.inv_date.desc()).limit(15)).all()  # type: ignore[union-attr,arg-type]
+                if invs:
+                    sections.append({"title": "📒 ใบวางบิล (ทะเบียน)", "items": [{
+                        "label": f"{i.inv_no} · {i.cust_label or i.series}"
+                                 f" · {i.inv_date:%d/%m/%y} · {i.total_amount:,.0f} บาท"
+                                 f" · {i.status}",
+                        "href": f"/billing/invoices?series={i.series}"} for i in invs]})
         # คลังแชทไลน์ (นอก session DB หลัก — read-only + กันพังถ้าเครื่องไม่มีไฟล์)
         if allowed("/line"):
             try:

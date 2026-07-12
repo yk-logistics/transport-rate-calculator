@@ -93,6 +93,25 @@ def test_home_invoice_overdue_card(client):
     assert 'id="home-inv-overdue">1<' in b
 
 
+def test_global_search_finds_maint_and_invoice(client):
+    """🔍 ค้นหากลางครอบคลุมเพิ่ม 2 หมวด: บันทึกซ่อม (เลขที่/ทะเบียน/อาการ)
+    + ทะเบียนใบวางบิล v52 (เลขใบ/ลูกค้า) — ของเดิมหาไม่เจอ ต้องจำหน้าเอง."""
+    from models import MaintRecord, Invoice
+    from datetime import date as _date
+    with Session(engine) as s:
+        s.add(MaintRecord(record_no="M009999", work_date=_date(2026, 7, 1),
+                          plate_raw="71-8003", work_done="เปลี่ยนโช้คหน้า"))
+        s.add(Invoice(inv_no="IV26070099", series="CY", cust_label="CY ลานตู้",
+                      inv_date=_date(2026, 7, 12), status="issued"))
+        s.commit()
+    b = client.get("/search?q=M009999").text
+    assert "บันทึกซ่อม" in b and "M009999" in b
+    b = client.get("/search?q=IV26070099").text
+    assert "ใบวางบิล" in b and "IV26070099" in b
+    b = client.get("/search?q=เปลี่ยนโช้ค").text
+    assert "M009999" in b
+
+
 def test_maint_submenu_frequency_order(client):
     """เมนูย่อย /maint: ของใช้ประจำ (กล่องบิล → คีย์บิลยาง → บันทึกซ่อม)
     ต้องมาก่อนพวก setup ที่นานๆ ใช้ที (ร้านค้า/อู่ เป็นตัวแรกของกลุ่ม setup).
