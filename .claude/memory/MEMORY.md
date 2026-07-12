@@ -4,7 +4,7 @@
 - [🟢 มอบอำนาจเต็มแพลน MVP](project-jul3-session-close.md) — โอ 3ก.ค.: ลุยทุกงานในแพลนไม่ต้องรออนุมัติ จดข้อสมมติ; กฎเงิน/ทำลายล้างยึดเดิม
 - [⚠️ Fable หมดเขต ≈13ก.ค. 14:00 ไทย](project-fable-deadline-and-phase-p.md) — หลังนั้น Opus; ทุกงานทิ้ง runbook
 - [🧠 วิธีคิด Fable→Opus](project-fable-mindset-doc.md) — docs/FABLE_MINDSET_FOR_OPUS.md อ่าน 1 ครั้งเซสชันแรก
-- [🧰 ชุดเครื่องมือ Opus](project-opus-toolkit.md) — สกิล 3 ตัว + โหมด Opus ใน CLAUDE.md; **สอบผ่าน 10/10** (12ก.ค.เย็น: ข้อ 9-10 + อุดเอกสาร stale 3 จุด); loop "สอน Opus" พักไว้ ต่อด้วย /loop ข้อความเดิมได้
+- [🧰 ชุดเครื่องมือ Opus](project-opus-toolkit.md) — สกิล 3 ตัว + โหมด Opus ใน CLAUDE.md; **สอบครบ 13/13 ทุกสนาม** (จบคืน 12ก.ค.: +deploy, +ห้ามหยุดถาม-ศูนย์คำถามกลับ ตามโอสั่ง); loop "สอน Opus" **จบภารกิจ** — วัตถุดิบครบแล้ว สอบรุ่นใหม่ครั้งหน้าใช้ AGENT_DRILLS 13 ข้อได้เลย
 - [แพลน MVP](project-master-plan-jul26.md) — PLAN_STATUS.json อัปเดต%+scp ทุกครั้งที่จบงาน
 - [กฎ: ใช้เวลาจริง](feedback-use-real-clock.md) — Get-Date ก่อนพูดถึงเวลา ห้ามเดา
 - [กฎ: runbook ให้โมเดลเล็ก](feedback-handoff-for-smaller-models.md) · [กฎ: gsheet ถามก่อน+note](feedback-gsheet-edit-ask-and-comment.md) · [กฎ: สลิป mao reconcile](feedback-slip-fuel-must-reconcile.md) — ย้ายน้ำมันแก้ 2 ที่
