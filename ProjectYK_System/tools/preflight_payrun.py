@@ -565,6 +565,20 @@ def run_preflight(pr: PayRun, s: Session) -> dict[str, Any]:
         ),
     }
 
+    # audit 12ก.ค.2026: แถวหักคนขับ "ค้างท่อ" — tag ชี้รอบที่ finalize/paid แล้ว (ไซท์ใดก็ตาม)
+    # engine หยิบเฉพาะรอบที่กำลังคำนวณ → แถวพวกนี้จะไม่มีวันถูกหักอีก (เคสจริง: LCB พ.ค. 93k
+    # บนรอบ lock-PDF + สมัย BIGC 10k — ดู reports/PETTY_PENDING_AUDIT_2026-07-12.md)
+    closed_tags = {(r.site_code, r.pay_cycle_tag) for r in s.exec(
+        select(PayRun).where(PayRun.status.in_(("finalized", "paid")))).all()}  # type: ignore[attr-defined]
+    stale_rows = [r for r in s.exec(select(PettyCashTxn).where(
+        PettyCashTxn.deduct_from_driver == True,  # noqa: E712
+        PettyCashTxn.deduction_status == "pending",
+        PettyCashTxn.pay_cycle_tag != "",  # type: ignore[arg-type]
+    )).all() if (r.site_code, r.pay_cycle_tag) in closed_tags]
+    stale_samples = [{"id": r.id, "date": str(r.txn_date), "site": r.site_code,
+                      "tag": r.pay_cycle_tag, "who": r.requester_raw,
+                      "amount": r.deduct_amount} for r in stale_rows[:20]]
+
     return {
         "pay_run_id": pr.id,
         "site_code": site,
@@ -595,6 +609,15 @@ def run_preflight(pr: PayRun, s: Session) -> dict[str, Any]:
             "count": pending_petty_count,
             "amount_thb": round(pending_petty_amount, 2),
             "note": "สดย่อยหักคนขับทั้งหมดในรอบ (pending) สำหรับตั้งคำถามว่าครบหรือยัง",
+        },
+        "dimension_stale_pending_closed_cycles": {
+            "risk": "HIGH" if stale_rows else "LOW",
+            "count": len(stale_rows),
+            "amount_thb": round(sum(r.deduct_amount or 0 for r in stale_rows), 2),
+            "note": "หักคนขับ pending บน tag ของรอบที่ finalize/paid แล้ว (ทุกไซท์) — "
+                    "จะไม่มีวันถูกหักอีก: เทียบเอกสารมือ → settled_offline หรือ C4 "
+                    "(ดู reports/PETTY_PENDING_AUDIT_2026-07-12.md)",
+            "sample_rows": stale_samples,
         },
         "dimension_cycle_date_drift": {
             "risk": "HIGH" if drift_count > 0 else "LOW",
