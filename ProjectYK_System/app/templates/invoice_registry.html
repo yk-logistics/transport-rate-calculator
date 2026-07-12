@@ -39,7 +39,10 @@
     {% for inv in invoices %}
     {% set overdue = inv.due_date and inv.due_date < today and inv.status in ('issued', 'received') %}
     <tr class="border-b {% if overdue %}bg-rose-50{% endif %}">
-      <td class="py-1.5 px-3 font-mono font-semibold">{{ inv.inv_no }}</td>
+      <td class="py-1.5 px-3 font-mono font-semibold">
+        <a href="/search?q={{ inv.inv_no }}" class="hover:underline text-sky-700"
+           title="ดูเที่ยวทั้งหมดของใบนี้">{{ inv.inv_no }}</a>
+      </td>
       <td class="py-1.5 px-3">{{ inv.series }}{% if inv.cust_label %} · {{ inv.cust_label }}{% endif %}</td>
       <td class="py-1.5 px-3">{{ inv.inv_date | dmy }}</td>
       <td class="py-1.5 px-3 {% if overdue %}text-rose-700 font-bold{% endif %}">

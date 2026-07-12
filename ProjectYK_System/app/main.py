@@ -11265,8 +11265,11 @@ def line_inbox(request: Request, days: int = 7):
     error, candidates = None, []
     with Session(engine) as s:
         maps = {m.group_id: m for m in s.exec(select(models.LineGroupMap)).all()}
-        seen = {v.line_message_pk: v.status
-                for v in s.exec(select(models.LineJobSeen)).all()}
+        seen_rows = s.exec(select(models.LineJobSeen)).all()
+        seen = {v.line_message_pk: v.status for v in seen_rows}
+        # v53 UX: แรงคืบวันนี้ (รับ+ปัด ตั้งแต่เที่ยงคืน) — แบบเดียวกับกล่องบิล
+        _midnight = datetime.combine(date.today(), datetime.min.time())
+        done_today = sum(1 for v in seen_rows if v.at and v.at >= _midnight)
     groups: list = []
     if la.db_path() is None:
         error = "ไม่พบคลังแชทบนเครื่องนี้ (line_archive.db) — ใช้ได้บนเครื่อง server"
@@ -11298,7 +11301,7 @@ def line_inbox(request: Request, days: int = 7):
             g["kind"], g["customer_name"], g["site_code"] = guess_group_map(g["name"])
             g["guessed"] = g["kind"] != "other"
     ctx.update({"groups": groups, "candidates": candidates, "days": days,
-                "error": error, "n_seen": len(seen)})
+                "error": error, "n_seen": len(seen), "done_today": done_today})
     return templates.TemplateResponse(request, "line_inbox.html", ctx)
 
 

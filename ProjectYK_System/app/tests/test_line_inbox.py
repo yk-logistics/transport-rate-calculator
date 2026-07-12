@@ -129,3 +129,18 @@ def test_group_map_upsert(client):
     with Session(engine) as s:
         m = s.exec(select(LineGroupMap).where(LineGroupMap.group_id == "g2")).first()
         assert m and m.kind == "internal"
+
+
+def test_inbox_shows_done_today_counter(client):
+    """v53 UX: แบนเนอร์ 'คัดแล้ววันนี้ X รายการ' นับจาก LineJobSeen.at วันนี้."""
+    from datetime import datetime
+    from sqlmodel import Session
+    from db_config import engine
+    import models
+
+    with Session(engine) as s:
+        s.add(models.LineJobSeen(line_message_pk=999001, status="accepted",
+                                 by_user="yk1", at=datetime.utcnow()))
+        s.commit()
+    page = client.get("/line/inbox").text
+    assert "คัดแล้ววันนี้" in page
