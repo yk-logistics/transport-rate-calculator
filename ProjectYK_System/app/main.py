@@ -52,6 +52,7 @@ from models import (
     AccessLink,
     Employee,
     FuelPriceIndex,
+    Invoice,
     FuelSurchargeBand,
     FuelTxn,
     ImportLog,
@@ -100,7 +101,7 @@ from services.email_oauth import (
 )
 from services.email_ingest import classify_email_item, get_inbox_scope, sync_inbox
 
-SCHEMA_VERSION = 51  # v51: BillInbox (create_all — กล่องบิลรอคัด: อัปโหลดกองรูป→OCR คิวเบื้องหลัง→คัดเข้ารถ/Stock); v50: MaintPart.discount/vat + MaintRecord.discount/vat/import_key (ALTER — ดึงประวัติซ่อมย้อนหลังจาก RM History sheets); v49: MaintPart.kind (ALTER — คีย์บิลซ่อมเป็นรายการๆ แยกหมวด อะไหล่/ค่าแรง/บริการ); v48: Tire.tire_type+removal_reason, TireEvent.reason_code (ALTER — ระบบยางหยุดเลือด: คีย์บิล+รายงานหล่อ/แท้); v47: DealRecord+PlaceCache (โต๊ะเช็คดีล /quote/deal — create_all); v46: TodoSuggest (เฟส 4 กล่องรอคัดจากไลน์ — create_all); v45: AiChatLog (เฟส 3 /ai — create_all); v44: MediaArchive (G2 — create_all); v43: DocTemplate+DocIssue (A2 — create_all); v42: Vehicle.tank_liters (ALTER); v41: JobMedia; v40: LineGroupMap+LineJobSeen; v39: PartPermission; v38: DebtAccount; v37: AuditLog
+SCHEMA_VERSION = 53  # v53: PettyCashTxn.receipt_status (ALTER — ใบเสร็จ 3 สถานะ มี/ไม่มี/รอ + ปุ่มปิดใบเสร็จหน้ารอเคลียร์); v52: Invoice (create_all — ทะเบียนใบวางบิล: สร้างใบแล้วประทับเลขกลับเดลี่อัตโนมัติ + สถานะเก็บเงิน issued→received→paid); v51: BillInbox (create_all — กล่องบิลรอคัด: อัปโหลดกองรูป→OCR คิวเบื้องหลัง→คัดเข้ารถ/Stock); v50: MaintPart.discount/vat + MaintRecord.discount/vat/import_key (ALTER — ดึงประวัติซ่อมย้อนหลังจาก RM History sheets); v49: MaintPart.kind (ALTER — คีย์บิลซ่อมเป็นรายการๆ แยกหมวด อะไหล่/ค่าแรง/บริการ); v48: Tire.tire_type+removal_reason, TireEvent.reason_code (ALTER — ระบบยางหยุดเลือด: คีย์บิล+รายงานหล่อ/แท้); v47: DealRecord+PlaceCache (โต๊ะเช็คดีล /quote/deal — create_all); v46: TodoSuggest (เฟส 4 กล่องรอคัดจากไลน์ — create_all); v45: AiChatLog (เฟส 3 /ai — create_all); v44: MediaArchive (G2 — create_all); v43: DocTemplate+DocIssue (A2 — create_all); v42: Vehicle.tank_liters (ALTER); v41: JobMedia; v40: LineGroupMap+LineJobSeen; v39: PartPermission; v38: DebtAccount; v37: AuditLog
 DATABASE_URL, IS_SQLITE = resolve_database_url()
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
@@ -403,6 +404,9 @@ def _apply_additive_migrations() -> None:
 
     # v48 → v49: หมวดของบรรทัดในบิลซ่อม — แถวเดิมทั้งหมดคืออะไหล่ (default 'part')
     _ensure_column("maintpart", "kind", "TEXT", default="part")
+
+    # v52 → v53: ใบเสร็จสดย่อย 3 สถานะ (มี/ไม่มี/รอ) — '' = แถวเก่า ใช้ has_receipt ตามเดิม
+    _ensure_column("pettycashtxn", "receipt_status", "TEXT", default="")
 
     # v49 → v50: ส่วนลด/VAT ต่อบรรทัด + ลายเซ็นแถวต้นทาง (ดึงประวัติซ่อมย้อนหลัง)
     _ensure_column("maintpart",   "discount",   "REAL", default="0")
@@ -3031,6 +3035,7 @@ def petty_save(
     memo: str = Form(""),
     category: str = Form("other"),
     has_receipt: Optional[str] = Form(None),
+    receipt_status: str = Form(""),
     deduct_from_driver: Optional[str] = Form(None),
     deduct_amount: str = Form("0"),
     pay_cycle_tag: str = Form(""),
@@ -3066,12 +3071,21 @@ def petty_save(
         row.driver_id = _parse_int(driver_id)
         row.memo = memo.strip()
         row.category = category
-        row.has_receipt = _parse_bool(has_receipt)
+        # v53: ใบเสร็จ 3 สถานะ — ถ้าฟอร์มส่ง receipt_status มา ให้เป็นตัวจริง
+        # (has_receipt sync ตาม); ฟอร์มเก่า/ทางอื่นที่ยังส่ง checkbox ใช้ทางเดิม
+        if receipt_status in ("have", "none", "waiting"):
+            row.receipt_status = receipt_status
+            row.has_receipt = receipt_status == "have"
+        else:
+            row.has_receipt = _parse_bool(has_receipt)
         row.deduct_from_driver = _parse_bool(deduct_from_driver)
         row.deduct_amount = _parse_float(deduct_amount) if row.deduct_from_driver else 0.0
         if pay_cycle_tag.strip():
             row.pay_cycle_tag = pay_cycle_tag.strip()
         else:
+            # บั๊กแฝงเดิม: driver_obj ไม่เคยถูกประกาศ → เส้นทางที่ฟอร์มไม่ส่ง tag ระเบิด 500
+            # (หน้าจอปกติรอดเพราะ JS เติม tag ให้เสมอ) — เจอจากเทสต์ v53, แก้ 12ก.ค.
+            driver_obj = s.get(Employee, row.driver_id) if row.driver_id else None
             resolved_tag, _, _ = _resolve_cycle_tag_for_driver(td, row.site_code, driver_obj)
             row.pay_cycle_tag = resolved_tag
         row.linked_vehicle_plate_raw = linked_vehicle_plate_raw.strip()
@@ -3265,11 +3279,16 @@ def petty_pending(request: Request, cycle: str = "", site: str = ""):
 
 @app.get("/petty-cash/clearance", response_class=HTMLResponse)
 def petty_clearance(request: Request, site: str = ""):
-    """Items with pending amount (รอใบเสร็จ/รอทอน) that are not yet cleared."""
+    """Items with pending amount (รอทอน) OR receipt_status='waiting' (v53 รอใบเสร็จ)."""
+    from sqlalchemy import and_, or_
+
     with Session(engine) as s:
         stmt = select(PettyCashTxn).where(
-            PettyCashTxn.pending_amount > 0,
-            PettyCashTxn.pending_cleared_at == None,  # noqa: E711
+            or_(
+                and_(PettyCashTxn.pending_amount > 0,
+                     PettyCashTxn.pending_cleared_at == None),  # noqa: E711
+                PettyCashTxn.receipt_status == "waiting",
+            )
         )
         if site:
             stmt = stmt.where(PettyCashTxn.site_code == site)
@@ -3286,6 +3305,8 @@ def petty_clearance(request: Request, site: str = ""):
             "memo": r.memo,
             "pending_amount": r.pending_amount,
             "pending_note": r.pending_note,
+            "receipt_status": r.receipt_status,
+            "pending_cleared": r.pending_cleared_at is not None,
             "days_old": (date.today() - r.txn_date).days if r.txn_date else 0,
         })
     total_pending = sum(d["pending_amount"] for d in display)
@@ -3303,6 +3324,21 @@ def petty_clearance_mark(txn_id: int):
             row.updated_at = datetime.utcnow()
             s.add(row)
             s.commit()
+    return RedirectResponse(url="/petty-cash/clearance", status_code=303)
+
+
+@app.post("/petty-cash/{txn_id}/receipt-got")
+def petty_receipt_got(txn_id: int):
+    """v53: ปุ่มเดียว "📄 ได้ใบเสร็จแล้ว" — รอ → มี (เหมือนย้ายช่องในไฟล์สดย่อย)."""
+    with Session(engine) as s:
+        row = s.get(PettyCashTxn, txn_id)
+        if not row:
+            raise HTTPException(404)
+        row.receipt_status = "have"
+        row.has_receipt = True
+        row.updated_at = datetime.utcnow()
+        s.add(row)
+        s.commit()
     return RedirectResponse(url="/petty-cash/clearance", status_code=303)
 
 
@@ -10011,6 +10047,38 @@ def invoice_builder_build(request: Request,
     except ValueError as e:
         raise HTTPException(400, str(e))
     cust = (rows[0].get("cust") or "").strip() if rows else ""
+
+    # v52 (โอเคาะ 12ก.ค.): ประทับเลขใบกลับเดลี่อัตโนมัติ + ทะเบียนใบวางบิล
+    # กติกา: แถวที่มีเลขใบ "อื่น" อยู่แล้ว ห้ามทับเงียบ — 400 ทั้งใบ ไม่เขียนอะไรเลย
+    daily_ids = [int(r["daily_id"]) for r in raw_rows
+                 if str(r.get("daily_id") or "").strip().isdigit()]
+    total_amount = sum(sum(r[k] for k in money_keys) for r in rows)
+    with Session(engine) as s:
+        jobs = [j for j in (s.get(DailyJob, i) for i in set(daily_ids)) if j]
+        conflicts = [j for j in jobs
+                     if (j.invoice_no or "").strip()
+                     and ib.parse_invoice_no(j.invoice_no) != ib.parse_invoice_no(inv_no)]
+        if conflicts:
+            desc = ", ".join(f"#{j.id} {j.work_date} {j.plate_no_raw} → {j.invoice_no.strip()}"
+                             for j in conflicts[:5])
+            raise HTTPException(400, f"มี {len(conflicts)} แถวถูกวางบิลใบอื่นแล้ว: {desc} — "
+                                     "ถ้าจะย้ายใบ ให้ถอนใบเดิมก่อน (หน้าทะเบียนใบวางบิล)")
+        for j in jobs:
+            j.invoice_no = inv_no
+            s.add(j)
+        inv = s.exec(select(Invoice).where(Invoice.inv_no == inv_no)).first()
+        if inv is None:
+            inv = Invoice(inv_no=inv_no, series=series, inv_date=d)
+        elif inv.status == "paid":
+            raise HTTPException(400, "ใบนี้ปิดรับเงินแล้ว (paid) — สร้างซ้ำไม่ได้")
+        inv.series, inv.inv_date, inv.cust_label = series, d, cust
+        inv.total_amount, inv.n_jobs = total_amount, len(jobs)
+        if inv.status == "void":
+            inv.status = "issued"        # ออกเลขเดิมซ้ำหลังถอน = ใบใหม่
+        inv.updated_at = datetime.utcnow()
+        s.add(inv)
+        s.commit()
+
     fname = f"{inv_no}{(' ' + cust) if cust else ''}.xlsx"
     from urllib.parse import quote as _urlquote
     return Response(
@@ -10018,6 +10086,95 @@ def invoice_builder_build(request: Request,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition":
                  f"attachment; filename*=UTF-8''{_urlquote(fname)}"})
+
+
+# v52: ทะเบียนใบวางบิล — ใบไหนวางแล้ว เก็บเงินได้ยัง (issued→received→paid | void)
+# =========================================================================
+
+
+@app.get("/billing/invoices", response_class=HTMLResponse)
+def invoice_registry_page(request: Request, status: str = "", series: str = ""):
+    from services import invoice_builder as ib
+
+    with Session(engine) as s:
+        stmt = select(Invoice).order_by(Invoice.inv_date.desc(), Invoice.id.desc())  # type: ignore[attr-defined]
+        if status:
+            stmt = stmt.where(Invoice.status == status)
+        if series:
+            stmt = stmt.where(Invoice.series == series)
+        invoices = s.exec(stmt.limit(400)).all()
+    today = date.today()
+    ctx = base_context(request)
+    ctx.update({
+        "invoices": invoices, "today": today,
+        "f_status": status, "f_series": series,
+        "series_keys": list(ib.REGISTRY.keys()),
+        "n_overdue": sum(1 for i in invoices
+                         if i.due_date and i.due_date < today
+                         and i.status in ("issued", "received")),
+    })
+    return templates.TemplateResponse(request, "invoice_registry.html", ctx)
+
+
+@app.post("/billing/invoices/{inv_id}/void")
+def invoice_void(inv_id: int, request: Request):
+    """ถอนใบ: ปลดเลขออกจากเดลี่ทุกแถวของใบนี้ — ใบ paid ห้ามถอน (ต้องย้อนสถานะก่อน)."""
+    from services import invoice_builder as ib
+
+    with Session(engine) as s:
+        inv = s.get(Invoice, inv_id)
+        if not inv:
+            raise HTTPException(404)
+        if inv.status == "paid":
+            raise HTTPException(400, "ใบนี้เงินเข้าแล้ว — ย้อนสถานะก่อนถึงถอนได้")
+        target = ib.parse_invoice_no(inv.inv_no)
+        n = 0
+        for j in s.exec(select(DailyJob).where(
+                DailyJob.invoice_no.like(f"{inv.inv_no[:4]}%"))).all():  # type: ignore[attr-defined]
+            if ib.parse_invoice_no(j.invoice_no) == target:
+                j.invoice_no = ""
+                s.add(j)
+                n += 1
+        inv.status = "void"
+        inv.note = (inv.note + f" | ถอน {date.today()} ปลด {n} แถว").strip(" |")
+        inv.updated_at = datetime.utcnow()
+        s.add(inv)
+        s.commit()
+    return RedirectResponse("/billing/invoices", status_code=303)
+
+
+@app.post("/billing/invoices/{inv_id}/status")
+def invoice_set_status(inv_id: int, request: Request,
+                       status: str = Form(...),
+                       received_date: str = Form(""),
+                       received_amount: str = Form(""),
+                       due_date: str = Form(""),
+                       note: str = Form("")):
+    if status not in ("issued", "received", "paid"):
+        raise HTTPException(400, "สถานะไม่ถูกต้อง")
+    with Session(engine) as s:
+        inv = s.get(Invoice, inv_id)
+        if not inv:
+            raise HTTPException(404)
+        if inv.status == "void":
+            raise HTTPException(400, "ใบถูกถอนแล้ว — ออกใบใหม่แทน")
+        inv.status = status
+        if status == "received":
+            inv.received_date = _parse_date(received_date) or date.today()
+            if received_amount.strip():
+                inv.received_amount = _parse_float(received_amount)
+        if status == "paid":
+            inv.paid_date = date.today()
+            if not inv.received_date:
+                inv.received_date = date.today()
+        if due_date.strip():
+            inv.due_date = _parse_date(due_date)
+        if note.strip():
+            inv.note = note.strip()
+        inv.updated_at = datetime.utcnow()
+        s.add(inv)
+        s.commit()
+    return RedirectResponse("/billing/invoices", status_code=303)
 
 
 # P3: เมนูคลิกขวาทั้งระบบ — registry ฝั่ง server (กรองสิทธิ์ต่อ item ด้วย perm path)

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}ทะเบียนใบวางบิล{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-2xl font-bold">🧾 ทะเบียนใบวางบิล</h1>
+  <div class="flex gap-2 items-center">
+    {% if n_overdue %}<span class="text-sm bg-rose-100 text-rose-700 border border-rose-300 rounded-full px-3 py-1 font-semibold">⏰ เกินกำหนด {{ n_overdue }} ใบ</span>{% endif %}
+    <a href="/billing/invoice" class="btn bg-emerald-600 text-white hover:bg-emerald-700">➕ ออกใบวางบิล</a>
+  </div>
+</div>
+
+<form method="get" class="flex gap-2 mb-3 text-sm items-center flex-wrap">
+  <select name="series" class="border rounded px-2 py-1" onchange="this.form.submit()">
+    <option value="">ทุกลูกค้า</option>
+    {% for k in series_keys %}<option value="{{ k }}" {% if f_series == k %}selected{% endif %}>{{ k }}</option>{% endfor %}
+  </select>
+  <select name="status" class="border rounded px-2 py-1" onchange="this.form.submit()">
+    <option value="">ทุกสถานะ</option>
+    <option value="issued" {% if f_status == 'issued' %}selected{% endif %}>วางแล้ว รอเงิน</option>
+    <option value="received" {% if f_status == 'received' %}selected{% endif %}>รับเช็ค/โอนแล้ว</option>
+    <option value="paid" {% if f_status == 'paid' %}selected{% endif %}>เงินเข้าแล้ว</option>
+    <option value="void" {% if f_status == 'void' %}selected{% endif %}>ถอนใบ</option>
+  </select>
+  <span class="text-xs text-slate-400">เลขใบถูกประทับลงเดลี่อัตโนมัติตอนกดสร้างใบ — ถอนใบ = ปลดเลขคืนทุกแถว</span>
+</form>
+
+<div class="overflow-x-auto bg-white border rounded-2xl">
+<table class="w-full text-sm">
+  <thead class="text-left text-slate-500 border-b bg-slate-50">
+    <tr>
+      <th class="py-2 px-3">เลขใบ</th><th class="py-2 px-3">ลูกค้า</th>
+      <th class="py-2 px-3">วันที่วาง</th><th class="py-2 px-3">ครบกำหนด</th>
+      <th class="py-2 px-3 text-right">ยอด</th><th class="py-2 px-3 text-right">เที่ยว</th>
+      <th class="py-2 px-3">สถานะ</th><th class="py-2 px-3">รับเงิน</th><th class="py-2 px-3"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for inv in invoices %}
+    {% set overdue = inv.due_date and inv.due_date < today and inv.status in ('issued', 'received') %}
+    <tr class="border-b {% if overdue %}bg-rose-50{% endif %}">
+      <td class="py-1.5 px-3 font-mono font-semibold">{{ inv.inv_no }}</td>
+      <td class="py-1.5 px-3">{{ inv.series }}{% if inv.cust_label %} · {{ inv.cust_label }}{% endif %}</td>
+      <td class="py-1.5 px-3">{{ inv.inv_date | dmy }}</td>
+      <td class="py-1.5 px-3 {% if overdue %}text-rose-700 font-bold{% endif %}">
+        {% if inv.due_date %}{{ inv.due_date | dmy }}{% if overdue %} ⏰{% endif %}{% else %}<span class="text-slate-300">—</span>{% endif %}
+      </td>
+      <td class="py-1.5 px-3 text-right font-mono">{{ '{:,.2f}'.format(inv.total_amount) }}</td>
+      <td class="py-1.5 px-3 text-right">{{ inv.n_jobs }}</td>
+      <td class="py-1.5 px-3">
+        {% if inv.status == 'issued' %}<span class="px-2 py-0.5 rounded-full text-xs bg-sky-100 text-sky-700">วางแล้ว รอเงิน</span>
+        {% elif inv.status == 'received' %}<span class="px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700">รับเช็ค/โอนแล้ว</span>
+        {% elif inv.status == 'paid' %}<span class="px-2 py-0.5 rounded-full text-xs bg-emerald-100 text-emerald-700">✓ เงินเข้าแล้ว</span>
+        {% else %}<span class="px-2 py-0.5 rounded-full text-xs bg-slate-200 text-slate-500">ถอนใบ</span>{% endif %}
+      </td>
+      <td class="py-1.5 px-3 text-xs">
+        {% if inv.received_date %}{{ inv.received_date | dmy }}{% if inv.received_amount %} · {{ '{:,.0f}'.format(inv.received_amount) }}฿{% endif %}{% endif %}
+        {% if inv.note %}<div class="text-slate-400">{{ inv.note }}</div>{% endif %}
+      </td>
+      <td class="py-1.5 px-3">
+        {% if inv.status in ('issued', 'received') %}
+        <details class="relative">
+          <summary class="cursor-pointer text-sky-600 text-xs select-none">อัปเดต ▾</summary>
+          <form method="post" action="/billing/invoices/{{ inv.id }}/status"
+                class="absolute right-0 z-20 bg-white border rounded-xl shadow-xl p-3 w-64 space-y-2 text-xs">
+            <select name="status" class="border rounded px-2 py-1 w-full">
+              <option value="received" {% if inv.status == 'received' %}selected{% endif %}>รับเช็ค/โอนแล้ว</option>
+              <option value="paid">เงินเข้าบัญชีแล้ว</option>
+              <option value="issued">ย้อนกลับ: รอเงิน</option>
+            </select>
+            <label class="block">วันที่รับ <input type="date" name="received_date" class="border rounded px-2 py-1 w-full"></label>
+            <label class="block">ยอดรับ <input name="received_amount" class="border rounded px-2 py-1 w-full" placeholder="ว่าง = ตามใบ"></label>
+            <label class="block">ครบกำหนด <input type="date" name="due_date" value="{{ inv.due_date or '' }}" class="border rounded px-2 py-1 w-full"></label>
+            <label class="block">โน้ต <input name="note" class="border rounded px-2 py-1 w-full"></label>
+            <button class="btn bg-emerald-600 text-white w-full">บันทึก</button>
+          </form>
+        </details>
+        <form method="post" action="/billing/invoices/{{ inv.id }}/void" class="mt-1"
+              onsubmit="return confirm('ถอนใบ {{ inv.inv_no }}? เลขใบจะถูกปลดออกจากเดลี่ทุกแถว')">
+          <button class="text-xs text-slate-400 underline">ถอนใบ</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="9" class="text-center text-slate-400 py-8">
+      ยังไม่มีใบในทะเบียน — ใบที่สร้างจากหน้า "ออกใบวางบิล" ตั้งแต่วันนี้จะเข้ามาเอง
+    </td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

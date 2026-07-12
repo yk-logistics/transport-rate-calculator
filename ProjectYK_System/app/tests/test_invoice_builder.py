@@ -152,3 +152,92 @@ def test_build_endpoint_validates(client):
     assert client.post("/billing/invoice/build", data={
         "series": "KMMT", "inv_no": "เลขมั่ว", "inv_date": "2026-06-30",
         "rows_json": json.dumps(_rows(1))}).status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# v52: ทะเบียนใบวางบิล + ประทับเลขกลับเดลี่อัตโนมัติ (โอเคาะ 12 ก.ค. 2026)
+# ---------------------------------------------------------------------------
+from models import Invoice  # noqa: E402
+
+
+def _job_id_blank(s):
+    return s.exec(select(DailyJob).where(DailyJob.invoice_no == "")).first().id
+
+
+def _build_data(inv_no, daily_id, price=4746.0):
+    rows = [{"daily_id": daily_id, "route": "LCB - CNC2", "cntr": "ONEU5258946",
+             "size": "40", "plate": "72-0419", "cust": "FITESACNC",
+             "job": "KLND26-015200", "date": "2026-06-08",
+             "price": price, "advance": 0}]
+    return {"series": "KMMT", "inv_no": inv_no, "inv_date": "2026-06-30",
+            "rows_json": json.dumps(rows)}
+
+
+def test_build_stamps_daily_and_creates_registry(client):
+    with Session(engine) as s:
+        jid = _job_id_blank(s)
+    r = client.post("/billing/invoice/build",
+                    data=_build_data("KTIV2606-036", jid), follow_redirects=False)
+    assert r.status_code == 200
+    assert "spreadsheetml" in r.headers["content-type"]
+    with Session(engine) as s:
+        job = s.get(DailyJob, jid)
+        assert job.invoice_no == "KTIV2606-036"
+        inv = s.exec(select(Invoice).where(Invoice.inv_no == "KTIV2606-036")).one()
+        assert inv.series == "KMMT" and inv.status == "issued"
+        assert inv.n_jobs == 1 and inv.total_amount == 4746.0
+        assert inv.cust_label == "FITESACNC"
+
+
+def test_build_conflict_other_invoice_refuses(client):
+    """แถวที่มีเลขใบอื่นอยู่แล้ว ห้ามทับเงียบ — ต้อง 400 และไม่เขียนอะไรเลย."""
+    with Session(engine) as s:
+        jid = s.exec(select(DailyJob).where(
+            DailyJob.invoice_no == "KTIV2606-017")).one().id
+    r = client.post("/billing/invoice/build",
+                    data=_build_data("KTIV2606-036", jid), follow_redirects=False)
+    assert r.status_code == 400
+    with Session(engine) as s:
+        assert s.get(DailyJob, jid).invoice_no == "KTIV2606-017"
+        assert s.exec(select(Invoice)).first() is None
+
+
+def test_void_releases_daily_rows(client):
+    with Session(engine) as s:
+        jid = _job_id_blank(s)
+    client.post("/billing/invoice/build", data=_build_data("KTIV2606-036", jid))
+    with Session(engine) as s:
+        inv = s.exec(select(Invoice)).one()
+    r = client.post(f"/billing/invoices/{inv.id}/void", follow_redirects=False)
+    assert r.status_code == 303
+    with Session(engine) as s:
+        assert s.get(DailyJob, jid).invoice_no == ""
+        assert s.exec(select(Invoice)).one().status == "void"
+
+
+def test_status_advance_received_then_paid(client):
+    with Session(engine) as s:
+        jid = _job_id_blank(s)
+    client.post("/billing/invoice/build", data=_build_data("KTIV2606-036", jid))
+    with Session(engine) as s:
+        inv_id = s.exec(select(Invoice)).one().id
+    r = client.post(f"/billing/invoices/{inv_id}/status", data={
+        "status": "received", "received_date": "2026-07-20",
+        "received_amount": "4746"}, follow_redirects=False)
+    assert r.status_code == 303
+    with Session(engine) as s:
+        inv = s.get(Invoice, inv_id)
+        assert inv.status == "received" and inv.received_amount == 4746.0
+        assert str(inv.received_date) == "2026-07-20"
+    client.post(f"/billing/invoices/{inv_id}/status", data={"status": "paid"})
+    with Session(engine) as s:
+        assert s.get(Invoice, inv_id).status == "paid"
+
+
+def test_registry_page_renders_with_overdue_flag(client):
+    with Session(engine) as s:
+        jid = _job_id_blank(s)
+    client.post("/billing/invoice/build", data=_build_data("KTIV2606-036", jid))
+    r = client.get("/billing/invoices", follow_redirects=False)
+    assert r.status_code == 200
+    assert "KTIV2606-036" in r.text

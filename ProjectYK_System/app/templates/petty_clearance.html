@@ -55,12 +55,22 @@
         <td class="px-3 py-2">{{ r.memo }}</td>
         <td class="px-3 py-2 text-right">{{ '{:,.2f}'.format(r.amount) }}</td>
         <td class="px-3 py-2 text-right font-semibold text-yellow-800">{{ '{:,.2f}'.format(r.pending_amount) }}</td>
-        <td class="px-3 py-2 text-slate-600">{{ r.pending_note }}</td>
+        <td class="px-3 py-2 text-slate-600">
+          {{ r.pending_note }}
+          {% if r.receipt_status == 'waiting' %}<span class="inline-block px-1.5 py-0.5 text-xs bg-sky-100 text-sky-700 rounded-full">⏳ รอใบเสร็จ</span>{% endif %}
+        </td>
         <td class="px-3 py-2 text-right space-x-1 whitespace-nowrap">
           <a href="/petty-cash/{{ r.id }}/edit" class="text-xs text-slate-600 hover:underline">แก้</a>
+          {% if r.receipt_status == 'waiting' %}
+          <form method="post" action="/petty-cash/{{ r.id }}/receipt-got" class="inline">
+            <button class="px-2 py-1 text-xs bg-sky-100 text-sky-800 rounded hover:bg-sky-200">📄 ได้ใบเสร็จแล้ว</button>
+          </form>
+          {% endif %}
+          {% if r.pending_amount > 0 and not r.pending_cleared %}
           <a href="/petty-cash/clearance/{{ r.id }}/clear"
              onclick="return confirm('ยืนยันเคลียร์รายการนี้?')"
              class="inline-block px-2 py-1 text-xs bg-green-100 text-green-800 rounded hover:bg-green-200">เคลียร์แล้ว</a>
+          {% endif %}
         </td>
       </tr>
       {% else %}

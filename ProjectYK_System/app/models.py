@@ -259,6 +259,9 @@ class PettyCashTxn(SQLModel, table=True):
 
     category: str = Field(default="other", index=True)
     has_receipt: bool = False
+    # v53: ใบเสร็จ 3 สถานะแบบไฟล์สดย่อย: have|none|waiting ('' = แถวเก่าก่อน v53 —
+    # UI ตีความจาก has_receipt); waiting โผล่หน้ารอเคลียร์จนกดปุ่ม "ได้ใบเสร็จแล้ว"
+    receipt_status: str = Field(default="", index=True)
 
     deduct_from_driver: bool = Field(default=False, index=True)
     deduct_amount: float = 0.0
@@ -582,6 +585,30 @@ class BillInbox(SQLModel, table=True):
     ocr_json: str = ""                   # ร่างจาก bill_ocr.read_bill (JSON)
     error: str = ""                      # เหตุที่อ่านพัง (ภาษาคน — โชว์บนหน้า)
     done_action: str = ""                # "record:<id>" | "stock" | "dismissed"
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Invoice(SQLModel, table=True):
+    """ทะเบียนใบวางบิล (v52) — เกิดอัตโนมัติตอนกด "สร้างใบ" ที่ /billing/invoice.
+
+    ตอบสองคำถามของโอ (12ก.ค.): ใบไหนวางแล้ว (เลขถูกประทับกลับเดลี่ทันที ไม่รอทีมคีย์)
+    และเก็บเงินได้หรือยัง: issued → received (รับเช็ค/โอน) → paid (เงินเข้าบัญชี);
+    void = ถอนใบ (ปลดเลขออกจากเดลี่ทุกแถวของใบนั้น)"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    inv_no: str = Field(index=True, unique=True)
+    series: str = Field(index=True)          # key ใน invoice_builder.REGISTRY เช่น KMMT/CY
+    cust_label: str = ""                     # ป้ายลูกค้าที่กรอกในฟอร์ม (ใช้โชว์)
+    inv_date: date = Field(index=True)
+    due_date: Optional[date] = Field(default=None, index=True)   # ว่าง = ยังไม่รู้เครดิตเทอม
+    total_amount: float = 0.0                # Σ ทุกช่องเงินของแถวตอนสร้างใบ
+    n_jobs: int = 0
+    status: str = Field(default="issued", index=True)
+    # issued | received | paid | void
+    received_date: Optional[date] = None
+    received_amount: float = 0.0
+    paid_date: Optional[date] = None
+    note: str = ""
+    created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 

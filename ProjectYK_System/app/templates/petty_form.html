@@ -45,10 +45,18 @@
       </select>
     </div>
     <div>
-      <label class="block text-sm mb-1 inline-flex items-center gap-2">
-        <input type="checkbox" name="has_receipt" value="on" {% if row and row.has_receipt %}checked{% endif %} />
-        มีใบเสร็จ
-      </label>
+      {# v53: ใบเสร็จ 3 สถานะ เหมือนช่องในไฟล์สดย่อย — "รอ" จะไปโผล่หน้ารอเคลียร์เอง #}
+      {% set rst = (row.receipt_status if row and row.receipt_status
+                    else ('have' if row and row.has_receipt else ('none' if row else 'none'))) %}
+      <label class="block text-sm mb-1">ใบเสร็จ</label>
+      <div class="flex gap-3 text-sm items-center flex-wrap">
+        <label class="inline-flex items-center gap-1">
+          <input type="radio" name="receipt_status" value="have" {% if rst == 'have' %}checked{% endif %}> ✅ มี</label>
+        <label class="inline-flex items-center gap-1">
+          <input type="radio" name="receipt_status" value="none" {% if rst == 'none' %}checked{% endif %}> ➖ ไม่มี</label>
+        <label class="inline-flex items-center gap-1">
+          <input type="radio" name="receipt_status" value="waiting" {% if rst == 'waiting' %}checked{% endif %}> ⏳ รอใบเสร็จ</label>
+      </div>
     </div>
     <div class="md:col-span-3">
       <label class="block text-sm mb-1">รายการ / Memo</label>

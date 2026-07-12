@@ -138,6 +138,7 @@
           <div class="yk-menu-panel hidden absolute left-0 mt-1 z-50 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 py-1 min-w-[210px]">
             <a href="/billing" class="block px-4 py-2 hover:bg-slate-100">Billing (ตรวจก่อนวางบิล)</a>
             <a href="/billing/invoice" class="block px-4 py-2 hover:bg-slate-100">🧾 ออกใบวางบิล</a>
+            <a href="/billing/invoices" class="block px-4 py-2 hover:bg-slate-100 pl-8">📒 ทะเบียนใบวางบิล (เก็บเงินยัง?)</a>
             {% if can_see(request, "/line") %}<a href="/billing/evidence" class="block px-4 py-2 hover:bg-slate-100">🗂️ ชุดหลักฐานวางบิล</a>{% endif %}
             {% if can_see(request, "/finance") %}<a href="/finance/receivables" class="block px-4 py-2 hover:bg-slate-100">💵 รอรับเงินลูกค้า (AR)</a>{% endif %}
             {% if can_see(request, "/kb-payout") %}<a href="/kb-payout" class="block px-4 py-2 hover:bg-slate-100">🤝 KB เจ้าของงาน</a>{% endif %}
