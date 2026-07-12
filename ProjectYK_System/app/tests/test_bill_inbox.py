@@ -308,3 +308,47 @@ def test_dismiss_all_failed(clients, monkeypatch):
         st = {row.id: row.status for row in s.exec(select(BillInbox)).all()}
     assert list(st.values()).count("dismissed") == 2
     assert st[cid] == "ready"
+
+
+# ---------------------------------------------------------------------------
+# v53 UX: หน้ารายการซ่อมโชว์รูปบิลต้นฉบับจากกล่อง + ฟอร์มซ่อมรับทะเบียนเลขท้าย
+# ---------------------------------------------------------------------------
+
+def test_record_page_links_source_bill_photo(clients, monkeypatch):
+    """คัดใบเข้ารถแล้ว → หน้ารายการซ่อมต้องมีลิงก์รูปบิลต้นฉบับ."""
+    c_admin, _ = clients
+    row = _ready_row(c_admin, monkeypatch)
+    c_admin.post(f"/maint/bills/{row.id}/to-record", data={
+        "plate_raw": "71-8005", "work_date": "2026-06-28",
+        "kind": ["part"], "name": ["น็อตล้อ"], "qty": ["8"], "unit_price": ["250"],
+    })
+    with Session(engine) as s:
+        rec = s.exec(select(MaintRecord)).one()
+        photo = s.get(BillInbox, row.id).photo_path
+    page = c_admin.get(f"/maint/records/{rec.id}").text
+    assert f"/uploads/{photo}" in page
+
+
+def test_maint_form_resolves_plate_suffix(clients):
+    """ฟอร์มบันทึกซ่อม: พิมพ์เลขท้าย 8005 → ผูกรถ 71-8005 (กฎเดียวกับกล่องบิล)."""
+    c_admin, _ = clients
+    r = c_admin.post("/maint/records/new", data={
+        "work_date": "2026-07-12", "kind": "repair", "status": "done",
+        "plate_raw": "8005", "mile_snapshot": "0",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with Session(engine) as s:
+        rec = s.exec(select(MaintRecord).order_by(MaintRecord.id.desc())).first()
+        v = s.exec(select(Vehicle).where(Vehicle.plate_no == "71-8005")).one()
+    assert rec.vehicle_id == v.id
+    assert rec.plate_raw == "71-8005"
+
+
+def test_home_shows_bill_inbox_card_for_admin(clients, monkeypatch):
+    """หน้าแรกโชว์การ์ดกล่องบิล (จำนวน ready) เฉพาะคนที่มีสิทธิ์กล่องบิล."""
+    c_admin, c_off = clients
+    _ready_row(c_admin, monkeypatch)
+    home = c_admin.get("/").text
+    assert "กล่องบิลรอคัด" in home
+    # office (bill_ocr_mode=admin) ไม่เห็นการ์ด
+    assert "กล่องบิลรอคัด" not in c_off.get("/").text

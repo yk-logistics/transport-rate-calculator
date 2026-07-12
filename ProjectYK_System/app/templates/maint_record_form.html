@@ -6,7 +6,12 @@
   <h1 class="text-2xl font-bold">
     {% if record %}✏️ แก้ไขบันทึกซ่อม {{ record.record_no }}{% else %}🔧 บันทึกซ่อมใหม่{% endif %}
   </h1>
-  <div class="flex gap-2">
+  <div class="flex gap-2 items-center">
+    {% for p in bill_photos or [] %}
+    <a href="/uploads/{{ p }}" target="_blank" title="เปิดรูปบิลต้นฉบับ (จากกล่องบิล)">
+      <img src="/uploads/{{ p }}" class="h-12 w-10 object-cover rounded border-2 border-violet-300 hover:border-violet-500">
+    </a>
+    {% endfor %}
     <a href="/maint/records" class="btn bg-slate-200 hover:bg-slate-300">← กลับ</a>
     {% if can_read_bill and not record %}
     <a href="/maint/bills" class="btn bg-violet-600 text-white hover:bg-violet-700"

@@ -1144,6 +1144,13 @@ def home(request: Request):
         pending_adj = len(s.exec(select(PayAdjustment).where(
             PayAdjustment.status == "pending")).all())
         line_counts = _home_line_counts(s)
+        # v53 UX: กล่องบิลค้างคัด (เฉพาะคนที่เห็นกล่องบิลได้)
+        bill_ready = bill_failed = None
+        if _bill_ocr_allowed(request):
+            bill_ready = len(s.exec(select(BillInbox).where(
+                BillInbox.status == "ready")).all())
+            bill_failed = len(s.exec(select(BillInbox).where(
+                BillInbox.status == "failed")).all())
         # น้ำมันผิดปกติ 7 วันหลังสุด (สแกน local เร็ว)
         try:
             from services import fuel_anomaly as fa
@@ -1170,6 +1177,7 @@ def home(request: Request):
         "sites": sites, "no_price": no_price, "runs": runs,
         "pending_adj": pending_adj, "plan": plan,
         "inbox_count": line_counts["inbox"], "pod_count": line_counts["pod"],
+        "bill_ready": bill_ready, "bill_failed": bill_failed,
         "fuel_line_missing": line_counts.get("fuel_line"),
         "fuel_flags": fuel_flags,
         "ar_overdue": ar_sum["overdue"], "ar_week": ar_sum["week"],
@@ -6340,6 +6348,13 @@ def maint_record_edit(request: Request, rec_id: int):
     ctx["request"] = request
     ctx["record"] = rec
     ctx["can_read_bill"] = _bill_ocr_allowed(request)
+    # v53 UX: รายการที่คัดมาจากกล่องบิล → โชว์รูปบิลต้นฉบับ (done_action = "record:1,2")
+    with Session(engine) as s:
+        ctx["bill_photos"] = [
+            b.photo_path for b in s.exec(select(BillInbox).where(
+                BillInbox.done_action.like("record:%"))).all()  # type: ignore[attr-defined]
+            if str(rec_id) in (b.done_action or "")[7:].split(",") and b.photo_path
+        ]
     return templates.TemplateResponse(request, "maint_record_form.html", ctx)
 
 
@@ -6348,10 +6363,11 @@ def _apply_maint_form(rec: MaintRecord, form, s: Session) -> None:
     rec.kind = (form.get("kind") or "repair").strip()
     rec.status = (form.get("status") or "done").strip()
     rec.plate_raw = (form.get("plate_raw") or "").strip()
-    # resolve vehicle_id by plate
+    # resolve vehicle_id by plate — v53: รับเลขท้ายด้วย (8005 → 71-8005) กติกาเดียวกับกล่องบิล
     if rec.plate_raw:
-        v = s.exec(select(Vehicle).where(Vehicle.plate_no == rec.plate_raw)).first()
+        v, plate_full = _resolve_plate(s, rec.plate_raw)
         rec.vehicle_id = v.id if v else None
+        rec.plate_raw = plate_full
     else:
         rec.vehicle_id = None
     try:

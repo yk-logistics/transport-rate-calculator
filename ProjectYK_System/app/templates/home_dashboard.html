@@ -65,6 +65,21 @@
   </div>
   {% endif %}
 
+  {# ---- v53 UX: กล่องบิลรอคัด ---- #}
+  {% if bill_ready is not none %}
+  <div class="bg-white border rounded-xl p-4">
+    <div class="text-sm font-semibold mb-2">📥 กล่องบิลรอคัด</div>
+    <div class="flex gap-6">
+      <a href="/maint/bills" class="block hover:underline">
+        <div class="text-2xl font-bold font-mono {% if bill_ready %}text-violet-600{% else %}text-slate-300{% endif %}">{{ bill_ready }}</div>
+        <div class="text-xs text-slate-500">พร้อมคัดเข้ารถ/Stock</div></a>
+      <a href="/maint/bills" class="block hover:underline">
+        <div class="text-2xl font-bold font-mono {% if bill_failed %}text-rose-500{% else %}text-slate-300{% endif %}">{{ bill_failed }}</div>
+        <div class="text-xs text-slate-500">อ่านไม่ผ่าน (ดู/ทิ้ง)</div></a>
+    </div>
+  </div>
+  {% endif %}
+
   {# ---- Payroll ---- #}
   {% if can_see(request, "/payroll") %}
   <a href="/payroll" class="bg-white border rounded-xl p-4 hover:shadow-md transition block">
