@@ -371,3 +371,18 @@ def test_nav_badge_when_bills_ready(clients, monkeypatch):
     _ready_row(c_admin, monkeypatch)
     m._NAV_BADGE_CACHE["at"] = None
     assert "yk-nav-dot" in c_admin.get("/maint").text
+
+
+def test_fuel_form_resolves_plate_suffix(clients):
+    """ฟอร์มน้ำมัน: พิมพ์เลขท้าย 8005 (ไม่เลือกจาก dropdown) → ผูก 71-8005 ให้เอง."""
+    from models import FuelTxn
+    c_admin, _ = clients
+    r = c_admin.post("/fuel/new", data={
+        "txn_date": "2026-07-12", "site_code": "LCB", "plate_no_raw": "8005",
+        "liter": "100", "amount": "3200",
+    }, follow_redirects=False)
+    assert r.status_code == 303
+    with Session(engine) as s:
+        t = s.exec(select(FuelTxn).order_by(FuelTxn.id.desc())).first()
+        v = s.exec(select(Vehicle).where(Vehicle.plate_no == "71-8005")).one()
+    assert t.plate_no_raw == "71-8005" and t.vehicle_id == v.id

@@ -3733,8 +3733,15 @@ def fuel_save(
 
         row.txn_date = d
         row.site_code = site_code
-        row.plate_no_raw = plate_no_raw
-        row.vehicle_id = veh_id
+        # v53: ทะเบียนรับเลขท้าย (8005 → 71-8005) เหมือนกล่องบิล/ฟอร์มซ่อม —
+        # เดาเฉพาะตอนผู้ใช้ไม่ได้เลือกรถจาก dropdown เอง
+        if plate_no_raw.strip() and not veh_id:
+            v_hit, plate_full = _resolve_plate(s, plate_no_raw)
+            row.plate_no_raw = plate_full
+            row.vehicle_id = v_hit.id if v_hit else None
+        else:
+            row.plate_no_raw = plate_no_raw
+            row.vehicle_id = veh_id
         row.driver_raw_name = driver_raw_name
         row.driver_id = drv_id
         row.liter = liter

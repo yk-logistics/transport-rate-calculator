@@ -2,9 +2,14 @@
 {% block title %}ซ่อมบำรุง · Dashboard{% endblock %}
 {% block content %}
 
-<div class="flex items-center justify-between mb-6">
+<div class="flex items-center justify-between mb-6 flex-wrap gap-2">
   <h1 class="text-2xl font-bold">🔧 ซ่อมบำรุง / ยาง / PM</h1>
-  <div class="flex gap-2">
+  {# v53 UX: ปุ่มที่ใช้บ่อยสุดขึ้นก่อน (กล่องบิล = ทางหลักตอนนี้) #}
+  <div class="flex gap-2 flex-wrap">
+    {% if bill_ocr_allowed(request) %}
+    <a href="/maint/bills" class="btn bg-violet-600 text-white hover:bg-violet-700">📥 กล่องบิลรอคัด</a>
+    {% endif %}
+    <a href="/maint/tires/bill" class="btn bg-emerald-600 text-white hover:bg-emerald-700">🛞 คีย์บิลยาง</a>
     <a href="/maint/records/new" class="btn bg-orange-600 text-white hover:bg-orange-700">+ บันทึกซ่อมใหม่</a>
   </div>
 </div>
