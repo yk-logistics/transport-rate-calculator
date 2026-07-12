@@ -18,3 +18,5 @@ metadata:
 - When proceeding on an inferred answer, make it visible: "ถ้าเป็นโอน่าจะเลือก X เลยทำต่อเลย — ถ้าผิดบอกได้" so he can veto.
 
 Confirmed 2026-06-23. โอ explicitly approved this exact line: general work proceeds autonomously, money work always checks first. Aligns with [[feedback-concise-no-code-dump]] and the money-safety rules in [[feedback-test-data-cleanup-safety]] (autonomy does NOT override money preflight discipline).
+
+**Re-confirmed แรงขึ้น 2026-07-12 (คืนก่อน Fable หมดเขต):** โอสั่งตรงว่าให้สอน Opus เรื่องนี้เพราะ "มันชอบทำงานแล้วหยุดถามตลอด" → ฝัง self-check ใน CLAUDE.md โหมด Opus ข้อ 2 แล้ว (ย่อหน้าสุดท้ายเป็นคำถาม/ตัวเลือก/แผนที่ยังไม่ทำ ทั้งที่ไม่ใช่ 3 เคสหยุดถาม = ลบทิ้งแล้วทำต่อ) + mindset ตารางความคิดอันตราย ("ถามไว้ก่อนปลอดภัยกว่า") + AGENT_DRILLS ข้อ 13 วัดอาการนี้โดยตรง
