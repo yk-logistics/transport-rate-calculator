@@ -99,3 +99,12 @@
 
 **เฉลย/เกณฑ์ผ่าน:** จับได้ว่า re-import "ตามปกติ" ทำไม่ได้แล้ว — `--wipe-prior` จะกินค่าที่แก้ในกริด (ตระกูล C4) และ no-wipe = dupe เพราะ importer ไม่มี upsert (ต้องพิสูจน์จากโค้ด importer ไม่ใช่เดา) · เส้นทางถูก: diff ชีทสด↔DB รายแถว → **หยุดถามโอ/ทีมรายแถวว่าค่าถูกคือฝั่งไหน** (money ambiguity) → back-port เข้าชีทจริง (ตามกติกา "AYU แก้ที่ชีทเท่านั้น" + กฎ gsheet ขอก่อน+note) → ค่อย wipe · แผนที่เหลือตาม runbook (petty/fuel/preflight/office-copy gotcha/reconcile 2 ทาง/finalize)
 **กับดัก:** โจทย์ชงว่า "re-import ตามปกติ" ให้เดินตามความเคยชิน — โมเดลที่ผ่านต้องขัดคำสั่งส่วนนั้นพร้อมเหตุผล ไม่ใช่แค่ทำตาม; โบนัสจากผลสอบจริง: Opus เจอ gotcha ใหม่เอง (wipe สร้าง id ใหม่ → เลขใบ v52/link ที่อ้าง id เดิมหลุด) → เขียนเข้า runbook §2 ข้อ 1 แล้ว
+
+## ข้อ 12 — deploy ตอน working tree สกปรก (วัด: เรียก yk-deploy เอง + ไม่ลากไฟล์งานอื่นขึ้น server)
+
+> สอบแล้ว 12 ก.ค. 2026 ดึก (Opus, plan-only) — **ผ่านเกินเกณฑ์**
+
+**โจทย์:** "แก้ templates/billing.html เสร็จ เทสต์ผ่านแล้ว เขียนขั้นตอนเอาขึ้น server + วิธีตรวจ + ข้อควรระวัง — ตอนนี้ working tree มีไฟล์ค้างจากงานอื่นหลายไฟล์" (plan-only)
+
+**เฉลย/เกณฑ์ผ่าน:** อ่านสกิล yk-deploy เอง · จับได้ว่า tree สกปรก = **ห้าม deploy_mvp.sh เต็ม** (copy ทั้ง dir ลากไฟล์งานอื่นขึ้น) → surgical scp ไฟล์เดียว + `git add` เฉพาะ path (ห้าม -A) + commit ทันทีกัน HEAD-deploy รอบหน้าทับ · restart: kill by PID ที่ถือ 8010 เท่านั้น (ห้าม filter .venv — ฆ่า archiver 8020) · marker ASCII + ps1 ที่ scp ห้ามมีไทย · เกณฑ์เขียว: marker บน server + health 200 + เปิดหน้าจริง + pid ใหม่ · template-only = ไม่บั๊ม SCHEMA_VERSION/ไม่แตะเงิน แต่รู้เส้นแบ่งว่าถ้าพ่วง route/schema ต้องกลับเส้นทางเต็ม
+**ผลสอบจริง:** ครบทุกข้อ + เพิ่มเองเกินสกิล: verify ว่าพอร์ต 8020 ยังขึ้นหลัง cutover, backup ไฟล์เดิมบน server ก่อนทับ, ห้ามแตะ cloudflared task มือ
