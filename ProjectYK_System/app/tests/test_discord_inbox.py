@@ -12,7 +12,6 @@ _tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False); _tmp.close()
 os.environ["DATABASE_URL"] = f"sqlite:///{_tmp.name}"
 os.environ["YK_SESSION_SECRET"] = "t"
 os.environ["YK_INSECURE_COOKIES"] = "1"
-os.environ["YK_DISCORD_TOKEN"] = "test-token"
 
 import httpx
 import pytest
@@ -54,6 +53,9 @@ def _client(store):
 
 @pytest.fixture(autouse=True)
 def fresh(tmp_path, monkeypatch):
+    # token ตั้งผ่าน monkeypatch เท่านั้น — ห้ามตั้งระดับ module ไม่งั้นรั่วไปไฟล์เทสต์อื่น
+    # แล้ว /todo ของเทสต์อื่นจะพยายามยิง Discord จริง
+    monkeypatch.setenv("YK_DISCORD_TOKEN", "test-token")
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
     monkeypatch.setattr(di, "MEDIA_DIR", tmp_path / "_todo_media")
@@ -63,6 +65,30 @@ def fresh(tmp_path, monkeypatch):
 def _todos():
     with Session(engine) as s:
         return s.exec(select(TodoItem).order_by(TodoItem.id)).all()
+
+
+def test_new_message_shows_on_same_todo_page_open(monkeypatch):
+    """เคสจริง 13ก.ค. 13:44: โอ forward แล้วเปิด /todo ทันที ต้องเห็นในรอบนั้นเลย —
+    เดิมดึงเป็น thread หลัง render + เว้น 5 นาที ทำให้มองไม่เห็นจนกว่าจะรอ+รีเฟรชซ้ำ."""
+    import main as appmod
+    from models import AppUser
+    from starlette.testclient import TestClient
+
+    appmod.init_db()
+    with Session(engine) as s:
+        u = s.exec(select(AppUser).where(AppUser.username == "yk1")).first()
+        u.must_change_pw = False
+        s.add(u)
+        s.commit()
+    monkeypatch.setenv("YK_DISCORD_INBOX_USER", "yk1")
+    store = {"messages": [_msg(201, "หัวขั้วแบตเตอรี่ละลาย ต้องเปลี่ยนแบตใหม่")]}
+    real_pull = di.pull
+    monkeypatch.setattr(di, "pull",
+                        lambda username, http=None: real_pull(username, http=_client(store)))
+    with TestClient(appmod.app) as c:
+        c.post("/login", data={"username": "yk1", "password": "changeme1"})
+        body = c.get("/todo").text
+    assert "หัวขั้วแบตเตอรี่ละลาย" in body
 
 
 def test_available_requires_token(monkeypatch, tmp_path):

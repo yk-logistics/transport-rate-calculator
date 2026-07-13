@@ -72,7 +72,7 @@ def _fetch_new(http: httpx.Client, headers: dict, channel: str, after: str) -> l
     while True:
         params = {"limit": 100, "after": cursor} if cursor else {"limit": _FIRST_RUN_LIMIT}
         r = http.get(f"{API}/channels/{channel}/messages",
-                     headers=headers, params=params, timeout=30)
+                     headers=headers, params=params)
         r.raise_for_status()
         batch = r.json()
         if not batch:
@@ -131,7 +131,8 @@ def pull(username: str, http: httpx.Client | None = None) -> dict:
     channel = os.environ.get("YK_DISCORD_INBOX_CHANNEL", DEFAULT_CHANNEL_ID)
     headers = {"Authorization": f"Bot {tok}"}
     own_http = http is None
-    http = http or httpx.Client()
+    # เรียกจากหน้า /todo แบบ sync — timeout ระดับ client กันหน้าโหลดค้างถ้า Discord อืด
+    http = http or httpx.Client(timeout=15)
     added = media_n = 0
     try:
         with Session(engine) as s:
@@ -151,7 +152,7 @@ def pull(username: str, http: httpx.Client | None = None) -> dict:
                     names = []
                     for a in atts:
                         try:
-                            r = http.get(a["url"], timeout=60)
+                            r = http.get(a["url"])
                             r.raise_for_status()
                         except httpx.HTTPError:
                             continue   # รูปโหลดพลาด — เก็บข้อความไว้ ไม่ล้มทั้งรอบ

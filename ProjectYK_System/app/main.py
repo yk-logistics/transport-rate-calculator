@@ -11636,6 +11636,9 @@ def todo_page(request: Request, q: str = "", cat: str = ""):
 
     user = current_user(request)
     uname = user.username if user else ""
+    is_admin = bool(user and user.role == "admin")
+    if is_admin:
+        _discord_inbox_maybe_sync()   # ก่อน query — ของที่เพิ่งโยนต้องเห็นในรอบนี้เลย
     with Session(engine) as s:
         rows = s.exec(select(TodoItem).where(TodoItem.username == uname)).all()
     if q.strip():
@@ -11648,11 +11651,9 @@ def todo_page(request: Request, q: str = "", cat: str = ""):
     done_items = sorted([t for t in rows if t.status == "done"],
                         key=lambda t: t.done_at or t.created_at, reverse=True)[:50]
     # เฟส 4: กล่องรอคัดจากไลน์ — เห็น/สแกนเฉพาะ admin (ข้อมูลไลน์รวมทุกไซท์)
-    is_admin = bool(user and user.role == "admin")
     suggests = []
     if is_admin:
         _todo_scan_maybe_auto()
-        _discord_inbox_maybe_auto()
         with Session(engine) as s:
             suggests = s.exec(select(TodoSuggest).where(TodoSuggest.status == "pending")
                               .order_by(TodoSuggest.sent_at.desc()).limit(30)).all()
@@ -11957,39 +11958,37 @@ def _todo_scan_maybe_auto() -> None:
 _DISCORD_INBOX_LOCK = threading.Lock()   # กัน poll ซ้อน (หลาย tab เปิด /todo พร้อมกัน)
 
 
-def _discord_inbox_maybe_auto() -> None:
-    """ดึงช่อง Discord 📌01-inbox-โยนมาก่อน เข้า /todo (13ก.ค.).
+def _discord_inbox_maybe_sync() -> None:
+    """ดึงช่อง Discord 📌01-inbox-โยนมาก่อน เข้า /todo แบบ sync ก่อน render (13ก.ค.).
 
     ช่องนี้เป็น inbox ส่วนตัวของโอ — รายการเข้าบัญชี "oh" ตายตัว (override ด้วย
     env YK_DISCORD_INBOX_USER) ไม่ใช่ admin คนที่บังเอิญเปิดหน้าแรก.
-    แพทเทิร์นเดียวกับ _todo_scan_maybe_auto: มาร์กเวลาแบบ sync ก่อนเด้ง thread
-    เบื้องหลัง ไม่หน่วงหน้า; รอบล่าสุดยังไม่เกิน 5 นาทีไม่ดึงซ้ำ. พังเก็บข้อความไว้ใน
-    discord_inbox_err โชว์แถวเดียวกับ scan_err (สำเร็จรอบไหนล้างรอบนั้น)."""
+
+    ตั้งใจดึง sync ไม่ใช่ thread: เคสหลักคือ "โยนปุ๊บ เปิดดูปั๊บ" — แบบ thread+เว้น
+    5 นาทีพลาดจริง 13ก.ค. 13:44 (forward มาหลังดึง 23 วิ แล้วรอบถัดไปโดน gap ข้าม).
+    ไม่มีของใหม่ = GET เดียว ~0.3s; มีของใหม่ = โหลดรูปแป๊บเดียวแลกกับเห็นทันที.
+    พังเก็บข้อความไว้ใน discord_inbox_err โชว์แถวเดียวกับ scan_err (สำเร็จรอบไหนล้างรอบนั้น)."""
     from services import discord_inbox
 
     if not discord_inbox.available():
         return  # เครื่องนี้ไม่มี bot token (dev/test) — ข้ามเงียบ
-    username = os.environ.get("YK_DISCORD_INBOX_USER", "oh")
     last = get_setting("discord_inbox_last", "")
     try:
-        if last and datetime.utcnow() - datetime.fromisoformat(last) < timedelta(minutes=5):
+        if last and datetime.utcnow() - datetime.fromisoformat(last) < timedelta(seconds=45):
             return
     except ValueError:
         pass
-    set_setting("discord_inbox_last", datetime.utcnow().isoformat())
-
-    def _bg():
-        if not _DISCORD_INBOX_LOCK.acquire(blocking=False):
-            return
-        try:
-            discord_inbox.pull(username)
-            set_setting("discord_inbox_err", "")
-        except Exception as e:   # อย่าให้ thread ตายแบบมีเสียง — จดไว้โชว์บนหน้า
-            set_setting("discord_inbox_err", f"ดึง Discord inbox ไม่สำเร็จ: {str(e)[:200]}")
-            logging.getLogger("yk.discord_inbox").warning("poll ล้มเหลว: %s", e)
-        finally:
-            _DISCORD_INBOX_LOCK.release()
-    threading.Thread(target=_bg, daemon=True).start()
+    if not _DISCORD_INBOX_LOCK.acquire(blocking=False):
+        return  # แท็บ/รีเควสต์อื่นกำลังดึงอยู่ — หน้าเราใช้ของที่มันดึงเสร็จ
+    try:
+        set_setting("discord_inbox_last", datetime.utcnow().isoformat())
+        discord_inbox.pull(os.environ.get("YK_DISCORD_INBOX_USER", "oh"))
+        set_setting("discord_inbox_err", "")
+    except Exception as e:   # Discord ล่มอย่าพาหน้า /todo ล่มตาม — จดไว้โชว์บนหน้า
+        set_setting("discord_inbox_err", f"ดึง Discord inbox ไม่สำเร็จ: {str(e)[:200]}")
+        logging.getLogger("yk.discord_inbox").warning("poll ล้มเหลว: %s", e)
+    finally:
+        _DISCORD_INBOX_LOCK.release()
 
 
 @app.post("/todo/scan-line")
