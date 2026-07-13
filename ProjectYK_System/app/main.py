@@ -11652,7 +11652,7 @@ def todo_page(request: Request, q: str = "", cat: str = ""):
     suggests = []
     if is_admin:
         _todo_scan_maybe_auto()
-        _discord_inbox_maybe_auto(uname)
+        _discord_inbox_maybe_auto()
         with Session(engine) as s:
             suggests = s.exec(select(TodoSuggest).where(TodoSuggest.status == "pending")
                               .order_by(TodoSuggest.sent_at.desc()).limit(30)).all()
@@ -11957,9 +11957,11 @@ def _todo_scan_maybe_auto() -> None:
 _DISCORD_INBOX_LOCK = threading.Lock()   # กัน poll ซ้อน (หลาย tab เปิด /todo พร้อมกัน)
 
 
-def _discord_inbox_maybe_auto(username: str) -> None:
-    """ดึงช่อง Discord 📌01-inbox-โยนมาก่อน เข้า /todo ของ admin ที่เปิดหน้า (13ก.ค.).
+def _discord_inbox_maybe_auto() -> None:
+    """ดึงช่อง Discord 📌01-inbox-โยนมาก่อน เข้า /todo (13ก.ค.).
 
+    ช่องนี้เป็น inbox ส่วนตัวของโอ — รายการเข้าบัญชี "oh" ตายตัว (override ด้วย
+    env YK_DISCORD_INBOX_USER) ไม่ใช่ admin คนที่บังเอิญเปิดหน้าแรก.
     แพทเทิร์นเดียวกับ _todo_scan_maybe_auto: มาร์กเวลาแบบ sync ก่อนเด้ง thread
     เบื้องหลัง ไม่หน่วงหน้า; รอบล่าสุดยังไม่เกิน 5 นาทีไม่ดึงซ้ำ. พังเก็บข้อความไว้ใน
     discord_inbox_err โชว์แถวเดียวกับ scan_err (สำเร็จรอบไหนล้างรอบนั้น)."""
@@ -11967,6 +11969,7 @@ def _discord_inbox_maybe_auto(username: str) -> None:
 
     if not discord_inbox.available():
         return  # เครื่องนี้ไม่มี bot token (dev/test) — ข้ามเงียบ
+    username = os.environ.get("YK_DISCORD_INBOX_USER", "oh")
     last = get_setting("discord_inbox_last", "")
     try:
         if last and datetime.utcnow() - datetime.fromisoformat(last) < timedelta(minutes=5):
