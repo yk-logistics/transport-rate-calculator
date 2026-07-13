@@ -12,8 +12,9 @@ metadata:
 `1458138638213710058`, guild YK) ด้วย **bot token ตัวเดียวกับ line_archiver**
 → สร้าง TodoItem หมวด "inbox" + ดาวน์โหลดรูปเข้า `_todo_media/` ให้เลย
 
-- trigger: admin เปิด /todo แล้วรอบล่าสุดเกิน 5 นาที → thread เบื้องหลัง
-  (`main._discord_inbox_maybe_auto` — แพทเทิร์นเดียวกับ auto-scan ไลน์);
+- trigger: admin เปิด /todo → **ดึง sync ก่อน query** (`main._discord_inbox_maybe_sync`,
+  gap 45 วิ, timeout client 15 วิ) — **ห้ามกลับไปเป็น thread+gap ยาว**: เจอจริง 13ก.ค.
+  13:44 โอ forward หลังรอบดึง 23 วิ แล้วรอบถัดไปโดน gap 5 นาทีข้าม = "โยนแล้วไม่เห็น";
   **รายการเข้าบัญชี "oh" ตายตัว** (env `YK_DISCORD_INBOX_USER` override ได้) —
   ห้ามผูกกับคนเปิดหน้า เพราะ admin มี 4 คน (yk1/oh/joe/miw)
 - dedupe: watermark AppSetting `discord_inbox_last_id` (snowflake id ขยับทีละ

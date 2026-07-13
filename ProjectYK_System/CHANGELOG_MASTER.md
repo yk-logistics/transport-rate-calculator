@@ -10,6 +10,7 @@
 - **ทำ:** `services/discord_inbox.py` poll ด้วย bot token ตัวเดียวกับ line_archiver → สร้าง TodoItem หมวด **"inbox"** เข้าบัญชี **oh ตายตัว** (env `YK_DISCORD_INBOX_USER` override; ห้ามผูกกับ admin คนเปิดหน้า — admin มี 4 คน) + ดาวน์โหลดรูปเข้า `_todo_media/`; trigger ตอน admin เปิด /todo รอบล่าสุดเกิน 5 นาที (แพทเทิร์นเดียวกับ auto-scan ไลน์); dedupe watermark `discord_inbox_last_id`; รองรับ forward แท้ของ Discord (`message_snapshots`)
 - **Gotcha:** ต้องเปิด **Message Content Intent** ใน developer portal (โอกดเอง 13ก.ค.) — ก่อนเปิด API ตอบ 200 แต่ content ว่างหลอกว่าใช้ได้; เปิดใช้ต้องตั้ง env ชัดๆ (`YK_DISCORD_TOKEN(_FILE)`) ห้าม fallback อัตโนมัติ ไม่งั้นเทสต์/dev แอบยิง Discord จริง
 - verify: เทสต์ใหม่ 5 ตัว + full suite **728 passed**; deploy เขียว 2 รอบ (79021c3, push แล้ว) + **import รอบแรกบน server จริง: 20 รายการ + รูป 38 ใบ เข้า /todo ของ oh, รอบสอง added=0**; ไม่แตะ schema/เงิน
+- **rev2 (บ่ายวันเดียวกัน — โอเจอจริง "forward แล้วไม่เห็น"):** forward มาหลังรอบดึง 23 วิ แล้วรอบถัดไปโดน gap 5 นาทีข้าม → เปลี่ยน thread เบื้องหลังเป็น**ดึง sync ก่อน render** (gap 45 วิ, timeout 15 วิกันหน้าค้าง) = โยนปุ๊บเปิดดูปั๊บเห็นเลย; เทสต์ route จำลองเคสนี้ (แดงบนโค้ดเก่า) + อุด env token รั่วข้ามไฟล์เทสต์; deploy เขียว + ข้อความที่ค้าง (หัวขั้วแบต+รูป) เข้าระบบแล้ว
 
 ## 2026-07-13 เที่ยง (📊 CFO เทียบทุกไซท์: BIGC anchor เลื่อน 1 เดือน ตามงวดจ่ายจริง)
 
