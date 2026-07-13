@@ -4,6 +4,13 @@
 
 > **Agent bootstrap:** อ่านเฉพาะ **3 หัวข้อ `##` แรกจากด้านบนลงมา** (ไม่รวมบรรทัดนี้) — **ห้าม**อ่านทั้งไฟล์ทุกแชต. นโยบาย/การย้าย archive: [`ProjectYK_System/docs/CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md)
 
+## 2026-07-13 บ่าย (💬 Discord inbox → /todo: โยนเข้าช่อง 📌01-inbox แล้วเข้าระบบเอง)
+
+- **โอขอ:** forward ข้อความ/รูปเข้าช่อง Discord `📌01-inbox-โยนมาก่อน` แล้วให้ระบบเก็บเอง — เลิกก็อป/เซฟรูป/คีย์มือ
+- **ทำ:** `services/discord_inbox.py` poll ด้วย bot token ตัวเดียวกับ line_archiver → สร้าง TodoItem หมวด **"inbox"** เข้าบัญชี **oh ตายตัว** (env `YK_DISCORD_INBOX_USER` override; ห้ามผูกกับ admin คนเปิดหน้า — admin มี 4 คน) + ดาวน์โหลดรูปเข้า `_todo_media/`; trigger ตอน admin เปิด /todo รอบล่าสุดเกิน 5 นาที (แพทเทิร์นเดียวกับ auto-scan ไลน์); dedupe watermark `discord_inbox_last_id`; รองรับ forward แท้ของ Discord (`message_snapshots`)
+- **Gotcha:** ต้องเปิด **Message Content Intent** ใน developer portal (โอกดเอง 13ก.ค.) — ก่อนเปิด API ตอบ 200 แต่ content ว่างหลอกว่าใช้ได้; เปิดใช้ต้องตั้ง env ชัดๆ (`YK_DISCORD_TOKEN(_FILE)`) ห้าม fallback อัตโนมัติ ไม่งั้นเทสต์/dev แอบยิง Discord จริง
+- verify: เทสต์ใหม่ 5 ตัว + full suite **728 passed**; deploy เขียว 2 รอบ (79021c3, push แล้ว) + **import รอบแรกบน server จริง: 20 รายการ + รูป 38 ใบ เข้า /todo ของ oh, รอบสอง added=0**; ไม่แตะ schema/เงิน
+
 ## 2026-07-13 เที่ยง (📊 CFO เทียบทุกไซท์: BIGC anchor เลื่อน 1 เดือน ตามงวดจ่ายจริง)
 
 - **โอถาม:** "BigC รอบจ่ายตามไซท์ เลือกเดือน 6 ต้องโชว์งานวิ่งจริงเดือน 5 ใช่ไหม" — **ใช่** และเดิมระบบ map ผิด (BIGC = ปฏิทินเดือน anchor ตรงๆ → แถว BIGC เป็น 0)
