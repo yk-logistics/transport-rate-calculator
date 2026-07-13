@@ -54,8 +54,8 @@
 <p class="text-xs text-slate-600 mb-3 max-w-4xl leading-relaxed border-l-4 {% if compare_cycle %}border-violet-400{% else %}border-sky-400{% endif %} pl-3">
   {% if compare_cycle %}
   <strong>เทียบทุกไซท์ · โหมดรอบจ่าย</strong>
-  — anchor เดือน <strong>{{ month }}</strong> แล้วแต่ละไซท์ใช้รอบจ่ายของตัวที่จบในเดือนนั้น
-  (BIGC=ปฏิทิน, LCB=16–15, AYU=26–25) — ดูคอลัมน์ "ช่วงวันที่จริง"
+  — anchor เดือน <strong>{{ month }}</strong> = งวดจ่ายเดียวกัน:
+  BIGC=วิ่งเดือนก่อนทั้งเดือน (จ่าย 1 เดือนถัดจาก anchor), LCB=16–15, AYU=26–25 — ดูคอลัมน์ "ช่วงวันที่จริง"
   {% else %}
   <strong>เทียบทุกไซท์ · เดือนปฏิทิน</strong>
   — ทุกไซท์ใช้เดือน <strong>{{ month }}</strong> (1–สิ้นเดือน) เหมือนกัน
@@ -82,7 +82,7 @@
       {% for r in rows %}
       <tr class="hover:bg-slate-50">
         <td class="px-3 py-2 font-semibold">
-          <a href="/finance?view=single&site={{ r.site }}&mode={{ mode }}&month={{ month }}{% if include_other %}&include_other=1{% endif %}"
+          <a href="/finance?view=single&site={{ r.site }}&mode={{ mode }}&month={{ r.link_month if r.link_month is defined else month }}{% if include_other %}&include_other=1{% endif %}"
              class="text-blue-600 hover:underline">{{ r.site }}</a>
         </td>
         <td class="px-3 py-2 text-xs text-slate-500">

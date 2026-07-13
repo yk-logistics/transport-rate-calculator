@@ -9389,6 +9389,17 @@ def _cycle_period_for_tag(site: str, tag: str) -> Optional[tuple[date, date, str
     return None
 
 
+def _compare_cycle_period(site: str, y: int, m: int) -> Optional[tuple[date, date, str]]:
+    """มุมมองเทียบทุกไซท์ โหมดรอบจ่าย: anchor เดือน M = งวดจ่ายที่ปิดพร้อมกัน.
+
+    BIGC ใช้เดือนวิ่งก่อนหน้า (โอเรียก "BigC เดือน 6" = วิ่ง 1–31 พ.ค. จ่าย 1 ก.ค. —
+    tag BIGC = เดือนวิ่ง จึงต้องถอย 1 เดือน); LCB/AYU = รอบที่จบในเดือน anchor ตามเดิม.
+    """
+    if site == "BIGC":
+        y, m = _shift_year_month(y, m, -1)
+    return _cycle_period_for_tag(site, f"{y:04d}-{m:02d}")
+
+
 @app.get("/finance", response_class=HTMLResponse)
 def finance_dashboard(
     request: Request, month: str = "", site: str = "",
@@ -9439,9 +9450,12 @@ def finance_dashboard(
         rows = []
         with Session(engine) as s:
             for sc in ["AYU", "BIGC", "LCB"]:
-                per = _cycle_period_for_tag(sc, month) if compare_cycle else None
-                rows.append(finance_svc.monthly_pnl(
-                    s, cy, cm, sc, include_other_petty=include_other_flag, period=per))
+                per = _compare_cycle_period(sc, cy, cm) if compare_cycle else None
+                row = finance_svc.monthly_pnl(
+                    s, cy, cm, sc, include_other_petty=include_other_flag, period=per)
+                # ลิงก์ไปหน้า single ต้องพา tag ของรอบที่โชว์จริง (BIGC = เดือนก่อน)
+                row["link_month"] = per[2] if per else month
+                rows.append(row)
         totals = {f: sum((r.get(f) or 0.0) for r in rows) for f in SUM_FIELDS}
         totals["net_profit"] = totals["revenue_total"] - totals["cost_total"]
         totals["net_margin_pct"] = (
@@ -11638,6 +11652,7 @@ def todo_page(request: Request, q: str = "", cat: str = ""):
     suggests = []
     if is_admin:
         _todo_scan_maybe_auto()
+        _discord_inbox_maybe_auto(uname)
         with Session(engine) as s:
             suggests = s.exec(select(TodoSuggest).where(TodoSuggest.status == "pending")
                               .order_by(TodoSuggest.sent_at.desc()).limit(30)).all()
@@ -11650,7 +11665,8 @@ def todo_page(request: Request, q: str = "", cat: str = ""):
         "suggests": suggests, "can_scan": is_admin,
         "scanned": request.query_params.get("scanned", ""),
         "scan_err": (request.query_params.get("scan_err", "")
-                     or (get_setting("todo_scan_err", "") if is_admin else "")),
+                     or (get_setting("todo_scan_err", "") if is_admin else "")
+                     or (get_setting("discord_inbox_err", "") if is_admin else "")),
     })
     return templates.TemplateResponse(request, "todo.html", ctx)
 
@@ -11935,6 +11951,41 @@ def _todo_scan_maybe_auto() -> None:
             _todo_scan_run()
         except Exception as e:   # อย่าให้ thread ตายแบบมีเสียง — log พอ
             logging.getLogger("yk.todo_scan").warning("auto-scan ล้มเหลว: %s", e)
+    threading.Thread(target=_bg, daemon=True).start()
+
+
+_DISCORD_INBOX_LOCK = threading.Lock()   # กัน poll ซ้อน (หลาย tab เปิด /todo พร้อมกัน)
+
+
+def _discord_inbox_maybe_auto(username: str) -> None:
+    """ดึงช่อง Discord 📌01-inbox-โยนมาก่อน เข้า /todo ของ admin ที่เปิดหน้า (13ก.ค.).
+
+    แพทเทิร์นเดียวกับ _todo_scan_maybe_auto: มาร์กเวลาแบบ sync ก่อนเด้ง thread
+    เบื้องหลัง ไม่หน่วงหน้า; รอบล่าสุดยังไม่เกิน 5 นาทีไม่ดึงซ้ำ. พังเก็บข้อความไว้ใน
+    discord_inbox_err โชว์แถวเดียวกับ scan_err (สำเร็จรอบไหนล้างรอบนั้น)."""
+    from services import discord_inbox
+
+    if not discord_inbox.available():
+        return  # เครื่องนี้ไม่มี bot token (dev/test) — ข้ามเงียบ
+    last = get_setting("discord_inbox_last", "")
+    try:
+        if last and datetime.utcnow() - datetime.fromisoformat(last) < timedelta(minutes=5):
+            return
+    except ValueError:
+        pass
+    set_setting("discord_inbox_last", datetime.utcnow().isoformat())
+
+    def _bg():
+        if not _DISCORD_INBOX_LOCK.acquire(blocking=False):
+            return
+        try:
+            discord_inbox.pull(username)
+            set_setting("discord_inbox_err", "")
+        except Exception as e:   # อย่าให้ thread ตายแบบมีเสียง — จดไว้โชว์บนหน้า
+            set_setting("discord_inbox_err", f"ดึง Discord inbox ไม่สำเร็จ: {str(e)[:200]}")
+            logging.getLogger("yk.discord_inbox").warning("poll ล้มเหลว: %s", e)
+        finally:
+            _DISCORD_INBOX_LOCK.release()
     threading.Thread(target=_bg, daemon=True).start()
 
 

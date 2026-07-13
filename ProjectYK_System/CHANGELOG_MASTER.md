@@ -4,6 +4,13 @@
 
 > **Agent bootstrap:** อ่านเฉพาะ **3 หัวข้อ `##` แรกจากด้านบนลงมา** (ไม่รวมบรรทัดนี้) — **ห้าม**อ่านทั้งไฟล์ทุกแชต. นโยบาย/การย้าย archive: [`ProjectYK_System/docs/CHANGELOG_POLICY.md`](ProjectYK_System/docs/CHANGELOG_POLICY.md)
 
+## 2026-07-13 เที่ยง (📊 CFO เทียบทุกไซท์: BIGC anchor เลื่อน 1 เดือน ตามงวดจ่ายจริง)
+
+- **โอถาม:** "BigC รอบจ่ายตามไซท์ เลือกเดือน 6 ต้องโชว์งานวิ่งจริงเดือน 5 ใช่ไหม" — **ใช่** และเดิมระบบ map ผิด (BIGC = ปฏิทินเดือน anchor ตรงๆ → แถว BIGC เป็น 0)
+- **กติกาโดเมนที่ยึด (ตรงกับ finalize ปิดรอบ มิ.ย. จริง):** งวดจ่าย "เดือน 6" = LCB tag 2026-06 (16/5–15/6) + AYU tag 2026-06 (26/5–25/6) + **BIGC tag 2026-05 (วิ่ง 1–31 พ.ค. จ่าย 1 ก.ค.)** — เพราะ cycle_tag BIGC = เดือนวิ่ง ไม่ใช่เดือนที่จ่าย
+- **Fix:** `main._compare_cycle_period` (BIGC ถอย 1 เดือน เฉพาะมุมมอง compare โหมดรอบจ่าย) + ลิงก์กดชื่อไซท์พา tag ที่โชว์จริงไปหน้า single + banner อธิบายใหม่; single-site BIGC dropdown ไม่เลื่อน (label มีช่วงวันที่ชัดอยู่แล้ว)
+- verify: เทสต์ใหม่ tests/test_finance_compare_bigc_cycle.py (helper mapping + render หน้าจริง TestClient) + full suite (ผลใส่ตอน deploy); ไม่แตะ DB/เงิน — display logic ล้วน
+
 ## 2026-07-13 เช้ามืด (🌙 กะดึก: UX 4 ข้อสุดท้าย + การ์ด TMS หน้าแรก + บั๊ก timezone + 🔴 LCB ขาด 3 วันอาทิตย์)
 
 - **โอมอบหมายก่อนนอน:** "พัฒนา MVP ต่อให้สมบูรณ์ + ค้นฟีเจอร์โปรแกรมอื่นมาใส่ ทำไปเรื่อยๆ ไม่ต้องหยุด"

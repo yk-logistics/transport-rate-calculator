@@ -23,6 +23,8 @@
 - [LCB CY KB กติกา](project-lcb-cy-kb-fulls.md) — kb=5000−คีย์ ส่วนต่างเข้าบริษัท · [BigC มิ.ย. deposit/ภาษี](project-bigc-jun-deposit-tax-fuel.md) — ภาษีรอโอ
 
 ## งานเสร็จล่าสุด (ก.ค.)
+- [💬 Discord inbox→/todo](project-discord-inbox-to-todo.md) — 13ก.ค.: ช่อง 📌01-inbox โยนแล้วเข้า /todo เอง+รูป; ต้องมี env YK_DISCORD_TOKEN(_FILE) ถึงเปิด; Message Content Intent เปิดแล้ว
+- [📊 CFO เทียบไซท์: BIGC anchor เลื่อน 1 เดือน](project-cfo-compare-bigc-anchor-shift.md) — 13ก.ค. โอยืนยัน "เดือน 6"=วิ่ง พ.ค.; _compare_cycle_period + link_month; single-site BIGC ไม่เลื่อน
 - [🌙 กะดึก 13ก.ค.](project-lcb-jul-preclose-audit.md) — UX ครบ 8/8 + การ์ดซ่อมบำรุง/ใบวางบิลเลยกำหนดหน้าแรก + ค้นหากลาง 2 หมวดใหม่ + fix ตัวนับก่อน 7 โมง ([gotcha](project-utc-midnight-counter-gotcha.md)); deploy เขียว 2 รอบ push ครบ; **🔴 LCB เดลี่ขาด 3 วันอาทิตย์ 21/6+28/6+5/7 — เครื่องมือ tools/check_lcb_daily_keyed.py เช็คซ้ำได้**
 - [🧾💰 v52 ทะเบียนใบวางบิล + v53 ใบเสร็จ 3 สถานะ](project-invoice-registry.md) — 12ก.ค. deploy (schema 53): สร้างใบ→ประทับเลขกลับเดลี่อัตโนมัติ + /billing/invoices issued→received→paid|void + เตือนเกิน due; petty มี/ไม่มี/รอ + ปุ่มได้ใบเสร็จแล้ว; แก้บั๊กแฝง petty_save driver_obj; ค้าง: เบิกรายสัปดาห์ LCB (docs/WEEKLY_ADVANCE_LCB_SPEC.md รอโอเคาะ 5 ข้อ)
 - [📱 สแกนบิลมือถือโอ จบ](project-phone-bill-scan.md) — 10-12ก.ค.: 9,938 รูป → **กล่องบิล ready 306 ใบ = 3,789,714.72 บาท รอโอคัด**; ก.พ.219 พิสูจน์ไม่ซ้ำ RM (0/10); worker OCR task SYSTEM ใช้ซ้ำได้; กติกาโอ: IRISO/รพ./PTT ไม่เอา, เลขท้าย 8003=71-8003; gotcha MTP+claude -p+OAuth ใน start_mvp.bat
@@ -89,6 +91,7 @@
 - [KB ราคาคนขับ](project-kb-driver-calc-price.md) — (override??rev)−kb · [BigC คอลัมน์ E](project-bigc-column-e-customers.md) · [BigC พ.ค.](project-bigc-may-payroll.md) — เดือนมิ.ย.=วิ่งพ.ค.
 - [CFO cycle vs calendar](project-cfo-cycle-vs-calendar.md) · [รถร่วมบุญนาม](project-rojruam-bunnam-todo.md) — รอสูตร 13%
 - [DHL Oatside มิ.ย.](project-oatside-jun-dhl-checkback.md) — P/R/T/W=เรา Q/S/U/X=DHL
+- [DHL Overflow ค่าเสียเวลาซ้อนเที่ยว](project-dhl-overflow-waiting-fee-question.md) — บิลจริง เม.ย. 8 เคส 2-3เที่ยว+ค่าเสียเวลา รอโอเคาะกติกา; โครงชีท invoice + SIM 72-1219
 - [LCB daily↔fuel cross-check](project-lcb-daily-fuel-crosscheck.md) · [กติกา](project-lcb-fuel-crosscheck-domain-rules.md) — เติมข้ามไซท์=ปกติ
 - **LCB:** [daily sheet](project-daily-lcb-sheet.md) · [mixed](project-lcb-mixed-mode.md) · [idle-days](project-lcb-mixed-idle-days.md) · [Jun reimport](project-lcb-jun-xlsx-reimport.md) · [พ.ค. lock](project-lcb-may-lock-pdf.md) · [slip-reader](project-lcb-slip-reader.md)
 - **น้ำมัน:** [exclude-from-driver](project-fuel-exclude-from-driver.md) · [Mao วัดถัง](project-mao-fuel-tank-measure.md) · [handover BACKLOG](project-fuel-handover-measure-backlog.md) · [pump reconcile](project-fuel-pump-reconcile.md)
