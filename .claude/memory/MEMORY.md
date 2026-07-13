@@ -23,7 +23,8 @@
 - [LCB CY KB กติกา](project-lcb-cy-kb-fulls.md) — kb=5000−คีย์ ส่วนต่างเข้าบริษัท · [BigC มิ.ย. deposit/ภาษี](project-bigc-jun-deposit-tax-fuel.md) — ภาษีรอโอ
 
 ## งานเสร็จล่าสุด (ก.ค.)
-- [💬 Discord inbox→/todo](project-discord-inbox-to-todo.md) — 13ก.ค.: ช่อง 📌01-inbox โยนแล้วเข้า /todo เอง+รูป; ต้องมี env YK_DISCORD_TOKEN(_FILE) ถึงเปิด; Message Content Intent เปิดแล้ว
+- [💬 Discord inbox→/todo](project-discord-inbox-to-todo.md) — 13ก.ค.: ช่อง 📌01-inbox โยนแล้วเข้า /todo เอง+รูป (sync ก่อน render); ต้องมี env YK_DISCORD_TOKEN(_FILE); Message Content Intent เปิดแล้ว
+- [👤 บัญชีโอ = yk1](user-oh-app-account-yk1.md) — โอล็อกอิน yk1 ไม่ใช่ "oh"; ของส่วนตัวโอผูก yk1 เสมอ
 - [📊 CFO เทียบไซท์: BIGC anchor เลื่อน 1 เดือน](project-cfo-compare-bigc-anchor-shift.md) — 13ก.ค. โอยืนยัน "เดือน 6"=วิ่ง พ.ค.; _compare_cycle_period + link_month; single-site BIGC ไม่เลื่อน
 - [🌙 กะดึก 13ก.ค.](project-lcb-jul-preclose-audit.md) — UX ครบ 8/8 + การ์ดซ่อมบำรุง/ใบวางบิลเลยกำหนดหน้าแรก + ค้นหากลาง 2 หมวดใหม่ + fix ตัวนับก่อน 7 โมง ([gotcha](project-utc-midnight-counter-gotcha.md)); deploy เขียว 2 รอบ push ครบ; **🔴 LCB เดลี่ขาด 3 วันอาทิตย์ 21/6+28/6+5/7 — เครื่องมือ tools/check_lcb_daily_keyed.py เช็คซ้ำได้**
 - [🧾💰 v52 ทะเบียนใบวางบิล + v53 ใบเสร็จ 3 สถานะ](project-invoice-registry.md) — 12ก.ค. deploy (schema 53): สร้างใบ→ประทับเลขกลับเดลี่อัตโนมัติ + /billing/invoices issued→received→paid|void + เตือนเกิน due; petty มี/ไม่มี/รอ + ปุ่มได้ใบเสร็จแล้ว; แก้บั๊กแฝง petty_save driver_obj; ค้าง: เบิกรายสัปดาห์ LCB (docs/WEEKLY_ADVANCE_LCB_SPEC.md รอโอเคาะ 5 ข้อ)

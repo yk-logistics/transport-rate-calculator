@@ -15,8 +15,11 @@ metadata:
 - trigger: admin เปิด /todo → **ดึง sync ก่อน query** (`main._discord_inbox_maybe_sync`,
   gap 45 วิ, timeout client 15 วิ) — **ห้ามกลับไปเป็น thread+gap ยาว**: เจอจริง 13ก.ค.
   13:44 โอ forward หลังรอบดึง 23 วิ แล้วรอบถัดไปโดน gap 5 นาทีข้าม = "โยนแล้วไม่เห็น";
-  **รายการเข้าบัญชี "oh" ตายตัว** (env `YK_DISCORD_INBOX_USER` override ได้) —
-  ห้ามผูกกับคนเปิดหน้า เพราะ admin มี 4 คน (yk1/oh/joe/miw)
+  **รายการเข้าบัญชีเดียวตายตัว — โอล็อกอินเป็น `yk1` ไม่ใช่ "oh"!** (เจอจริง 13ก.ค.
+  บ่าย: import 22 รายการแรกเข้า oh โอมองไม่เห็น → UPDATE ย้ายเข้า yk1 แล้ว +
+  server ตั้ง env `YK_DISCORD_INBOX_USER=yk1` ใน start_mvp.bat; default ในโค้ด
+  ยังเป็น "oh" — env ฝั่ง server เป็นตัวชี้ขาด) ห้ามผูกกับคนเปิดหน้า เพราะ admin
+  มี 4 คน (yk1/oh/joe/miw)
 - dedupe: watermark AppSetting `discord_inbox_last_id` (snowflake id ขยับทีละ
   ข้อความหลัง commit — พังกลางทางไม่สร้างซ้ำ); พังโชว์ผ่าน `discord_inbox_err`
   แถวเดียวกับ scan_err บน /todo
