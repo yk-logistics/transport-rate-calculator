@@ -4644,12 +4644,12 @@ def _create_sso_arrears(s: Session, pr: PayRun, created_by: str = "") -> int:
     return made
 
 
-@app.get("/payroll/sso", response_class=HTMLResponse)
-def payroll_sso_page(request: Request, month: str = ""):
-    """สรุปส่งประกันสังคมต่อ "งวดจ่ายเดือนเดียวกัน": รายได้รวม (gross) + เงินสมทบ
-    ที่หักไว้จริง (PayRunItem.social_security) เฉพาะรอบ finalized/paid — draft ยัง
-    ไม่จ่ายจริงไม่เข้าตาราง. read-only ต่อรอบเดิมทั้งหมด (ห้าม recompute รอบปิดแล้ว);
-    ปุ่ม "ไม่หัก" แก้ custom_terms.ss_exempt มีผลเฉพาะรอบที่ยังไม่ปิด."""
+def _sso_collect(month: str) -> dict:
+    """รวมข้อมูลงวดจ่ายเดือนเดียว (read-only) — ใช้ร่วมทั้งหน้าเว็บและ export Excel.
+
+    ต่อรายการ: เงินจ่ายเต็ม = gross − น้ำมันเหมา (กติกาเดียวกับหน้า tax/ไฟล์หมิว),
+    ฐานค่าจ้าง สปส. = เงินสมทบที่หักจริง ÷ อัตรา (adjust > run > employee > 5%) —
+    คำนวณย้อนจากยอดหักจริงเพื่อให้ ฐาน×อัตรา = ยอดนำส่งเป๊ะ, รายได้อื่นๆ = เต็ม − ฐาน."""
     with Session(engine) as s:
         runs_all = s.exec(select(PayRun)).all()
         month_choices = sorted({_sso_pay_month(r) for r in runs_all
@@ -4667,11 +4667,17 @@ def payroll_sso_page(request: Request, month: str = ""):
         run_by_id = {r.id: r for r in included}
         items = s.exec(select(PayRunItem).where(
             PayRunItem.pay_run_id.in_(list(run_by_id.keys())))).all() if run_by_id else []
-        emp_ids = {i.employee_id for i in items}
         # เงินคืน: คนที่ตั้งไม่หักแล้ว แต่รอบปิดแล้ว (ทุกงวด) เคยหักไว้ — scan ทุกคน
         all_emps = s.exec(select(Employee)).all()
         emp_by_id = {e.id: e for e in all_emps}
         exempt_ids = {e.id for e in all_emps if _sso_exempt_now(e)}
+        # อัตรา สปส. override รายคนของรอบในงวด (ถ้ามี)
+        adj_rate: dict = {}
+        if run_by_id:
+            for a in s.exec(select(models.PayRunAdjust).where(
+                    models.PayRunAdjust.pay_run_id.in_(list(run_by_id.keys())))).all():
+                if a.ss_rate_override is not None:
+                    adj_rate[(a.pay_run_id, a.employee_id)] = a.ss_rate_override
         refund_items = []
         if exempt_ids:
             closed_run_ids = [r.id for r in runs_all if r.status in ("finalized", "paid")]
@@ -4695,19 +4701,42 @@ def payroll_sso_page(request: Request, month: str = ""):
     for i in items:
         e = emp_by_id.get(i.employee_id)
         r = run_by_id[i.pay_run_id]
+        ss = round(i.social_security or 0.0, 2)
+        rate = (adj_rate.get((i.pay_run_id, i.employee_id))
+                or (r.ss_rate if r.ss_rate is not None else None)
+                or (e.social_security_rate if e and e.social_security_rate else None)
+                or 0.05)
+        base = round(ss / rate, 2) if ss > 0 else 0.0
+        full = round((i.gross_total or 0.0) - (i.fuel_cost_self or 0.0), 2)
         rows.append({
             "emp_id": i.employee_id,
             "code": e.code if e else "",
             "name": e.full_name if e else f"(emp {i.employee_id})",
             "site": r.site_code, "tag": r.pay_cycle_tag, "pay_mode": i.pay_mode,
-            "gross": round(i.gross_total or 0.0, 2),
-            "ss": round(i.social_security or 0.0, 2),
+            "full": full, "base": base, "other": round(full - base, 2),
+            "ss": ss, "rate": rate,
             "net": round(i.net_pay or 0.0, 2),
             "exempt_now": i.employee_id in exempt_ids,
             "run_id": i.pay_run_id,
         })
     # เรียงแบบหน้าโอนเงิน (โอสั่ง 14ก.ค.): ไล่ทีละไซท์ → ในไซท์ net มาก→น้อย
     rows.sort(key=lambda r: (r["site"], -r["net"], r["name"]))
+    return {"month": month, "month_choices": month_choices, "included": included,
+            "pending": pending, "rows": rows, "emp_by_id": emp_by_id,
+            "arrear_by_key": arrear_by_key, "refund_items": refund_items,
+            "run_all_by_id": run_all_by_id}
+
+
+@app.get("/payroll/sso", response_class=HTMLResponse)
+def payroll_sso_page(request: Request, month: str = ""):
+    """สรุปส่งประกันสังคมต่อ "งวดจ่ายเดือนเดียวกัน" เฉพาะรอบ finalized/paid — draft
+    ยังไม่จ่ายจริงไม่เข้าตาราง. read-only ต่อรอบเดิมทั้งหมด (ห้าม recompute รอบปิดแล้ว);
+    ปุ่ม "ไม่หัก" แก้ custom_terms.ss_exempt มีผลเฉพาะรอบที่ยังไม่ปิด."""
+    data = _sso_collect(month)
+    month, month_choices = data["month"], data["month_choices"]
+    rows, emp_by_id = data["rows"], data["emp_by_id"]
+    arrear_by_key, run_all_by_id = data["arrear_by_key"], data["run_all_by_id"]
+    included, pending, refund_items = data["included"], data["pending"], data["refund_items"]
     # คนรายได้ติดลบ = หัก สปส. จริงไม่ได้ → โชว์แยกให้หมิวตั้งหักรอบถัดไป
     neg_rows = []
     for r in rows:
@@ -4716,7 +4745,9 @@ def payroll_sso_page(request: Request, month: str = ""):
         carry = round(min(r["ss"], -r["net"]), 2) if r["ss"] > 0 else 0.0
         neg_rows.append({**r, "carry": carry,
                          "arrear_status": arrear_by_key.get((r["emp_id"], r["run_id"]), "")})
-    total = {"gross": round(sum(r["gross"] for r in rows), 2),
+    total = {"full": round(sum(r["full"] for r in rows), 2),
+             "base": round(sum(r["base"] for r in rows), 2),
+             "other": round(sum(r["other"] for r in rows), 2),
              "ss": round(sum(r["ss"] for r in rows), 2),
              "n": len(rows), "n_deducted": sum(1 for r in rows if r["ss"] > 0)}
 
@@ -4756,6 +4787,95 @@ async def payroll_sso_create_arrears(request: Request, month: str = Form("")):
             s.commit()
     dest = f"/payroll/sso?month={month}" if month else "/payroll/sso"
     return RedirectResponse(dest, status_code=303)
+
+
+_sso_meta_cache: Optional[tuple] = None
+
+
+def _sso_meta_index() -> tuple:
+    """ทะเบียนคนจากไฟล์ สปส. ของหมิว (sso_meta_data.py — generate ด้วย
+    tools/build_sso_meta.py) → (by_id_card, by_fullname). ไม่มีไฟล์ = dict ว่าง."""
+    global _sso_meta_cache
+    if _sso_meta_cache is None:
+        try:
+            from sso_meta_data import PEOPLE
+        except ImportError:
+            PEOPLE = []
+        by_id: dict = {}
+        by_name: dict = {}
+        for idc, prefix, first, last, ptype in PEOPLE:
+            rec = {"prefix": prefix, "first": first, "last": last, "type": ptype}
+            if idc:
+                by_id[idc] = rec
+            key = (first + last).replace(" ", "")
+            if key:
+                by_name[key] = rec
+        _sso_meta_cache = (by_id, by_name)
+    return _sso_meta_cache
+
+
+@app.get("/payroll/sso/export.xlsx")
+def payroll_sso_export(request: Request, month: str = ""):
+    """Excel คอลัมน์ตรงกับไฟล์ "เงินสมทบประกันสังคม รวม" ของหมิว — วางลงแท็บเดือนได้เลย.
+
+    รวมต่อคน (คนวิ่งหลายไซท์ในงวดเดียว = แถวเดียว บวกยอดให้แล้ว); คำนำหน้า/ชื่อ-สกุล/
+    ประเภท match จากทะเบียนของหมิวด้วยเลขบัตรก่อน แล้วค่อยชื่อ; คนที่ไม่ถูกหัก สปส.
+    แยกท้ายไฟล์ให้เช็คว่าตั้งใจหรือตกหล่น. read-only ล้วน."""
+    import io
+
+    from openpyxl import Workbook
+
+    data = _sso_collect(month)
+    by_id, by_name = _sso_meta_index()
+    merged: dict = {}
+    for r in data["rows"]:
+        m = merged.setdefault(r["emp_id"], {"emp_id": r["emp_id"], "name": r["name"],
+                                            "full": 0.0, "base": 0.0, "ss": 0.0})
+        m["full"] = round(m["full"] + r["full"], 2)
+        m["base"] = round(m["base"] + r["base"], 2)
+        m["ss"] = round(m["ss"] + r["ss"], 2)
+    out = []
+    for m in merged.values():
+        e = data["emp_by_id"].get(m["emp_id"])
+        idc = (e.id_card or "").replace("-", "").replace(" ", "") if e else ""
+        meta = by_id.get(idc) if idc else None
+        if meta is None:
+            meta = by_name.get(((e.full_name if e else m["name"]) or "").replace(" ", ""))
+        if meta:
+            prefix, first, last, ptype = meta["prefix"], meta["first"], meta["last"], meta["type"]
+        else:
+            name_parts = ((e.full_name if e else m["name"]) or "").split(None, 1)
+            prefix, ptype = "", ""
+            first = name_parts[0] if name_parts else ""
+            last = name_parts[1] if len(name_parts) > 1 else ""
+        out.append({"idc": idc, "prefix": prefix, "first": first, "last": last,
+                    "full": m["full"], "base": m["base"],
+                    "other": round(m["full"] - m["base"], 2), "ss": m["ss"],
+                    "rate": round(m["ss"] / m["base"], 4) if m["base"] else 0.05,
+                    "type": ptype})
+    # คนถูกหักขึ้นก่อน (เรียงตามประเภท→ชื่อ ให้ก็อปเป็นก้อน) แล้วค่อยคนที่ไม่ถูกหัก
+    out.sort(key=lambda r: (0 if r["ss"] > 0 else 1, r["type"], r["first"], r["last"]))
+    wb = Workbook()
+    ws = wb.active
+    ws.title = data["month"] or "sso"
+    ws.append(["เลขประจำตัวประชาชน", "คำนำหน้าชื่อ", "ชื่อผู้ประกันตน",
+               "นามสกุลผู้ประกันตน", "เงินจ่ายเต็ม", "โบนัส", "ค่าจ้าง",
+               "รายได้อื่นๆ", "จำนวนเงินสมทบ", "อัตรา", "ประเภท"])
+    zero_marked = False
+    for r in out:
+        if r["ss"] <= 0 and not zero_marked:
+            ws.append([])
+            ws.append([None, None, "— ไม่ถูกหัก สปส. (เช็คว่าตั้งใจหรือตกหล่น) —"])
+            zero_marked = True
+        ws.append([r["idc"], r["prefix"], r["first"], r["last"], r["full"], None,
+                   r["base"], r["other"], r["ss"], r["rate"], r["type"]])
+    buf = io.BytesIO()
+    wb.save(buf)
+    fname = f"sso_{data['month'] or 'all'}.xlsx"
+    return Response(
+        buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 
 @app.post("/payroll/sso/exempt")

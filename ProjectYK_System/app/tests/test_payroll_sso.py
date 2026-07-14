@@ -76,7 +76,7 @@ def _seed():
                          net_pay=19000.0))
         s.add(PayRunItem(pay_run_id=runs["bigc05"].id, employee_id=d2.id, site_code="BIGC",
                          pay_mode="bigc_monthly", gross_total=18777.88, social_security=450.0,
-                         net_pay=18000.0))
+                         fuel_cost_self=2000.0, net_pay=18000.0))
         s.add(PayRunItem(pay_run_id=runs["ayu06"].id, employee_id=d3.id, site_code="AYU",
                          pay_mode="ayu_mao", gross_total=55555.0, social_security=0.0,
                          net_pay=55555.0))
@@ -115,8 +115,8 @@ def test_month_groups_sites_with_bigc_shift(c_admin):
     assert r.status_code == 200
     html = r.text
     assert "สมชาย ลานตู้" in html and "31,234.56" in html and "436.00" in html
-    # BIGC งวดจ่ายเดือน 6 = tag 2026-05
-    assert "สมปอง บิ๊กซี" in html and "18,777.88" in html
+    # BIGC งวดจ่ายเดือน 6 = tag 2026-05; เงินจ่ายเต็ม = gross − น้ำมันเหมา (18,777.88 − 2,000)
+    assert "สมปอง บิ๊กซี" in html and "16,777.88" in html
     # AYU ยัง draft — คนใน draft ห้ามเข้าตารางส่ง (55,555 ต้องไม่โผล่)
     assert "55,555.00" not in html
     # ยอดรวมเงินสมทบลูกจ้างของงวด: 436+450 (LCB) + 450 (BIGC) + 436+450 (คนติดลบ) = 2,222
@@ -245,6 +245,68 @@ def test_finalize_auto_creates_arrears(c_admin):
         assert s.get(PayRun, rid).status == "finalized"
         made = [a for a in _arrears(s) if a.source_run_id == rid]
         assert len(made) == 1 and made[0].amount == -50.0
+
+
+def test_page_shows_sso_base_and_other_income(c_admin):
+    # ฐาน = สปส./อัตรา (436/0.05 = 8,720) · รายได้อื่นๆ = เงินจ่ายเต็ม − ฐาน
+    html = c_admin.get(URL).text
+    assert "8,720.00" in html          # ฐานของสมชาย
+    assert "22,514.56" in html         # 31,234.56 − 8,720
+    assert "9,000.00" in html          # ฐานของสมปอง (450/0.05)
+    assert "7,777.88" in html          # 16,777.88 − 9,000
+
+
+def _export_ws(c):
+    import io
+    import openpyxl
+    r = c.get("/payroll/sso/export.xlsx?month=2026-06")
+    assert r.status_code == 200
+    return openpyxl.load_workbook(io.BytesIO(r.content)).active
+
+
+def test_export_matches_miw_layout(c_admin):
+    ws = _export_ws(c_admin)
+    header = [c.value for c in ws[1][:11]]
+    assert header == ["เลขประจำตัวประชาชน", "คำนำหน้าชื่อ", "ชื่อผู้ประกันตน",
+                      "นามสกุลผู้ประกันตน", "เงินจ่ายเต็ม", "โบนัส", "ค่าจ้าง",
+                      "รายได้อื่นๆ", "จำนวนเงินสมทบ", "อัตรา", "ประเภท"]
+    rows = {}
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        if row[2]:
+            rows[f"{row[2]} {row[3] or ''}".strip()] = row
+    # ชื่อไม่อยู่ในทะเบียนหมิว → แยกชื่อ-สกุลจาก full_name
+    r1 = rows["สมชาย ลานตู้"]
+    assert r1[4] == 31234.56 and r1[6] == 8720.0 and r1[7] == 22514.56 and r1[8] == 436.0
+    r2 = rows["สมปอง บิ๊กซี"]
+    assert r2[4] == 16777.88 and r2[6] == 9000.0 and r2[8] == 450.0
+
+
+def test_export_meta_match_and_zero_ss_listed():
+    _seed()
+    with Session(engine) as s:
+        # ชื่อตรงทะเบียนหมิว (จริง) → ได้คำนำหน้า+ประเภทจากทะเบียน
+        d8 = Employee(code="D108", full_name="ธัชชนพล ไชยจำ", home_site_code="AYU", role="driver")
+        # แบบป้าไก่: อยู่ในรอบแต่ไม่ถูกหัก สปส. → ต้องโผล่ท้ายไฟล์ให้หมิวเห็น
+        d9 = Employee(code="D109", full_name="ประเสริฐ ทดสอบไม่หัก", home_site_code="LCB", role="office")
+        s.add(d8); s.add(d9); s.commit(); s.refresh(d8); s.refresh(d9)
+        run = s.exec(select(PayRun).where(PayRun.site_code == "LCB",
+                                          PayRun.pay_cycle_tag == "2026-06")).first()
+        s.add(PayRunItem(pay_run_id=run.id, employee_id=d8.id, site_code="LCB",
+                         pay_mode="lcb_mao", gross_total=12798.0, social_security=450.0,
+                         net_pay=12000.0))
+        s.add(PayRunItem(pay_run_id=run.id, employee_id=d9.id, site_code="LCB",
+                         pay_mode="office_monthly", gross_total=7600.0, social_security=0.0,
+                         net_pay=7600.0))
+        s.commit()
+    with TestClient(appmod.app) as c:
+        c.post("/login", data={"username": "miw1", "password": "pw12345678"})
+        ws = _export_ws(c)
+    vals = list(ws.iter_rows(min_row=2, values_only=True))
+    thach = [r for r in vals if r[2] == "ธัชชนพล"][0]
+    assert thach[1] == "นาย" and thach[3] == "ไชยจำ" and thach[10] == "คลังสินค้า"
+    zero = [r for r in vals if r[2] == "ประเสริฐ"][0]
+    assert zero[8] == 0
+    parts.invalidate_cache()
 
 
 def test_office_denied_and_login_required():

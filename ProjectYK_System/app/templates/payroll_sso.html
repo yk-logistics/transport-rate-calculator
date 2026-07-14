@@ -20,6 +20,8 @@
     </select>
   </label>
   <button class="bg-indigo-600 hover:bg-indigo-700 text-white rounded px-4 py-1.5">ดูงวดนี้</button>
+  <a href="/payroll/sso/export.xlsx?month={{ month }}"
+     class="bg-emerald-600 hover:bg-emerald-700 text-white rounded px-4 py-1.5">⬇️ Excel (แบบไฟล์หมิว)</a>
   <span class="text-xs text-slate-500">
     รอบที่รวมในงวดนี้:
     {% for r in included %}<span class="px-1.5 py-0.5 bg-slate-100 rounded mr-1">{{ r.site_code }} {{ r.pay_cycle_tag }} ({{ r.status }})</span>{% else %}—{% endfor %}
@@ -33,8 +35,8 @@
     <div class="text-2xl font-bold font-mono">{{ total.n }}</div>
   </div>
   <div class="bg-white rounded-xl shadow p-4">
-    <div class="text-sm text-slate-500">รายได้รวมทั้งงวด</div>
-    <div class="text-2xl font-bold font-mono text-sky-700">{{ "{:,.2f}".format(total.gross) }}</div>
+    <div class="text-sm text-slate-500">เงินจ่ายเต็มทั้งงวด (หลังหักน้ำมันเหมา)</div>
+    <div class="text-2xl font-bold font-mono text-sky-700">{{ "{:,.2f}".format(total.full) }}</div>
   </div>
   <div class="bg-white rounded-xl shadow p-4">
     <div class="text-sm text-slate-500">เงินสมทบลูกจ้างที่หักไว้ (ฝั่งพนักงาน)</div>
@@ -49,7 +51,9 @@
         <th class="text-left px-3 py-2">ไซท์ · รอบ</th>
         <th class="text-left px-3 py-2">คนขับ/พนักงาน</th>
         <th class="text-left px-3 py-2">โหมด</th>
-        <th class="text-right px-3 py-2">รายได้รวม</th>
+        <th class="text-right px-3 py-2">เงินจ่ายเต็ม</th>
+        <th class="text-right px-3 py-2">ค่าจ้าง (ฐาน สปส.)</th>
+        <th class="text-right px-3 py-2">รายได้อื่นๆ</th>
         <th class="text-right px-3 py-2">หัก สปส.</th>
         <th class="text-right px-3 py-2">จ่ายจริง (net)</th>
         <th class="text-center px-3 py-2">สถานะหัก</th>
@@ -61,7 +65,9 @@
         <td class="px-3 py-2 text-slate-500">{{ r.site }} <span class="text-xs">{{ r.tag }}</span></td>
         <td class="px-3 py-2">{{ r.name }} <span class="text-xs text-slate-400">({{ r.code }})</span></td>
         <td class="px-3 py-2 text-slate-500 text-xs">{{ r.pay_mode }}</td>
-        <td class="px-3 py-2 text-right font-mono">{{ "{:,.2f}".format(r.gross) }}</td>
+        <td class="px-3 py-2 text-right font-mono">{{ "{:,.2f}".format(r.full) }}</td>
+        <td class="px-3 py-2 text-right font-mono">{{ "{:,.2f}".format(r.base) }}</td>
+        <td class="px-3 py-2 text-right font-mono text-slate-500">{{ "{:,.2f}".format(r.other) }}</td>
         <td class="px-3 py-2 text-right font-mono {% if r.ss > 0 %}text-rose-600{% else %}text-slate-400{% endif %}">{{ "{:,.2f}".format(r.ss) }}</td>
         <td class="px-3 py-2 text-right font-mono {% if r.net < 0 %}text-rose-700 font-bold{% endif %}">{{ "{:,.2f}".format(r.net) }}</td>
         <td class="px-3 py-2 text-center">
@@ -82,20 +88,27 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="7" class="px-3 py-6 text-center text-slate-400">งวดนี้ยังไม่มีรอบที่ปิดแล้ว</td></tr>
+      <tr><td colspan="9" class="px-3 py-6 text-center text-slate-400">งวดนี้ยังไม่มีรอบที่ปิดแล้ว</td></tr>
       {% endfor %}
     </tbody>
     {% if rows %}
     <tfoot class="bg-slate-50 border-t-2 border-slate-300 font-semibold">
       <tr>
         <td class="px-3 py-2" colspan="3">รวม {{ total.n }} คน</td>
-        <td class="px-3 py-2 text-right font-mono">{{ "{:,.2f}".format(total.gross) }}</td>
+        <td class="px-3 py-2 text-right font-mono">{{ "{:,.2f}".format(total.full) }}</td>
+        <td class="px-3 py-2 text-right font-mono">{{ "{:,.2f}".format(total.base) }}</td>
+        <td class="px-3 py-2 text-right font-mono">{{ "{:,.2f}".format(total.other) }}</td>
         <td class="px-3 py-2 text-right font-mono">{{ "{:,.2f}".format(total.ss) }}</td>
         <td colspan="2"></td>
       </tr>
     </tfoot>
     {% endif %}
   </table>
+</div>
+<div class="text-xs text-slate-400 -mt-4 mb-6">
+  เงินจ่ายเต็ม = รายได้รวมหลังหักน้ำมันเหมา (กติกาเดียวกับไฟล์หมิว) ·
+  ค่าจ้าง (ฐาน สปส.) คำนวณย้อนจากยอดที่หักจริง ÷ อัตรา — ฐาน×อัตรา = ยอดนำส่งเป๊ะเสมอ ·
+  รายได้อื่นๆ = เงินจ่ายเต็ม − ฐาน
 </div>
 
 <h2 class="text-lg font-bold mb-2">🔻 รายได้ติดลบ — หัก สปส. จริงไม่ได้ (ต้องหักย้อนรอบถัดไป)</h2>
