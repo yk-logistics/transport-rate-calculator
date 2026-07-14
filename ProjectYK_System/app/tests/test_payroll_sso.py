@@ -267,9 +267,22 @@ def _export_ws(c):
 def test_export_matches_miw_layout(c_admin):
     ws = _export_ws(c_admin)
     header = [c.value for c in ws[1][:11]]
+    # J1 ว่างเหมือนไฟล์หมิว (ช่องอัตราไม่มีหัว)
     assert header == ["เลขประจำตัวประชาชน", "คำนำหน้าชื่อ", "ชื่อผู้ประกันตน",
                       "นามสกุลผู้ประกันตน", "เงินจ่ายเต็ม", "โบนัส", "ค่าจ้าง",
-                      "รายได้อื่นๆ", "จำนวนเงินสมทบ", "อัตรา", "ประเภท"]
+                      "รายได้อื่นๆ", "จำนวนเงินสมทบ", None, "ประเภท"]
+    # หน้าตาเหมือนชีท พ.ค. ของหมิว: ฟอนต์หัว CordiaUPC 18 หนา, คอลัมน์กว้างตาม,
+    # เงินจ่ายเต็ม/โบนัส/รายได้อื่นๆ พื้นฟ้าอ่อน, ตัวเลขรูปแบบบัญชี, อัตราเป็น %
+    h1 = ws.cell(row=1, column=1)
+    assert h1.font.name == "CordiaUPC" and h1.font.bold and h1.font.size == 18
+    assert round(ws.column_dimensions["A"].width, 1) == 19.1
+    assert ws.row_dimensions[1].height == 27
+    e2 = ws.cell(row=2, column=5)
+    assert e2.fill.patternType == "solid"
+    assert e2.font.name == "Cordia New" and e2.font.size == 18
+    assert "#,##0.00" in e2.number_format
+    assert ws.cell(row=2, column=10).number_format == "0.00%"
+    assert ws.cell(row=2, column=1).number_format == "0"
     rows = {}
     for row in ws.iter_rows(min_row=2, values_only=True):
         if row[2]:

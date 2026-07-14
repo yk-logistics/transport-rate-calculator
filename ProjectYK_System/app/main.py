@@ -4855,20 +4855,78 @@ def payroll_sso_export(request: Request, month: str = ""):
                     "type": ptype})
     # คนถูกหักขึ้นก่อน (เรียงตามประเภท→ชื่อ ให้ก็อปเป็นก้อน) แล้วค่อยคนที่ไม่ถูกหัก
     out.sort(key=lambda r: (0 if r["ss"] > 0 else 1, r["type"], r["first"], r["last"]))
+    # ---- หน้าตาเหมือนชีท พ.ค. ในไฟล์หมิว (โอสั่ง 14ก.ค. เย็น): ฟอนต์ Cordia 18,
+    # หัวหนา+ขอบ+แถวสูง 27, คอลัมน์ เงินจ่ายเต็ม/โบนัส/รายได้อื่นๆ พื้นฟ้าอ่อน
+    # (theme accent5 tint 0.8 — ค่าเดียวกับในไฟล์จริง), เงินรูปแบบบัญชี, อัตราเป็น %
+    from openpyxl.styles import Alignment, Border, Color, Font, PatternFill, Side
+
+    fnt_head = Font(name="CordiaUPC", size=18, bold=True)
+    fnt_data = Font(name="Cordia New", size=18)
+    fnt_upc = Font(name="CordiaUPC", size=18)
+    fnt_type = Font(name="CordiaUPC", size=14)
+    blue = PatternFill("solid", fgColor=Color(theme=8, tint=0.8))
+    thin = Side(style="thin")
+    box = Border(left=thin, right=thin, top=thin, bottom=thin)
+    center = Alignment(horizontal="center")
+    left = Alignment(horizontal="left")
+    ACC = '_(* #,##0.00_);_(* \\(#,##0.00\\);_(* "-"??_);_(@_)'
+    WIDTHS = {"A": 19.1, "B": 11.4, "C": 20.6, "D": 20.6, "E": 20.6, "F": 20.6,
+              "G": 17.9, "H": 17.9, "I": 17.9, "J": 16.0, "K": 19.4}
+    BLUE_COLS = {5, 6, 8}          # เงินจ่ายเต็ม / โบนัส / รายได้อื่นๆ
+    MONEY_COLS = {5, 6, 7, 8, 9}
+
     wb = Workbook()
     ws = wb.active
     ws.title = data["month"] or "sso"
+    for col, w in WIDTHS.items():
+        ws.column_dimensions[col].width = w
     ws.append(["เลขประจำตัวประชาชน", "คำนำหน้าชื่อ", "ชื่อผู้ประกันตน",
                "นามสกุลผู้ประกันตน", "เงินจ่ายเต็ม", "โบนัส", "ค่าจ้าง",
-               "รายได้อื่นๆ", "จำนวนเงินสมทบ", "อัตรา", "ประเภท"])
+               "รายได้อื่นๆ", "จำนวนเงินสมทบ", None, "ประเภท"])
+    ws.row_dimensions[1].height = 27
+    for col in range(1, 12):
+        c = ws.cell(row=1, column=col)
+        if col == 10:
+            continue
+        c.font = fnt_head
+        c.border = box
+        c.alignment = left if col in (3, 4, 5, 6) else center
+        if col in BLUE_COLS:
+            c.fill = blue
+
+    def _styled_row(vals) -> None:
+        ws.append(vals)
+        row = ws.max_row
+        for col in range(1, 12):
+            c = ws.cell(row=row, column=col)
+            c.font = fnt_data
+            if col == 1:
+                c.number_format = "0"
+                c.alignment = left
+            elif col == 2:
+                c.font = fnt_upc
+            elif col in MONEY_COLS:
+                c.number_format = ACC
+                if col in (7, 8, 9):
+                    c.alignment = center
+            elif col == 10:
+                c.font = fnt_upc
+                c.number_format = "0.00%"
+            elif col == 11:
+                c.font = fnt_type
+                c.alignment = center
+            if col in BLUE_COLS:
+                c.fill = blue
+
     zero_marked = False
     for r in out:
         if r["ss"] <= 0 and not zero_marked:
             ws.append([])
             ws.append([None, None, "— ไม่ถูกหัก สปส. (เช็คว่าตั้งใจหรือตกหล่น) —"])
+            ws.cell(row=ws.max_row, column=3).font = fnt_head
             zero_marked = True
-        ws.append([r["idc"], r["prefix"], r["first"], r["last"], r["full"], None,
-                   r["base"], r["other"], r["ss"], r["rate"], r["type"]])
+        _styled_row([r["idc"], r["prefix"], r["first"], r["last"], r["full"], None,
+                     r["base"], r["other"], r["ss"], r["rate"], r["type"]])
     buf = io.BytesIO()
     wb.save(buf)
     fname = f"sso_{data['month'] or 'all'}.xlsx"
