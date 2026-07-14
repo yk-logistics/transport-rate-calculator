@@ -23,6 +23,7 @@
 - [LCB CY KB กติกา](project-lcb-cy-kb-fulls.md) — kb=5000−คีย์ ส่วนต่างเข้าบริษัท · [BigC มิ.ย. deposit/ภาษี](project-bigc-jun-deposit-tax-fuel.md) — ภาษีรอโอ
 
 ## งานเสร็จล่าสุด (ก.ค.)
+- [🏥 หน้า สปส. /payroll/sso](project-payroll-sso-page.md) — 14ก.ค. ให้หมิว: งวดจ่ายเดือน (BIGC เลื่อน1) + toggle ss_exempt (มีผลรอบหน้า) + ตารางรอโอนคืน; **ค้าง: วิธีบันทึกการคืน รอโอเคาะ**; 🔴 AYU ก.ค. 432 แถวไม่ผูก driver_id ต้อง link ก่อน payroll 25ก.ค.
 - [💬 Discord inbox→/todo](project-discord-inbox-to-todo.md) — 13ก.ค.: ช่อง 📌01-inbox โยนแล้วเข้า /todo เอง+รูป (sync ก่อน render); ต้องมี env YK_DISCORD_TOKEN(_FILE); Message Content Intent เปิดแล้ว
 - [👤 บัญชีโอ = yk1](user-oh-app-account-yk1.md) — โอล็อกอิน yk1 ไม่ใช่ "oh"; ของส่วนตัวโอผูก yk1 เสมอ
 - [📊 CFO เทียบไซท์: BIGC anchor เลื่อน 1 เดือน](project-cfo-compare-bigc-anchor-shift.md) — 13ก.ค. โอยืนยัน "เดือน 6"=วิ่ง พ.ค.; _compare_cycle_period + link_month; single-site BIGC ไม่เลื่อน

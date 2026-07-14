@@ -1,6 +1,6 @@
 ---
 name: project-ayu-jul-import-ready
-description: "AYU รอบ 2026-07 ✅ import แล้ว 6ก.ค. (314 งาน+60 น้ำมัน จากชีทจริง) — กติกา: แก้ที่ชีทจริงเท่านั้น แล้ว re-import --wipe-prior เพิ่มได้; ห้าม wipe ถ้าทีมเริ่มแก้ grid"
+description: "AYU รอบ 2026-07 ✅ refresh ล่าสุด 10ก.ค. (432 งาน+92 น้ำมัน ถึง 11/7) — กติกา: แก้ที่ชีทจริงเท่านั้น แล้ว re-import --wipe-prior เพิ่มได้; ห้าม wipe ถ้าทีมเริ่มแก้ grid"
 metadata: 
   node_type: memory
   type: project
@@ -23,3 +23,7 @@ Preflight 4 ก.ค. 2026 (read-only ทั้งหมด — ยังไม�
 - ผล: **314 งาน + 60 น้ำมัน** (ค่าขนส่ง 134,495.65 / ค่าเที่ยว 70,510.50) — verify: source rows=314 เป๊ะ, AYU 841→1,155, BIGC/LCB นิ่ง, fuel 1667→1727
 - ไฟล์บน server: `YK_MVP/tools/` (ayu_gsheet.xlsx + import 2 ตัว + `_run_ayu_import.ps1` — env ตั้งในไฟล์ กัน gotcha env ข้าม ssh)
 - **วิธี import เพิ่มรอบหน้า:** export ชีทจริงใหม่ → scp ทับ ayu_gsheet.xlsx → รัน `_run_ayu_import.ps1` (dry-run) ดูยอด → `-Apply` **พร้อม --wipe-prior** (แก้ ps1 เพิ่ม flag หรือรันมือ) — ปลอดภัยตราบใดที่ทีมแก้ข้อมูล AYU ที่ชีทจริงเท่านั้น ไม่แก้ grid
+
+**⚠️ พบ 14 ก.ค. (หน้า /income/drivers ใหม่):** แถว AYU รอบ ก.ค. บน server **ทั้ง 432 แถว driver_id = NULL** (ไม่ผูกพนักงานเลย — Σค่าเที่ยว 102,716.50 ตรง memory นี้เป๊ะ) → หน้า income โชว์เป็นกลุ่มชื่อดิบ ⚠️ "ยังไม่ผูกคนขับ"; **ก่อนทำ payroll AYU 25 ก.ค. ต้องผ่าน promote/link ก่อน** ไม่งั้น engine (_sum_trip_fees ใช้ driver_id) จะเห็นค่าเที่ยวเป็นศูนย์ทั้งไซท์ — รอบ มิ.ย. เคย link แล้วรูปแบบไหนให้ดู [[project-ayu-daily-import]]
+
+**✅ REFRESH รอบสอง 10 ก.ค. ~17:10 (Fable):** เช็คก่อนว่า server ยัง 314 แถวเดิมเป๊ะ (ไม่มีใครแก้ grid → wipe ปลอดภัย) → export ชีทจริง (modified 10ก.ค. 15:39) → dry-run local+server ตรงกัน → apply `--wipe-prior` → **432 งาน + 92 น้ำมัน ถึง 11/7 (รวมทั้งรอบสะสม: ค่าขนส่ง 194,010.65 / ค่าเที่ยว 102,716.50)**; verify: AYU +118/+59,515/+32,206, BIGC/LCB นิ่งทุกตัวเลข, fuel 1727→1759, app 303 ปกติ. gotcha เดิมยืนยัน: `-Apply` ของ ps1 ไม่มี --wipe-prior ต้องรันมือ

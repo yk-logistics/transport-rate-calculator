@@ -156,6 +156,7 @@
             <div class="border-t border-slate-100 my-1"></div>
             {% if can_see(request, "/payroll") %}<a href="/payroll" class="block px-4 py-2 hover:bg-slate-100">Payroll (เงินเดือน)</a>{% endif %}
             {% if can_see(request, "/income/drivers") %}<a href="/income/drivers" class="block px-4 py-2 hover:bg-slate-100">💰 รายได้คนขับ (สรุป/เฉลี่ย)</a>{% endif %}
+            {% if can_see(request, "/payroll") %}<a href="/payroll/sso" class="block px-4 py-2 hover:bg-slate-100 pl-8">🏥 ประกันสังคม (ส่ง สปส.)</a>{% endif %}
             <a href="/deposits" class="block px-4 py-2 hover:bg-slate-100">🔒 เงินประกันตน</a>
             <div class="border-t border-slate-100 my-1"></div>
             <a href="/rates" class="block px-4 py-2 hover:bg-slate-100">เรทราคา</a>

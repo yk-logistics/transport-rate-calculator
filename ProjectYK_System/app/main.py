@@ -4592,6 +4592,143 @@ def _detect_payrun_stale(s: Session, pr: "PayRun", items: list) -> dict:
     }
 
 
+# ---- สปส. รวมทุกไซท์ (โอสั่ง 14ก.ค. ให้หมิวใช้ยื่นเงินสมทบ) --------------------
+# literal path ต้องมาก่อน /payroll/{run_id} (dynamic) — gotcha เดียวกับ /quote/deal
+
+
+def _sso_pay_month(run: PayRun) -> str:
+    """เดือนงวดจ่ายของ run: LCB/AYU = tag ตรง ๆ; BIGC = tag+1 (tag คือเดือนวิ่ง
+    จ่ายจริงเดือนถัดไป — กติกาเดียวกับ _compare_cycle_period ที่โอยืนยัน 13ก.ค.)."""
+    try:
+        y, m = int(run.pay_cycle_tag[:4]), int(run.pay_cycle_tag[5:7])
+    except (ValueError, IndexError):
+        return ""
+    if run.site_code == "BIGC":
+        y, m = _shift_year_month(y, m, +1)
+    return f"{y:04d}-{m:02d}"
+
+
+def _sso_exempt_now(emp: Employee) -> bool:
+    from services.payroll import _parse_custom_terms
+    return _parse_custom_terms(emp.custom_terms or "").get("ss_exempt") is True
+
+
+@app.get("/payroll/sso", response_class=HTMLResponse)
+def payroll_sso_page(request: Request, month: str = ""):
+    """สรุปส่งประกันสังคมต่อ "งวดจ่ายเดือนเดียวกัน": รายได้รวม (gross) + เงินสมทบ
+    ที่หักไว้จริง (PayRunItem.social_security) เฉพาะรอบ finalized/paid — draft ยัง
+    ไม่จ่ายจริงไม่เข้าตาราง. read-only ต่อรอบเดิมทั้งหมด (ห้าม recompute รอบปิดแล้ว);
+    ปุ่ม "ไม่หัก" แก้ custom_terms.ss_exempt มีผลเฉพาะรอบที่ยังไม่ปิด."""
+    with Session(engine) as s:
+        runs_all = s.exec(select(PayRun)).all()
+        month_choices = sorted({_sso_pay_month(r) for r in runs_all
+                                if _sso_pay_month(r)}, reverse=True)[:12]
+        if month not in month_choices:
+            month = ""
+        if not month:
+            closed = sorted({_sso_pay_month(r) for r in runs_all
+                             if r.status in ("finalized", "paid") and _sso_pay_month(r)},
+                            reverse=True)
+            month = closed[0] if closed else (month_choices[0] if month_choices else "")
+        sel = [r for r in runs_all if _sso_pay_month(r) == month]
+        included = [r for r in sel if r.status in ("finalized", "paid")]
+        pending = [r for r in sel if r.status not in ("finalized", "paid")]
+        run_by_id = {r.id: r for r in included}
+        items = s.exec(select(PayRunItem).where(
+            PayRunItem.pay_run_id.in_(list(run_by_id.keys())))).all() if run_by_id else []
+        emp_ids = {i.employee_id for i in items}
+        # เงินคืน: คนที่ตั้งไม่หักแล้ว แต่รอบปิดแล้ว (ทุกงวด) เคยหักไว้ — scan ทุกคน
+        all_emps = s.exec(select(Employee)).all()
+        emp_by_id = {e.id: e for e in all_emps}
+        exempt_ids = {e.id for e in all_emps if _sso_exempt_now(e)}
+        refund_items = []
+        if exempt_ids:
+            closed_run_ids = [r.id for r in runs_all if r.status in ("finalized", "paid")]
+            if closed_run_ids:
+                refund_items = [
+                    i for i in s.exec(select(PayRunItem).where(
+                        PayRunItem.pay_run_id.in_(closed_run_ids),
+                        PayRunItem.employee_id.in_(list(exempt_ids)))).all()
+                    if (i.social_security or 0.0) > 0
+                ]
+        run_all_by_id = {r.id: r for r in runs_all}
+
+    rows = []
+    for i in items:
+        e = emp_by_id.get(i.employee_id)
+        r = run_by_id[i.pay_run_id]
+        rows.append({
+            "emp_id": i.employee_id,
+            "code": e.code if e else "",
+            "name": e.full_name if e else f"(emp {i.employee_id})",
+            "site": r.site_code, "tag": r.pay_cycle_tag, "pay_mode": i.pay_mode,
+            "gross": round(i.gross_total or 0.0, 2),
+            "ss": round(i.social_security or 0.0, 2),
+            "exempt_now": i.employee_id in exempt_ids,
+        })
+    rows.sort(key=lambda r: (r["site"], r["name"]))
+    total = {"gross": round(sum(r["gross"] for r in rows), 2),
+             "ss": round(sum(r["ss"] for r in rows), 2),
+             "n": len(rows), "n_deducted": sum(1 for r in rows if r["ss"] > 0)}
+
+    refunds: dict = {}
+    for i in refund_items:
+        rec = refunds.setdefault(i.employee_id, {
+            "name": emp_by_id[i.employee_id].full_name if emp_by_id.get(i.employee_id) else "",
+            "code": emp_by_id[i.employee_id].code if emp_by_id.get(i.employee_id) else "",
+            "total": 0.0, "parts": []})
+        r = run_all_by_id[i.pay_run_id]
+        amt = round(i.social_security or 0.0, 2)
+        rec["total"] = round(rec["total"] + amt, 2)
+        rec["parts"].append(f"{r.site_code} {r.pay_cycle_tag}: {amt:,.2f}")
+    refund_rows = sorted(refunds.values(), key=lambda x: -x["total"])
+
+    return templates.TemplateResponse(request, "payroll_sso.html", {
+        "request": request, "month": month, "month_choices": month_choices,
+        "rows": rows, "total": total, "pending": pending,
+        "included": sorted(included, key=lambda r: r.site_code),
+        "refund_rows": refund_rows,
+    })
+
+
+@app.post("/payroll/sso/exempt")
+async def payroll_sso_toggle_exempt(request: Request, emp_id: int = Form(...),
+                                    exempt: str = Form(...), month: str = Form("")):
+    """ตั้ง/ยกเลิก "ไม่หัก สปส." — merge เข้า custom_terms (JSON) ห้ามทับ key อื่น.
+    ถ้า custom_terms เดิมเป็นข้อความที่ไม่ใช่ JSON → ปฏิเสธ (กันทำลายข้อตกลงเดิม)."""
+    with Session(engine) as s:
+        emp = s.get(Employee, emp_id)
+        if emp is None:
+            return PlainTextResponse("ไม่พบพนักงาน", status_code=404)
+        raw = (emp.custom_terms or "").strip()
+        terms = None
+        if not raw:
+            terms = {}
+        else:
+            try:
+                obj = json.loads(raw)
+                terms = obj if isinstance(obj, dict) else None
+            except ValueError:
+                terms = None
+        if terms is None:
+            return PlainTextResponse(
+                "custom_terms ของคนนี้เป็นข้อความเดิมที่ไม่ใช่ JSON — แก้ที่หน้าพนักงานก่อน "
+                "(กันระบบเขียนทับข้อตกลงเดิม)", status_code=400)
+        old = terms.get("ss_exempt") is True
+        new = exempt == "1"
+        if new:
+            terms["ss_exempt"] = True
+        else:
+            terms.pop("ss_exempt", None)
+        audit_log(s, request, "employee", emp.id, "custom_terms.ss_exempt",
+                  old, new, note="หน้า สปส. /payroll/sso")
+        emp.custom_terms = json.dumps(terms, ensure_ascii=False) if terms else ""
+        s.add(emp)
+        s.commit()
+    dest = f"/payroll/sso?month={month}" if month else "/payroll/sso"
+    return RedirectResponse(dest, status_code=303)
+
+
 @app.get("/payroll/{run_id}", response_class=HTMLResponse)
 def payroll_detail(run_id: int, request: Request, err: str = ""):
     from sqlalchemy import func as sa_func

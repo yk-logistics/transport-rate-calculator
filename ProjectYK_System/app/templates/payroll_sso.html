@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}ประกันสังคม (ส่ง สปส.){% endblock %}
+{% block content %}
+<div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+  <h1 class="text-2xl font-bold">🏥 ประกันสังคม — สรุปยื่นเงินสมทบ</h1>
+  <div class="text-sm text-slate-500">ยอดจากรอบเงินเดือนที่ปิดแล้วเท่านั้น (ตัวเลขตรงกับสลิปจริง)</div>
+</div>
+
+<div class="bg-sky-50 border border-sky-200 text-sky-800 rounded p-3 mb-4 text-sm">
+  ℹ️ ปุ่ม "ตั้งไม่หัก" มีผลกับ<b>รอบที่ยังไม่ปิด</b>เท่านั้น — รอบที่ปิดไปแล้วตัวเลขไม่เปลี่ยน
+  (คนที่ตั้งไม่หักแต่เคยถูกหัก ดูตาราง "รอโอนคืน" ด้านล่าง แล้วโอนคืนเอง)
+</div>
+
+<form method="get" class="bg-white rounded-xl shadow p-4 mb-4 flex flex-wrap items-end gap-3 text-sm">
+  <label class="flex flex-col gap-1">งวดจ่ายเดือน
+    <select name="month" class="border rounded px-2 py-1.5">
+      {% for mc in month_choices %}
+      <option value="{{ mc }}" {% if month == mc %}selected{% endif %}>{{ mc }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button class="bg-indigo-600 hover:bg-indigo-700 text-white rounded px-4 py-1.5">ดูงวดนี้</button>
+  <span class="text-xs text-slate-500">
+    รอบที่รวมในงวดนี้:
+    {% for r in included %}<span class="px-1.5 py-0.5 bg-slate-100 rounded mr-1">{{ r.site_code }} {{ r.pay_cycle_tag }} ({{ r.status }})</span>{% else %}—{% endfor %}
+    {% if pending %}· ⏳ ยังไม่ปิด: {% for r in pending %}<span class="px-1.5 py-0.5 bg-amber-100 rounded mr-1">{{ r.site_code }} {{ r.pay_cycle_tag }}</span>{% endfor %}{% endif %}
+  </span>
+</form>
+
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+  <div class="bg-white rounded-xl shadow p-4">
+    <div class="text-sm text-slate-500">คนในงวด ({{ total.n }} คน · ถูกหัก {{ total.n_deducted }})</div>
+    <div class="text-2xl font-bold font-mono">{{ total.n }}</div>
+  </div>
+  <div class="bg-white rounded-xl shadow p-4">
+    <div class="text-sm text-slate-500">รายได้รวมทั้งงวด</div>
+    <div class="text-2xl font-bold font-mono text-sky-700">{{ "{:,.2f}".format(total.gross) }}</div>
+  </div>
+  <div class="bg-white rounded-xl shadow p-4">
+    <div class="text-sm text-slate-500">เงินสมทบลูกจ้างที่หักไว้ (ฝั่งพนักงาน)</div>
+    <div class="text-2xl font-bold font-mono text-emerald-700">{{ "{:,.2f}".format(total.ss) }}</div>
+  </div>
+</div>
+
+<div class="bg-white rounded-xl shadow overflow-x-auto mb-6">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-100 text-slate-600">
+      <tr>
+        <th class="text-left px-3 py-2">ไซท์ · รอบ</th>
+        <th class="text-left px-3 py-2">คนขับ/พนักงาน</th>
+        <th class="text-left px-3 py-2">โหมด</th>
+        <th class="text-right px-3 py-2">รายได้รวม</th>
+        <th class="text-right px-3 py-2">หัก สปส.</th>
+        <th class="text-center px-3 py-2">สถานะหัก</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr class="border-t {% if r.exempt_now %}bg-amber-50{% endif %}">
+        <td class="px-3 py-2 text-slate-500">{{ r.site }} <span class="text-xs">{{ r.tag }}</span></td>
+        <td class="px-3 py-2">{{ r.name }} <span class="text-xs text-slate-400">({{ r.code }})</span></td>
+        <td class="px-3 py-2 text-slate-500 text-xs">{{ r.pay_mode }}</td>
+        <td class="px-3 py-2 text-right font-mono">{{ "{:,.2f}".format(r.gross) }}</td>
+        <td class="px-3 py-2 text-right font-mono {% if r.ss > 0 %}text-rose-600{% else %}text-slate-400{% endif %}">{{ "{:,.2f}".format(r.ss) }}</td>
+        <td class="px-3 py-2 text-center">
+          <form method="post" action="/payroll/sso/exempt" class="inline">
+            <input type="hidden" name="emp_id" value="{{ r.emp_id }}">
+            <input type="hidden" name="month" value="{{ month }}">
+            {% if r.exempt_now %}
+            <span class="text-xs px-1.5 py-0.5 rounded bg-amber-200 text-amber-900">ตั้งไม่หักอยู่</span>
+            <input type="hidden" name="exempt" value="0">
+            <button class="text-xs text-sky-600 hover:underline ml-1"
+                    onclick="return confirm('กลับมาหัก สปส. ของ {{ r.name }} ตั้งแต่รอบถัดไป?')">กลับมาหัก</button>
+            {% else %}
+            <input type="hidden" name="exempt" value="1">
+            <button class="text-xs text-rose-600 hover:underline"
+                    onclick="return confirm('ตั้ง {{ r.name }} เป็นไม่หัก สปส. ตั้งแต่รอบถัดไป? (รอบที่ปิดแล้วไม่เปลี่ยน)')">ตั้งไม่หัก</button>
+            {% endif %}
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="px-3 py-6 text-center text-slate-400">งวดนี้ยังไม่มีรอบที่ปิดแล้ว</td></tr>
+      {% endfor %}
+    </tbody>
+    {% if rows %}
+    <tfoot class="bg-slate-50 border-t-2 border-slate-300 font-semibold">
+      <tr>
+        <td class="px-3 py-2" colspan="3">รวม {{ total.n }} คน</td>
+        <td class="px-3 py-2 text-right font-mono">{{ "{:,.2f}".format(total.gross) }}</td>
+        <td class="px-3 py-2 text-right font-mono">{{ "{:,.2f}".format(total.ss) }}</td>
+        <td></td>
+      </tr>
+    </tfoot>
+    {% endif %}
+  </table>
+</div>
+
+<h2 class="text-lg font-bold mb-2">💸 ตั้งไม่หักแล้ว แต่รอบก่อน ๆ เคยหักไว้ — รอโอนคืน</h2>
+<div class="bg-white rounded-xl shadow overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-100 text-slate-600">
+      <tr>
+        <th class="text-left px-3 py-2">คนขับ/พนักงาน</th>
+        <th class="text-right px-3 py-2">รวมที่เคยหัก</th>
+        <th class="text-left px-3 py-2">แยกตามรอบ</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in refund_rows %}
+      <tr class="border-t">
+        <td class="px-3 py-2">{{ r.name }} <span class="text-xs text-slate-400">({{ r.code }})</span></td>
+        <td class="px-3 py-2 text-right font-mono font-bold text-rose-600">{{ "{:,.2f}".format(r.total) }}</td>
+        <td class="px-3 py-2 text-xs text-slate-500">{{ r.parts | join(" · ") }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3" class="px-3 py-6 text-center text-slate-400">ไม่มี — ทุกคนที่ตั้งไม่หัก ไม่เคยถูกหักในรอบที่ปิดแล้ว</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="text-xs text-slate-400 mt-3">
+  ยอดรอโอนคืนนับจากทุกรอบที่ปิดแล้วทั้งหมดของคนที่ตั้ง "ไม่หัก" อยู่ตอนนี้ —
+  โอนคืนแล้วให้กลับมาดูอีกครั้งหลังตกลงกับโอว่าจะบันทึกการคืนอย่างไร (ระบบยังไม่หักลบให้เอง)
+</div>
+{% endblock %}
