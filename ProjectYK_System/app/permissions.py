@@ -45,6 +45,8 @@ MENUS = {
     "ctxmenu": ["/api/ctxmenu"],
     # ค้นหากลาง — ทุก role ใช้ได้ (ผล section กรองตามสิทธิ์รายเมนูใน handler)
     "search": ["/search"],
+    # สรุปรายได้คนขับ (ค่าเที่ยว+ค่าแรงเพิ่ม) — office ใช้เฉลี่ยค่าเที่ยว; ไม่มี KB/ยอดสุทธิ
+    "driver_income": ["/income/drivers"],
 }
 
 # menu -> role -> "edit" | "view" | "deny"
@@ -70,6 +72,7 @@ MATRIX = {
     "line":      {"admin": "edit", "office": "view", "accountant": "view", "viewer": "deny"},
     "ai":        {"admin": "edit", "office": "deny", "accountant": "deny", "viewer": "deny"},
     "ctxmenu":   {"admin": "view", "office": "view", "accountant": "view", "viewer": "view"},
+    "driver_income": {"admin": "view", "office": "view", "accountant": "view", "viewer": "deny"},
     "search":    {"admin": "view", "office": "view", "accountant": "view", "viewer": "view"},
 }
 

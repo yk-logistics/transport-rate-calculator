@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}รายได้คนขับ (สรุป/เฉลี่ย){% endblock %}
+{% block content %}
+<div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+  <h1 class="text-2xl font-bold">💰 รายได้คนขับ — สรุป/เฉลี่ยค่าเที่ยว</h1>
+  <div class="text-sm text-slate-500">นับตามวันที่วิ่งงาน (เดลี่) · กติกาเดียวกับสลิป/เงินเดือน</div>
+</div>
+
+<div class="bg-sky-50 border border-sky-200 text-sky-800 rounded p-3 mb-4 text-sm">
+  ℹ️ ยอดนี้ = <b>ค่าเที่ยว + ค่าแรงเพิ่มของคนขับ (พิเศษ / OT / รับตู้แทน)</b> จากเดลี่เท่านั้น —
+  ไม่รวมเงินเดือนฐาน การันตี และยังไม่หักรายการใด ๆ (ไม่ใช่ยอดสุทธิเงินเดือน)
+</div>
+
+<form method="get" class="bg-white rounded-xl shadow p-4 mb-4 flex flex-wrap items-end gap-3 text-sm">
+  <label class="flex flex-col gap-1">ตั้งแต่วันที่
+    <input type="date" name="date_from" value="{{ date_from }}" class="border rounded px-2 py-1.5">
+  </label>
+  <label class="flex flex-col gap-1">ถึงวันที่
+    <input type="date" name="date_to" value="{{ date_to }}" class="border rounded px-2 py-1.5">
+  </label>
+  <label class="flex flex-col gap-1">ไซท์
+    <select name="site" class="border rounded px-2 py-1.5">
+      <option value="">ทุกไซท์</option>
+      {% for sc in site_choices %}
+      <option value="{{ sc }}" {% if site == sc %}selected{% endif %}>{{ sc }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button class="bg-indigo-600 hover:bg-indigo-700 text-white rounded px-4 py-1.5">ดูสรุป</button>
+</form>
+
+<div class="bg-white rounded-xl shadow overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-100 text-slate-600">
+      <tr>
+        <th class="text-left px-3 py-2">คนขับ</th>
+        <th class="text-left px-3 py-2">ไซท์</th>
+        <th class="text-right px-3 py-2">จำนวนงาน</th>
+        <th class="text-right px-3 py-2">เที่ยวที่มีค่าเที่ยว</th>
+        <th class="text-right px-3 py-2">Σ ค่าเที่ยว</th>
+        <th class="text-right px-3 py-2">เฉลี่ย/เที่ยว</th>
+        <th class="text-right px-3 py-2">ค่าแรงเพิ่ม</th>
+        <th class="text-right px-3 py-2">รวม</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr class="border-t {% if r.unlinked %}bg-amber-50{% endif %}">
+        <td class="px-3 py-2">
+          {{ r.name }}
+          {% if r.code %}<span class="text-xs text-slate-400">({{ r.code }})</span>{% endif %}
+          {% if r.unlinked %}<span class="text-xs px-1.5 py-0.5 rounded bg-amber-200 text-amber-900" title="แถวเดลี่ยังไม่ผูกทะเบียนคนขับ — ตรวจชื่อ/ผูกที่หน้า Daily">⚠️ ยังไม่ผูกคนขับ</span>{% endif %}
+        </td>
+        <td class="px-3 py-2">{{ r.sites }}</td>
+        <td class="px-3 py-2 text-right font-mono">{{ r.jobs }}</td>
+        <td class="px-3 py-2 text-right font-mono">{{ r.trips_paid }}</td>
+        <td class="px-3 py-2 text-right font-mono">{{ "{:,.2f}".format(r.trip_sum) }}</td>
+        <td class="px-3 py-2 text-right font-mono">{% if r.avg is not none %}{{ "{:,.2f}".format(r.avg) }}{% else %}-{% endif %}</td>
+        <td class="px-3 py-2 text-right font-mono">{{ "{:,.2f}".format(r.extra) }}</td>
+        <td class="px-3 py-2 text-right font-mono font-bold">{{ "{:,.2f}".format(r.total) }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="px-3 py-6 text-center text-slate-400">ไม่มีงานในช่วงวันที่ที่เลือก</td></tr>
+      {% endfor %}
+    </tbody>
+    {% if rows %}
+    <tfoot class="bg-slate-50 border-t-2 border-slate-300 font-semibold">
+      <tr>
+        <td class="px-3 py-2">รวมทุกคน ({{ rows|length }} คน)</td>
+        <td class="px-3 py-2"></td>
+        <td class="px-3 py-2 text-right font-mono">{{ grand.jobs }}</td>
+        <td class="px-3 py-2 text-right font-mono">{{ grand.trips_paid }}</td>
+        <td class="px-3 py-2 text-right font-mono">{{ "{:,.2f}".format(grand.trip_sum) }}</td>
+        <td class="px-3 py-2 text-right font-mono">{% if grand.avg is not none %}{{ "{:,.2f}".format(grand.avg) }}{% else %}-{% endif %}</td>
+        <td class="px-3 py-2 text-right font-mono">{{ "{:,.2f}".format(grand.extra) }}</td>
+        <td class="px-3 py-2 text-right font-mono">{{ "{:,.2f}".format(grand.total) }}</td>
+      </tr>
+    </tfoot>
+    {% endif %}
+  </table>
+</div>
+
+<div class="text-xs text-slate-400 mt-3">
+  ค่าแรงเพิ่ม = พิเศษ + OT + รับตู้แทน (ค่าสำรองจ่าย เช่น ยกตู้/ผ่านลาน ไม่นับ — เป็นเงินบริษัท) ·
+  เฉลี่ย/เที่ยว คิดเฉพาะเที่ยวที่มีค่าเที่ยว &gt; 0
+</div>
+{% endblock %}

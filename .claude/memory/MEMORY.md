@@ -75,6 +75,7 @@
 - [⚠️ แอป=SYSTEM](reference-test-claude-as-system.md) — claude ฝั่ง server ล็อกอินผ่าน OAuth token ใน start_mvp.bat; ps1 ที่ scp ห้ามมีไทย
 - [🖼️ claude -p อ่านรูป](reference-claude-cli-reads-images.md) — Qwen รับแต่ text; ใช้ใน bill_ocr.py
 - [⚡ effort max](reference-claude-effort-max.md) — ต้อง --effort max ตอนเปิด; pwsh profile inject แล้ว
+- [⚠️ PUBLIC_PREFIXES startswith](reference-public-prefixes-startswith.md) — route ใหม่ห้ามขึ้นต้น /driver /check ฯลฯ ไม่งั้นหลุด auth
 - [Deploy self-verify](reference-deploy-mvp-selfverify.md) — deploy_mvp.sh copy ทั้ง dir → surgical scp แทน + _deploy_remote.ps1 -ExpectMarkers
 - [net_guard](reference-net-guard.md) — before/after --allow พิสูจน์รอบอื่นนิ่ง
 - [Chrome headless PDF](reference-chrome-headless-pdf.md) — --user-data-dir + poll; ตัดสินไทยด้วย screenshot

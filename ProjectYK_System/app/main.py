@@ -2062,6 +2062,124 @@ def daily_grid_page(request: Request):
     return RedirectResponse(url=dest, status_code=301)
 
 
+# ---- สรุปรายได้คนขับ (โอสั่ง 14ก.ค.: office ดูรวม/เฉลี่ยค่าเที่ยว โดยไม่ต้องเปิด payroll) ----
+# path อยู่นอก "/driver*" โดยตั้งใจ — PUBLIC_PREFIXES จับแบบ startswith("/driver")
+@app.get("/income/drivers", response_class=HTMLResponse)
+async def driver_income_page(request: Request, date_from: str = "",
+                             date_to: str = "", site: str = ""):
+    """รวมค่าเที่ยว + ค่าแรงเพิ่มฝั่งคนขับ (พิเศษ/OT/รับตู้แทน — classify_driver_fee
+    ตัวเดียวกับ payroll engine) ต่อคนขับ ตามช่วง work_date. เฉพาะ Employee role=driver;
+    แถวยังไม่ผูกคนขับแยกแถวพร้อมป้ายเตือน. ไม่มี KB / เงินเดือนฐาน / รายการหัก —
+    ไม่ใช่ยอดสุทธิ payroll."""
+    from services.payroll import classify_driver_fee
+
+    def _parse_d(s: str, default: date) -> date:
+        try:
+            return date.fromisoformat(s)
+        except (ValueError, TypeError):
+            return default
+
+    today = date.today()
+    d_from = _parse_d(date_from, today.replace(day=1))
+    d_to = _parse_d(date_to, today)
+    with Session(engine) as s:
+        stmt = select(DailyJob).where(DailyJob.work_date >= d_from,
+                                      DailyJob.work_date <= d_to)
+        if site:
+            stmt = stmt.where(DailyJob.site_code == site)
+        jobs = s.exec(stmt).all()
+        emp_ids = {j.driver_id for j in jobs if j.driver_id}
+        emp_map = {e.id: e for e in s.exec(
+            select(models.Employee).where(models.Employee.id.in_(emp_ids))
+        ).all()} if emp_ids else {}
+        job_ids = [j.id for j in jobs if j.id]
+        fee_rows = s.exec(
+            select(DailyJobFee).where(DailyJobFee.daily_job_id.in_(job_ids))
+        ).all() if job_ids else []
+        site_choices = sorted(x for x in s.exec(
+            select(DailyJob.site_code).distinct()).all() if x)
+
+    job_by_id = {j.id: j for j in jobs}
+
+    def _key_emp(j):
+        """คืน (key, employee|None) — None,None = ไม่ใช่แถวคนขับ (role อื่น/ไม่มีชื่อ)."""
+        if j.driver_id:
+            e = emp_map.get(j.driver_id)
+            if e is None or (e.role or "") != "driver":
+                return None, None
+            return ("emp", j.driver_id), e
+        nm = (j.driver_raw_name or "").strip()
+        return (("raw", nm), None) if nm else (None, None)
+
+    rows: dict = {}
+
+    def _row(key, emp):
+        r = rows.get(key)
+        if r is None:
+            r = rows[key] = {
+                "name": emp.full_name if emp else key[1],
+                "code": emp.code if emp else "",
+                "unlinked": key[0] == "raw",
+                "sites": set(), "jobs": 0, "trips_paid": 0,
+                "trip_sum": 0.0, "extra": 0.0,
+            }
+        return r
+
+    for j in jobs:
+        key, emp = _key_emp(j)
+        if key is None:
+            continue
+        tfd = float(j.trip_fee_driver or 0.0)
+        # แถว unlinked ที่ไม่มีค่าเที่ยว = ข้าม (กัน noise ชื่อสะกดเพี้ยน);
+        # fee ฝั่งคนขับบนแถวแบบนี้ยังถูกเก็บใน loop fee ข้างล่าง (เงินต้องไม่หาย)
+        if key[0] == "raw" and tfd <= 0:
+            continue
+        r = _row(key, emp)
+        r["jobs"] += 1
+        if j.site_code:
+            r["sites"].add(j.site_code)
+        if tfd > 0:
+            r["trips_paid"] += 1
+            r["trip_sum"] += tfd
+    for f in fee_rows:
+        if classify_driver_fee(f.fee_type) is None:
+            continue  # ค่าสำรองจ่าย/เงินบริษัท — ไม่ใช่รายได้คนขับ
+        j = job_by_id.get(f.daily_job_id)
+        if j is None:
+            continue
+        key, emp = _key_emp(j)
+        if key is None:
+            continue
+        r = _row(key, emp)
+        if j.site_code:
+            r["sites"].add(j.site_code)
+        r["extra"] += float(f.amount or 0.0)
+
+    out = []
+    for r in rows.values():
+        r["trip_sum"] = round(r["trip_sum"], 2)
+        r["extra"] = round(r["extra"], 2)
+        r["total"] = round(r["trip_sum"] + r["extra"], 2)
+        r["avg"] = round(r["trip_sum"] / r["trips_paid"], 2) if r["trips_paid"] else None
+        r["sites"] = ", ".join(sorted(r["sites"]))
+        out.append(r)
+    out.sort(key=lambda r: (-r["total"], r["name"]))
+    grand = {
+        "jobs": sum(r["jobs"] for r in out),
+        "trips_paid": sum(r["trips_paid"] for r in out),
+        "trip_sum": round(sum(r["trip_sum"] for r in out), 2),
+        "extra": round(sum(r["extra"] for r in out), 2),
+        "total": round(sum(r["total"] for r in out), 2),
+    }
+    grand["avg"] = (round(grand["trip_sum"] / grand["trips_paid"], 2)
+                    if grand["trips_paid"] else None)
+    return templates.TemplateResponse(request, "driver_income.html", {
+        "request": request, "rows": out, "grand": grand,
+        "date_from": d_from.isoformat(), "date_to": d_to.isoformat(),
+        "site": site, "site_choices": site_choices,
+    })
+
+
 @app.get("/api/daily/grid-data")
 def daily_grid_data(
     request: Request = None,  # None = เรียกตรงจากโค้ด/เทสต์ (ข้าม filter P1)
