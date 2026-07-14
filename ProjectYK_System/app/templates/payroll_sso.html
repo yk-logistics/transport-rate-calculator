@@ -51,17 +51,19 @@
         <th class="text-left px-3 py-2">โหมด</th>
         <th class="text-right px-3 py-2">รายได้รวม</th>
         <th class="text-right px-3 py-2">หัก สปส.</th>
+        <th class="text-right px-3 py-2">จ่ายจริง (net)</th>
         <th class="text-center px-3 py-2">สถานะหัก</th>
       </tr>
     </thead>
     <tbody>
       {% for r in rows %}
-      <tr class="border-t {% if r.exempt_now %}bg-amber-50{% endif %}">
+      <tr class="border-t {% if r.net < 0 %}bg-rose-50{% elif r.exempt_now %}bg-amber-50{% endif %}">
         <td class="px-3 py-2 text-slate-500">{{ r.site }} <span class="text-xs">{{ r.tag }}</span></td>
         <td class="px-3 py-2">{{ r.name }} <span class="text-xs text-slate-400">({{ r.code }})</span></td>
         <td class="px-3 py-2 text-slate-500 text-xs">{{ r.pay_mode }}</td>
         <td class="px-3 py-2 text-right font-mono">{{ "{:,.2f}".format(r.gross) }}</td>
         <td class="px-3 py-2 text-right font-mono {% if r.ss > 0 %}text-rose-600{% else %}text-slate-400{% endif %}">{{ "{:,.2f}".format(r.ss) }}</td>
+        <td class="px-3 py-2 text-right font-mono {% if r.net < 0 %}text-rose-700 font-bold{% endif %}">{{ "{:,.2f}".format(r.net) }}</td>
         <td class="px-3 py-2 text-center">
           <form method="post" action="/payroll/sso/exempt" class="inline">
             <input type="hidden" name="emp_id" value="{{ r.emp_id }}">
@@ -80,7 +82,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="6" class="px-3 py-6 text-center text-slate-400">งวดนี้ยังไม่มีรอบที่ปิดแล้ว</td></tr>
+      <tr><td colspan="7" class="px-3 py-6 text-center text-slate-400">งวดนี้ยังไม่มีรอบที่ปิดแล้ว</td></tr>
       {% endfor %}
     </tbody>
     {% if rows %}
@@ -89,11 +91,60 @@
         <td class="px-3 py-2" colspan="3">รวม {{ total.n }} คน</td>
         <td class="px-3 py-2 text-right font-mono">{{ "{:,.2f}".format(total.gross) }}</td>
         <td class="px-3 py-2 text-right font-mono">{{ "{:,.2f}".format(total.ss) }}</td>
-        <td></td>
+        <td colspan="2"></td>
       </tr>
     </tfoot>
     {% endif %}
   </table>
+</div>
+
+<h2 class="text-lg font-bold mb-2">🔻 รายได้ติดลบ — หัก สปส. จริงไม่ได้ (ต้องหักย้อนรอบถัดไป)</h2>
+<div class="bg-white rounded-xl shadow overflow-x-auto mb-2">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-100 text-slate-600">
+      <tr>
+        <th class="text-left px-3 py-2">คนขับ/พนักงาน</th>
+        <th class="text-left px-3 py-2">ไซท์ · รอบ</th>
+        <th class="text-right px-3 py-2">จ่ายจริง (net)</th>
+        <th class="text-right px-3 py-2">สปส. ของรอบ</th>
+        <th class="text-right px-3 py-2">จะหักย้อน</th>
+        <th class="text-left px-3 py-2">สถานะหักย้อน</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in neg_rows %}
+      <tr class="border-t">
+        <td class="px-3 py-2">{{ r.name }} <span class="text-xs text-slate-400">({{ r.code }})</span></td>
+        <td class="px-3 py-2 text-slate-500">{{ r.site }} {{ r.tag }}</td>
+        <td class="px-3 py-2 text-right font-mono text-rose-700 font-bold">{{ "{:,.2f}".format(r.net) }}</td>
+        <td class="px-3 py-2 text-right font-mono">{{ "{:,.2f}".format(r.ss) }}</td>
+        <td class="px-3 py-2 text-right font-mono font-bold">{{ "{:,.2f}".format(r.carry) }}</td>
+        <td class="px-3 py-2 text-xs">
+          {% if r.arrear_status == "pending" %}<span class="px-1.5 py-0.5 rounded bg-sky-100 text-sky-800">✅ รอหักรอบถัดไป (สร้างแล้ว)</span>
+          {% elif r.arrear_status == "applied" %}<span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">✅ หักแล้วในรอบใหม่</span>
+          {% elif r.arrear_status == "cancelled" %}<span class="px-1.5 py-0.5 rounded bg-slate-200 text-slate-600">ยกเลิกแล้ว (ไม่หัก)</span>
+          {% else %}<span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-900">⏳ ยังไม่ได้ตั้งหัก</span>{% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="px-3 py-6 text-center text-slate-400">งวดนี้ไม่มีใครรายได้ติดลบ</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if neg_rows %}
+<form method="post" action="/payroll/sso/arrears" class="mb-1">
+  <input type="hidden" name="month" value="{{ month }}">
+  <button class="bg-rose-600 hover:bg-rose-700 text-white rounded px-4 py-1.5 text-sm"
+          onclick="return confirm('สร้างรายการหักย้อน สปส. ให้ทุกคนที่ยังไม่ได้ตั้ง (⏳) ของงวด {{ month }}? ระบบจะหักให้เองในรอบถัดไปของไซท์นั้น')">
+    ➕ ตั้งหักรอบถัดไปให้ทุกคนที่ยัง ⏳
+  </button>
+</form>
+{% endif %}
+<div class="text-xs text-slate-400 mb-6">
+  ยอดหักย้อน = ส่วนที่เก็บไม่ได้จริง (ไม่เกิน สปส. ของรอบ) · รายการไปโผล่เป็น "รายการปรับ"
+  ในหน้ารอบเงินเดือน — หมิวยกเลิกรายตัวได้ที่นั่น · <b>รอบที่ปิดตั้งแต่วันนี้เป็นต้นไประบบสร้างให้อัตโนมัติตอนกดปิดรอบ
+  ไม่ต้องกดปุ่มนี้ซ้ำ (ห้ามตั้งหักมือซ้ำอีกทาง เดี๋ยวโดนหักสองรอบ)</b>
 </div>
 
 <h2 class="text-lg font-bold mb-2">💸 ตั้งไม่หักแล้ว แต่รอบก่อน ๆ เคยหักไว้ — รอโอนคืน</h2>

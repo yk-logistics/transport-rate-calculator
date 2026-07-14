@@ -4613,6 +4613,37 @@ def _sso_exempt_now(emp: Employee) -> bool:
     return _parse_custom_terms(emp.custom_terms or "").get("ss_exempt") is True
 
 
+_SSO_ARREAR_PREFIX = "สปส.ค้างจากรอบ"
+
+
+def _create_sso_arrears(s: Session, pr: PayRun, created_by: str = "") -> int:
+    """คนที่ net ติดลบในรอบ = เงินไม่พอให้หัก สปส. จริง → สร้างรายการหักย้อน (C4
+    PayAdjustment ติดลบ) ให้เอนจิ้นหักเองในรอบถัดไปของไซท์เดียวกัน.
+
+    ยอด = min(สปส.ที่บันทึก, ส่วนที่ติดลบ) — ไม่มีทางหักเกินที่ขาดจริง.
+    idempotent ต่อ (คน, รอบต้นเหตุ): เคยมีแล้ว (รวมที่หมิวยกเลิก) ไม่สร้างซ้ำ."""
+    items = s.exec(select(PayRunItem).where(PayRunItem.pay_run_id == pr.id)).all()
+    made = 0
+    for it in items:
+        net = it.net_pay or 0.0
+        ss = it.social_security or 0.0
+        if net >= 0 or ss <= 0:
+            continue
+        existing = s.exec(select(PayAdjustment).where(
+            PayAdjustment.employee_id == it.employee_id,
+            PayAdjustment.source_run_id == pr.id)).all()
+        if any((a.reason or "").startswith(_SSO_ARREAR_PREFIX) for a in existing):
+            continue
+        amt = round(min(ss, -net), 2)
+        s.add(PayAdjustment(
+            employee_id=it.employee_id, site_code=pr.site_code,
+            source_run_id=pr.id, amount=-amt,
+            reason=f"{_SSO_ARREAR_PREFIX} {pr.site_code} {pr.pay_cycle_tag} (รายได้ติดลบ หักจริงไม่ได้)",
+            status="pending", created_by=created_by))
+        made += 1
+    return made
+
+
 @app.get("/payroll/sso", response_class=HTMLResponse)
 def payroll_sso_page(request: Request, month: str = ""):
     """สรุปส่งประกันสังคมต่อ "งวดจ่ายเดือนเดียวกัน": รายได้รวม (gross) + เงินสมทบ
@@ -4652,6 +4683,13 @@ def payroll_sso_page(request: Request, month: str = ""):
                     if (i.social_security or 0.0) > 0
                 ]
         run_all_by_id = {r.id: r for r in runs_all}
+        # สถานะรายการหักย้อน สปส. ของรอบในงวดนี้ (ให้หมิวเห็นว่าใครสร้าง/หักแล้ว)
+        arrear_by_key: dict = {}
+        if run_by_id:
+            for a in s.exec(select(PayAdjustment).where(
+                    PayAdjustment.source_run_id.in_(list(run_by_id.keys())))).all():
+                if (a.reason or "").startswith(_SSO_ARREAR_PREFIX):
+                    arrear_by_key[(a.employee_id, a.source_run_id)] = a.status
 
     rows = []
     for i in items:
@@ -4664,9 +4702,20 @@ def payroll_sso_page(request: Request, month: str = ""):
             "site": r.site_code, "tag": r.pay_cycle_tag, "pay_mode": i.pay_mode,
             "gross": round(i.gross_total or 0.0, 2),
             "ss": round(i.social_security or 0.0, 2),
+            "net": round(i.net_pay or 0.0, 2),
             "exempt_now": i.employee_id in exempt_ids,
+            "run_id": i.pay_run_id,
         })
-    rows.sort(key=lambda r: (r["site"], r["name"]))
+    # เรียงแบบหน้าโอนเงิน (โอสั่ง 14ก.ค.): ไล่ทีละไซท์ → ในไซท์ net มาก→น้อย
+    rows.sort(key=lambda r: (r["site"], -r["net"], r["name"]))
+    # คนรายได้ติดลบ = หัก สปส. จริงไม่ได้ → โชว์แยกให้หมิวตั้งหักรอบถัดไป
+    neg_rows = []
+    for r in rows:
+        if r["net"] >= 0:
+            continue
+        carry = round(min(r["ss"], -r["net"]), 2) if r["ss"] > 0 else 0.0
+        neg_rows.append({**r, "carry": carry,
+                         "arrear_status": arrear_by_key.get((r["emp_id"], r["run_id"]), "")})
     total = {"gross": round(sum(r["gross"] for r in rows), 2),
              "ss": round(sum(r["ss"] for r in rows), 2),
              "n": len(rows), "n_deducted": sum(1 for r in rows if r["ss"] > 0)}
@@ -4687,8 +4736,26 @@ def payroll_sso_page(request: Request, month: str = ""):
         "request": request, "month": month, "month_choices": month_choices,
         "rows": rows, "total": total, "pending": pending,
         "included": sorted(included, key=lambda r: r.site_code),
-        "refund_rows": refund_rows,
+        "refund_rows": refund_rows, "neg_rows": neg_rows,
     })
+
+
+@app.post("/payroll/sso/arrears")
+async def payroll_sso_create_arrears(request: Request, month: str = Form("")):
+    """สร้างรายการหักย้อน สปส. ให้คนติดลบทุกรอบ (finalized/paid) ของงวดที่เลือก —
+    ใช้กับรอบที่ปิดไปก่อนมีระบบออโต้; รอบใหม่สร้างเองตอนกดปิดรอบ."""
+    u = current_user(request)
+    with Session(engine) as s:
+        runs_all = s.exec(select(PayRun)).all()
+        targets = [r for r in runs_all
+                   if _sso_pay_month(r) == month and r.status in ("finalized", "paid")]
+        made = 0
+        for r in targets:
+            made += _create_sso_arrears(s, r, created_by=u.username if u else "")
+        if made:
+            s.commit()
+    dest = f"/payroll/sso?month={month}" if month else "/payroll/sso"
+    return RedirectResponse(dest, status_code=303)
 
 
 @app.post("/payroll/sso/exempt")
@@ -5631,6 +5698,10 @@ def payroll_finalize(run_id: int, request: Request):
                   note=f"{pr.site_code} {pr.pay_cycle_tag}")
         pr.status = "finalized"
         pr.finalized_at = _dt.utcnow()
+        # สปส.ออโต้ (โอสั่ง 14ก.ค.): คน net ติดลบ = หัก สปส. จริงไม่ได้ →
+        # สร้างรายการหักย้อนรอบถัดไปทันทีที่ปิดรอบ (โผล่ใน /payroll/sso + รายการปรับ)
+        _u_fin = current_user(request)
+        _create_sso_arrears(s, pr, created_by=_u_fin.username if _u_fin else "")
         # Lock petty cash rows that were consumed — include blank/NULL site_code
         # (same OR logic as _petty_unlinked_predicates_for_payrun / _sum_petty_cash_deduction)
         _site = (pr.site_code or "").strip()

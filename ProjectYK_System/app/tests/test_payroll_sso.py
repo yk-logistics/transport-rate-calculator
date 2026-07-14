@@ -21,7 +21,7 @@ from db_config import engine
 import main as appmod
 import parts
 from auth import hash_password
-from models import AppUser, Employee, PayRun, PayRunItem
+from models import AppUser, Employee, PayAdjustment, PayRun, PayRunItem
 
 
 def _seed():
@@ -83,6 +83,18 @@ def _seed():
         s.add(PayRunItem(pay_run_id=runs["ayu05"].id, employee_id=d3.id, site_code="AYU",
                          pay_mode="ayu_mao", gross_total=12000.0, social_security=417.0,
                          net_pay=11583.0))
+        # คนรายได้ติดลบในรอบ LCB 2026-06 (โอสั่ง 14ก.ค. บ่าย: โชว์ + ตั้งหักรอบถัดไป)
+        d5 = Employee(code="D105", full_name="สมทรง ติดลบมาก", home_site_code="LCB", role="driver")
+        d6 = Employee(code="D106", full_name="สมนึก ลบนิดเดียว", home_site_code="LCB", role="driver")
+        s.add(d5); s.add(d6)
+        s.commit(); s.refresh(d5); s.refresh(d6)
+        # ติดลบเกิน สปส. → หักย้อนเต็ม 436; ติดลบน้อยกว่า สปส. → หักย้อนแค่ส่วนที่ขาด 100
+        s.add(PayRunItem(pay_run_id=runs["lcb06"].id, employee_id=d5.id, site_code="LCB",
+                         pay_mode="lcb_mixed", gross_total=5000.0, social_security=436.0,
+                         net_pay=-1200.0))
+        s.add(PayRunItem(pay_run_id=runs["lcb06"].id, employee_id=d6.id, site_code="LCB",
+                         pay_mode="lcb_mixed", gross_total=9000.0, social_security=450.0,
+                         net_pay=-100.0))
         s.commit()
 
 
@@ -107,8 +119,8 @@ def test_month_groups_sites_with_bigc_shift(c_admin):
     assert "สมปอง บิ๊กซี" in html and "18,777.88" in html
     # AYU ยัง draft — คนใน draft ห้ามเข้าตารางส่ง (55,555 ต้องไม่โผล่)
     assert "55,555.00" not in html
-    # ยอดรวมเงินสมทบลูกจ้างของงวด: 436 + 450 + 450 = 1,336
-    assert "1,336.00" in html
+    # ยอดรวมเงินสมทบลูกจ้างของงวด: 436+450 (LCB) + 450 (BIGC) + 436+450 (คนติดลบ) = 2,222
+    assert "2,222.00" in html
 
 
 def test_refund_section_lists_exempt_with_past_deduction(c_admin):
@@ -165,6 +177,74 @@ def test_toggle_refuses_non_json_custom_terms(c_admin):
     with Session(engine) as s:
         emp = s.exec(select(Employee).where(Employee.code == "D104")).first()
         assert emp.custom_terms == before   # ห้ามทับข้อความเดิม
+
+
+def test_rows_sorted_like_transfer_page_per_site(c_admin):
+    # ไล่ทีละไซท์ (BIGC→LCB) แล้วในไซท์เรียง net มาก→น้อย (คนติดลบจมท้ายเหมือนหน้าโอนเงิน)
+    html = c_admin.get(URL).text
+    order = [html.index(n) for n in
+             ("สมปอง บิ๊กซี", "สมชาย ลานตู้", "สมศรี โน้ตเก่า",
+              "สมนึก ลบนิดเดียว", "สมทรง ติดลบมาก")]
+    assert order == sorted(order), "ลำดับต้องเป็น BIGC ก่อน แล้ว LCB ตาม net มาก→น้อย"
+
+
+def test_negative_income_section_shows_uncollectible(c_admin):
+    html = c_admin.get(URL).text
+    # ยอดหักย้อน: min(สปส., ส่วนที่ติดลบ) — เต็ม 436.00 กับแค่ 100.00
+    assert "สมทรง ติดลบมาก" in html and "สมนึก ลบนิดเดียว" in html
+    assert "-1,200.00" in html
+    assert "100.00" in html
+
+
+def _arrears(s):
+    return [a for a in s.exec(select(PayAdjustment)).all()
+            if (a.reason or "").startswith("สปส.ค้าง")]
+
+
+def test_create_arrears_button_idempotent(c_admin):
+    r = c_admin.post("/payroll/sso/arrears", data={"month": "2026-06"},
+                     follow_redirects=False)
+    assert r.status_code == 303
+    with Session(engine) as s:
+        rows = _arrears(s)
+        assert sorted(a.amount for a in rows) == [-436.0, -100.0]
+        assert all(a.status == "pending" and a.site_code == "LCB" for a in rows)
+        assert all(a.source_run_id for a in rows)
+    # กดซ้ำ → ไม่สร้างซ้ำ
+    c_admin.post("/payroll/sso/arrears", data={"month": "2026-06"})
+    with Session(engine) as s:
+        assert len(_arrears(s)) == 2
+
+
+def test_cancelled_arrear_not_recreated(c_admin):
+    c_admin.post("/payroll/sso/arrears", data={"month": "2026-06"})
+    with Session(engine) as s:
+        a = _arrears(s)[0]
+        a.status = "cancelled"; s.add(a); s.commit()
+    c_admin.post("/payroll/sso/arrears", data={"month": "2026-06"})
+    with Session(engine) as s:
+        assert len(_arrears(s)) == 2   # หมิวยกเลิกแล้ว = จบ ไม่งอกใหม่
+
+
+def test_finalize_auto_creates_arrears(c_admin):
+    # ปิดรอบใหม่ (AYU — ไม่ติด gate drift ของ BIGC/LCB) ที่มีคนติดลบ → สร้างออโต้
+    with Session(engine) as s:
+        emp = s.exec(select(Employee).where(Employee.code == "D103")).first()
+        run = PayRun(site_code="AYU", pay_cycle_tag="2026-07",
+                     period_start=date(2026, 6, 26), period_end=date(2026, 7, 25),
+                     status="draft")
+        s.add(run); s.commit(); s.refresh(run)
+        s.add(PayRunItem(pay_run_id=run.id, employee_id=emp.id, site_code="AYU",
+                         pay_mode="ayu_mao", gross_total=3000.0, social_security=200.0,
+                         net_pay=-50.0))
+        s.commit()
+        rid = run.id
+    r = c_admin.post(f"/payroll/{rid}/finalize", follow_redirects=False)
+    assert r.status_code == 303
+    with Session(engine) as s:
+        assert s.get(PayRun, rid).status == "finalized"
+        made = [a for a in _arrears(s) if a.source_run_id == rid]
+        assert len(made) == 1 and made[0].amount == -50.0
 
 
 def test_office_denied_and_login_required():
