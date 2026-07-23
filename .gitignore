@@ -204,3 +204,9 @@ Oatside/**/*Y.K._Logistics*.xlsx
 Oatside/*Y.K._Logistics*.xlsx
 Oatside/**/Oatside_PG_Trip_Summary_By_Site*.xlsx
 Oatside/Oatside_PG_Trip_Summary_By_Site*.xlsx
+
+# รูปจากมือถือโอ (สแกนหาบิล 10 ก.ค. 2026) — ข้อมูลส่วนตัว ห้าม commit
+PhoneBillScan/
+
+# รูปจากมือถือโอ (Pictures/OCR — 349MB ข้อมูลส่วนตัว) ห้าม commit
+Pictures/

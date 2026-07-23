@@ -29,5 +29,5 @@
   "prefersReducedMotion": true,
   "autoMemoryDirectory": "C:\\Users\\guole\\Desktop\\2026.5.28\\Desktop\\Project YK\\.claude\\memory",
   "skipDangerousModePermissionPrompt": true,
-  "alwaysThinkingEnabled": false
+  "alwaysThinkingEnabled": true
 }
