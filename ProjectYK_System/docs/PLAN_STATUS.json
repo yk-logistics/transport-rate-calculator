@@ -152,7 +152,7 @@
         },
         {
           "id": "F3",
-          "name": "ชุดหลักฐานวางบิล — 🔶 /line/pod ผูกรูป↔เดลี่ + /billing/evidence ZIP (v41); วัดจริง 4ก.ค.+จูน reverse-match เลข Job (strong 57→80/340, KLND 0→22) + mark กลุ่มลูกค้า 19 กลุ่มบน server; เกณฑ์ ≥90% ต่อรอบเต็มรอเดลี่ ก.ค. import (archive เริ่ม 12มิ.ย. — measure_pod2.py บน server วัดซ้ำได้)",
+          "name": "ชุดหลักฐานวางบิล — 🔶 /line/pod ผูกรูป↔เดลี่ + /billing/evidence ZIP (v41); วัดรอบเต็มครั้งแรก 23ก.ค. (16/6-15/7, 5,606 รูป): จับคู่ได้ 97% / strong 31% — KLND แม่นสุด 913/1290; กลุ่มที่ strong=0 (NHL 1,462 รูป, DHL BPD, KTL, Wonder) เลขงานอยู่ในตัวรูป ต้อง OCR = ดีไซน์ใหม่ รอโอเคาะค่าใช้จ่ายก่อนดันต่อ",
           "days": 1.5,
           "status": "doing"
         },
