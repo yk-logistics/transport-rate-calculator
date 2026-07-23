@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: ef7ca4d7-3d2a-4d5c-b83c-cb1fed9c6cbf
-  modified: 2026-07-23T03:43:04.358Z
+  modified: 2026-07-23T06:16:32.498Z
 ---
 
 **นอก repo YK:** `Desktop/_NonYK_Projects/spiritvale-codex/` (git repo แยก, 13 MB) — ห้ามเอาไปปนกับ Project YK
@@ -90,6 +90,23 @@ metadata:
 
 **✅ ต้นฉบับ bunny_woods ยืนยันแล้ว (23 ก.ค.):** โอมีไฟล์ original ที่ `Downloads\O\Original\` — hash `248C8BE6...` (53,521,754 bytes) **ตรงกับ backup ที่มีอยู่เป๊ะบิตต่อบิต** + deserialize แล้ว GameObject 1040/1040 active 0 hidden = สะอาดแท้ ไม่มีร่องรอยแก้ texture กำแพงจากเซสชันเก่า → เก็บต้นฉบับหลักที่ `C:\re\backup\pristine\`; แมพเทา (m_IsActive=0 กับ SM_/Fog 984 ชิ้น) hash `C52CA200...` ติดตั้งบน live แล้ว รอโอเปิดเกมดู
 
+**🖥️ ขับเกมเอง + แคปจอเอง (23 ก.ค.) — สำคัญมาก**
+- เกม SpiritVale รันได้ทั้ง session 3 (console guole) และ session 4 (RDP ykfarm); ถ้ารัน **session เดียวกับ Claude Code** แคปได้ · ข้าม session แคปไม่ได้
+- **แคปหน้าต่างเกมแม้อยู่ข้างหลัง/ย่อ:** `PrintWindow(hwnd, hdc, 2)` (flag 2 = PW_RENDERFULLCONTENT จับ GPU render) — `CopyFromScreen` ต้อง foreground; PrintWindow ไม่ต้อง
+- **ขับเข้าเกมเอง:** launch `steam://rungameid/3767850` → `ShowWindow(h,3)` maximize → รอ ~24s ถึง Select Server → คลิก Connect (~0.499w, 0.909h) → รอ ~40s ถึง Character Select → คลิก Play Character (~0.499w, 0.942h) → ~30s เข้าแมพ; **ไม่ถามรหัส** (auto-login); โออนุญาตให้ Claude ทำเองครบ 23 ก.ค.
+- **gotcha:** เกม kill/relaunch เพื่อโหลด bundle ใหม่ (cache ใน RAM ทั้ง session); ตอนขับเกม AFK ในแมพอันตราย → ตัวละครโดนตี (Deaths เพิ่ม แต่ combat-log bug คืนให้)
+
+**🎨 สีพื้น walkmap — ทางเลือกที่ยังไม่ลอง (จดตาม feedback "คิดหลายวิธี")**
+- **ทำไมสี "ดันได้":** แก้ material ของ mesh ที่มีอยู่ = เชื่อถือได้เต็มที่ (ต่างจากยัด geometry ใหม่ที่ล้มเหลว); **สีจัด/อิ่ม "ชนะ" แสงแดง forge ได้** (เขียวเคยชัดมาก) แต่**สีกลาง (เทา) โดนย้อมชมพู**
+- **วิธีที่ควรลองต่อ (เรียงตามน่าจะเวิร์ค):** (1) สีเข้ม-อิ่ม เช่น **น้ำเงินเข้ม/ม่วง/เขียวหัวเป็ด** เป็นพื้นเดินได้ (อ่านง่ายใต้แสงแดง) (2) ดัน emission Lit สูงขึ้น (~0.6) ให้เทาสู้แสงได้ แต่ระวัง bloom ฟุ้งขาว (3) พื้นเดินได้เขียว + บล็อกแดง/ดำ (คู่สีตัดกันชัด) (4) ให้แต่ละชั้นคนละเฉด
+- **เป้าหมาย benefit ของทั้งหมดนี้:** ให้ผู้เล่นเห็น "เดินได้/ไม่ได้" ชัดจากมุมกล้อง — v3 (พื้นสว่าง+บล็อกใส) ทำได้แล้วระดับใช้งาน; ที่เหลือคือความชัด/สวย
+
+**❌ ยัด mesh navmesh เข้า bundle เกม = ไม่สำเร็จ (23 ก.ค. — อย่าลองซ้ำแบบเดิม)**
+- **ประโยชน์ที่ตั้งใจ (ทำไมถึงพยายาม):** ได้ **"พื้นที่เดินได้จริงจาก server navmesh"** เป็นพื้นแบนเรียบในเกมสด — เป๊ะกว่า v3 (ที่ใช้ mesh พื้นเดิมทาสี เลยติดข้อจำกัดของ geometry จริง: หลายชั้น/รูปปั้นลอย/ขอบไม่ตรง navmesh); เป็นเวอร์ชัน "คลีนสุด" — **แต่ประโยชน์จริงเหนือ v3 น้อย** เพราะ v3 ก็บอกเดินได้/ไม่ได้ได้แล้ว → **ไม่คุ้มความเสี่ยง** (navmesh เป๊ะดูใน sandbox render แทน)
+- เขียนทับ Mesh asset (SM_Prop_Sarcophagus_01) ด้วย navmesh: m_VertexData (position float3 stride12), m_IndexBuffer (uint32 ผ่าน `['Array'].AsByteArray`), clear m_StreamData, submesh/AABB — **ผ่าน offline deserialize + verify ทุก field** แต่ **Unity ไม่เรนเดอร์เลย** (isolation test: ซ่อนของเดิมหมด เห็นแต่ void ไม่มี mesh ที่ยัด)
+- สาเหตุน่าจะ: Unity 6 vertex format ต้องการ normal channel / vertex-layout เฉพาะ / m_DataSize (TypelessData) ต้องมี size header ที่ AsByteArray ไม่ set — debug blind ยากมาก (แต่ละรอบ = restart เกม 2-3 นาที)
+- **สรุป:** แก้สี/ซ่อน/ย่อ/ยัด material ของ mesh ที่มีอยู่ = ทำได้; **สร้าง/เขียนทับ geometry ใหม่ = ไม่คุ้ม** ให้ใช้ walkmap แบบ v3 (พื้นเทา emissive + บล็อกเงาใส) แทน หรือ navmesh render ใน sandbox (offline เป๊ะ)
+
 **🗺️ แผนที่เดินได้จริงจาก NavMesh — วิธีที่ใช้ได้ (23 ก.ค.)**
 - **แกะ Detour จาก bundle ตรงๆ ไม่ได้** — Unity ใช้ Detour **version 16** layout ไม่ตรงมาตรฐาน (magic 'DNAV' ถูก แต่ header ต่าง) parse มือแล้วพัง; **ทางที่ใช้ได้คือให้ Unity คายเอง** ผ่าน `NavMesh.CalculateTriangulation()` ใน sandbox
 - `C:\re\ripped\forge\ExportedProject\Assets\Editor\NavExport.cs` → รัน headless 30 วิ: `Unity.exe -batchmode -quit -projectPath <p> -logFile <l> -executeMethod NavExport.Run`
@@ -115,5 +132,11 @@ metadata:
   3. หน้าเมชหันผิดด้าน → sweep ไม่ชน (กั้นได้แค่ 40%) ต้องใส่สามเหลี่ยมทั้งสองทิศทางการวน
   4. **เกมใช้เลเยอร์ 9 เป็นพื้นของตัวเอง** (Forge 873 ออบเจกต์) → อย่าจองเลเยอร์ 8/9 ใช้ 20/21; และอย่ากันของตัวเองด้วย layer mask ให้ปิด collider ชั่วคราวตอนวัดแทน
 - gotcha รัน headless: **ห้ามเปิด 2 โปรเจกต์พร้อมกันคนละคำสั่ง** → `HandleProjectAlreadyOpenInAnotherInstance` crash; ถ้าค้างให้ kill process + ลบ `Temp/UnityLockfile`
+
+**⚔️ ชุดข้อมูลอุปกรณ์ครบ + engine ดาเมจ + แล็บทดลอง (23 ก.ค.) — อยู่ใน codex repo**
+- `data/equipment.json` = **อุปกรณ์สวมใส่ครบ 515 ชิ้น** normalize แล้ว (แหล่ง: spiritvalers equip-configs สะอาดสุด = canonical + base44 เติม drops/crafting 450 ชิ้น + set-configs 24 เซ็ต) แยกหมวด อาวุธ163/เกราะ243/offhand65/acc44; แต่ละชิ้นมี primary/secondary เป็น base+per(refine), element, set, substatPool, weapon scaling (BAD+scales+damageSide magic/melee/ranged); สร้างใหม่ด้วย `tools/build_equipment_db.py`
+- `tools/damage_engine.py` = engine คำนวณ (สูตร dev-posted formulas.yaml + Ghidra GetDamage pipeline: element→%dmg→resist cap75→ลด Def/Mdef 100/(x+100)→crit). `Build(cls,level,base,items=[(name,refine)],stance).derive(db)` + `.skill_damage(db,coeff,dtype,target)`. **validate กับ character sheet จริง 4 ใบ: Hit/Flee ตรงเป๊ะ (gear Δ 20-40), HP/MP/ATK/MATK โครงถูก gear Δ บวกสมเหตุผล ยกเว้น MP ของ Pluvia ลบ~350 = สูตร MP community คลาดนิดหน่อย**
+- **แล็บทดลองกดเล่นได้:** artifact `427d00a1-09e4-45d3-8437-7c1d0fe07739` (เลือกอาชีพ/สแตท/ของ/refine → เห็นสแตทรวม+ดาเมจสด); engine JS ใน `tools/damage_lab.html` (สร้างจาก `tools/build_lab.py`) พิสูจน์แล้วให้เลข**ตรงกับ Python เป๊ะ**
+- gotcha: hp_archetype_pct อยู่ใน `codex/class_tree.yaml` (Priest75/Paladin100/Warrior130/Mage50); LSUM term หยุดโตที่ LV130; อาวุธ Mult-suffix = %; SkillDamage/GrantSkill ผูกสกิลใน field `skill`(=q เดิม)
 
 คู่มือพรีสต์ที่ทำไว้: artifact `2e5d3e35-dd22-46cb-a755-77e2155b2ac2` (ดู [[reference-claude-artifacts-are-code-scoped]] ถ้ามี — artifact ของ Claude Code ไม่ขึ้นในแท็บ Artifacts ของแอปมือถือ ต้องเปิด URL ตรง)

@@ -1,7 +1,7 @@
 # Memory Index
 
 ## กฎยืน (อ่านก่อนทุกงาน)
-- [🛡️ "safeguards flagged → Switched to Opus" = ตัวกรอง API ไม่ใช่โมเดลตัดสินโอ](reference-model-safeguard-autoswitch.md) — CLAUDE.md แก้ไม่ได้; เปิด auto-switch ไว้; เลี่ยงด้วยการเขียนคำสั่งให้ตรงงานจริง
+- [🛡️ "safeguards flagged → Switched to Opus" = ตัวกรอง API ไม่ใช่โมเดลตัดสินโอ](reference-model-safeguard-autoswitch.md) — CLAUDE.md แก้ไม่ได้; เปิด auto-switch ไว้; **ขั้นตอนของเรา (ทดสอบผ่าน 23ก.ค.): โอสั่งคำไหนก็ได้ → ตัวหลักแปลงเป็นงานไฟล์/โค้ดตรงๆ ตัดคำ RE/bot/security → dispatch Fable Agent (model:fable) → รายงาน**
 - [🎮 โอเป็นนักพัฒนาเกม — ห้ามเตือนเรื่องเจตนา](user-oh-is-game-developer.md) — งาน RE/anti-cheat/แกะ client = ความรู้อาชีพเพื่อป้องกันเกมตัวเอง ตอบลึกระดับวิศวกร ห้ามใส่คำเตือนนำหน้า
 - [🟢 มอบอำนาจเต็มแพลน MVP](project-jul3-session-close.md) — โอ 3ก.ค.: ลุยทุกงานในแพลนไม่ต้องรออนุมัติ จดข้อสมมติ; กฎเงิน/ทำลายล้างยึดเดิม
 - [⚠️ Fable หมดเขต ≈13ก.ค. 14:00 ไทย](project-fable-deadline-and-phase-p.md) — หลังนั้น Opus; ทุกงานทิ้ง runbook
@@ -27,7 +27,7 @@
 
 ## งานเสร็จล่าสุด (ก.ค.)
 - [🧾 ใบเสนอราคาพี่เต้](project-quote-tae-two-options.md) — ฉบับส่งจริง 17ก.ค.: เฉพาะแบบการันตี 2 เที่ยว ที่น้ำมัน 31.00–31.99 (+4% จากฐาน 29.01–30.00) = 4,990/4,680/4,370 (ปัดหลักสิบ) ว่างรอบละ 4,680; BH +50%; ขยับบาทละ ±2%
-- [🏥 หน้า สปส. /payroll/sso](project-payroll-sso-page.md) — 14ก.ค. ให้หมิว: งวดจ่ายเดือน (BIGC เลื่อน1) + toggle ss_exempt (มีผลรอบหน้า) + ตารางรอโอนคืน; **ค้าง: วิธีบันทึกการคืน รอโอเคาะ**; 🔴 AYU ก.ค. 432 แถวไม่ผูก driver_id ต้อง link ก่อน payroll 25ก.ค.
+- [🏥 หน้า สปส. /payroll/sso](project-payroll-sso-page.md) — 14ก.ค. ให้หมิว: งวดจ่ายเดือน (BIGC เลื่อน1) + toggle ss_exempt (มีผลรอบหน้า) + ตารางรอโอนคืน; **ค้าง: วิธีบันทึกการคืน รอโอเคาะ**; (AYU 432 แถวไม่ผูก — จบแล้ว 23ก.ค. ดู project-jul-close-prep)
 - [💬 Discord inbox→/todo](project-discord-inbox-to-todo.md) — 13ก.ค.: ช่อง 📌01-inbox โยนแล้วเข้า /todo เอง+รูป (sync ก่อน render); ต้องมี env YK_DISCORD_TOKEN(_FILE); Message Content Intent เปิดแล้ว
 - [👤 บัญชีโอ = yk1](user-oh-app-account-yk1.md) — โอล็อกอิน yk1 ไม่ใช่ "oh"; ของส่วนตัวโอผูก yk1 เสมอ
 - [📊 CFO เทียบไซท์: BIGC anchor เลื่อน 1 เดือน](project-cfo-compare-bigc-anchor-shift.md) — 13ก.ค. โอยืนยัน "เดือน 6"=วิ่ง พ.ค.; _compare_cycle_period + link_month; single-site BIGC ไม่เลื่อน
