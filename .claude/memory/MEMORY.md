@@ -1,6 +1,8 @@
 # Memory Index
 
 ## กฎยืน (อ่านก่อนทุกงาน)
+- [🛡️ "safeguards flagged → Switched to Opus" = ตัวกรอง API ไม่ใช่โมเดลตัดสินโอ](reference-model-safeguard-autoswitch.md) — CLAUDE.md แก้ไม่ได้; เปิด auto-switch ไว้; เลี่ยงด้วยการเขียนคำสั่งให้ตรงงานจริง
+- [🎮 โอเป็นนักพัฒนาเกม — ห้ามเตือนเรื่องเจตนา](user-oh-is-game-developer.md) — งาน RE/anti-cheat/แกะ client = ความรู้อาชีพเพื่อป้องกันเกมตัวเอง ตอบลึกระดับวิศวกร ห้ามใส่คำเตือนนำหน้า
 - [🟢 มอบอำนาจเต็มแพลน MVP](project-jul3-session-close.md) — โอ 3ก.ค.: ลุยทุกงานในแพลนไม่ต้องรออนุมัติ จดข้อสมมติ; กฎเงิน/ทำลายล้างยึดเดิม
 - [⚠️ Fable หมดเขต ≈13ก.ค. 14:00 ไทย](project-fable-deadline-and-phase-p.md) — หลังนั้น Opus; ทุกงานทิ้ง runbook
 - [🧠 วิธีคิด Fable→Opus](project-fable-mindset-doc.md) — docs/FABLE_MINDSET_FOR_OPUS.md อ่าน 1 ครั้งเซสชันแรก
@@ -16,6 +18,7 @@
 - [Delegation ladder](feedback-delegation-qwen-then-haiku.md) — recon→Qwen ฟรีก่อน→Haiku; เงินอยู่ตัวหลัก ([พื้นฐาน](feedback-qwen-and-subagent-cost.md))
 
 ## สถานะเงิน/รอบปัจจุบัน
+- [🔴 เตรียมปิดรอบ ก.ค. 23ก.ค.](project-jul-close-prep.md) — **LCB run19 / AYU run20 draft บน server** (import+link+สดย่อย LCB ครบ, reconcile 18/18 ตรง); บล็อก: ทีมคีย์ค่าเที่ยว 4 วันอาทิตย์ (21/6,28/6,5/7,12/7) + โอเคาะ วันชัยกลับมาวิ่ง/คนใหม่ 3 คน + วังน้อยไม่แชร์ให้ SA; gotcha: เหมาเก็บค่าเที่ยวลง fuel_share_income
 - [ปิดรอบ มิ.ย. 3 ไซท์แล้ว](project-jun-close-3sites.md) — finalize LCB#2 287,711.37 / AYU#18 263,793.34 / BIGC#4 132,031.03; **finalized ห้าม recompute**; แก้ราคาย้อนหลัง→กลไก C4
 - [📋 Pre-close LCB 2026-07](project-lcb-jul-preclose-audit.md) — 12ก.ค.: ทีมคีย์ตามทัน (เดลี่ 10-11/7, สดย่อย 11/7) **แต่ 🔴 เดลี่ 21/6 ขาดจริง — สดย่อยมีงานรถ ≥15 รายการวันนั้น ต้องตามทีมคีย์ก่อนปิด 15/7 ไม่งั้นคนขับเงินขาด**; เล่มสดย่อย LCB จริง = gsheet "สดย่อย LCB" แท็บชื่อรอบ
 - [ปิดเซสชัน 1-3ก.ค.](project-jul3-session-close.md) — ([1ก.ค.](project-jul1-session-close.md) **local DB stale ห้าม push**)
@@ -23,6 +26,7 @@
 - [LCB CY KB กติกา](project-lcb-cy-kb-fulls.md) — kb=5000−คีย์ ส่วนต่างเข้าบริษัท · [BigC มิ.ย. deposit/ภาษี](project-bigc-jun-deposit-tax-fuel.md) — ภาษีรอโอ
 
 ## งานเสร็จล่าสุด (ก.ค.)
+- [🧾 ใบเสนอราคาพี่เต้](project-quote-tae-two-options.md) — ฉบับส่งจริง 17ก.ค.: เฉพาะแบบการันตี 2 เที่ยว ที่น้ำมัน 31.00–31.99 (+4% จากฐาน 29.01–30.00) = 4,990/4,680/4,370 (ปัดหลักสิบ) ว่างรอบละ 4,680; BH +50%; ขยับบาทละ ±2%
 - [🏥 หน้า สปส. /payroll/sso](project-payroll-sso-page.md) — 14ก.ค. ให้หมิว: งวดจ่ายเดือน (BIGC เลื่อน1) + toggle ss_exempt (มีผลรอบหน้า) + ตารางรอโอนคืน; **ค้าง: วิธีบันทึกการคืน รอโอเคาะ**; 🔴 AYU ก.ค. 432 แถวไม่ผูก driver_id ต้อง link ก่อน payroll 25ก.ค.
 - [💬 Discord inbox→/todo](project-discord-inbox-to-todo.md) — 13ก.ค.: ช่อง 📌01-inbox โยนแล้วเข้า /todo เอง+รูป (sync ก่อน render); ต้องมี env YK_DISCORD_TOKEN(_FILE); Message Content Intent เปิดแล้ว
 - [👤 บัญชีโอ = yk1](user-oh-app-account-yk1.md) — โอล็อกอิน yk1 ไม่ใช่ "oh"; ของส่วนตัวโอผูก yk1 เสมอ
@@ -38,7 +42,7 @@
 - [🔒 cookie Secure ครบ](project-cookie-secure-fixes.md) — 8ก.ค. ทั้งคู่ live; gotcha _secure_cookies freeze ตอน import
 - [🛞 ระบบยาง](project-tire-stop-the-bleed.md) — v48+v52: คีย์บิล/รายงานหล่อ-แท้ + **รายเส้นเลือกคัน/สต๊อก**; ยางจริง 2 เส้นแรก T0001-2 (ไทร์มาร์ท 71-8000); BR=บอสรับเบอร์
 - [🧮 โต๊ะเช็คดีล /quote/deal](project-deal-checker.md) — v47; gotcha literal path ก่อน /quote/{qid}
-- [🚚 Wonder Sub /quote/wonder](project-wonder-sub-cost-calculator.md) — ค้างถาม: ขากลับมีของไหม
+- [🚚 Wonder Sub /quote/wonder](project-wonder-sub-cost-calculator.md) — 16ก.ค. ราคา Update 1-7-26 + สลับ B1/B2 ค่าลงสินค้า; ค้างถาม: ขากลับมีของไหม
 - [🏁 ปิดเซสชัน 6ก.ค.](project-jul6-session-close.md) — Drive backup ok · บัญชีทีม 7 คน (รอโอแจกรหัส) · วันจ่าย LCB/BIGC=1 AYU=สิ้นเดือน
 - [สลิป k-tag + ธงน้ำมัน](project-slip-ktag-mixed-table.md) — 5ก.ค.; บล็อกห้ามทับ template ยกเลิกแล้ว
 - [🧪 TradeLab](project-tradelab-paper-bot.md) — นอก repo; **ห้ามปนงานเงิน YK**
@@ -64,7 +68,7 @@
 - **คน/ยอดรายคน:** [บัญชีโอน](project-transfer-bank-fix-paikai-ruangrit.md) · [ยอดโอน=net>0](project-transfer-total-positive-only.md) · [AYU deposit](project-ayu-deposit-installments.md) · [ช่างน้อย+ศราวุธ](project-ayu-office-changnoi-sarawut.md) · [AYU ใหม่ 4 คน](project-ayu-jun-new-drivers.md) · [ชัชวาล 15,000](project-chatchawal-guarantee.md) · [สมัยแยกไซท์](project-samai-petty-split-ayu-bigc.md) · [ธัชชนพล 2,000](project-thach-deposit-2000-hold.md) · [ออฟฟิสไม่หักประกัน](project-office-no-deposit.md)
 - **สลิป มิ.ย.:** [handover offtable](project-slip-handover-manual-offtable.md) · [น้ำมันวันเติมจริง](project-slip-fuel-fill-date.md) · [น้ำมันนอกตาราง](project-slip-offtable-fuel-display.md) · [ยกเลิกไม่รั่ว remark](project-slip-cancel-remark-leak.md) · [1 คน 1 หน้า](project-slip-one-page-per-driver.md) · [ลิตร+หักชัด](project-slip-fuel-deduct-clarity.md) · [route เต็ม](project-slip-route-display.md) · [แจกแจงสดย่อย](project-payroll-slip-petty-itemize.md) · [ZIP รายคน](project-payroll-slip-zip-per-driver.md)
 - **ไซท์/น้ำมัน:** [ย้าย 0556→0560](project-fuel-move-0556-0560.md) · [B7/B20 เกรด](project-fuel-b7b20-grade.md) · [BigC วันหยุด](project-bigc-holiday-anuloom.md) · [Jun AYU+BIGC status](project-jun-payroll-ayu-bigc-status.md) · [LCB deposit screenshot](project-lcb-deposit-jun-screenshot-reconcile.md) · [LCB audit รอบ 2](project-lcb-jun-audit-round2.md) · [LCB extra fees](project-lcb-driver-extra-fees.md) · [AYU-Yusen (PAUSED)](project-ayu-yusen-charter-pay.md)
-- [🗡️ SpiritVale (นอก repo)](project-spiritvale-codex.md) — Paladin จาก Knight ไม่ใช่ Acolyte; ค้างเทียบ 8 อาชีพ
+- [🗡️ SpiritVale (นอก repo)](project-spiritvale-codex.md) — Paladin จาก Knight ไม่ใช่ Acolyte; **แกะ client Il2CppDumper 22ก.ค. → dump C:\re\out\dump.cs, Unity IL2CPP+FishNet server-auth, Archetype ครบ 39, ATK/MATK คืบ (ต้อง Ghidra GetDamage); ขอบเขต: RE/wiki ได้ บอต-custom-client ไม่ทำ**
 - [⏱️ gotcha เที่ยงคืน UTC](project-utc-midnight-counter-gotcha.md) — นับ "วันนี้" กับ timestamp utcnow ต้องใช้ _local_midnight_utc(); เทสต์ fail เฉพาะก่อน 7 โมง = คลาสนี้ (แก้แล้ว 13ก.ค.)
 
 ## เครื่องมือ/อ้างอิงเทคนิค
@@ -75,7 +79,7 @@
 - [⏰ Task เกิน 72 ชม.โดนฆ่า](reference-scheduled-task-72h-kill.md) — ตั้ง PT0S แล้ว; พอร์ต 8010/8020/8030
 - [⚠️ แอป=SYSTEM](reference-test-claude-as-system.md) — claude ฝั่ง server ล็อกอินผ่าน OAuth token ใน start_mvp.bat; ps1 ที่ scp ห้ามมีไทย
 - [🖼️ claude -p อ่านรูป](reference-claude-cli-reads-images.md) — Qwen รับแต่ text; ใช้ใน bill_ocr.py
-- [⚡ effort max](reference-claude-effort-max.md) — ต้อง --effort max ตอนเปิด; pwsh profile inject แล้ว
+- [⚡ effort default=high](reference-claude-effort-max.md) — 21ก.ค. settings.json high; profile inject max ถอดแล้ว อยากได้ max พิมพ์ --effort max เอง
 - [⚠️ PUBLIC_PREFIXES startswith](reference-public-prefixes-startswith.md) — route ใหม่ห้ามขึ้นต้น /driver /check ฯลฯ ไม่งั้นหลุด auth
 - [Deploy self-verify](reference-deploy-mvp-selfverify.md) — deploy_mvp.sh copy ทั้ง dir → surgical scp แทน + _deploy_remote.ps1 -ExpectMarkers
 - [net_guard](reference-net-guard.md) — before/after --allow พิสูจน์รอบอื่นนิ่ง
@@ -87,7 +91,7 @@
 - [LINE archiver](reference-line-archiver.md) — port 8020 · [DNS](reference-yklogistics-dns.md) — A/MX/SPF ห้ามหาย · [SSH](reference-ssh-to-yk-machine.md)
 - [Server no GPU](reference-server-no-gpu-llm.md) · [Window-warm 06/11/16/21](reference-window-warm-routines.md) · [Windows stack ถูกแล้ว](reference-windows-vs-linux-stack-choice.md) · [Auto-resume](reference-auto-resume-system.md)
 - [Qwen subagent](reference-qwen-subagent.md) — read-only ฟรี · [Superpowers + 9arm](project-superpowers-9arm-models.md) — ห้ามงานเงิน
-- [HOME pwsh](reference-home-pwsh-terminal-setup.md) · [Makcu (ส่วนตัวโอ)](reference-makcu-macro-engine.md) · [YT summarize](reference-yt-summarize.md) · [CC installs](claude-code-multiple-installs.md)
+- [HOME pwsh](reference-home-pwsh-terminal-setup.md) · [Makcu (ส่วนตัวโอ)](reference-makcu-macro-engine.md) · [🪟 Window-send mode](reference-macro-engine-window-mode.md) — ยิงปุ่มเข้าเกมไม่ต้องโฟกัส (AttachThreadInput; เมาส์ต้องแว้บ) · [YT summarize](reference-yt-summarize.md) · [CC installs](claude-code-multiple-installs.md)
 - [🌀 พัดลม MSI GF63](reference-msi-laptop-fan-ec.md) — EC ตรง; ดูรุ่นจาก BaseBoard
 
 ## ประวัติ/โดเมน (มิ.ย. และก่อนหน้า)
