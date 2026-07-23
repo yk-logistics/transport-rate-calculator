@@ -53,6 +53,11 @@
 - **หน้าโอนเงิน**: ยอดเตรียมโอน = Σ net เฉพาะ **net > 0** (คนติดลบ = หนี้บริษัท ห้ามเอามาหักยอดรวม).
 - เทสต์เงินคุ้มกันทั้งหมด ~55 ตัว (test_money_rules_2, test_lcb_pay_modes, test_ayu_pay_modes, test_pay_adjustment, ฯลฯ) — **แก้ engine แล้วต้องรัน pytest เต็มก่อน deploy.**
 
+**GOTCHA reconcile (เจอจริงรอบ ก.ค.):** โหมดเหมา (lcb_mao/ayu_mao) เก็บ Σ ค่าเที่ยวลง
+`PayRunItem.fuel_share_income` ไม่ใช่ `trip_fee_total` — เทียบต่อคนต้องบวกสองช่องเสมอ
+(`tools/lcb_reconcile_run.py` จัดการให้แล้ว). และ engine หักน้ำมันจาก `FuelTxn.driver_id` —
+import เดลี่เสร็จต้องผูกน้ำมันด้วย (`lcb_link_drivers.py` ทำให้ทั้งคู่) ไม่งั้น net โป่งผิดหลักแสน.
+
 ## 4. Recompute อย่างปลอดภัย
 
 - recompute ได้เฉพาะรอบ **draft** ที่เดลี่ครบ+tfd ครบ (รอบเก่าที่ importer ไม่ลง tfd → recompute = เงินหาย).
@@ -79,9 +84,12 @@
 | `preflight_payrun.py --site X --run-id N` | ตรวจ 4 มิติก่อนปิด (read-only) |
 | `fuel_slip_reconcile.py <run_id>` | น้ำมัน mao ตาราง=หักจริง |
 | `preflight_kb_driver_price.py` | KB ↔ ราคาคีย์ |
-| `import_lcb_daily.py --cycle 2026-07 --dry-run` | **เดลี่ LCB (ใหม่ 7ก.ค. — parameterized, พิสูจน์เลขตรงสคริปต์เดิมเป๊ะ)**: ไฟล์ = `Salary/2026/7.Jul/LCB/วางบิล YK VOLVO.xlsx` (Excel local โอ = source of truth); dry-run ดูยอดก่อน แล้วค่อยรันจริง (`--wipe-prior` ถ้าเคย import รอบนี้แล้ว); override ไฟล์ด้วย `--xlsx` |
+| `import_lcb_daily.py --cycle 2026-07 --dry-run` | **เดลี่ LCB (ใหม่ 7ก.ค. — parameterized, พิสูจน์เลขตรงสคริปต์เดิมเป๊ะ)**: ไฟล์ = `Salary/2026/7.Jul/LCB/วางบิล YK VOLVO.xlsx` (Excel local โอ = source of truth); dry-run ดูยอดก่อน แล้วค่อยรันจริง (`--wipe-prior` ถ้าเคย import รอบนี้แล้ว); override ไฟล์ด้วย `--xlsx`. **ถ้าทีมยังไม่วางไฟล์ (เคส ก.ค.):** export gsheet เล่มวางบิลเอง → copy แท็บรอบเป็น values-only ลงไฟล์ใหม่แท็บชื่อ `Daily` → scp ขึ้น server รันด้วย `--xlsx` (importer ใช้ data_only อยู่แล้ว) |
 | `import_bigc_daily.py` (cycle 2026-06 เตรียมแล้ว) | เดลี่ BigC วิ่ง มิ.ย. — รอไฟล์ `7.Jul/BigC/` จากทีม |
 | `import_ayu_daily.py --cycle 2026-07` | เดลี่ AYU — ดูขั้น re-import จากชีทจริงใน §2 ข้อ 1 |
+| `lcb_link_drivers.py --source <src>` | **ใหม่ 23ก.ค.** ผูก driver_id เดลี่ LCB (ชื่อเต็ม normalize, เฉพาะ LCB-home) + ผูก FuelTxn ตาม daily_job — รายงานคนใหม่/inactive แยก |
+| `import_lcb_petty_cycle.py --cycle X --payrun-id N --xlsx F` | **ใหม่ 23ก.ค.** สดย่อย LCB ต่อรอบ (แทนสคริปต์รายรอบ) — หา header "พขร.เบิก หัก" เอง (ชีทสด=คอลัมน์ M, ไฟล์ทีม มิ.ย.=O), ผูกเฉพาะคนใน payrun, idempotent |
+| `lcb_reconcile_run.py --run-id N --xlsx F` | **ใหม่ 23ก.ค.** reconcile สองทางไฟล์↔engine ต่อคน (ค่าเที่ยว+OT/พิเศษ/รับตู้) — exit 1 ถ้ามีคนไม่ตรง |
 | `deploy_mvp.sh --markers "<ascii>"` | deploy + self-verify (marker สแกน main.py+templates+services แล้ว — ซ่อม 5ก.ค.) |
 
 **Deploy DB ขึ้น server**: ห้าม scp app.db ดิบ (WAL → malformed) — ใช้ backup-API + `wal_checkpoint(TRUNCATE)` ก่อน + swap ตอน 8010 หยุด (kill by PID เท่านั้น อย่า filter .venv — โดน LINE archiver 8020). และ **swap DB ต้อง preserve appuser hash จาก server ก่อน** (ไม่งั้นรหัสทีมหาย — memory mvp-password-db-swap-gotcha).
