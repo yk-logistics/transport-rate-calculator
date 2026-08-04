@@ -15,6 +15,7 @@
 <script>(function(){var sel=document.getElementById('tripsPlateFilter');var qel=document.getElementById('tripsPlateQuery');var tb=document.querySelector('#tripsAllTable tbody');if(!tb)return;function run(){var v=sel?(sel.value||'').trim():'';var q=qel?(qel.value||'').trim().toLowerCase():'';var rows=tb.querySelectorAll('tr');for(var i=0;i<rows.length;i++){var r=rows[i];var p=(r.getAttribute('data-plate')||'');var pok=!v||p===v;var qok=!q||p.toLowerCase().indexOf(q)>=0;r.style.display=(pok&&qok)?'':'none';}}if(sel)sel.addEventListener('change',run);if(qel)qel.addEventListener('input',run);})();</script><script>(function(){function boot(){function init(tableId){var tbl=document.getElementById(tableId);if(!tbl)return;var inner=document.getElementById(tableId+'ColInner');var key='oatside_col_hidden:'+location.pathname+':'+tableId;function loadH(){try{return JSON.parse(localStorage.getItem(key)||'[]')}catch(e){return[]}}function saveH(a){localStorage.setItem(key,JSON.stringify(a))}function applyH(hid){var ths=tbl.querySelectorAll('thead tr th');var n=ths.length;for(var c=0;c<n;c++){var hide=hid.indexOf(c)>=0;var disp=hide?'none':'';var rows=tbl.querySelectorAll('tr');for(var r=0;r<rows.length;r++){var cell=rows[r].children[c];if(cell)cell.style.display=disp;}}}var hid=loadH();var ths=tbl.querySelectorAll('thead tr th');var n=ths.length;if(inner){inner.innerHTML='';for(var i=0;i<n;i++){var lab=document.createElement('label');var cb=document.createElement('input');cb.type='checkbox';cb.checked=hid.indexOf(i)<0;cb.setAttribute('data-ci',String(i));var tx=(ths[i].textContent||'').trim()||('Col '+(i+1));lab.appendChild(cb);lab.appendChild(document.createTextNode(' '+tx));(function(ci,cbx){cbx.addEventListener('change',function(ev){var h=loadH();var p=h.indexOf(ci);if(ev.target.checked){if(p>=0)h.splice(p,1);}else{if(p<0)h.push(ci);}saveH(h);applyH(h);});})(i,cb);inner.appendChild(lab);}}applyH(hid);var rb=document.getElementById(tableId+'ColReset');if(rb)rb.addEventListener('click',function(){saveH([]);applyH([]);if(inner){var boxes=inner.querySelectorAll('input[type=checkbox]');for(var j=0;j<boxes.length;j++)boxes[j].checked=true;}});}init('tripsAllTable');init('plateTripsTable');}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();})();</script><script>(function(){
 function boot(){
   function txt(el){return (el.innerText||el.textContent||'').replace(/\s+/g,' ').trim();}
+  function cellTxt(el){var c=el.cloneNode(true);var bs=c.querySelectorAll('.badge');for(var i=0;i<bs.length;i++)bs[i].parentNode.removeChild(bs[i]);return (c.textContent||'').replace(/\s+/g,' ').trim();}
   function esc(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
   function stamp(){var d=new Date();function p(n){return(n<10?'0':'')+n;}return ''+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes());}
   function dl(blob,name){var a=document.createElement('a');var u=URL.createObjectURL(blob);a.href=u;a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(u);a.remove();},1500);}
@@ -63,14 +64,14 @@ function boot(){
       var numCol=[],sums=[];
       for(var k=0;k<cols.length;k++){
         var sawNum=false,sawText=false,sm=0;
-        for(var rk=0;rk<rows.length;rk++){var ck=rows[rk].children[cols[k]];var vk=ck?txt(ck):'';if(dash(vk))continue;if(isNum(vk)){sawNum=true;sm+=numOf(vk);}else{sawText=true;}}
+        for(var rk=0;rk<rows.length;rk++){var ck=rows[rk].children[cols[k]];var vk=ck?cellTxt(ck):'';if(dash(vk))continue;if(isNum(vk)){sawNum=true;sm+=numOf(vk);}else{sawText=true;}}
         numCol[k]=sawNum&&!sawText; sums[k]=sm;
       }
       var body='';
       for(var r=0;r<rows.length;r++){
         var tds=rows[r].children,rr='';
         for(var c=0;c<cols.length;c++){
-          var td=tds[cols[c]];var raw=td?txt(td):'';var st=td?base(td):'border:1px solid #c5d0e0;padding:4px 6px;';
+          var td=tds[cols[c]];var raw=td?cellTxt(td):'';var st=td?base(td):'border:1px solid #c5d0e0;padding:4px 6px;';
           if(numCol[c]&&isNum(raw)){rr+='<td style="'+st+'text-align:right;">'+esc(raw)+'</td>';}
           else{rr+='<td style="'+st+'mso-number-format:\\@;">'+esc(raw)+'</td>';}
         }
